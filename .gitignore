@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+
+# Logs
+logs/*
+*.log
+
+# Data
+data/*
+!data/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# Linux
+*~
+.DS_Store
+
+# SatDump tijdelijke bestanden
+*.tmp
