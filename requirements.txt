@@ -1,0 +1,6 @@
+pyyaml
+skyfield
+requests
+psutil
+flask
+schedule
