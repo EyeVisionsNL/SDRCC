@@ -7,11 +7,12 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from core import rtl
-from core import system
 from core import logger
+from core import rtl
+from core import satellites
+from core import system
 
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 
 
 def print_header():
@@ -23,23 +24,38 @@ def print_help():
     print("Gebruik:")
     print("  python3 scripts/sdrcc.py status")
     print("  python3 scripts/sdrcc.py doctor")
+    print("  python3 scripts/sdrcc.py satellites")
     print("  python3 scripts/sdrcc.py help")
-
-
-def doctor():
-    logger.info("Running doctor")
-    print_header()
-    system.print_system()
-    print()
-    rtl.print_status()
 
 
 def status():
     logger.info("Running status")
+
     print_header()
     system.print_system()
+
     print()
     rtl.print_status()
+
+
+def doctor():
+    logger.info("Running doctor")
+
+    print_header()
+    system.print_system()
+
+    print()
+    rtl.print_status()
+
+    print()
+    satellites.print_satellites()
+
+
+def satellites_cmd():
+    logger.info("Listing satellites")
+
+    print_header()
+    satellites.print_satellites()
 
 
 def main():
@@ -59,6 +75,9 @@ def main():
 
     elif command == "doctor":
         doctor()
+
+    elif command == "satellites":
+        satellites_cmd()
 
     elif command == "help":
         print_help()
