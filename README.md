@@ -1,8 +1,6 @@
-# SatStation v0.1
+# SDRCOntrol v0.1
 
 Automatisch grondstation voor:
-- NOAA-18
-- NOAA-19
 - METEOR-M2-3
 - METEOR-M2-4
 
