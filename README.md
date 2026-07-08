@@ -1,4 +1,4 @@
-# SDRCOntrol v0.1
+# SDRControl v0.1
 
 Automatisch grondstation voor:
 - METEOR-M2-3
