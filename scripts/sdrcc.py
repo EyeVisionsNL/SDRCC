@@ -20,7 +20,7 @@ from core import state
 from core import system
 from core import tle
 
-VERSION = "0.3.12"
+VERSION = "0.3.13"
 
 
 def print_header():
@@ -39,6 +39,8 @@ def print_help():
     print("  sdrcc processes")
     print("  sdrcc adsb-stop-preview")
     print("  sdrcc adsb-start-preview")
+    print("  sdrcc adsb-stop")
+    print("  sdrcc adsb-start")
     print("  sdrcc satellites")
     print("  sdrcc meteor")
     print("  sdrcc tle")
@@ -51,7 +53,6 @@ def print_help():
 
 
 def status():
-    logger.info("Running status")
     print_header()
     system.print_system()
     print()
@@ -61,7 +62,6 @@ def status():
 
 
 def doctor():
-    logger.info("Running doctor")
     print_header()
     system.print_system()
     print()
@@ -110,6 +110,16 @@ def adsb_stop_preview_cmd():
 def adsb_start_preview_cmd():
     print_header()
     process_manager.preview_start("adsb")
+
+
+def adsb_stop_cmd():
+    print_header()
+    process_manager.stop_profile("adsb")
+
+
+def adsb_start_cmd():
+    print_header()
+    process_manager.start_profile("adsb")
 
 
 def profile_cmd(profile_name):
@@ -202,6 +212,10 @@ def main():
         adsb_stop_preview_cmd()
     elif command == "adsb-start-preview":
         adsb_start_preview_cmd()
+    elif command == "adsb-stop":
+        adsb_stop_cmd()
+    elif command == "adsb-start":
+        adsb_start_cmd()
     elif command == "satellites":
         satellites_cmd()
     elif command == "meteor":

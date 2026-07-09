@@ -11,7 +11,7 @@ def run_command(command):
             command,
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=30,
         )
 
         return {
@@ -134,3 +134,69 @@ def preview_start(profile_name):
 
     print("Would execute:")
     print(" ", " ".join(profile["start"]))
+
+
+def stop_profile(profile_name):
+    profile = get_profile_process_status(profile_name)
+
+    print("Stop profile")
+    print("-----------------------------")
+
+    if profile is None:
+        print("Profiel niet gevonden.")
+        return False
+
+    if not profile["stop"]:
+        print("Geen stopcommando geconfigureerd.")
+        return False
+
+    if not profile["active"]:
+        print(f"{profile['name']} is al gestopt.")
+        return True
+
+    print("Executing:")
+    print(" ", " ".join(profile["stop"]))
+
+    result = run_command(profile["stop"])
+
+    if result["ok"]:
+        print("Result : OK")
+        return True
+
+    print("Result : FAILED")
+    print("STDOUT :", result["stdout"])
+    print("STDERR :", result["stderr"])
+    return False
+
+
+def start_profile(profile_name):
+    profile = get_profile_process_status(profile_name)
+
+    print("Start profile")
+    print("-----------------------------")
+
+    if profile is None:
+        print("Profiel niet gevonden.")
+        return False
+
+    if not profile["start"]:
+        print("Geen startcommando geconfigureerd.")
+        return False
+
+    if profile["active"]:
+        print(f"{profile['name']} draait al.")
+        return True
+
+    print("Executing:")
+    print(" ", " ".join(profile["start"]))
+
+    result = run_command(profile["start"])
+
+    if result["ok"]:
+        print("Result : OK")
+        return True
+
+    print("Result : FAILED")
+    print("STDOUT :", result["stdout"])
+    print("STDERR :", result["stderr"])
+    return False
