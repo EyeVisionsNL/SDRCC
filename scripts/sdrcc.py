@@ -6,6 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from core import device_manager
 from core import downloader
 from core import logger
 from core import meteor
@@ -13,10 +14,11 @@ from core import passes
 from core import rtl
 from core import satdump
 from core import satellites
+from core import state
 from core import system
 from core import tle
 
-VERSION = "0.3.4"
+VERSION = "0.3.6"
 
 
 def print_header():
@@ -28,6 +30,8 @@ def print_help():
     print("Gebruik:")
     print("  python3 scripts/sdrcc.py status")
     print("  python3 scripts/sdrcc.py doctor")
+    print("  python3 scripts/sdrcc.py devices")
+    print("  python3 scripts/sdrcc.py state")
     print("  python3 scripts/sdrcc.py satellites")
     print("  python3 scripts/sdrcc.py meteor")
     print("  python3 scripts/sdrcc.py tle")
@@ -44,6 +48,8 @@ def status():
     system.print_system()
     print()
     rtl.print_status()
+    print()
+    state.print_sdr2_state()
 
 
 def doctor():
@@ -53,11 +59,27 @@ def doctor():
     print()
     rtl.print_status()
     print()
+    device_manager.print_devices()
+    print()
+    state.print_sdr2_state()
+    print()
     satellites.print_satellites()
     print()
     meteor.print_satellites()
     print()
     tle.status()
+
+
+def devices_cmd():
+    logger.info("Listing SDR devices")
+    print_header()
+    device_manager.print_devices()
+
+
+def state_cmd():
+    logger.info("Showing SDR2 state")
+    print_header()
+    state.print_sdr2_state()
 
 
 def satellites_cmd():
@@ -118,6 +140,10 @@ def main():
         status()
     elif command == "doctor":
         doctor()
+    elif command == "devices":
+        devices_cmd()
+    elif command == "state":
+        state_cmd()
     elif command == "satellites":
         satellites_cmd()
     elif command == "meteor":
