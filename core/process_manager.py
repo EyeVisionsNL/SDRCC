@@ -6,10 +6,6 @@ from core import profiles
 
 
 def run_command(command):
-    """
-    Voer een commando uit en geef resultaat terug.
-    Wordt later gebruikt voor echte start/stop acties.
-    """
     try:
         result = subprocess.run(
             command,
@@ -54,19 +50,22 @@ def get_profile_process_status(profile_name):
         return None
 
     service = profile.get("service")
-    active = systemd_is_active(service) if service else False
 
-    process_text = ""
+    active = False
+    process = ""
+
+    if service:
+        active = systemd_is_active(service)
 
     if service == "readsb.service":
-        process_text = process_contains("readsb")
+        process = process_contains("readsb")
 
     return {
         "profile": profile_name,
         "name": profile.get("name"),
         "service": service,
         "active": active,
-        "process": process_text,
+        "process": process,
         "start": profile.get("start", []),
         "stop": profile.get("stop", []),
     }
@@ -77,12 +76,12 @@ def readsb_status():
 
 
 def print_process_status():
+    adsb = readsb_status()
+
     print("Processes")
     print("-----------------------------")
 
-    adsb = readsb_status()
-
-    if not adsb:
+    if adsb is None:
         print("ADS-B profiel niet gevonden.")
         return
 
@@ -99,3 +98,39 @@ def print_process_status():
         print()
         print("Process:")
         print(adsb["process"])
+
+
+def preview_stop(profile_name):
+    profile = get_profile_process_status(profile_name)
+
+    print("Stop preview")
+    print("-----------------------------")
+
+    if profile is None:
+        print("Profiel niet gevonden.")
+        return
+
+    if not profile["stop"]:
+        print("Geen stopcommando geconfigureerd.")
+        return
+
+    print("Would execute:")
+    print(" ", " ".join(profile["stop"]))
+
+
+def preview_start(profile_name):
+    profile = get_profile_process_status(profile_name)
+
+    print("Start preview")
+    print("-----------------------------")
+
+    if profile is None:
+        print("Profiel niet gevonden.")
+        return
+
+    if not profile["start"]:
+        print("Geen startcommando geconfigureerd.")
+        return
+
+    print("Would execute:")
+    print(" ", " ".join(profile["start"]))
