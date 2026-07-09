@@ -11,6 +11,7 @@ from core import downloader
 from core import logger
 from core import meteor
 from core import passes
+from core import profiles
 from core import rtl
 from core import satdump
 from core import satellites
@@ -18,7 +19,7 @@ from core import state
 from core import system
 from core import tle
 
-VERSION = "0.3.6"
+VERSION = "0.3.7"
 
 
 def print_header():
@@ -32,6 +33,7 @@ def print_help():
     print("  python3 scripts/sdrcc.py doctor")
     print("  python3 scripts/sdrcc.py devices")
     print("  python3 scripts/sdrcc.py state")
+    print("  python3 scripts/sdrcc.py profiles")
     print("  python3 scripts/sdrcc.py satellites")
     print("  python3 scripts/sdrcc.py meteor")
     print("  python3 scripts/sdrcc.py tle")
@@ -63,6 +65,8 @@ def doctor():
     print()
     state.print_sdr2_state()
     print()
+    profiles.print_profiles()
+    print()
     satellites.print_satellites()
     print()
     meteor.print_satellites()
@@ -80,6 +84,12 @@ def state_cmd():
     logger.info("Showing SDR2 state")
     print_header()
     state.print_sdr2_state()
+
+
+def profiles_cmd():
+    logger.info("Listing profiles")
+    print_header()
+    profiles.print_profiles()
 
 
 def satellites_cmd():
@@ -144,6 +154,8 @@ def main():
         devices_cmd()
     elif command == "state":
         state_cmd()
+    elif command == "profiles":
+        profiles_cmd()
     elif command == "satellites":
         satellites_cmd()
     elif command == "meteor":
