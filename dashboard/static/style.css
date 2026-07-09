@@ -1,0 +1,151 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+header {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    padding: 20px;
+}
+
+header h1 {
+    margin: 0;
+    color: #38bdf8;
+    font-size: 32px;
+}
+
+header p {
+    margin-top: 6px;
+    color: #94a3b8;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 0 15px rgba(0,0,0,.25);
+}
+
+.card h2 {
+    margin-top: 0;
+    color: #7dd3fc;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 10px;
+}
+
+.card p {
+    margin: 8px 0;
+    line-height: 1.5;
+}
+
+.device {
+    margin-bottom: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #334155;
+}
+
+.device:last-child {
+    border-bottom: none;
+}
+
+.ok {
+    color: #22c55e;
+    font-weight: bold;
+}
+
+.bad {
+    color: #ef4444;
+    font-weight: bold;
+}
+
+.warn {
+    color: #f59e0b;
+    font-weight: bold;
+}
+
+code {
+    background: #0f172a;
+    color: #facc15;
+    padding: 3px 6px;
+    border-radius: 4px;
+}
+
+footer {
+    margin-top: 20px;
+    padding: 15px;
+    text-align: center;
+    color: #94a3b8;
+    border-top: 1px solid #334155;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    text-align: left;
+    background: #334155;
+    padding: 8px;
+}
+
+td {
+    padding: 8px;
+    border-top: 1px solid #334155;
+}
+
+button {
+    background: #0284c7;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+button:hover {
+    background: #0369a1;
+}
+
+.value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #38bdf8;
+}
+
+.subtitle {
+    color: #94a3b8;
+    font-size: 13px;
+}
+.countdown-box {
+    background: #020617;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 14px;
+    margin: 12px 0;
+    text-align: center;
+}
+
+.countdown {
+    font-size: 34px;
+    font-weight: bold;
+    color: #22c55e;
+    letter-spacing: 2px;
+}

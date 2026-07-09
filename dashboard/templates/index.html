@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <title>SDRCC Mission Control</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <header>
+        <h1>📡 SDRCC Mission Control</h1>
+        <p>Live dashboard voor SDR1 AIS en SDR2 Dynamic</p>
+    </header>
+
+    <main class="grid">
+
+        <section class="card">
+            <h2>🖥 System</h2>
+            <p>CPU: <strong id="system-cpu">-</strong></p>
+            <p>RAM: <strong id="system-ram">-</strong></p>
+            <p>Disk: <strong id="system-disk">-</strong></p>
+            <p>Uptime: <strong id="system-uptime">-</strong></p>
+        </section>
+
+        <section class="card">
+            <h2>SDR2</h2>
+            <p>Status: <strong id="sdr2-status">-</strong></p>
+            <p>Profile: <strong id="sdr2-profile">-</strong></p>
+            <p>Locked: <strong id="sdr2-locked">-</strong></p>
+            <p>Process: <strong id="sdr2-process">-</strong></p>
+            <p>Updated: <strong id="sdr2-updated">-</strong></p>
+        </section>
+
+        <section class="card">
+            <h2>ADS-B</h2>
+            <p>Status: <span id="adsb-status" class="warn">-</span></p>
+            <p>Service: <code>readsb.service</code></p>
+        </section>
+
+        <section class="card highlight">
+            <h2>Volgende passage</h2>
+            <p class="value" id="next-name">-</p>
+
+            <div class="countdown-box">
+                <div class="subtitle">Starts in</div>
+                <div class="countdown" id="next-countdown">-</div>
+            </div>
+
+            <p>Start: <strong id="next-start">-</strong></p>
+            <p>Maximum: <strong id="next-maximum">-</strong></p>
+            <p>Einde: <strong id="next-end">-</strong></p>
+            <p>Max elevatie: <strong id="next-elevation">-</strong></p>
+            <p>Azimuth: <strong id="next-azimuth">-</strong></p>
+            <p>Frequentie: <strong id="next-frequency">-</strong></p>
+            <p>Mode: <strong id="next-mode">-</strong></p>
+            <p>Pipeline: <strong id="next-pipeline">-</strong></p>
+        </section>
+
+        <section class="card">
+            <h2>SDR Devices</h2>
+            <div id="devices">Laden...</div>
+        </section>
+
+        <section class="card">
+            <h2>TLE</h2>
+            <p>Database: <span id="tle-status" class="warn">-</span></p>
+        </section>
+
+        <section class="card">
+            <h2>Terminal acties</h2>
+            <p><code>sdrcc next</code></p>
+            <p><code>sdrcc schedule</code></p>
+            <p><code>sdrcc simulate-record</code></p>
+            <p><code>sdrcc record</code></p>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>SDRCC Web UI · live update elke 5 seconden</p>
+    </footer>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

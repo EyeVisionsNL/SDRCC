@@ -14,14 +14,21 @@ profiles:
     managed_by: external
     device: sdr2
     service: readsb.service
+
     start:
+      - sudo
+      - -n
       - systemctl
       - start
       - readsb.service
+
     stop:
+      - sudo
+      - -n
       - systemctl
       - stop
       - readsb.service
+
     description: "ADS-B draait als systemd-service readsb"
 
   lora:

@@ -2,8 +2,10 @@
 
 from pathlib import Path
 from zoneinfo import ZoneInfo
+import subprocess
 
 from core import passes
+from core import process_manager
 from core import state
 from core.device_manager import get_dynamic_device
 
@@ -138,6 +140,64 @@ def simulate_record():
     print()
 
     _print_record_data(data)
+
+
+def record_now():
+    data = build_record_command()
+
+    print("SatDump recording")
+    print("-----------------------------")
+
+    if data is None:
+        print("Geen geschikte passage gevonden.")
+        return False
+
+    if not data["allowed"]:
+        print("Opname niet toegestaan.")
+        print()
+        print(data["reason"])
+        return False
+
+    data["output_path"].mkdir(parents=True, exist_ok=True)
+
+    print("Stopping ADS-B...")
+    process_manager.stop_profile("adsb")
+
+    print()
+    print("Starting SatDump...")
+    _print_record_data(data)
+
+    state.set_sdr2_state(
+        status="recording",
+        profile="weather",
+        locked=True,
+        process="satdump",
+    )
+
+    try:
+        result = subprocess.run(data["command"])
+
+        success = result.returncode == 0
+
+        print()
+        print("SatDump finished")
+        print("-----------------------------")
+        print("Result :", "OK" if success else "FAILED")
+        print("Code   :", result.returncode)
+
+        return success
+
+    finally:
+        print()
+        print("Restarting ADS-B...")
+        process_manager.start_profile("adsb")
+
+        state.set_sdr2_state(
+            status="idle",
+            profile="adsb",
+            locked=False,
+            process=None,
+        )
 
 
 def _print_record_data(data):

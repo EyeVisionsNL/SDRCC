@@ -8,7 +8,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from core import device_manager
 from core import downloader
-from core import logger
 from core import meteor
 from core import passes
 from core import process_manager
@@ -20,7 +19,7 @@ from core import state
 from core import system
 from core import tle
 
-VERSION = "0.3.13"
+VERSION = "0.4.0"
 
 
 def print_header():
@@ -49,6 +48,7 @@ def print_help():
     print("  sdrcc schedule")
     print("  sdrcc record-next")
     print("  sdrcc simulate-record")
+    print("  sdrcc record")
     print("  sdrcc help")
 
 
@@ -82,49 +82,8 @@ def doctor():
     tle.status()
 
 
-def devices_cmd():
-    print_header()
-    device_manager.print_devices()
-
-
-def state_cmd():
-    print_header()
-    state.print_sdr2_state()
-
-
-def profiles_cmd():
-    print_header()
-    profiles.print_profiles()
-
-
-def processes_cmd():
-    print_header()
-    process_manager.print_process_status()
-
-
-def adsb_stop_preview_cmd():
-    print_header()
-    process_manager.preview_stop("adsb")
-
-
-def adsb_start_preview_cmd():
-    print_header()
-    process_manager.preview_start("adsb")
-
-
-def adsb_stop_cmd():
-    print_header()
-    process_manager.stop_profile("adsb")
-
-
-def adsb_start_cmd():
-    print_header()
-    process_manager.start_profile("adsb")
-
-
 def profile_cmd(profile_name):
     print_header()
-
     try:
         profile = profiles.set_active_profile(profile_name)
     except ValueError as err:
@@ -142,48 +101,6 @@ def profile_cmd(profile_name):
     state.print_sdr2_state()
 
 
-def satellites_cmd():
-    print_header()
-    satellites.print_satellites()
-
-
-def meteor_cmd():
-    print_header()
-    meteor.print_satellites()
-
-
-def tle_cmd():
-    print_header()
-    tle.status()
-
-
-def update_tle_cmd():
-    print_header()
-    downloader.download_tle()
-    print()
-    tle.status()
-
-
-def next_cmd():
-    print_header()
-    passes.print_next_pass()
-
-
-def schedule_cmd():
-    print_header()
-    passes.print_schedule()
-
-
-def record_next_cmd():
-    print_header()
-    satdump.print_record_preview()
-
-
-def simulate_record_cmd():
-    print_header()
-    satdump.simulate_record()
-
-
 def main():
     if len(sys.argv) < 2:
         print_help()
@@ -196,42 +113,44 @@ def main():
     elif command == "doctor":
         doctor()
     elif command == "devices":
-        devices_cmd()
+        print_header(); device_manager.print_devices()
     elif command == "state":
-        state_cmd()
+        print_header(); state.print_sdr2_state()
     elif command == "profiles":
-        profiles_cmd()
+        print_header(); profiles.print_profiles()
     elif command == "profile":
         if len(sys.argv) < 3:
             print("Gebruik: sdrcc profile <naam>")
             return
         profile_cmd(sys.argv[2].lower())
     elif command == "processes":
-        processes_cmd()
+        print_header(); process_manager.print_process_status()
     elif command == "adsb-stop-preview":
-        adsb_stop_preview_cmd()
+        print_header(); process_manager.preview_stop("adsb")
     elif command == "adsb-start-preview":
-        adsb_start_preview_cmd()
+        print_header(); process_manager.preview_start("adsb")
     elif command == "adsb-stop":
-        adsb_stop_cmd()
+        print_header(); process_manager.stop_profile("adsb")
     elif command == "adsb-start":
-        adsb_start_cmd()
+        print_header(); process_manager.start_profile("adsb")
     elif command == "satellites":
-        satellites_cmd()
+        print_header(); satellites.print_satellites()
     elif command == "meteor":
-        meteor_cmd()
+        print_header(); meteor.print_satellites()
     elif command == "tle":
-        tle_cmd()
+        print_header(); tle.status()
     elif command == "update-tle":
-        update_tle_cmd()
+        print_header(); downloader.download_tle(); print(); tle.status()
     elif command == "next":
-        next_cmd()
+        print_header(); passes.print_next_pass()
     elif command == "schedule":
-        schedule_cmd()
+        print_header(); passes.print_schedule()
     elif command == "record-next":
-        record_next_cmd()
+        print_header(); satdump.print_record_preview()
     elif command == "simulate-record":
-        simulate_record_cmd()
+        print_header(); satdump.simulate_record()
+    elif command == "record":
+        print_header(); satdump.record_now()
     elif command == "help":
         print_help()
     else:
