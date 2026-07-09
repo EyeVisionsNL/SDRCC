@@ -4,28 +4,49 @@ profiles:
     name: Weather / METEOR
     managed_by: sdrcc
     device: sdr2
+    service: null
+    start: []
+    stop: []
     description: "METEOR-M2 3/4 ontvangst via SatDump"
 
   adsb:
     name: ADS-B
     managed_by: external
     device: sdr2
-    description: "ADS-B draait al buiten SDRCC; SDRCC mag dit later netjes detecteren"
+    service: readsb.service
+    start:
+      - systemctl
+      - start
+      - readsb.service
+    stop:
+      - systemctl
+      - stop
+      - readsb.service
+    description: "ADS-B draait als systemd-service readsb"
 
   lora:
     name: LoRa / MeshCore
     managed_by: external
     device: external
+    service: null
+    start: []
+    stop: []
     description: "MeshCore draait via bestaande integratie; SDRCC toont later alleen status"
 
   aprs:
     name: APRS
     managed_by: sdrcc
     device: sdr2
+    service: null
+    start: []
+    stop: []
     description: "Toekomstige APRS-module"
 
   manual:
     name: Manual / Lab
     managed_by: user
     device: sdr2
+    service: null
+    start: []
+    stop: []
     description: "Handmatig gebruik van SDR2"

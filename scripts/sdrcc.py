@@ -11,6 +11,7 @@ from core import downloader
 from core import logger
 from core import meteor
 from core import passes
+from core import process_manager
 from core import profiles
 from core import rtl
 from core import satdump
@@ -19,7 +20,7 @@ from core import state
 from core import system
 from core import tle
 
-VERSION = "0.3.10"
+VERSION = "0.3.11"
 
 
 def print_header():
@@ -35,6 +36,7 @@ def print_help():
     print("  sdrcc state")
     print("  sdrcc profiles")
     print("  sdrcc profile <naam>")
+    print("  sdrcc processes")
     print("  sdrcc satellites")
     print("  sdrcc meteor")
     print("  sdrcc tle")
@@ -67,6 +69,8 @@ def doctor():
     print()
     state.print_sdr2_state()
     print()
+    process_manager.print_process_status()
+    print()
     profiles.print_profiles()
     print()
     satellites.print_satellites()
@@ -89,6 +93,11 @@ def state_cmd():
 def profiles_cmd():
     print_header()
     profiles.print_profiles()
+
+
+def processes_cmd():
+    print_header()
+    process_manager.print_process_status()
 
 
 def profile_cmd(profile_name):
@@ -154,7 +163,6 @@ def simulate_record_cmd():
 
 
 def main():
-
     if len(sys.argv) < 2:
         print_help()
         return
@@ -163,54 +171,39 @@ def main():
 
     if command == "status":
         status()
-
     elif command == "doctor":
         doctor()
-
     elif command == "devices":
         devices_cmd()
-
     elif command == "state":
         state_cmd()
-
     elif command == "profiles":
         profiles_cmd()
-
     elif command == "profile":
-
         if len(sys.argv) < 3:
             print("Gebruik: sdrcc profile <naam>")
             return
-
         profile_cmd(sys.argv[2].lower())
-
+    elif command == "processes":
+        processes_cmd()
     elif command == "satellites":
         satellites_cmd()
-
     elif command == "meteor":
         meteor_cmd()
-
     elif command == "tle":
         tle_cmd()
-
     elif command == "update-tle":
         update_tle_cmd()
-
     elif command == "next":
         next_cmd()
-
     elif command == "schedule":
         schedule_cmd()
-
     elif command == "record-next":
         record_next_cmd()
-
     elif command == "simulate-record":
         simulate_record_cmd()
-
     elif command == "help":
         print_help()
-
     else:
         print(f"Onbekend commando: {command}")
         print()
