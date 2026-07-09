@@ -19,7 +19,7 @@ from core import state
 from core import system
 from core import tle
 
-VERSION = "0.3.8"
+VERSION = "0.3.10"
 
 
 def print_header():
@@ -29,20 +29,21 @@ def print_header():
 
 def print_help():
     print("Gebruik:")
-    print("  python3 scripts/sdrcc.py status")
-    print("  python3 scripts/sdrcc.py doctor")
-    print("  python3 scripts/sdrcc.py devices")
-    print("  python3 scripts/sdrcc.py state")
-    print("  python3 scripts/sdrcc.py profiles")
-    print("  python3 scripts/sdrcc.py profile <naam>")
-    print("  python3 scripts/sdrcc.py satellites")
-    print("  python3 scripts/sdrcc.py meteor")
-    print("  python3 scripts/sdrcc.py tle")
-    print("  python3 scripts/sdrcc.py update-tle")
-    print("  python3 scripts/sdrcc.py next")
-    print("  python3 scripts/sdrcc.py schedule")
-    print("  python3 scripts/sdrcc.py record-next")
-    print("  python3 scripts/sdrcc.py help")
+    print("  sdrcc status")
+    print("  sdrcc doctor")
+    print("  sdrcc devices")
+    print("  sdrcc state")
+    print("  sdrcc profiles")
+    print("  sdrcc profile <naam>")
+    print("  sdrcc satellites")
+    print("  sdrcc meteor")
+    print("  sdrcc tle")
+    print("  sdrcc update-tle")
+    print("  sdrcc next")
+    print("  sdrcc schedule")
+    print("  sdrcc record-next")
+    print("  sdrcc simulate-record")
+    print("  sdrcc help")
 
 
 def status():
@@ -76,31 +77,27 @@ def doctor():
 
 
 def devices_cmd():
-    logger.info("Listing SDR devices")
     print_header()
     device_manager.print_devices()
 
 
 def state_cmd():
-    logger.info("Showing SDR2 state")
     print_header()
     state.print_sdr2_state()
 
 
 def profiles_cmd():
-    logger.info("Listing profiles")
     print_header()
     profiles.print_profiles()
 
 
 def profile_cmd(profile_name):
-    logger.info(f"Switching profile to {profile_name}")
     print_header()
 
     try:
         profile = profiles.set_active_profile(profile_name)
-    except ValueError as error:
-        print(error)
+    except ValueError as err:
+        print(err)
         print()
         profiles.print_profiles()
         return
@@ -115,25 +112,21 @@ def profile_cmd(profile_name):
 
 
 def satellites_cmd():
-    logger.info("Listing satellites")
     print_header()
     satellites.print_satellites()
 
 
 def meteor_cmd():
-    logger.info("Listing configured METEOR satellites")
     print_header()
     meteor.print_satellites()
 
 
 def tle_cmd():
-    logger.info("Checking TLE database")
     print_header()
     tle.status()
 
 
 def update_tle_cmd():
-    logger.info("Updating TLE database")
     print_header()
     downloader.download_tle()
     print()
@@ -141,68 +134,84 @@ def update_tle_cmd():
 
 
 def next_cmd():
-    logger.info("Calculating next pass")
     print_header()
     passes.print_next_pass()
 
 
 def schedule_cmd():
-    logger.info("Calculating schedule")
     print_header()
     passes.print_schedule()
 
 
 def record_next_cmd():
-    logger.info("Showing SatDump record preview")
     print_header()
     satdump.print_record_preview()
 
 
+def simulate_record_cmd():
+    print_header()
+    satdump.simulate_record()
+
+
 def main():
-    logger.info("SDRCC started")
 
     if len(sys.argv) < 2:
         print_help()
         return
 
     command = sys.argv[1].lower()
-    logger.info(f"Command executed: {command}")
 
     if command == "status":
         status()
+
     elif command == "doctor":
         doctor()
+
     elif command == "devices":
         devices_cmd()
+
     elif command == "state":
         state_cmd()
+
     elif command == "profiles":
         profiles_cmd()
+
     elif command == "profile":
+
         if len(sys.argv) < 3:
-            print("Gebruik: python3 scripts/sdrcc.py profile <naam>")
-            print()
-            profiles.print_profiles()
-        else:
-            profile_cmd(sys.argv[2].lower())
+            print("Gebruik: sdrcc profile <naam>")
+            return
+
+        profile_cmd(sys.argv[2].lower())
+
     elif command == "satellites":
         satellites_cmd()
+
     elif command == "meteor":
         meteor_cmd()
+
     elif command == "tle":
         tle_cmd()
+
     elif command == "update-tle":
         update_tle_cmd()
+
     elif command == "next":
         next_cmd()
+
     elif command == "schedule":
         schedule_cmd()
+
     elif command == "record-next":
         record_next_cmd()
+
+    elif command == "simulate-record":
+        simulate_record_cmd()
+
     elif command == "help":
         print_help()
+
     else:
-        logger.warning(f"Unknown command: {command}")
         print(f"Onbekend commando: {command}")
         print()
         print_help()

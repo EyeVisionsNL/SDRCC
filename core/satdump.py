@@ -18,7 +18,7 @@ def check_recording_allowed():
         return False, (
             f"SDR2 staat nu op profiel '{current_state['profile']}'.\n"
             "Zet eerst het profiel op weather:\n"
-            "  python3 scripts/sdrcc.py profile weather"
+            "  sdrcc profile weather"
         )
 
     if current_state["locked"]:
@@ -63,6 +63,9 @@ def build_record_command():
     folder_name = f"{start_local.strftime('%Y%m%d_%H%M%S')}_{safe_name}"
     output_path = OUTPUT_DIR / folder_name
 
+    duration = next_pass["end"] - next_pass["start"]
+    timeout_seconds = int(duration.total_seconds()) + 60
+
     command = [
         "satdump",
         "live",
@@ -76,6 +79,8 @@ def build_record_command():
         str(next_pass["frequency"]),
         "--samplerate",
         str(next_pass["sample_rate"]),
+        "--timeout",
+        str(timeout_seconds),
     ]
 
     return {
@@ -84,6 +89,7 @@ def build_record_command():
         "pass": next_pass,
         "device": device,
         "output_path": output_path,
+        "timeout_seconds": timeout_seconds,
         "command": command,
     }
 
@@ -104,6 +110,37 @@ def print_record_preview():
         print(data["reason"])
         return
 
+    _print_record_data(data)
+
+
+def simulate_record():
+    data = build_record_command()
+
+    print("SatDump simulation")
+    print("-----------------------------")
+
+    if data is None:
+        print("Geen geschikte passage gevonden.")
+        return
+
+    if not data["allowed"]:
+        print("Simulatie niet toegestaan.")
+        print()
+        print(data["reason"])
+        return
+
+    data["output_path"].mkdir(parents=True, exist_ok=True)
+
+    print("Checks")
+    print("  Profile   : OK")
+    print("  SDR2      : OK")
+    print("  Output dir: OK")
+    print()
+
+    _print_record_data(data)
+
+
+def _print_record_data(data):
     pass_data = data["pass"]
 
     print("Satellite  :", pass_data["name"])
@@ -114,6 +151,9 @@ def print_record_preview():
     print("Recorder   :", data["device"]["name"])
     print("Serial     :", data["device"]["serial"])
     print("Output     :", data["output_path"])
+
+    if "timeout_seconds" in data:
+        print("Timeout    :", f"{data['timeout_seconds']} seconds")
 
     print()
     print("Command:")
