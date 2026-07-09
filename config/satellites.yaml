@@ -1,17 +1,17 @@
-# SDRCC Satellites Configuration
-
 satellites:
 
-  METEOR-M2-3:
+  METEOR-M2 3:
     enabled: true
     frequency: 137100000
     mode: LRPT
+    decoder: satdump
     min_elevation: 30
     priority: 1
 
-  METEOR-M2-4:
+  METEOR-M2 4:
     enabled: true
     frequency: 137900000
     mode: LRPT
+    decoder: satdump
     min_elevation: 30
     priority: 1

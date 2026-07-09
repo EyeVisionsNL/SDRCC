@@ -1,6 +1,10 @@
 station:
   name: SDRCC
-  version: 0.2
+  version: 0.3.1
+  location: Vlaardingen
+  latitude: 51.908401
+  longitude: 4.351168
+  altitude_m: 6
 
 sdr1:
   serial: "05419737"
