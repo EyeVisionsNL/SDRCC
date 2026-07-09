@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+SDRCC_DIR="$HOME/SDRCC"
+PYTHON="$SDRCC_DIR/venv/bin/python"
+SCRIPT="$SDRCC_DIR/scripts/sdrcc.py"
+
+if [ ! -x "$PYTHON" ]; then
+    echo "Fout: SDRCC virtual environment niet gevonden:"
+    echo "$PYTHON"
+    exit 1
+fi
+
+if [ ! -f "$SCRIPT" ]; then
+    echo "Fout: SDRCC script niet gevonden:"
+    echo "$SCRIPT"
+    exit 1
+fi
+
+cd "$SDRCC_DIR" || exit 1
+exec "$PYTHON" "$SCRIPT" "$@"
