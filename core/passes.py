@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from skyfield.api import EarthSatellite, load, wgs84
 
 from core.config import load_station, get_enabled_satellites
 
 TLE_FILE = Path(__file__).resolve().parent.parent / "data" / "tle" / "weather.tle"
+LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 
 
 def _load_station_location():
@@ -31,27 +33,26 @@ def _load_tle_blocks():
     for i in range(0, len(lines), 3):
         if i + 2 >= len(lines):
             continue
-
-        name = lines[i]
-        line1 = lines[i + 1]
-        line2 = lines[i + 2]
-
-        blocks[name] = (line1, line2)
+        blocks[lines[i]] = (lines[i + 1], lines[i + 2])
 
     return blocks
 
 
-def get_next_pass(hours_ahead=48):
+def _fmt_local(dt):
+    return dt.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def get_passes(hours_ahead=48):
     station_location = _load_station_location()
     enabled = get_enabled_satellites()
     tle_blocks = _load_tle_blocks()
 
     ts = load.timescale()
-    now = datetime.utcnow()
-    t0 = ts.utc(now.year, now.month, now.day, now.hour, now.minute, now.second)
-
+    now = datetime.now(timezone.utc)
     future = now + timedelta(hours=hours_ahead)
-    t1 = ts.utc(future.year, future.month, future.day, future.hour, future.minute, future.second)
+
+    t0 = ts.from_datetime(now)
+    t1 = ts.from_datetime(future)
 
     candidates = []
 
@@ -71,15 +72,13 @@ def get_next_pass(hours_ahead=48):
             altitude_degrees=min_elevation,
         )
 
-        # Events: 0 = rise above min elevation, 1 = culminate, 2 = set below min elevation
         for index in range(len(events) - 2):
             if events[index] == 0 and events[index + 1] == 1 and events[index + 2] == 2:
                 start_time = times[index]
                 max_time = times[index + 1]
                 end_time = times[index + 2]
 
-                difference = satellite - station_location
-                topocentric = difference.at(max_time)
+                topocentric = (satellite - station_location).at(max_time)
                 alt, az, distance = topocentric.altaz()
 
                 candidates.append(
@@ -97,11 +96,31 @@ def get_next_pass(hours_ahead=48):
                     }
                 )
 
-    if not candidates:
-        return None
-
     candidates.sort(key=lambda item: item["start"])
-    return candidates[0]
+    return candidates
+
+
+def get_next_pass(hours_ahead=48):
+    passes = get_passes(hours_ahead)
+    return passes[0] if passes else None
+
+
+def _print_pass(pass_data):
+    duration = pass_data["end"] - pass_data["start"]
+    minutes = int(duration.total_seconds() // 60)
+    seconds = int(duration.total_seconds() % 60)
+
+    print(pass_data["name"])
+    print()
+    print("Start      :", _fmt_local(pass_data["start"]), "lokale tijd")
+    print("Maximum    :", _fmt_local(pass_data["maximum"]), "lokale tijd")
+    print("End        :", _fmt_local(pass_data["end"]), "lokale tijd")
+    print("Duration   :", f"{minutes}m {seconds}s")
+    print("Max Elev   :", f"{pass_data['max_elevation']}°")
+    print("Azimuth    :", f"{pass_data['azimuth']}°")
+    print("Frequency  :", f"{pass_data['frequency'] / 1e6:.3f} MHz")
+    print("Mode       :", pass_data["mode"])
+    print("Decoder    :", pass_data["decoder"])
 
 
 def print_next_pass():
@@ -114,18 +133,23 @@ def print_next_pass():
         print("Geen geschikte passage gevonden.")
         return
 
-    duration = next_pass["end"] - next_pass["start"]
-    minutes = int(duration.total_seconds() // 60)
-    seconds = int(duration.total_seconds() % 60)
+    _print_pass(next_pass)
 
-    print(next_pass["name"])
-    print()
-    print("Start      :", next_pass["start"].strftime("%Y-%m-%d %H:%M:%S UTC"))
-    print("Maximum    :", next_pass["maximum"].strftime("%Y-%m-%d %H:%M:%S UTC"))
-    print("End        :", next_pass["end"].strftime("%Y-%m-%d %H:%M:%S UTC"))
-    print("Duration   :", f"{minutes}m {seconds}s")
-    print("Max Elev   :", f"{next_pass['max_elevation']}°")
-    print("Azimuth    :", f"{next_pass['azimuth']}°")
-    print("Frequency  :", f"{next_pass['frequency'] / 1e6:.3f} MHz")
-    print("Mode       :", next_pass["mode"])
-    print("Decoder    :", next_pass["decoder"])
+
+def print_schedule(hours_ahead=24):
+    upcoming = get_passes(hours_ahead)
+
+    print(f"Schedule next {hours_ahead} hours")
+    print("-----------------------------")
+
+    if not upcoming:
+        print("Geen geschikte passages gevonden.")
+        return
+
+    for item in upcoming:
+        print(
+            f"{_fmt_local(item['start'])} | "
+            f"{item['name']} | "
+            f"max {item['max_elevation']}° | "
+            f"{item['frequency'] / 1e6:.3f} MHz"
+        )

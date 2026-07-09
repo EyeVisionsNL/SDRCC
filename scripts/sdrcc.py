@@ -15,7 +15,7 @@ from core import satellites
 from core import system
 from core import tle
 
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 
 
 def print_header():
@@ -32,6 +32,7 @@ def print_help():
     print("  python3 scripts/sdrcc.py tle")
     print("  python3 scripts/sdrcc.py update-tle")
     print("  python3 scripts/sdrcc.py next")
+    print("  python3 scripts/sdrcc.py schedule")
     print("  python3 scripts/sdrcc.py help")
 
 
@@ -89,6 +90,12 @@ def next_cmd():
     passes.print_next_pass()
 
 
+def schedule_cmd():
+    logger.info("Calculating schedule")
+    print_header()
+    passes.print_schedule()
+
+
 def main():
     logger.info("SDRCC started")
 
@@ -113,6 +120,8 @@ def main():
         update_tle_cmd()
     elif command == "next":
         next_cmd()
+    elif command == "schedule":
+        schedule_cmd()
     elif command == "help":
         print_help()
     else:
