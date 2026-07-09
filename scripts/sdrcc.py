@@ -11,11 +11,12 @@ from core import logger
 from core import meteor
 from core import passes
 from core import rtl
+from core import satdump
 from core import satellites
 from core import system
 from core import tle
 
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 
 
 def print_header():
@@ -33,6 +34,7 @@ def print_help():
     print("  python3 scripts/sdrcc.py update-tle")
     print("  python3 scripts/sdrcc.py next")
     print("  python3 scripts/sdrcc.py schedule")
+    print("  python3 scripts/sdrcc.py record-next")
     print("  python3 scripts/sdrcc.py help")
 
 
@@ -96,6 +98,12 @@ def schedule_cmd():
     passes.print_schedule()
 
 
+def record_next_cmd():
+    logger.info("Showing SatDump record preview")
+    print_header()
+    satdump.print_record_preview()
+
+
 def main():
     logger.info("SDRCC started")
 
@@ -122,6 +130,8 @@ def main():
         next_cmd()
     elif command == "schedule":
         schedule_cmd()
+    elif command == "record-next":
+        record_next_cmd()
     elif command == "help":
         print_help()
     else:

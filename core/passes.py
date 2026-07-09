@@ -90,6 +90,8 @@ def get_passes(hours_ahead=48):
                         "max_elevation": round(alt.degrees, 1),
                         "azimuth": round(az.degrees, 1),
                         "frequency": sat_cfg.get("frequency"),
+                        "sample_rate": sat_cfg.get("sample_rate"),
+                        "pipeline": sat_cfg.get("pipeline"),
                         "mode": sat_cfg.get("mode"),
                         "decoder": sat_cfg.get("decoder"),
                         "min_elevation": min_elevation,

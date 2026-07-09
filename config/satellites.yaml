@@ -4,7 +4,9 @@ satellites:
     enabled: true
     frequency: 137100000
     mode: LRPT
+    pipeline: meteor_m2-x_lrpt
     decoder: satdump
+    sample_rate: 1000000
     min_elevation: 30
     priority: 1
 
@@ -12,6 +14,8 @@ satellites:
     enabled: true
     frequency: 137900000
     mode: LRPT
+    pipeline: meteor_m2-x_lrpt
     decoder: satdump
+    sample_rate: 1000000
     min_elevation: 30
     priority: 1
