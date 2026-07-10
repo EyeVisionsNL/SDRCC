@@ -1,3 +1,4 @@
+<img width="1254" height="1254" alt="sdrcc" src="https://github.com/user-attachments/assets/007b0f2e-6054-4536-b1d0-a2ff477a088a" />
 # SDRControlCenter v0.1
 
 
