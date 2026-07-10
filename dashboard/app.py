@@ -15,6 +15,7 @@ from core import passes
 from core import state
 from core import tle
 from core import system_stats
+from core import mission_engine as mission_engine_core
 
 app = Flask(__name__)
 
@@ -490,6 +491,21 @@ def capture_file(relative_path):
 
 def run():
     app.run(host="0.0.0.0", port=8080, debug=False)
+
+
+
+@app.route("/api/mission-engine")
+def api_mission_engine():
+    try:
+        return jsonify(mission_engine_core.get_mission_status())
+    except Exception as error:
+        return jsonify({
+            "phase": "IDLE",
+            "detail": f"Mission Engine fout: {error}",
+            "progress": 0,
+            "steps": [],
+            "error": str(error),
+        })
 
 
 if __name__ == "__main__":
