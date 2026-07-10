@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 STATE_FILE = PROJECT_ROOT / "data" / "state" / "mission_engine.json"
 
 WATCH_DIRS = [
@@ -133,8 +134,10 @@ def find_running_processes():
         "satdump-cli",
         "rtl_fm",
         "rtl_sdr",
+        "rtl_tcp",
         "sox",
         "wxtoimg",
+        "rtl_433",
     ]
 
     try:
@@ -240,52 +243,137 @@ def process_flags(processes):
 
     return {
         "satdump": any("satdump" in m for m in matches),
-        "recording_tool": any(m in ["rtl_fm", "rtl_sdr", "sox"] for m in matches),
+        "recording_tool": any(m in ["rtl_fm", "rtl_sdr", "rtl_tcp", "sox"] for m in matches),
         "decoder": any(m in ["satdump", "satdump-cli", "wxtoimg"] for m in matches),
     }
 
 
-def determine_phase(previous_state, current_files, changes, processes):
+def get_next_pass_info():
+    try:
+        from core import passes
+
+        pass_data = passes.get_next_pass()
+        if pass_data is None:
+            return None
+
+        start_local = pass_data["start"].astimezone()
+        maximum_local = pass_data["maximum"].astimezone()
+        end_local = pass_data["end"].astimezone()
+
+        return {
+            "name": pass_data["name"],
+            "start": start_local.strftime("%Y-%m-%d %H:%M:%S"),
+            "maximum": maximum_local.strftime("%Y-%m-%d %H:%M:%S"),
+            "end": end_local.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_epoch": int(start_local.timestamp()),
+            "maximum_epoch": int(maximum_local.timestamp()),
+            "end_epoch": int(end_local.timestamp()),
+            "max_elevation": pass_data["max_elevation"],
+            "azimuth": pass_data["azimuth"],
+            "frequency_mhz": round(pass_data["frequency"] / 1000000, 3),
+            "mode": pass_data["mode"],
+            "pipeline": pass_data.get("pipeline"),
+        }
+    except Exception:
+        return None
+
+
+def pass_state(next_pass):
+    if not next_pass:
+        return {
+            "state": "none",
+            "detail": "Geen passage bekend.",
+            "seconds_to_start": None,
+            "seconds_to_end": None,
+            "active": False,
+        }
+
+    ts = now_ts()
+    seconds_to_start = next_pass["start_epoch"] - ts
+    seconds_to_end = next_pass["end_epoch"] - ts
+
+    if next_pass["start_epoch"] <= ts <= next_pass["end_epoch"]:
+        return {
+            "state": "active",
+            "detail": f"Pass actief: {next_pass['name']}.",
+            "seconds_to_start": seconds_to_start,
+            "seconds_to_end": seconds_to_end,
+            "active": True,
+        }
+
+    if 0 < seconds_to_start <= 900:
+        minutes = max(1, round(seconds_to_start / 60))
+        return {
+            "state": "soon",
+            "detail": f"Volgende passage binnen {minutes} minuten: {next_pass['name']}.",
+            "seconds_to_start": seconds_to_start,
+            "seconds_to_end": seconds_to_end,
+            "active": False,
+        }
+
+    if seconds_to_start > 900:
+        minutes = round(seconds_to_start / 60)
+        return {
+            "state": "future",
+            "detail": f"Volgende passage over {minutes} minuten: {next_pass['name']}.",
+            "seconds_to_start": seconds_to_start,
+            "seconds_to_end": seconds_to_end,
+            "active": False,
+        }
+
+    return {
+        "state": "past",
+        "detail": "Laatste passage is voorbij.",
+        "seconds_to_start": seconds_to_start,
+        "seconds_to_end": seconds_to_end,
+        "active": False,
+    }
+
+
+def determine_phase(previous_state, current_files, changes, processes, next_pass):
     ts = now_ts()
     flags = process_flags(processes)
     growing = growing_record_files(changes)
     recent_images = recent_image_files(current_files)
     latest = newest_file(current_files)
+    pass_info = pass_state(next_pass)
 
-    previous_phase = previous_state.get("phase", "IDLE")
+    previous_phase = previous_state.get("phase", "READY")
     previous_phase_since = int(previous_state.get("phase_since", ts))
 
     if flags["satdump"]:
-        return "DECODING", "SatDump actief: decoder draait.", growing, recent_images
+        return "DECODING", "SatDump actief: decoder draait.", growing, recent_images, pass_info
 
     if growing:
         names = ", ".join(item["name"] for item in growing[:3])
-        return "RECORDING", f"Opname actief: groeiend bestand gedetecteerd ({names}).", growing, recent_images
+        return "RECORDING", f"Opname actief: groeiend bestand gedetecteerd ({names}).", growing, recent_images, pass_info
 
     if flags["recording_tool"]:
-        return "RECORDING", "Opnameproces actief: SDR recorder draait.", growing, recent_images
+        return "RECORDING", "Opnameproces actief: SDR recorder draait.", growing, recent_images, pass_info
 
     if recent_images:
         image = recent_images[0]
         age = image["age_seconds"]
 
         if age <= 30:
-            return "PROCESSING", f"Nieuwe afbeelding verwerkt: {image['name']}.", growing, recent_images
+            return "PROCESSING", f"Nieuwe afbeelding verwerkt: {image['name']}.", growing, recent_images, pass_info
 
         if previous_phase == "PROCESSING" and ts - previous_phase_since < 45:
-            return "ARCHIVE", "Product klaar, archiveren afronden.", growing, recent_images
-
-        return "READY", f"Laatst ontvangen beeld: {image['name']}.", growing, recent_images
+            return "ARCHIVE", "Product klaar, archiveren afronden.", growing, recent_images, pass_info
 
     if latest:
         age = ts - latest["mtime"]
 
         if age <= 120:
-            return "PROCESSING", f"Bestanden recent gewijzigd: {latest['name']}.", growing, recent_images
+            return "PROCESSING", f"Bestanden recent gewijzigd: {latest['name']}.", growing, recent_images, pass_info
 
-        return "READY", "Geen actieve opname. Systeem klaar voor volgende passage.", growing, recent_images
+    if pass_info["state"] == "active":
+        return "LOCK RECEIVER", pass_info["detail"] + " Receiver voorbereiden of wachten op opname.", growing, recent_images, pass_info
 
-    return "READY", "Geen opnamebestanden gevonden. Systeem klaar voor eerste passage.", growing, recent_images
+    if pass_info["state"] == "soon":
+        return "WAIT FOR PASS", pass_info["detail"], growing, recent_images, pass_info
+
+    return "READY", "Geen actieve opname. Systeem klaar voor volgende passage.", growing, recent_images, pass_info
 
 
 def build_steps(active_phase):
@@ -311,7 +399,6 @@ def build_steps(active_phase):
 def update_events(previous_state, phase, detail):
     ts = now_ts()
     events = previous_state.get("events", [])
-
     previous_phase = previous_state.get("phase")
 
     if phase != previous_phase:
@@ -331,12 +418,14 @@ def get_mission_status():
     current_files = scan_files()
     changes = changed_files(previous_files, current_files)
     processes = find_running_processes()
+    next_pass = get_next_pass_info()
 
-    phase, detail, growing, recent_images = determine_phase(
+    phase, detail, growing, recent_images, pass_info = determine_phase(
         previous_state,
         current_files,
         changes,
         processes,
+        next_pass,
     )
 
     ts = now_ts()
@@ -363,6 +452,8 @@ def get_mission_status():
         "growing_files": growing[:5],
         "recent_images": recent_images[:5],
         "events": events,
+        "next_pass": next_pass,
+        "pass_state": pass_info,
     }
 
     save_state({

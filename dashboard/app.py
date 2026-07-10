@@ -27,17 +27,6 @@ IMAGE_DIRS = [
     PROJECT_ROOT / "captures",
 ]
 
-MISSION_STEPS = [
-    "IDLE",
-    "WAIT FOR PASS",
-    "LOCK RECEIVER",
-    "RECORDING",
-    "DECODING",
-    "PROCESSING",
-    "ARCHIVE",
-    "READY",
-]
-
 SERVICE_ACTIONS = {
     "start_ais": {"label": "AIS starten", "service": "ais-catcher.service", "systemctl": "start"},
     "stop_ais": {"label": "AIS stoppen", "service": "ais-catcher.service", "systemctl": "stop"},
@@ -262,59 +251,23 @@ def recent_captures(limit=10):
     return [capture_to_dict(path) for path in find_capture_files()[:limit]]
 
 
-def mission_engine(next_pass, latest_capture, logs):
-    phase = "IDLE"
-    detail = "Geen actieve opname."
-    progress = 0
+def get_mission_data_for_status():
+    mission = mission_engine_core.get_mission_status()
 
-    log_text = "\n".join(logs[-40:]).lower()
+    step_objects = mission.get("steps", [])
+    step_names = [step.get("name", "-") for step in step_objects]
 
-    if next_pass:
-        now = int(datetime.now().timestamp())
-        remaining = next_pass["start_epoch"] - now
+    active_index = 0
+    for index, step in enumerate(step_objects):
+        if step.get("status") == "active":
+            active_index = index
+            break
 
-        if remaining < 0:
-            phase = "LOCK RECEIVER"
-            detail = "Passage is actief of net gestart."
-            progress = 30
-        elif remaining < 900:
-            phase = "WAIT FOR PASS"
-            detail = f"Volgende passage binnen {round(remaining / 60)} minuten."
-            progress = 15
-        else:
-            phase = "IDLE"
-            detail = "Wachten op volgende passage."
-            progress = 5
+    mission["step_states"] = step_objects
+    mission["steps"] = step_names
+    mission["active_index"] = active_index
 
-    if "record now" in log_text or "recording" in log_text:
-        phase = "RECORDING"
-        detail = "Opname actief of recent gestart."
-        progress = 45
-
-    if "satdump" in log_text:
-        phase = "DECODING"
-        detail = "SatDump activiteit gevonden in log."
-        progress = 65
-
-    if latest_capture:
-        if latest_capture.get("live"):
-            phase = "RECORDING"
-            detail = f"Live preview actief: {latest_capture['filename']}"
-            progress = 50
-        else:
-            phase = "READY"
-            detail = f"Laatste beeld: {latest_capture['filename']}"
-            progress = 100
-
-    active_index = MISSION_STEPS.index(phase) if phase in MISSION_STEPS else 0
-
-    return {
-        "phase": phase,
-        "detail": detail,
-        "progress": progress,
-        "steps": MISSION_STEPS,
-        "active_index": active_index,
-    }
+    return mission
 
 
 def get_dashboard_data():
@@ -328,6 +281,7 @@ def get_dashboard_data():
     logs = read_log_lines()
     latest_capture = find_latest_capture()
     captures = recent_captures()
+    mission = get_mission_data_for_status()
 
     return {
         "server_time_epoch": int(datetime.now().timestamp()),
@@ -341,7 +295,7 @@ def get_dashboard_data():
         "logs": logs,
         "latest_capture": latest_capture,
         "recent_captures": captures,
-        "mission": mission_engine(next_pass, latest_capture, logs),
+        "mission": mission,
         "actions": [{"id": action_id, "label": data["label"]} for action_id, data in ACTIONS.items()],
     }
 
@@ -445,6 +399,38 @@ def api_status():
     return jsonify(get_dashboard_data())
 
 
+@app.route("/api/mission-engine")
+def api_mission_engine():
+    try:
+        return jsonify(mission_engine_core.get_mission_status())
+    except Exception as error:
+        return jsonify({
+            "phase": "IDLE",
+            "detail": f"Mission Engine fout: {error}",
+            "progress": 0,
+            "steps": [],
+            "error": str(error),
+        })
+
+
+
+@app.route("/api/capture-status")
+def api_capture_status():
+    latest_capture = find_latest_capture()
+
+    if latest_capture is None:
+        return jsonify({
+            "available": False,
+            "latest_capture": None,
+        })
+
+    return jsonify({
+        "available": True,
+        "latest_capture": latest_capture,
+        "server_time_epoch": int(datetime.now().timestamp()),
+    })
+
+
 @app.route("/api/action", methods=["POST"])
 def api_action():
     payload = request.get_json(silent=True) or {}
@@ -491,21 +477,6 @@ def capture_file(relative_path):
 
 def run():
     app.run(host="0.0.0.0", port=8080, debug=False)
-
-
-
-@app.route("/api/mission-engine")
-def api_mission_engine():
-    try:
-        return jsonify(mission_engine_core.get_mission_status())
-    except Exception as error:
-        return jsonify({
-            "phase": "IDLE",
-            "detail": f"Mission Engine fout: {error}",
-            "progress": 0,
-            "steps": [],
-            "error": str(error),
-        })
 
 
 if __name__ == "__main__":
