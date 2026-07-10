@@ -1,0 +1,17 @@
+#live-log {
+    margin: 0;
+    padding: 12px;
+    height: 300px;
+    overflow-y: auto;
+
+    background: #020617;
+    border: 1px solid #334155;
+    border-radius: 8px;
+
+    color: #22c55e;
+    font-family: "Cascadia Code", "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.4;
+
+    white-space: pre-wrap;
+}

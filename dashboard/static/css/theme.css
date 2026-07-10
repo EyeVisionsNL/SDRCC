@@ -1,0 +1,32 @@
+/* ==========================================================
+   SDRCC Mission Control Theme
+   v0.6.0
+   ========================================================== */
+
+:root {
+
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-dark: #020617;
+
+    --border: #334155;
+
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+
+    --blue: #38bdf8;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+
+}
+
+/* toekomstige thema's */
+
+/*
+.theme-red { }
+.theme-green { }
+.theme-light { }
+.theme-nasa { }
+.theme-radar { }
+*/

@@ -1,0 +1,57 @@
+.button-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.control-button {
+    width: 100%;
+    padding: 11px 12px;
+
+    background: #0284c7;
+    color: white;
+
+    border: 1px solid #38bdf8;
+    border-radius: 8px;
+
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+
+    text-align: left;
+}
+
+.control-button:hover {
+    background: #0369a1;
+}
+
+.control-button.danger {
+    background: #991b1b;
+    border-color: #ef4444;
+}
+
+.control-button.danger:hover {
+    background: #7f1d1d;
+}
+
+.control-button.running {
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.35);
+}
+
+.control-button.disabled,
+.control-button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background: #334155;
+    border-color: #475569;
+}
+
+.control-button.disabled:hover,
+.control-button:disabled:hover {
+    background: #334155;
+}
+
+.control-result {
+    margin-top: 14px !important;
+    font-size: 13px;
+}

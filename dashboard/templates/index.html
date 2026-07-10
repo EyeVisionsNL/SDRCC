@@ -3,42 +3,126 @@
 <head>
     <meta charset="utf-8">
     <title>SDRCC Mission Control</title>
-    <link rel="stylesheet" href="/static/style.css">
+
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/cards.css">
+    <link rel="stylesheet" href="/static/css/system.css">
+    <link rel="stylesheet" href="/static/css/capture.css">
+    <link rel="stylesheet" href="/static/css/log.css">
+    <link rel="stylesheet" href="/static/css/controls.css">
+    <link rel="stylesheet" href="/static/css/timeline.css">
+    <link rel="stylesheet" href="/static/css/mission.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
 
 <body>
-    <header>
+
+<header class="topbar">
+    <div>
         <h1>📡 SDRCC Mission Control</h1>
-        <p>Live dashboard voor SDR1 AIS en SDR2 Dynamic</p>
-    </header>
+        <p>Single Screen Ground Station · SDR1 AIS · SDR2 Dynamic · Satellieten</p>
+    </div>
+    <div class="topbar-status">
+        <span class="status-dot"></span>
+        <span>LIVE</span>
+    </div>
+</header>
 
-    <main class="grid">
+<nav class="tabs">
+    <button class="tab-button active" data-tab="mission">🛰 Mission</button>
+    <button class="tab-button" data-tab="radio">📻 Radio</button>
+    <button class="tab-button" data-tab="images">📸 Images</button>
+    <button class="tab-button" data-tab="logs">📜 Logs</button>
+</nav>
 
-        <section class="card">
+<main>
+
+<section class="tab-page active" id="tab-mission">
+    <div class="mission-grid">
+
+        <section class="card system-panel">
             <h2>🖥 System</h2>
-            <p>CPU: <strong id="system-cpu">-</strong></p>
-            <p>RAM: <strong id="system-ram">-</strong></p>
-            <p>Disk: <strong id="system-disk">-</strong></p>
-            <p>Uptime: <strong id="system-uptime">-</strong></p>
+
+            <div class="system-meter">
+                <div class="system-meter-top">
+                    <span>CPU</span>
+                    <strong id="system-cpu">-</strong>
+                </div>
+                <div class="bar"><div id="system-cpu-bar"></div></div>
+            </div>
+
+            <div class="system-meter">
+                <div class="system-meter-top">
+                    <span>RAM</span>
+                    <strong id="system-ram">-</strong>
+                </div>
+                <div class="bar"><div id="system-ram-bar"></div></div>
+            </div>
+
+            <div class="system-meter">
+                <div class="system-meter-top">
+                    <span>Disk</span>
+                    <strong id="system-disk">-</strong>
+                </div>
+                <div class="bar"><div id="system-disk-bar"></div></div>
+            </div>
+
+            <p class="uptime">⏱ Uptime: <strong id="system-uptime">-</strong></p>
         </section>
 
-        <section class="card">
-            <h2>SDR2</h2>
-            <p>Status: <strong id="sdr2-status">-</strong></p>
-            <p>Profile: <strong id="sdr2-profile">-</strong></p>
-            <p>Locked: <strong id="sdr2-locked">-</strong></p>
-            <p>Process: <strong id="sdr2-process">-</strong></p>
-            <p>Updated: <strong id="sdr2-updated">-</strong></p>
+        <section class="card mission-panel">
+            <h2>🚦 Mission Status</h2>
+            <p>AIS: <span id="ais-status" class="warn">-</span></p>
+            <p>ADS-B: <span id="adsb-status" class="warn">-</span></p>
+            <p>TLE database: <span id="tle-status" class="warn">-</span></p>
+
+            <div class="mission-engine">
+                <div class="mission-phase" id="mission-phase">-</div>
+                <div class="mission-detail" id="mission-detail">-</div>
+                <div class="mission-progress">
+                    <div class="mission-progress-bar" id="mission-progress-bar"></div>
+                </div>
+                <div class="mission-steps" id="mission-steps"></div>
+            </div>
         </section>
 
-        <section class="card">
-            <h2>ADS-B</h2>
-            <p>Status: <span id="adsb-status" class="warn">-</span></p>
-            <p>Service: <code>readsb.service</code></p>
+        <section class="card capture-panel">
+            <h2>📸 Laatste ontvangst</h2>
+
+            <div id="capture-empty" class="capture-empty">
+                Nog geen afbeelding gevonden.
+            </div>
+
+            <div id="capture-content" class="capture-content hidden">
+                <img id="capture-image" src="" alt="Laatste capture">
+                <div class="capture-meta">
+                    <p><strong id="capture-name">-</strong></p>
+                    <p>Gewijzigd: <span id="capture-modified">-</span></p>
+                    <p>Grootte: <span id="capture-size">-</span> KB</p>
+                </div>
+            </div>
         </section>
 
-        <section class="card highlight">
-            <h2>Volgende passage</h2>
+        <section class="card controls-panel">
+            <h2>🎛 Control Panel</h2>
+
+            <div class="button-grid">
+                <button class="control-button" data-action="start_ais">▶ Start AIS</button>
+                <button class="control-button danger" data-action="stop_ais">■ Stop AIS</button>
+                <button class="control-button" data-action="start_adsb">▶ Start ADS-B</button>
+                <button class="control-button danger" data-action="stop_adsb">■ Stop ADS-B</button>
+                <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
+                <button class="control-button" data-action="schedule">📅 Scheduler</button>
+                <button class="control-button" data-action="simulate_record">🛰 Simuleer opname</button>
+                <button class="control-button danger" data-action="record">📸 Record NOW</button>
+            </div>
+
+            <p class="control-result" id="control-result">Geen actie gestart.</p>
+        </section>
+
+        <section class="card pass-panel highlight">
+            <h2>🛰 Volgende passage</h2>
             <p class="value" id="next-name">-</p>
 
             <div class="countdown-box">
@@ -46,40 +130,113 @@
                 <div class="countdown" id="next-countdown">-</div>
             </div>
 
-            <p>Start: <strong id="next-start">-</strong></p>
-            <p>Maximum: <strong id="next-maximum">-</strong></p>
-            <p>Einde: <strong id="next-end">-</strong></p>
-            <p>Max elevatie: <strong id="next-elevation">-</strong></p>
-            <p>Azimuth: <strong id="next-azimuth">-</strong></p>
-            <p>Frequentie: <strong id="next-frequency">-</strong></p>
-            <p>Mode: <strong id="next-mode">-</strong></p>
-            <p>Pipeline: <strong id="next-pipeline">-</strong></p>
+            <div class="pass-grid">
+                <p>Start<br><strong id="next-start">-</strong></p>
+                <p>Maximum<br><strong id="next-maximum">-</strong></p>
+                <p>Einde<br><strong id="next-end">-</strong></p>
+                <p>Max elevatie<br><strong id="next-elevation">-</strong></p>
+                <p>Azimuth<br><strong id="next-azimuth">-</strong></p>
+                <p>Frequentie<br><strong id="next-frequency">-</strong></p>
+                <p>Mode<br><strong id="next-mode">-</strong></p>
+                <p>Pipeline<br><strong id="next-pipeline">-</strong></p>
+            </div>
         </section>
 
+        <section class="card log-panel">
+            <h2>🧭 Mission Timeline</h2>
+            <div id="mission-timeline" class="mission-timeline">
+                <div class="timeline-empty">Timeline laden...</div>
+            </div>
+        </section>
+
+    </div>
+</section>
+
+<section class="tab-page" id="tab-radio">
+    <div class="radio-grid">
+
         <section class="card">
-            <h2>SDR Devices</h2>
+            <h2>📻 SDR Status</h2>
+
+            <h3>SDR2 Dynamic</h3>
+            <p>Status: <strong id="sdr2-status">-</strong></p>
+            <p>Profile: <strong id="sdr2-profile">-</strong></p>
+            <p>Locked: <strong id="sdr2-locked">-</strong></p>
+            <p>Process: <strong id="sdr2-process">-</strong></p>
+            <p>Updated: <strong id="sdr2-updated">-</strong></p>
+
+            <hr>
+
+            <h3>SDR Devices</h3>
             <div id="devices">Laden...</div>
         </section>
 
         <section class="card">
-            <h2>TLE</h2>
-            <p>Database: <span id="tle-status" class="warn">-</span></p>
+            <h2>📡 AIS</h2>
+            <p>Status: <span id="ais-status-radio" class="warn">-</span></p>
+            <p>Service: <code>ais-catcher.service</code></p>
+            <p>Receiver: SDR1</p>
         </section>
 
         <section class="card">
-            <h2>Terminal acties</h2>
-            <p><code>sdrcc next</code></p>
-            <p><code>sdrcc schedule</code></p>
-            <p><code>sdrcc simulate-record</code></p>
-            <p><code>sdrcc record</code></p>
+            <h2>✈ ADS-B</h2>
+            <p>Status: <span id="adsb-status-radio" class="warn">-</span></p>
+            <p>Service: <code>readsb.service</code></p>
         </section>
 
-    </main>
+        <section class="card">
+            <h2>🌊 Spectrum</h2>
+            <p class="muted">Waterfall / spectrum komt hier later.</p>
+        </section>
 
-    <footer>
-        <p>SDRCC Web UI · live update elke 5 seconden</p>
-    </footer>
+    </div>
+</section>
 
-    <script src="/static/dashboard.js"></script>
+<section class="tab-page" id="tab-images">
+    <div class="images-grid">
+
+        <section class="card image-main">
+            <h2>📸 Laatste ontvangst</h2>
+
+            <div id="capture-empty-images" class="capture-empty">
+                Nog geen afbeelding gevonden.
+            </div>
+
+            <div id="capture-content-images" class="capture-content hidden">
+                <img id="capture-image-images" src="" alt="Laatste capture">
+                <div class="capture-meta">
+                    <p><strong id="capture-name-images">-</strong></p>
+                    <p>Gewijzigd: <span id="capture-modified-images">-</span></p>
+                    <p>Grootte: <span id="capture-size-images">-</span> KB</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>🛰 Image Pipeline</h2>
+            <p>NOAA APT: <span class="warn">standby</span></p>
+            <p>METEOR LRPT: <span class="warn">standby</span></p>
+            <p>SatDump: <span class="warn">standby</span></p>
+            <p>Archive: <span class="warn">standby</span></p>
+        </section>
+
+    </div>
+</section>
+
+<section class="tab-page" id="tab-logs">
+    <section class="card log-panel-full">
+        <h2>📜 Live Log</h2>
+        <pre id="live-log">Log laden...</pre>
+    </section>
+</section>
+
+</main>
+
+<footer class="statusbar">
+    <span id="statusbar-left">SDRCC v0.10.0 Mission Engine</span>
+    <span id="statusbar-right">Live update elke 5 seconden</span>
+</footer>
+
+<script src="/static/dashboard.js"></script>
 </body>
 </html>

@@ -1,0 +1,37 @@
+.mission-timeline {
+    margin-top: 12px;
+}
+
+.timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.timeline-item {
+    padding: 9px 10px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #0f172a;
+    font-family: "Cascadia Code", "Consolas", monospace;
+    font-size: 12px;
+    color: #cbd5e1;
+}
+
+.timeline-item.info {
+    border-left: 4px solid #22c55e;
+}
+
+.timeline-item.warn {
+    border-left: 4px solid #f59e0b;
+}
+
+.timeline-item.error {
+    border-left: 4px solid #ef4444;
+}
+
+.timeline-empty {
+    color: #94a3b8;
+    text-align: center;
+    padding: 20px 0;
+}

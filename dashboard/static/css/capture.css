@@ -1,0 +1,36 @@
+.capture-empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 110px 0;
+    font-size: 16px;
+}
+
+.capture-empty::after {
+    display: block;
+    content: "Wachten op NOAA / METEOR output...";
+    margin-top: 10px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.capture-content.hidden {
+    display: none;
+}
+
+.capture-content img {
+    width: 100%;
+    max-height: 650px;
+    object-fit: contain;
+    border-radius: 10px;
+    border: 1px solid #334155;
+    background: #020617;
+}
+
+.capture-meta {
+    margin-top: 10px;
+    color: #cbd5e1;
+}
+
+.capture-meta p {
+    margin: 6px 0;
+}
