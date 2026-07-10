@@ -42,19 +42,65 @@ function updateMissionProgress(progress) {
     bar.style.width = `${progress || 0}%`;
 }
 
+function updateMissionTimeline(events) {
+    const container = document.getElementById("mission-timeline");
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!events || events.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "timeline-empty";
+        empty.textContent = "Nog geen fasewissels.";
+        container.appendChild(empty);
+        return;
+    }
+
+    for (const event of events.slice(0, 12)) {
+        const row = document.createElement("div");
+        row.className = "timeline-item";
+
+        const time = document.createElement("div");
+        time.className = "timeline-time";
+        time.textContent = event.time || "-";
+
+        const body = document.createElement("div");
+        body.className = "timeline-body";
+
+        const phase = document.createElement("strong");
+        phase.textContent = event.phase || "-";
+
+        const detail = document.createElement("span");
+        detail.textContent = event.detail ? ` ${event.detail}` : "";
+
+        body.appendChild(phase);
+        body.appendChild(detail);
+
+        row.appendChild(time);
+        row.appendChild(body);
+
+        container.appendChild(row);
+    }
+}
+
 async function updateMissionEngine() {
     try {
         const data = await fetchMissionEngine();
 
         setText("mission-phase", data.phase || "-");
         setText("mission-detail", data.detail || "-");
+
         updateMissionProgress(data.progress || 0);
         updateMissionSteps(data.steps || []);
+        updateMissionTimeline(data.events || []);
     } catch (error) {
         setText("mission-phase", "IDLE");
         setText("mission-detail", `Mission Engine niet bereikbaar: ${error.message}`);
         updateMissionProgress(0);
         updateMissionSteps([]);
+        updateMissionTimeline([]);
     }
 }
 

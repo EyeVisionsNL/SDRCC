@@ -7,7 +7,6 @@ from pathlib import Path
 from datetime import datetime
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
 STATE_FILE = PROJECT_ROOT / "data" / "state" / "mission_engine.json"
 
 WATCH_DIRS = [
@@ -15,6 +14,12 @@ WATCH_DIRS = [
     PROJECT_ROOT / "data" / "images",
     PROJECT_ROOT / "data" / "recordings",
     PROJECT_ROOT / "data" / "satdump",
+]
+
+IGNORE_PARTS = [
+    "/test/",
+    "\\test\\",
+    "test_recording",
 ]
 
 RECORD_EXTENSIONS = {
@@ -54,6 +59,12 @@ def now_ts():
     return int(time.time())
 
 
+def ts_text(ts=None):
+    if ts is None:
+        ts = now_ts()
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def load_state():
     if not STATE_FILE.exists():
         return {}
@@ -76,6 +87,11 @@ def safe_relative(path):
         return str(path)
 
 
+def ignored_path(relative_path):
+    low = relative_path.lower()
+    return any(part in low for part in IGNORE_PARTS)
+
+
 def scan_files():
     files = {}
 
@@ -90,13 +106,18 @@ def scan_files():
             if path.suffix.lower() not in ALL_EXTENSIONS:
                 continue
 
+            relative = safe_relative(path)
+
+            if ignored_path(relative):
+                continue
+
             try:
                 stat = path.stat()
             except Exception:
                 continue
 
-            files[safe_relative(path)] = {
-                "path": safe_relative(path),
+            files[relative] = {
+                "path": relative,
                 "name": path.name,
                 "suffix": path.suffix.lower(),
                 "size": stat.st_size,
@@ -127,7 +148,6 @@ def find_running_processes():
         return []
 
     processes = []
-    own_pid = str(subprocess.run)
 
     for line in result.stdout.splitlines():
         low = line.lower()
@@ -265,12 +285,11 @@ def determine_phase(previous_state, current_files, changes, processes):
 
         return "READY", "Geen actieve opname. Systeem klaar voor volgende passage.", growing, recent_images
 
-    return "IDLE", "Nog geen opnamebestanden gevonden.", growing, recent_images
+    return "READY", "Geen opnamebestanden gevonden. Systeem klaar voor eerste passage.", growing, recent_images
 
 
 def build_steps(active_phase):
     active_index = MISSION_STEPS.index(active_phase) if active_phase in MISSION_STEPS else 0
-
     steps = []
 
     for index, step in enumerate(MISSION_STEPS):
@@ -287,6 +306,22 @@ def build_steps(active_phase):
         })
 
     return steps
+
+
+def update_events(previous_state, phase, detail):
+    ts = now_ts()
+    events = previous_state.get("events", [])
+
+    previous_phase = previous_state.get("phase")
+
+    if phase != previous_phase:
+        events.insert(0, {
+            "time": ts_text(ts),
+            "phase": phase,
+            "detail": detail,
+        })
+
+    return events[:80]
 
 
 def get_mission_status():
@@ -312,12 +347,14 @@ def get_mission_status():
     else:
         phase_since = ts
 
+    events = update_events(previous_state, phase, detail)
+
     status = {
         "phase": phase,
         "detail": detail,
         "progress": STEP_PROGRESS.get(phase, 0),
         "steps": build_steps(phase),
-        "updated": datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S"),
+        "updated": ts_text(ts),
         "phase_since": phase_since,
         "phase_age_seconds": ts - phase_since,
         "files_seen": len(current_files),
@@ -325,6 +362,7 @@ def get_mission_status():
         "processes": processes,
         "growing_files": growing[:5],
         "recent_images": recent_images[:5],
+        "events": events,
     }
 
     save_state({
@@ -332,6 +370,7 @@ def get_mission_status():
         "phase_since": phase_since,
         "updated": ts,
         "files": current_files,
+        "events": events,
     })
 
     return status
