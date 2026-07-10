@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import json
+import sys
 import subprocess
 import time
 from pathlib import Path
 from datetime import datetime
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 STATE_FILE = PROJECT_ROOT / "data" / "state" / "mission_engine.json"
 
@@ -268,8 +270,8 @@ def get_next_pass_info():
             "start_epoch": int(start_local.timestamp()),
             "maximum_epoch": int(maximum_local.timestamp()),
             "end_epoch": int(end_local.timestamp()),
-            "max_elevation": pass_data["max_elevation"],
-            "azimuth": pass_data["azimuth"],
+            "max_elevation": float(pass_data["max_elevation"]),
+            "azimuth": float(pass_data["azimuth"]),
             "frequency_mhz": round(pass_data["frequency"] / 1000000, 3),
             "mode": pass_data["mode"],
             "pipeline": pass_data.get("pipeline"),
