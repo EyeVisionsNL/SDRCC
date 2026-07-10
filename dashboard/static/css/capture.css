@@ -27,10 +27,49 @@
 }
 
 .capture-meta {
-    margin-top: 10px;
+    margin-top: 12px;
+    padding: 12px;
+    background: #020617;
+    border: 1px solid #334155;
+    border-radius: 10px;
     color: #cbd5e1;
 }
 
 .capture-meta p {
     margin: 6px 0;
+}
+
+.recent-captures {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.recent-capture-item {
+    padding: 10px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #0f172a;
+    cursor: pointer;
+}
+
+.recent-capture-item:hover {
+    border-color: #38bdf8;
+    background: #111c33;
+}
+
+.recent-capture-item strong {
+    color: #e2e8f0;
+    font-size: 13px;
+}
+
+.recent-capture-item span {
+    color: #38bdf8;
+    font-size: 12px;
+}
+
+.recent-capture-item small {
+    color: #94a3b8;
+    font-size: 11px;
 }

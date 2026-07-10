@@ -150,7 +150,9 @@ def main():
     elif command == "simulate-record":
         print_header(); satdump.simulate_record()
     elif command == "record":
-        print_header(); satdump.record_now()
+        print_header()
+        success = satdump.record_now()
+        raise SystemExit(0 if success else 1)
     elif command == "help":
         print_help()
     else:

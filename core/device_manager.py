@@ -33,6 +33,14 @@ def get_devices():
     return devices
 
 
+def get_device(device_id):
+    for device in get_devices():
+        if device["id"] == device_id:
+            return device
+
+    return None
+
+
 def get_dynamic_device():
     for device in get_devices():
         if not device["locked"]:

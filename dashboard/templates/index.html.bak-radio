@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <title>SDRCC Mission Control</title>
+
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/cards.css">
+    <link rel="stylesheet" href="/static/css/system.css">
+    <link rel="stylesheet" href="/static/css/capture.css">
+    <link rel="stylesheet" href="/static/css/log.css">
+    <link rel="stylesheet" href="/static/css/controls.css">
+    <link rel="stylesheet" href="/static/css/timeline.css">
+    <link rel="stylesheet" href="/static/css/mission.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
+</head>
+
+<body>
+
+<header class="topbar">
+    <div>
+        <h1>📡 SDRCC Mission Control</h1>
+        <p>Single Screen Ground Station · SDR1 AIS · SDR2 Dynamic · Satellieten</p>
+    </div>
+    <div class="topbar-status">
+        <span class="status-dot"></span>
+        <span>LIVE</span>
+    </div>
+</header>
+
+<nav class="tabs">
+    <button class="tab-button active" data-tab="mission">🛰 Mission</button>
+    <button class="tab-button" data-tab="radio">📻 Radio</button>
+    <button class="tab-button" data-tab="images">📸 Images</button>
+    <button class="tab-button" data-tab="logs">📜 Logs</button>
+</nav>
+
+<main>
+
+<section class="tab-page active" id="tab-mission">
+    <div class="mission-grid">
+
+        <section class="card system-panel">
+            <h2>🖥 System</h2>
+
+            <div class="system-meter">
+                <div class="system-meter-top">
+                    <span>CPU</span>
+                    <strong id="system-cpu">-</strong>
+                </div>
+                <div class="bar"><div id="system-cpu-bar"></div></div>
+            </div>
+
+            <div class="system-meter">
+                <div class="system-meter-top">
+                    <span>RAM</span>
+                    <strong id="system-ram">-</strong>
+                </div>
+                <div class="bar"><div id="system-ram-bar"></div></div>
+            </div>
+
+            <div class="system-meter">
+                <div class="system-meter-top">
+                    <span>Disk</span>
+                    <strong id="system-disk">-</strong>
+                </div>
+                <div class="bar"><div id="system-disk-bar"></div></div>
+            </div>
+
+            <p class="uptime">⏱ Uptime: <strong id="system-uptime">-</strong></p>
+        </section>
+
+        <section class="card mission-panel">
+            <h2>🚦 Mission Status</h2>
+            <p>AIS: <span id="ais-status" class="warn">-</span></p>
+            <p>ADS-B: <span id="adsb-status" class="warn">-</span></p>
+            <p>TLE database: <span id="tle-status" class="warn">-</span></p>
+
+            <div class="mission-engine">
+                <div class="mission-phase" id="mission-phase">-</div>
+                <div class="mission-detail" id="mission-detail">-</div>
+                <div class="mission-progress">
+                    <div class="mission-progress-bar" id="mission-progress-bar"></div>
+                </div>
+                <div class="mission-steps" id="mission-steps"></div>
+            </div>
+        </section>
+
+        <section class="card capture-panel">
+            <h2>📸 Laatste ontvangst</h2>
+
+            <div id="capture-empty" class="capture-empty">
+                Nog geen afbeelding gevonden.
+            </div>
+
+            <div id="capture-content" class="capture-content hidden">
+                <img id="capture-image" src="" alt="Laatste capture">
+                <div class="capture-meta">
+                    <p><strong id="capture-name">-</strong></p>
+                    <p>Satelliet: <span id="capture-satellite">-</span></p>
+                    <p>Product: <span id="capture-product">-</span></p>
+                    <p>Resolutie: <span id="capture-resolution">-</span></p>
+                    <p>Gewijzigd: <span id="capture-modified">-</span></p>
+                    <p>Grootte: <span id="capture-size">-</span> KB</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="card controls-panel">
+            <h2>🎛 Control Panel</h2>
+
+            <div class="button-grid">
+                <button class="control-button" data-action="start_ais">▶ Start AIS</button>
+                <button class="control-button danger" data-action="stop_ais">■ Stop AIS</button>
+                <button class="control-button" data-action="start_adsb">▶ Start ADS-B</button>
+                <button class="control-button danger" data-action="stop_adsb">■ Stop ADS-B</button>
+                <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
+                <button class="control-button" data-action="schedule">📅 Scheduler</button>
+                <button class="control-button" data-action="simulate_record">🛰 Simuleer opname</button>
+                <button class="control-button danger" data-action="record">📸 Record NOW</button>
+            </div>
+
+            <p class="control-result" id="control-result">Geen actie gestart.</p>
+        </section>
+
+        <section class="card pass-panel highlight">
+            <h2>🛰 Volgende passage</h2>
+            <p class="value" id="next-name">-</p>
+
+            <div class="countdown-box">
+                <div class="subtitle">Starts in</div>
+                <div class="countdown" id="next-countdown">-</div>
+            </div>
+
+            <div class="pass-grid">
+                <p>Start<br><strong id="next-start">-</strong></p>
+                <p>Maximum<br><strong id="next-maximum">-</strong></p>
+                <p>Einde<br><strong id="next-end">-</strong></p>
+                <p>Max elevatie<br><strong id="next-elevation">-</strong></p>
+                <p>Azimuth<br><strong id="next-azimuth">-</strong></p>
+                <p>Frequentie<br><strong id="next-frequency">-</strong></p>
+                <p>Mode<br><strong id="next-mode">-</strong></p>
+                <p>Pipeline<br><strong id="next-pipeline">-</strong></p>
+            </div>
+        </section>
+
+        <section class="card log-panel">
+            <h2>🧭 Mission Timeline</h2>
+            <div id="mission-timeline" class="mission-timeline">
+                <div class="timeline-empty">Timeline laden...</div>
+            </div>
+        </section>
+
+    </div>
+</section>
+
+<section class="tab-page" id="tab-radio">
+    <div class="radio-grid">
+
+        <section class="card">
+            <h2>📻 SDR Status</h2>
+
+            <h3>SDR2 Dynamic</h3>
+            <p>Status: <strong id="sdr2-status">-</strong></p>
+            <p>Profile: <strong id="sdr2-profile">-</strong></p>
+            <p>Locked: <strong id="sdr2-locked">-</strong></p>
+            <p>Process: <strong id="sdr2-process">-</strong></p>
+            <p>Updated: <strong id="sdr2-updated">-</strong></p>
+
+            <hr>
+
+            <h3>SDR Devices</h3>
+            <div id="devices">Laden...</div>
+        </section>
+
+        <section class="card">
+            <h2>📡 AIS</h2>
+            <p>Status: <span id="ais-status-radio" class="warn">-</span></p>
+            <p>Service: <code>ais-catcher.service</code></p>
+            <p>Receiver: SDR1</p>
+        </section>
+
+        <section class="card">
+            <h2>✈ ADS-B</h2>
+            <p>Status: <span id="adsb-status-radio" class="warn">-</span></p>
+            <p>Service: <code>readsb.service</code></p>
+        </section>
+
+        <section class="card">
+            <h2>🌊 Spectrum</h2>
+            <p class="muted">Waterfall / spectrum komt hier later.</p>
+        </section>
+
+    </div>
+</section>
+
+<section class="tab-page" id="tab-images">
+    <div class="images-grid">
+
+        <section class="card image-main">
+            <h2>📸 Laatste opname</h2>
+
+            <div id="capture-empty-images" class="capture-empty">
+                Nog geen afbeelding gevonden.
+            </div>
+
+            <div id="capture-content-images" class="capture-content hidden">
+                <img id="capture-image-images" src="" alt="Laatste capture">
+                <div class="capture-meta">
+                    <p><strong id="capture-name-images">-</strong></p>
+                    <p>Satelliet: <span id="capture-satellite-images">-</span></p>
+                    <p>Pipeline: <span id="capture-pipeline-images">-</span></p>
+                    <p>Product: <span id="capture-product-images">-</span></p>
+                    <p>Resolutie: <span id="capture-resolution-images">-</span></p>
+                    <p>Gewijzigd: <span id="capture-modified-images">-</span></p>
+                    <p>Grootte: <span id="capture-size-images">-</span> KB</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>🛰 Image Pipeline</h2>
+            <p>Laatste satelliet: <span id="image-pipeline-satellite" class="warn">-</span></p>
+            <p>Pipeline: <span id="image-pipeline-type" class="warn">-</span></p>
+            <p>Product: <span id="image-pipeline-product" class="warn">-</span></p>
+            <p>Status: <span id="image-pipeline-status" class="warn">standby</span></p>
+
+            <hr>
+
+            <h3>Laatste opnames</h3>
+            <div id="recent-captures" class="recent-captures">
+                Nog geen opnames gevonden.
+            </div>
+        </section>
+
+    </div>
+</section>
+
+<section class="tab-page" id="tab-logs">
+    <section class="card log-panel-full">
+        <h2>📜 Live Log</h2>
+        <pre id="live-log">Log laden...</pre>
+    </section>
+</section>
+
+</main>
+
+<footer class="statusbar">
+    <span id="statusbar-left">SDRCC v0.11.0 Live Image Pipeline</span>
+    <span id="statusbar-right">Live update elke 5 seconden</span>
+</footer>
+
+<script src="/static/dashboard.js"></script>
+    <script src="/static/js/capture_live.js"></script>
+</body>
+</html>

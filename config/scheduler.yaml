@@ -1,0 +1,5 @@
+scheduler:
+  preflight_seconds: 300
+  prepare_seconds: 90
+  lock_seconds: 30
+  restore_delay_seconds: 0

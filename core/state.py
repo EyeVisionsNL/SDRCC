@@ -9,6 +9,8 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 SDR2_STATE_FILE = STATE_DIR / "sdr2.json"
 
+_UNSET = object()
+
 
 DEFAULT_STATE = {
     "device": "sdr2",
@@ -32,49 +34,58 @@ def get_sdr2_state():
         with open(SDR2_STATE_FILE, "r", encoding="utf-8") as file:
             data = json.load(file)
 
-        state = DEFAULT_STATE.copy()
-        state.update(data)
-        return state
+        current_state = DEFAULT_STATE.copy()
+        current_state.update(data)
+        return current_state
 
     except Exception:
         return DEFAULT_STATE.copy()
 
 
-def set_sdr2_state(status=None, profile=None, locked=None, process=None):
-    state = get_sdr2_state()
+def set_sdr2_state(
+    status=_UNSET,
+    profile=_UNSET,
+    locked=_UNSET,
+    process=_UNSET,
+):
+    current_state = get_sdr2_state()
 
-    if status is not None:
-        state["status"] = status
+    if status is not _UNSET:
+        current_state["status"] = status
 
-    if profile is not None:
-        state["profile"] = profile
+    if profile is not _UNSET:
+        current_state["profile"] = profile
 
-    if locked is not None:
-        state["locked"] = locked
+    if locked is not _UNSET:
+        current_state["locked"] = locked
 
-    if process is not None:
-        state["process"] = process
+    if process is not _UNSET:
+        current_state["process"] = process
 
-    state["updated"] = _now()
+    current_state["updated"] = _now()
 
     with open(SDR2_STATE_FILE, "w", encoding="utf-8") as file:
-        json.dump(state, file, indent=2)
+        json.dump(current_state, file, indent=2)
 
-    return state
+    return current_state
 
 
 def is_sdr2_available():
-    state = get_sdr2_state()
-    return state["status"] == "idle" and state["locked"] is False
+    current_state = get_sdr2_state()
+
+    return (
+        current_state["status"] == "idle"
+        and current_state["locked"] is False
+    )
 
 
 def print_sdr2_state():
-    state = get_sdr2_state()
+    current_state = get_sdr2_state()
 
     print("SDR2 State")
     print("-----------------------------")
-    print("Status  :", state["status"])
-    print("Profile :", state["profile"])
-    print("Locked  :", "YES" if state["locked"] else "NO")
-    print("Process :", state["process"])
-    print("Updated :", state["updated"])
+    print("Status  :", current_state["status"])
+    print("Profile :", current_state["profile"])
+    print("Locked  :", "YES" if current_state["locked"] else "NO")
+    print("Process :", current_state["process"])
+    print("Updated :", current_state["updated"])

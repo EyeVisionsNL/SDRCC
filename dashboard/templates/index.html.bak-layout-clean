@@ -82,16 +82,9 @@
                     <button class="control-button" data-action="start_adsb">▶ Start ADS-B</button>
                     <button class="control-button danger" data-action="stop_adsb">■ Stop ADS-B</button>
                     <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
-                                        <button class="control-button" data-action="simulate_record">🛰 Simuleer opname</button>
+                    <button class="control-button" data-action="schedule">📅 Scheduler</button>
+                    <button class="control-button" data-action="simulate_record">🛰 Simuleer opname</button>
                     <button class="control-button danger" data-action="record">📸 Record NOW</button>
-                    <button class="control-button" data-action="profile_adsb">📡 Profiel ADS-B</button>
-                    <button class="control-button" data-action="profile_weather">🛰 Profiel Weather</button>
-                    <button class="control-button" data-action="profile_manual">🔧 Profiel Manual</button>
-                    <button class="control-button" data-action="scheduler_auto">🤖 Scheduler AUTO</button>
-                    <button class="control-button" data-action="scheduler_manual">🖐 Scheduler MANUAL</button>
-                    <button class="control-button" data-action="scheduler_paused">⏸ Scheduler PAUSED</button>
-                    <button class="control-button mission-control-button" data-mission-action="next">⏭ Mission Next</button>
-                    <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Mission Reset</button>
                 </div>
 
                 <p class="control-result" id="control-result">Geen actie gestart.</p>
@@ -110,41 +103,6 @@
                     <div class="mission-detail" id="mission-detail">-</div>
                     <div class="mission-progress">
                         <div class="mission-progress-bar" id="mission-progress-bar"></div>
-                    </div>
-
-                    <div class="scheduler-observer">
-                        <div class="scheduler-observer-row">
-                            <span>Scheduler</span>
-                            <strong id="scheduler-mode">-</strong>
-                        </div>
-                        <div class="scheduler-observer-row">
-                            <span>Observer</span>
-                            <strong id="scheduler-observer-phase">-</strong>
-                        </div>
-                        <div class="scheduler-observer-countdown" id="scheduler-countdown">
-                            T--:--:--
-                        </div>
-                        <div class="scheduler-observer-detail" id="scheduler-observer-detail">
-                            -
-                        </div>
-                        <div class="scheduler-observer-times">
-
-                            <div class="observer-time-row">
-                                <span>Preflight</span>
-                                <strong id="scheduler-preflight-at">-</strong>
-                            </div>
-
-                            <div class="observer-time-row">
-                                <span>Prepare</span>
-                                <strong id="scheduler-prepare-at">-</strong>
-                            </div>
-
-                            <div class="observer-time-row">
-                                <span>Lock</span>
-                                <strong id="scheduler-lock-at">-</strong>
-                            </div>
-
-                        </div>
                     </div>
                     <div class="mission-briefing" id="mission-briefing">
                         <div class="mission-briefing-title">🛰 Mission Briefing</div>
@@ -167,7 +125,26 @@
                 </div>
             </section>
 
+            <section class="card pass-panel highlight">
+                <h2>🛰 Volgende passage</h2>
+                <p class="value" id="next-name">-</p>
 
+                <div class="countdown-box">
+                    <div class="subtitle">Starts in</div>
+                    <div class="countdown" id="next-countdown">-</div>
+                </div>
+
+                <div class="pass-grid">
+                    <p>Start<br><strong id="next-start">-</strong></p>
+                    <p>Maximum<br><strong id="next-maximum">-</strong></p>
+                    <p>Einde<br><strong id="next-end">-</strong></p>
+                    <p>Max elevatie<br><strong id="next-elevation">-</strong></p>
+                    <p>Azimuth<br><strong id="next-azimuth">-</strong></p>
+                    <p>Frequentie<br><strong id="next-frequency">-</strong></p>
+                    <p>Mode<br><strong id="next-mode">-</strong></p>
+                    <p>Pipeline<br><strong id="next-pipeline">-</strong></p>
+                </div>
+            </section>
         </div>
 
         <div class="mission-right-stack">
@@ -191,27 +168,6 @@
                 </div>
             </section>
         </div>
-
-            <section class="card pass-panel highlight">
-                <h2>🛰 Volgende passage</h2>
-                <p class="value" id="next-name">-</p>
-
-                <div class="countdown-box">
-                    <div class="subtitle">Starts in</div>
-                    <div class="countdown" id="next-countdown">-</div>
-                </div>
-
-                <div class="pass-grid">
-                    <p>Start<br><strong id="next-start">-</strong></p>
-                    <p>Maximum<br><strong id="next-maximum">-</strong></p>
-                    <p>Einde<br><strong id="next-end">-</strong></p>
-                    <p>Max elevatie<br><strong id="next-elevation">-</strong></p>
-                    <p>Azimuth<br><strong id="next-azimuth">-</strong></p>
-                    <p>Frequentie<br><strong id="next-frequency">-</strong></p>
-                    <p>Mode<br><strong id="next-mode">-</strong></p>
-                    <p>Pipeline<br><strong id="next-pipeline">-</strong></p>
-                </div>
-            </section>
 
         <section class="card log-panel mission-timeline-panel">
             <h2>🧭 Mission Timeline</h2>

@@ -55,3 +55,25 @@
     margin-top: 14px !important;
     font-size: 13px;
 }
+
+/* Actieve Mission Scheduler-modus */
+.control-button.scheduler-auto-active {
+    background: linear-gradient(135deg, #16834f, #0f5f3a);
+    border-color: #35d58a;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(53, 213, 138, 0.35);
+}
+
+.control-button.scheduler-manual-active {
+    background: linear-gradient(135deg, #176ca8, #104d79);
+    border-color: #4ab5ff;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(74, 181, 255, 0.35);
+}
+
+.control-button.scheduler-paused-active {
+    background: linear-gradient(135deg, #a62937, #741d28);
+    border-color: #ff5a6c;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(255, 90, 108, 0.35);
+}

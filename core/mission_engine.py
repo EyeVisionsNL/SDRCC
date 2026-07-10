@@ -1,473 +1,303 @@
-#!/usr/bin/env python3
-
-import json
-import sys
-import subprocess
-import time
-from pathlib import Path
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from enum import Enum
+from threading import Lock
+from typing import Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
 
-STATE_FILE = PROJECT_ROOT / "data" / "state" / "mission_engine.json"
+class MissionState(str, Enum):
+    READY = "READY"
+    WAIT_FOR_PASS = "WAIT FOR PASS"
+    LOCK_RECEIVER = "LOCK RECEIVER"
+    RECORDING = "RECORDING"
+    DECODING = "DECODING"
+    PROCESSING = "PROCESSING"
+    ARCHIVING = "ARCHIVING"
 
-WATCH_DIRS = [
-    PROJECT_ROOT / "captures",
-    PROJECT_ROOT / "data" / "images",
-    PROJECT_ROOT / "data" / "recordings",
-    PROJECT_ROOT / "data" / "satdump",
+
+STATE_ORDER = [
+    MissionState.READY,
+    MissionState.WAIT_FOR_PASS,
+    MissionState.LOCK_RECEIVER,
+    MissionState.RECORDING,
+    MissionState.DECODING,
+    MissionState.PROCESSING,
+    MissionState.ARCHIVING,
 ]
 
-IGNORE_PARTS = [
-    "/test/",
-    "\\test\\",
-    "test_recording",
-]
 
-RECORD_EXTENSIONS = {
-    ".wav", ".raw", ".iq", ".bin", ".dat", ".s", ".cadu", ".soft",
-}
+def format_datetime(value: Optional[datetime]):
+    if value is None:
+        return None
 
-IMAGE_EXTENSIONS = {
-    ".png", ".jpg", ".jpeg", ".webp", ".bmp",
-}
-
-ALL_EXTENSIONS = RECORD_EXTENSIONS | IMAGE_EXTENSIONS
-
-MISSION_STEPS = [
-    "IDLE",
-    "WAIT FOR PASS",
-    "LOCK RECEIVER",
-    "RECORDING",
-    "DECODING",
-    "PROCESSING",
-    "ARCHIVE",
-    "READY",
-]
-
-STEP_PROGRESS = {
-    "IDLE": 0,
-    "WAIT FOR PASS": 12,
-    "LOCK RECEIVER": 25,
-    "RECORDING": 45,
-    "DECODING": 65,
-    "PROCESSING": 82,
-    "ARCHIVE": 94,
-    "READY": 100,
-}
+    return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def now_ts():
-    return int(time.time())
+def calculate_progress(state: MissionState):
+    current_index = STATE_ORDER.index(state)
+    return int((current_index / (len(STATE_ORDER) - 1)) * 100)
 
 
-def ts_text(ts=None):
-    if ts is None:
-        ts = now_ts()
-    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+@dataclass
+class MissionJob:
+    mission_id: str
+    satellite: str
+    frequency: Optional[int]
+    mode: str
+    pipeline: str
+    output_path: str
+    status: str
+    progress: int
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
+
+    def to_dict(self):
+        data = asdict(self)
+
+        data["created_at"] = format_datetime(self.created_at)
+        data["started_at"] = format_datetime(self.started_at)
+        data["ended_at"] = format_datetime(self.ended_at)
+
+        if self.frequency is not None:
+            data["frequency_mhz"] = round(self.frequency / 1_000_000, 3)
+        else:
+            data["frequency_mhz"] = None
+
+        return data
 
 
-def load_state():
-    if not STATE_FILE.exists():
-        return {}
+class MissionEngine:
+    def __init__(self):
+        self.state = MissionState.READY
+        self.started_at = datetime.now()
+        self.updated_at = datetime.now()
 
-    try:
-        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+        self.log = []
+        self.active_job: Optional[MissionJob] = None
+        self.history = []
 
+        self._lock = Lock()
+        self._log("Mission Engine initialized")
 
-def save_state(data):
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    def _now(self):
+        return datetime.now()
 
+    def _timestamp(self):
+        return self._now().strftime("%Y-%m-%d %H:%M:%S")
 
-def safe_relative(path):
-    try:
-        return str(path.relative_to(PROJECT_ROOT))
-    except Exception:
-        return str(path)
+    def _log(self, message):
+        self.log.insert(0, {
+            "time": self._timestamp(),
+            "state": self.state.value,
+            "message": message,
+        })
 
+        self.log = self.log[:100]
 
-def ignored_path(relative_path):
-    low = relative_path.lower()
-    return any(part in low for part in IGNORE_PARTS)
+    def _generate_mission_id(self):
+        return self._now().strftime("%Y%m%d-%H%M%S-%f")
 
+    def create_job(
+        self,
+        satellite="-",
+        frequency=None,
+        mode="-",
+        pipeline="-",
+        output_path="-",
+    ):
+        with self._lock:
+            if self.active_job is not None:
+                raise RuntimeError(
+                    f"Mission {self.active_job.mission_id} is nog actief."
+                )
 
-def scan_files():
-    files = {}
+            now = self._now()
 
-    for watch_dir in WATCH_DIRS:
-        if not watch_dir.exists():
-            continue
+            self.active_job = MissionJob(
+                mission_id=self._generate_mission_id(),
+                satellite=str(satellite or "-"),
+                frequency=frequency,
+                mode=str(mode or "-"),
+                pipeline=str(pipeline or "-"),
+                output_path=str(output_path or "-"),
+                status=self.state.value,
+                progress=calculate_progress(self.state),
+                created_at=now,
+            )
 
-        for path in watch_dir.rglob("*"):
-            if not path.is_file():
-                continue
+            self._log(
+                f"Mission Job aangemaakt: {self.active_job.mission_id} "
+                f"({self.active_job.satellite})"
+            )
 
-            if path.suffix.lower() not in ALL_EXTENSIONS:
-                continue
+            return self.active_job.to_dict()
 
-            relative = safe_relative(path)
+    def set_state(self, new_state):
+        if isinstance(new_state, str):
+            new_state = MissionState(new_state)
 
-            if ignored_path(relative):
-                continue
+        with self._lock:
+            old_state = self.state
+            self.state = new_state
+            self.updated_at = self._now()
 
-            try:
-                stat = path.stat()
-            except Exception:
-                continue
+            if new_state == MissionState.LOCK_RECEIVER:
+                self.started_at = self.updated_at
 
-            files[relative] = {
-                "path": relative,
-                "name": path.name,
-                "suffix": path.suffix.lower(),
-                "size": stat.st_size,
-                "mtime": int(stat.st_mtime),
+                if (
+                    self.active_job is not None
+                    and self.active_job.started_at is None
+                ):
+                    self.active_job.started_at = self.updated_at
+
+            if self.active_job is not None:
+                self.active_job.status = new_state.value
+                self.active_job.progress = calculate_progress(new_state)
+
+            self._log(
+                f"State changed: {old_state.value} -> {new_state.value}"
+            )
+
+    def next_state(self):
+        index = STATE_ORDER.index(self.state)
+
+        if self.state == MissionState.ARCHIVING:
+            self.set_state(MissionState.READY)
+            return
+
+        self.set_state(STATE_ORDER[index + 1])
+
+    def finish_job(self, success=True, error=None):
+        with self._lock:
+            if self.active_job is None:
+                return None
+
+            now = self._now()
+
+            self.active_job.ended_at = now
+            self.active_job.success = bool(success)
+            self.active_job.error = str(error) if error else None
+            self.active_job.status = (
+                "COMPLETED" if success else "FAILED"
+            )
+            self.active_job.progress = 100 if success else self.active_job.progress
+
+            completed_job = self.active_job.to_dict()
+
+            self.history.insert(0, completed_job)
+            self.history = self.history[:50]
+
+            result_text = "succesvol" if success else "met fout"
+            self._log(
+                f"Mission Job {self.active_job.mission_id} "
+                f"afgerond {result_text}"
+            )
+
+            self.active_job = None
+
+            return completed_job
+
+    def reset(self):
+        with self._lock:
+            if self.active_job is not None:
+                now = self._now()
+
+                self.active_job.ended_at = now
+                self.active_job.success = False
+                self.active_job.error = "Mission handmatig gereset"
+                self.active_job.status = "RESET"
+
+                self.history.insert(0, self.active_job.to_dict())
+                self.history = self.history[:50]
+                self.active_job = None
+
+            self.state = MissionState.READY
+            self.started_at = self._now()
+            self.updated_at = self.started_at
+            self._log("Mission reset to READY")
+
+    def status(self):
+        with self._lock:
+            return {
+                "state": self.state.value,
+                "started_at": format_datetime(self.started_at),
+                "updated_at": format_datetime(self.updated_at),
+                "log": list(self.log),
+                "states": [state.value for state in STATE_ORDER],
+                "active_job": (
+                    self.active_job.to_dict()
+                    if self.active_job is not None
+                    else None
+                ),
+                "history": list(self.history),
             }
 
-    return files
 
-
-def find_running_processes():
-    patterns = [
-        "satdump",
-        "satdump-cli",
-        "rtl_fm",
-        "rtl_sdr",
-        "rtl_tcp",
-        "sox",
-        "wxtoimg",
-        "rtl_433",
-    ]
-
-    try:
-        result = subprocess.run(
-            ["ps", "-eo", "pid=,comm=,args="],
-            text=True,
-            capture_output=True,
-            timeout=5,
-        )
-    except Exception:
-        return []
-
-    processes = []
-
-    for line in result.stdout.splitlines():
-        low = line.lower()
-
-        if "mission_engine.py" in low:
-            continue
-
-        for pattern in patterns:
-            if pattern in low:
-                parts = line.strip().split(None, 2)
-                if len(parts) >= 2:
-                    processes.append({
-                        "pid": parts[0],
-                        "command": parts[1],
-                        "args": parts[2] if len(parts) >= 3 else "",
-                        "match": pattern,
-                    })
-                break
-
-    return processes
-
-
-def changed_files(previous_files, current_files):
-    changed = []
-
-    for path, info in current_files.items():
-        previous = previous_files.get(path)
-
-        if previous is None:
-            changed.append({
-                **info,
-                "change": "new",
-                "size_delta": info["size"],
-            })
-            continue
-
-        size_delta = info["size"] - previous.get("size", 0)
-
-        if size_delta != 0 or info["mtime"] != previous.get("mtime"):
-            changed.append({
-                **info,
-                "change": "changed",
-                "size_delta": size_delta,
-            })
-
-    return changed
-
-
-def growing_record_files(changes):
-    growing = []
-
-    for item in changes:
-        if item["suffix"] not in RECORD_EXTENSIONS:
-            continue
-
-        if item.get("size_delta", 0) > 0:
-            growing.append(item)
-
-    return growing
-
-
-def recent_image_files(current_files, max_age=90):
-    ts = now_ts()
-    recent = []
-
-    for item in current_files.values():
-        if item["suffix"] not in IMAGE_EXTENSIONS:
-            continue
-
-        age = ts - item["mtime"]
-
-        if age <= max_age:
-            recent.append({
-                **item,
-                "age_seconds": age,
-            })
-
-    return sorted(recent, key=lambda x: x["mtime"], reverse=True)
-
-
-def newest_file(current_files):
-    if not current_files:
-        return None
-
-    return max(current_files.values(), key=lambda x: x["mtime"])
-
-
-def process_flags(processes):
-    matches = [p["match"] for p in processes]
-
-    return {
-        "satdump": any("satdump" in m for m in matches),
-        "recording_tool": any(m in ["rtl_fm", "rtl_sdr", "rtl_tcp", "sox"] for m in matches),
-        "decoder": any(m in ["satdump", "satdump-cli", "wxtoimg"] for m in matches),
-    }
-
-
-def get_next_pass_info():
-    try:
-        from core import passes
-
-        pass_data = passes.get_next_pass()
-        if pass_data is None:
-            return None
-
-        start_local = pass_data["start"].astimezone()
-        maximum_local = pass_data["maximum"].astimezone()
-        end_local = pass_data["end"].astimezone()
-
-        return {
-            "name": pass_data["name"],
-            "start": start_local.strftime("%Y-%m-%d %H:%M:%S"),
-            "maximum": maximum_local.strftime("%Y-%m-%d %H:%M:%S"),
-            "end": end_local.strftime("%Y-%m-%d %H:%M:%S"),
-            "start_epoch": int(start_local.timestamp()),
-            "maximum_epoch": int(maximum_local.timestamp()),
-            "end_epoch": int(end_local.timestamp()),
-            "max_elevation": float(pass_data["max_elevation"]),
-            "azimuth": float(pass_data["azimuth"]),
-            "frequency_mhz": round(pass_data["frequency"] / 1000000, 3),
-            "mode": pass_data["mode"],
-            "pipeline": pass_data.get("pipeline"),
-        }
-    except Exception:
-        return None
-
-
-def pass_state(next_pass):
-    if not next_pass:
-        return {
-            "state": "none",
-            "detail": "Geen passage bekend.",
-            "seconds_to_start": None,
-            "seconds_to_end": None,
-            "active": False,
-        }
-
-    ts = now_ts()
-    seconds_to_start = next_pass["start_epoch"] - ts
-    seconds_to_end = next_pass["end_epoch"] - ts
-
-    if next_pass["start_epoch"] <= ts <= next_pass["end_epoch"]:
-        return {
-            "state": "active",
-            "detail": f"Pass actief: {next_pass['name']}.",
-            "seconds_to_start": seconds_to_start,
-            "seconds_to_end": seconds_to_end,
-            "active": True,
-        }
-
-    if 0 < seconds_to_start <= 900:
-        minutes = max(1, round(seconds_to_start / 60))
-        return {
-            "state": "soon",
-            "detail": f"Volgende passage binnen {minutes} minuten: {next_pass['name']}.",
-            "seconds_to_start": seconds_to_start,
-            "seconds_to_end": seconds_to_end,
-            "active": False,
-        }
-
-    if seconds_to_start > 900:
-        minutes = round(seconds_to_start / 60)
-        return {
-            "state": "future",
-            "detail": f"Volgende passage over {minutes} minuten: {next_pass['name']}.",
-            "seconds_to_start": seconds_to_start,
-            "seconds_to_end": seconds_to_end,
-            "active": False,
-        }
-
-    return {
-        "state": "past",
-        "detail": "Laatste passage is voorbij.",
-        "seconds_to_start": seconds_to_start,
-        "seconds_to_end": seconds_to_end,
-        "active": False,
-    }
-
-
-def determine_phase(previous_state, current_files, changes, processes, next_pass):
-    ts = now_ts()
-    flags = process_flags(processes)
-    growing = growing_record_files(changes)
-    recent_images = recent_image_files(current_files)
-    latest = newest_file(current_files)
-    pass_info = pass_state(next_pass)
-
-    previous_phase = previous_state.get("phase", "READY")
-    previous_phase_since = int(previous_state.get("phase_since", ts))
-
-    if flags["satdump"]:
-        return "DECODING", "SatDump actief: decoder draait.", growing, recent_images, pass_info
-
-    if growing:
-        names = ", ".join(item["name"] for item in growing[:3])
-        return "RECORDING", f"Opname actief: groeiend bestand gedetecteerd ({names}).", growing, recent_images, pass_info
-
-    if flags["recording_tool"]:
-        return "RECORDING", "Opnameproces actief: SDR recorder draait.", growing, recent_images, pass_info
-
-    if recent_images:
-        image = recent_images[0]
-        age = image["age_seconds"]
-
-        if age <= 30:
-            return "PROCESSING", f"Nieuwe afbeelding verwerkt: {image['name']}.", growing, recent_images, pass_info
-
-        if previous_phase == "PROCESSING" and ts - previous_phase_since < 45:
-            return "ARCHIVE", "Product klaar, archiveren afronden.", growing, recent_images, pass_info
-
-    if latest:
-        age = ts - latest["mtime"]
-
-        if age <= 120:
-            return "PROCESSING", f"Bestanden recent gewijzigd: {latest['name']}.", growing, recent_images, pass_info
-
-    if pass_info["state"] == "active":
-        return "LOCK RECEIVER", pass_info["detail"] + " Receiver voorbereiden of wachten op opname.", growing, recent_images, pass_info
-
-    if pass_info["state"] == "soon":
-        return "WAIT FOR PASS", pass_info["detail"], growing, recent_images, pass_info
-
-    return "READY", "Geen actieve opname. Systeem klaar voor volgende passage.", growing, recent_images, pass_info
-
-
-def build_steps(active_phase):
-    active_index = MISSION_STEPS.index(active_phase) if active_phase in MISSION_STEPS else 0
-    steps = []
-
-    for index, step in enumerate(MISSION_STEPS):
-        if index < active_index:
-            status = "done"
-        elif index == active_index:
-            status = "active"
-        else:
-            status = "pending"
-
-        steps.append({
-            "name": step,
-            "status": status,
-        })
-
-    return steps
-
-
-def update_events(previous_state, phase, detail):
-    ts = now_ts()
-    events = previous_state.get("events", [])
-    previous_phase = previous_state.get("phase")
-
-    if phase != previous_phase:
-        events.insert(0, {
-            "time": ts_text(ts),
-            "phase": phase,
-            "detail": detail,
-        })
-
-    return events[:80]
+mission_engine = MissionEngine()
 
 
 def get_mission_status():
-    previous_state = load_state()
-    previous_files = previous_state.get("files", {})
+    status = mission_engine.status()
+    current_state = mission_engine.state
+    progress = calculate_progress(current_state)
 
-    current_files = scan_files()
-    changes = changed_files(previous_files, current_files)
-    processes = find_running_processes()
-    next_pass = get_next_pass_info()
-
-    phase, detail, growing, recent_images, pass_info = determine_phase(
-        previous_state,
-        current_files,
-        changes,
-        processes,
-        next_pass,
-    )
-
-    ts = now_ts()
-    previous_phase = previous_state.get("phase")
-
-    if phase == previous_phase:
-        phase_since = int(previous_state.get("phase_since", ts))
-    else:
-        phase_since = ts
-
-    events = update_events(previous_state, phase, detail)
-
-    status = {
-        "phase": phase,
-        "detail": detail,
-        "progress": STEP_PROGRESS.get(phase, 0),
-        "steps": build_steps(phase),
-        "updated": ts_text(ts),
-        "phase_since": phase_since,
-        "phase_age_seconds": ts - phase_since,
-        "files_seen": len(current_files),
-        "files_changed": len(changes),
-        "processes": processes,
-        "growing_files": growing[:5],
-        "recent_images": recent_images[:5],
-        "events": events,
-        "next_pass": next_pass,
-        "pass_state": pass_info,
+    return {
+        "phase": status["state"],
+        "state": status["state"],
+        "detail": f"Mission Engine status: {status['state']}",
+        "progress": progress,
+        "started_at": status["started_at"],
+        "updated_at": status["updated_at"],
+        "steps": [
+            {"name": state}
+            for state in status["states"]
+        ],
+        "log": status["log"],
+        "active_job": status["active_job"],
+        "history": status["history"],
     }
 
-    save_state({
-        "phase": phase,
-        "phase_since": phase_since,
-        "updated": ts,
-        "files": current_files,
-        "events": events,
-    })
 
-    return status
+def mission_create_job(
+    satellite="-",
+    frequency=None,
+    mode="-",
+    pipeline="-",
+    output_path="-",
+):
+    mission_engine.create_job(
+        satellite=satellite,
+        frequency=frequency,
+        mode=mode,
+        pipeline=pipeline,
+        output_path=output_path,
+    )
+
+    return get_mission_status()
 
 
-if __name__ == "__main__":
-    print(json.dumps(get_mission_status(), indent=2))
+def mission_finish_job(success=True, error=None):
+    mission_engine.finish_job(
+        success=success,
+        error=error,
+    )
+
+    return get_mission_status()
+
+
+def mission_next_state():
+    mission_engine.next_state()
+    return get_mission_status()
+
+
+def mission_reset():
+    mission_engine.reset()
+    return get_mission_status()
+
+
+def mission_set_state(state):
+    mission_engine.set_state(state)
+    return get_mission_status()

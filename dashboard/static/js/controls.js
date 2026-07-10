@@ -7,6 +7,12 @@ export function setupControls(refreshCallback) {
         button.addEventListener("click", async () => {
             if (button.disabled) return;
 
+            const missionAction = button.dataset.missionAction;
+            if (missionAction) {
+                await runMissionAction(missionAction, refreshCallback);
+                return;
+            }
+
             const actionId = button.dataset.action;
             if (!actionId) return;
 
@@ -18,6 +24,47 @@ export function setupControls(refreshCallback) {
             await runAction(actionId, refreshCallback);
         });
     });
+}
+
+async function runMissionAction(missionAction, refreshCallback) {
+    const resultBox = document.getElementById("control-result");
+
+    if (missionAction === "reset") {
+        const confirmed = confirm("Mission Engine terugzetten naar READY?");
+        if (!confirmed) return;
+    }
+
+    if (resultBox) {
+        resultBox.textContent = "Mission Engine actie wordt uitgevoerd...";
+        resultBox.className = "control-result warn";
+    }
+
+    try {
+        const response = await fetch(`/api/mission-engine/${missionAction}`, {
+            method: "POST",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Mission Engine actie mislukt");
+        }
+
+        if (resultBox) {
+            resultBox.textContent = `Mission Engine: ${data.phase}`;
+            resultBox.className = "control-result ok";
+        }
+
+        await refreshCallback();
+
+    } catch (error) {
+        console.error(error);
+
+        if (resultBox) {
+            resultBox.textContent = "Mission Engine fout: " + String(error);
+            resultBox.className = "control-result bad";
+        }
+    }
 }
 
 async function runAction(actionId, refreshCallback) {

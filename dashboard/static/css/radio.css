@@ -1,0 +1,81 @@
+.radio-grid-enhanced {
+    grid-template-columns: 1.2fr 1fr 1fr 1fr;
+}
+
+.radio-card {
+    min-height: 260px;
+}
+
+.radio-status-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.radio-status-row > div,
+.radio-info-grid p {
+    background: #07111f;
+    border: 1px solid #24364d;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.radio-label {
+    display: block;
+    color: #8fa7c5;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+}
+
+.radio-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.radio-devices {
+    display: grid;
+    gap: 10px;
+}
+
+.radio-device {
+    background: #07111f;
+    border: 1px solid #24364d;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.service-pill {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #2d1b1b;
+    color: #ff8b8b;
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+
+.service-pill.running {
+    background: #0c2a1a;
+    color: #25e07b;
+}
+
+.fake-spectrum {
+    height: 150px;
+    display: flex;
+    align-items: end;
+    gap: 8px;
+    padding: 14px;
+    background: linear-gradient(180deg, #07111f, #020712);
+    border: 1px solid #24364d;
+    border-radius: 10px;
+}
+
+.fake-spectrum span {
+    flex: 1;
+    display: block;
+    background: linear-gradient(180deg, #21d4ff, #168cff);
+    border-radius: 4px 4px 0 0;
+    box-shadow: 0 0 12px rgba(33, 212, 255, 0.45);
+}

@@ -1,8 +1,15 @@
+/* ==========================================================
+   SDRCC Mission Control
+   v0.9.2 Compact Mission Layout
+   ========================================================== */
+
 .topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
+
     padding: 16px 22px;
+
     background: #1e293b;
     border-bottom: 1px solid #334155;
 }
@@ -22,6 +29,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+
     font-weight: bold;
     color: #22c55e;
 }
@@ -29,9 +37,13 @@
 .status-dot {
     width: 12px;
     height: 12px;
+
     border-radius: 50%;
     background: #22c55e;
-    box-shadow: 0 0 8px #22c55e, 0 0 16px #22c55e;
+
+    box-shadow:
+        0 0 8px #22c55e,
+        0 0 16px #22c55e;
 }
 
 .tabs {
@@ -70,78 +82,44 @@
     display: block;
 }
 
-.mission-layout-v2 {
+.mission-grid {
     display: grid;
-    grid-template-columns: 200px 240px minmax(0, 1fr);
+
+    grid-template-columns: 270px 270px 1fr;
     grid-template-areas:
-        "left middle capture"
-        "pass pass timeline";
-    gap: 12px;
-    padding: 12px;
+        "system   mission  capture"
+        "controls pass     capture"
+        "timeline timeline timeline";
+
+    gap: 14px;
+    padding: 14px;
+
     align-items: start;
 }
 
-.mission-left-stack {
-    grid-area: left;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.system-panel {
+    grid-area: system;
 }
 
-.mission-middle-stack {
-    grid-area: middle;
+.controls-panel {
+    grid-area: controls;
 }
 
-.mission-right-stack {
-    grid-area: capture;
-    min-width: 0;
+.mission-panel {
+    grid-area: mission;
 }
 
 .pass-panel {
     grid-area: pass;
 }
 
-.mission-timeline-panel {
+.capture-panel {
+    grid-area: capture;
+    min-height: 520px;
+}
+
+.log-panel {
     grid-area: timeline;
-}
-
-.mission-layout-v2 .card {
-    margin: 0;
-}
-
-.mission-layout-v2 .button-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 8px;
-}
-
-.mission-layout-v2 .control-button {
-    width: 100%;
-}
-
-.mission-layout-v2 .capture-panel {
-    max-height: 560px;
-    overflow: hidden;
-}
-
-.mission-layout-v2 .capture-panel img {
-    width: 100%;
-    max-height: 390px;
-    object-fit: contain;
-}
-
-.mission-layout-v2 .capture-meta {
-    max-height: 120px;
-    overflow-y: auto;
-}
-
-.mission-layout-v2 .pass-grid {
-    grid-template-columns: repeat(4, 1fr);
-}
-
-.mission-layout-v2 .mission-timeline {
-    max-height: 230px;
-    overflow-y: auto;
 }
 
 .radio-grid,
@@ -163,8 +141,11 @@
 .statusbar {
     display: flex;
     justify-content: space-between;
+
     padding: 12px 18px;
+
     color: #94a3b8;
+
     border-top: 1px solid #334155;
     background: #111827;
 }
@@ -173,18 +154,18 @@
     color: #94a3b8;
 }
 
-@media (max-width: 1100px) {
-    .mission-layout-v2 {
-        grid-template-columns: 200px 240px;
+@media (max-width: 1400px) {
+    .mission-grid {
+        grid-template-columns: 280px 1fr;
         grid-template-areas:
-            "left middle"
-            "capture capture"
-            "pass pass"
+            "system   capture"
+            "controls capture"
+            "mission  pass"
             "timeline timeline";
     }
 }
 
-@media (max-width: 800px) {
+@media (max-width: 900px) {
     .topbar {
         flex-direction: column;
         align-items: flex-start;
@@ -195,13 +176,14 @@
         flex-wrap: wrap;
     }
 
-    .mission-layout-v2 {
+    .mission-grid {
         grid-template-columns: 1fr;
         grid-template-areas:
-            "left"
-            "middle"
-            "capture"
+            "system"
+            "controls"
+            "mission"
             "pass"
+            "capture"
             "timeline";
     }
 
@@ -215,23 +197,80 @@
     }
 }
 
-/* Fix pass card overflow */
-.mission-layout-v2 .pass-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+/* v0.12.7 Compact Mission Layout */
+.mission-grid {
+    gap: 12px;
+    align-items: start;
 }
 
-.mission-layout-v2 .pass-grid p {
-    min-width: 0;
-    margin: 0;
-    overflow-wrap: anywhere;
+.card {
+    padding: 14px;
 }
 
-.mission-layout-v2 .pass-panel {
+.card h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.system-panel,
+.controls-panel {
+    margin-bottom: 0;
+}
+
+.log-panel {
+    max-height: 280px;
     overflow: hidden;
 }
 
-.mission-layout-v2 .countdown {
-    font-size: 28px;
+.mission-timeline {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.pass-panel {
+    min-height: auto;
+}
+
+.capture-panel img,
+.image-main img {
+    max-height: 360px;
+    object-fit: contain;
+}
+
+/* v0.12.8 - Compact left column stacking */
+.mission-grid {
+    display: grid;
+    grid-template-columns: 230px 230px 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+.system-panel {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.controls-panel {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.mission-panel {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.pass-panel {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.capture-panel {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+}
+
+.log-panel {
+    grid-column: 1 / 4;
+    grid-row: 3;
 }

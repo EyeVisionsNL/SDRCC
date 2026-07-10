@@ -14,16 +14,28 @@ export function updateServiceButtons(data) {
 
     document.querySelectorAll(".control-button").forEach(button => {
         button.disabled = false;
-        button.classList.remove("disabled", "running");
+        button.classList.remove(
+            "disabled",
+            "running",
+            "scheduler-auto-active",
+            "scheduler-manual-active",
+            "scheduler-paused-active"
+        );
     });
 
     setPair("start_ais", "stop_ais", aisActive);
     setPair("start_adsb", "stop_adsb", adsbActive);
+    updateSchedulerButtons(data.scheduler);
 }
 
 function setPair(startAction, stopAction, active) {
-    const startButton = document.querySelector(`[data-action="${startAction}"]`);
-    const stopButton = document.querySelector(`[data-action="${stopAction}"]`);
+    const startButton = document.querySelector(
+        `[data-action="${startAction}"]`
+    );
+
+    const stopButton = document.querySelector(
+        `[data-action="${stopAction}"]`
+    );
 
     if (!startButton || !stopButton) return;
 
@@ -35,5 +47,35 @@ function setPair(startAction, stopAction, active) {
         stopButton.disabled = true;
         stopButton.classList.add("disabled");
         startButton.classList.add("running");
+    }
+}
+
+function updateSchedulerButtons(scheduler) {
+    if (!scheduler) return;
+
+    const mode = String(scheduler.mode || "").toUpperCase();
+
+    const autoButton = document.querySelector(
+        '[data-action="scheduler_auto"]'
+    );
+
+    const manualButton = document.querySelector(
+        '[data-action="scheduler_manual"]'
+    );
+
+    const pausedButton = document.querySelector(
+        '[data-action="scheduler_paused"]'
+    );
+
+    if (mode === "AUTO" && autoButton) {
+        autoButton.classList.add("scheduler-auto-active");
+    }
+
+    if (mode === "MANUAL" && manualButton) {
+        manualButton.classList.add("scheduler-manual-active");
+    }
+
+    if (mode === "PAUSED" && pausedButton) {
+        pausedButton.classList.add("scheduler-paused-active");
     }
 }

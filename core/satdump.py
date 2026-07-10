@@ -3,11 +3,12 @@
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import subprocess
+import time
 
 from core import passes
 from core import process_manager
 from core import state
-from core.device_manager import get_dynamic_device
+from core.device_manager import get_device
 
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "recordings"
@@ -16,11 +17,11 @@ OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "recordings"
 def check_recording_allowed():
     current_state = state.get_sdr2_state()
 
-    if current_state["profile"] != "weather":
+    if current_state["profile"] not in {"weather", "adsb"}:
         return False, (
             f"SDR2 staat nu op profiel '{current_state['profile']}'.\n"
-            "Zet eerst het profiel op weather:\n"
-            "  sdrcc profile weather"
+            "Opnemen is alleen toegestaan vanuit het profiel "
+            "weather of adsb."
         )
 
     if current_state["locked"]:
@@ -33,7 +34,7 @@ def check_recording_allowed():
             f"Process: {current_state['process']}"
         )
 
-    device = get_dynamic_device()
+    device = get_device("sdr1")
 
     if device is None:
         return False, "Geen dynamische SDR gevonden."
@@ -58,7 +59,7 @@ def build_record_command():
     if next_pass is None:
         return None
 
-    device = get_dynamic_device()
+    device = get_device("sdr1")
 
     start_local = next_pass["start"].astimezone(LOCAL_TZ)
     safe_name = next_pass["name"].replace(" ", "_").replace("/", "_")
@@ -142,6 +143,50 @@ def simulate_record():
     _print_record_data(data)
 
 
+def service_is_active(service_name):
+    result = subprocess.run(
+        ["systemctl", "is-active", service_name],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() == "active"
+
+
+def set_service_state(service_name, action):
+    result = subprocess.run(
+        ["sudo", "-n", "systemctl", action, service_name],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print(
+            f"Serviceactie mislukt: {action} {service_name}"
+        )
+
+        if result.stdout.strip():
+            print("STDOUT:", result.stdout.strip())
+
+        if result.stderr.strip():
+            print("STDERR:", result.stderr.strip())
+
+        return False
+
+    return True
+
+
+def wait_for_service_stopped(service_name, timeout=15):
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        if not service_is_active(service_name):
+            return True
+
+        time.sleep(0.5)
+
+    return False
+
+
 def record_now():
     data = build_record_command()
 
@@ -160,23 +205,35 @@ def record_now():
 
     data["output_path"].mkdir(parents=True, exist_ok=True)
 
-    print("Stopping ADS-B...")
-    process_manager.stop_profile("adsb")
+    ais_was_active = service_is_active("ais-catcher.service")
+
+    print("Preparing Weather receiver...")
+    print("-----------------------------")
+    print("Recorder     :", data["device"]["name"])
+    print("Serial       :", data["device"]["serial"])
+    print("ADS-B        : blijft actief op SDR2")
+    print("AIS actief   :", "YES" if ais_was_active else "NO")
+
+    if ais_was_active:
+        print()
+        print("Stopping AIS-Catcher...")
+
+        if not set_service_state("ais-catcher.service", "stop"):
+            return False
+
+        if not wait_for_service_stopped("ais-catcher.service"):
+            print("AIS-Catcher stopte niet volledig.")
+            return False
+
+    # Geef libusb tijd om SDR1 vrij te geven.
+    time.sleep(2)
 
     print()
     print("Starting SatDump...")
     _print_record_data(data)
 
-    state.set_sdr2_state(
-        status="recording",
-        profile="weather",
-        locked=True,
-        process="satdump",
-    )
-
     try:
         result = subprocess.run(data["command"])
-
         success = result.returncode == 0
 
         print()
@@ -189,9 +246,14 @@ def record_now():
 
     finally:
         print()
-        print("Restarting ADS-B...")
-        process_manager.start_profile("adsb")
+        print("Restoring receiver services...")
+        print("-----------------------------")
 
+        if ais_was_active:
+            print("Starting AIS-Catcher...")
+            set_service_state("ais-catcher.service", "start")
+
+        # SDR2 bleef tijdens de hele opname ADS-B draaien.
         state.set_sdr2_state(
             status="idle",
             profile="adsb",

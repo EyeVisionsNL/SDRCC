@@ -50,3 +50,151 @@
     color: #22c55e;
     font-weight: bold;
 }
+
+.mission-briefing {
+    margin-top: 12px;
+    padding: 10px;
+    background: #07111f;
+    border: 1px solid #24364d;
+    border-radius: 10px;
+}
+
+.mission-briefing-title {
+    color: #66d9ff;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.mission-briefing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.mission-briefing-grid p,
+.mission-briefing-pipeline {
+    margin: 0;
+    padding: 8px;
+    background: #020712;
+    border: 1px solid #17263a;
+    border-radius: 8px;
+    color: #9fb2cc;
+    font-size: 0.82rem;
+}
+
+.mission-briefing-grid strong,
+.mission-briefing-pipeline strong {
+    color: #ffffff;
+    font-size: 0.9rem;
+}
+
+.mission-briefing-pipeline {
+    margin-top: 8px;
+}
+
+/* v0.12.7 Compact Mission Briefing */
+.mission-engine {
+    gap: 8px;
+}
+
+.mission-briefing {
+    margin-top: 8px;
+    padding: 8px;
+}
+
+.mission-briefing-grid {
+    gap: 6px;
+}
+
+.mission-briefing-grid p,
+.mission-briefing-pipeline {
+    padding: 6px;
+    font-size: 0.78rem;
+}
+
+.mission-steps {
+    gap: 5px;
+}
+
+.mission-step {
+    padding: 5px 7px;
+    font-size: 0.78rem;
+}
+
+.scheduler-observer {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid rgba(80, 170, 255, 0.28);
+    border-radius: 10px;
+    background: rgba(8, 19, 34, 0.55);
+}
+
+.scheduler-observer-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.scheduler-observer-row span {
+    color: #8ea6bd;
+}
+
+.scheduler-observer-countdown {
+    margin: 10px 0 6px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.scheduler-observer-detail {
+    margin-bottom: 10px;
+    text-align: center;
+    color: #a9bfd2;
+    font-size: 0.85rem;
+}
+
+.scheduler-observer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.scheduler-observer-grid p {
+    margin: 0;
+    padding: 8px;
+    text-align: center;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+    color: #8ea6bd;
+    font-size: 0.78rem;
+}
+
+.scheduler-observer-grid strong {
+    color: #ffffff;
+    font-size: 0.9rem;
+}
+
+
+.scheduler-observer-times{
+    margin-top:8px;
+}
+
+.observer-time-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:3px 0;
+    font-size:12px;
+}
+
+.observer-time-row span{
+    color:#9bb2d0;
+}
+
+.observer-time-row strong{
+    color:#fff;
+    font-weight:600;
+}

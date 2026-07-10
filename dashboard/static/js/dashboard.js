@@ -8,12 +8,18 @@ import {updateLatestCapture, updateRecentCaptures} from "./capture.js";
 import {updateLiveLog, updateMissionTimeline} from "./timeline.js";
 import {updateSdr} from "./sdr.js";
 import {updateStatusbar} from "./statusbar.js";
+import {
+    updateScheduler,
+    updateSchedulerCountdown,
+    updateSchedulerServerOffset
+} from "./scheduler.js";
 
 async function refreshDashboard() {
     try {
         const data = await getStatus();
 
         updateServerOffset(data.server_time_epoch);
+        updateSchedulerServerOffset(data.server_time_epoch);
         updateSystem(data);
         updateServices(data);
         updateServiceButtons(data);
@@ -21,6 +27,7 @@ async function refreshDashboard() {
         updateNextPass(data);
         updateSdr(data);
         updateStatusbar(data);
+        updateScheduler(data);
 
         updateLiveLog(data.logs);
         updateMissionTimeline(data.logs);
@@ -51,3 +58,4 @@ refreshDashboard();
 
 setInterval(refreshDashboard, 5000);
 setInterval(updateCountdown, 1000);
+setInterval(updateSchedulerCountdown, 1000);

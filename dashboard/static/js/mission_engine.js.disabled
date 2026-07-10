@@ -1,0 +1,116 @@
+(() => {
+    async function fetchMissionEngine() {
+        const response = await fetch("/api/mission-engine", {
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            throw new Error("Mission Engine API fout");
+        }
+
+        return await response.json();
+    }
+
+    function setMissionText(id, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
+    }
+
+    function updateMissionSteps(steps) {
+        const container = document.getElementById("mission-steps");
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = "";
+
+        for (const step of steps || []) {
+            const item = document.createElement("div");
+            item.className = `mission-step ${step.status || "pending"}`;
+
+            if (step.status === "active") {
+                item.textContent = `➤ ${step.name}`;
+            } else {
+                item.textContent = step.name;
+            }
+
+            container.appendChild(item);
+        }
+    }
+
+    function updateMissionProgress(progress) {
+        const bar = document.getElementById("mission-progress-bar");
+        if (!bar) {
+            return;
+        }
+
+        bar.style.width = `${progress || 0}%`;
+    }
+
+    function updateMissionTimeline(events) {
+        const container = document.getElementById("mission-timeline");
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = "";
+
+        if (!events || events.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "timeline-empty";
+            empty.textContent = "Nog geen fasewissels.";
+            container.appendChild(empty);
+            return;
+        }
+
+        for (const event of events.slice(0, 12)) {
+            const row = document.createElement("div");
+            row.className = "timeline-item";
+
+            const time = document.createElement("div");
+            time.className = "timeline-time";
+            time.textContent = event.time || "-";
+
+            const body = document.createElement("div");
+            body.className = "timeline-body";
+
+            const phase = document.createElement("strong");
+            phase.textContent = event.phase || "-";
+
+            const detail = document.createElement("span");
+            detail.textContent = event.detail ? ` ${event.detail}` : "";
+
+            body.appendChild(phase);
+            body.appendChild(detail);
+
+            row.appendChild(time);
+            row.appendChild(body);
+
+            container.appendChild(row);
+        }
+    }
+
+    async function updateMissionEngine() {
+        try {
+            const data = await fetchMissionEngine();
+
+            setMissionText("mission-phase", data.phase || "-");
+            setMissionText("mission-detail", data.detail || "-");
+
+            updateMissionProgress(data.progress || 0);
+            updateMissionSteps(data.steps || []);
+            updateMissionTimeline(data.events || []);
+        } catch (error) {
+            setMissionText("mission-phase", "IDLE");
+            setMissionText("mission-detail", `Mission Engine niet bereikbaar: ${error.message}`);
+            updateMissionProgress(0);
+            updateMissionSteps([]);
+            updateMissionTimeline([]);
+        }
+    }
+
+    updateMissionEngine();
+    setInterval(updateMissionEngine, 2500);
+})();

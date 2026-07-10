@@ -77,16 +77,3 @@
     color: #ef4444;
     font-weight: bold;
 }
-
-/* v0.12.7 Compact System Panel */
-.system-meter {
-    margin-bottom: 8px;
-}
-
-.system-meter-top {
-    margin-bottom: 4px;
-}
-
-.uptime {
-    margin-bottom: 0;
-}
