@@ -98,6 +98,9 @@
                 <img id="capture-image" src="" alt="Laatste capture">
                 <div class="capture-meta">
                     <p><strong id="capture-name">-</strong></p>
+                    <p>Satelliet: <span id="capture-satellite">-</span></p>
+                    <p>Product: <span id="capture-product">-</span></p>
+                    <p>Resolutie: <span id="capture-resolution">-</span></p>
                     <p>Gewijzigd: <span id="capture-modified">-</span></p>
                     <p>Grootte: <span id="capture-size">-</span> KB</p>
                 </div>
@@ -196,7 +199,7 @@
     <div class="images-grid">
 
         <section class="card image-main">
-            <h2>📸 Laatste ontvangst</h2>
+            <h2>📸 Laatste opname</h2>
 
             <div id="capture-empty-images" class="capture-empty">
                 Nog geen afbeelding gevonden.
@@ -206,6 +209,10 @@
                 <img id="capture-image-images" src="" alt="Laatste capture">
                 <div class="capture-meta">
                     <p><strong id="capture-name-images">-</strong></p>
+                    <p>Satelliet: <span id="capture-satellite-images">-</span></p>
+                    <p>Pipeline: <span id="capture-pipeline-images">-</span></p>
+                    <p>Product: <span id="capture-product-images">-</span></p>
+                    <p>Resolutie: <span id="capture-resolution-images">-</span></p>
                     <p>Gewijzigd: <span id="capture-modified-images">-</span></p>
                     <p>Grootte: <span id="capture-size-images">-</span> KB</p>
                 </div>
@@ -214,10 +221,17 @@
 
         <section class="card">
             <h2>🛰 Image Pipeline</h2>
-            <p>NOAA APT: <span class="warn">standby</span></p>
-            <p>METEOR LRPT: <span class="warn">standby</span></p>
-            <p>SatDump: <span class="warn">standby</span></p>
-            <p>Archive: <span class="warn">standby</span></p>
+            <p>Laatste satelliet: <span id="image-pipeline-satellite" class="warn">-</span></p>
+            <p>Pipeline: <span id="image-pipeline-type" class="warn">-</span></p>
+            <p>Product: <span id="image-pipeline-product" class="warn">-</span></p>
+            <p>Status: <span id="image-pipeline-status" class="warn">standby</span></p>
+
+            <hr>
+
+            <h3>Laatste opnames</h3>
+            <div id="recent-captures" class="recent-captures">
+                Nog geen opnames gevonden.
+            </div>
         </section>
 
     </div>
@@ -233,7 +247,7 @@
 </main>
 
 <footer class="statusbar">
-    <span id="statusbar-left">SDRCC v0.10.0 Mission Engine</span>
+    <span id="statusbar-left">SDRCC v0.11.0 Live Image Pipeline</span>
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 

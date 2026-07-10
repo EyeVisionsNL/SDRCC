@@ -143,7 +143,99 @@ def read_log_lines(limit=120):
         return [f"Log lezen mislukt: {error}"]
 
 
-def find_latest_capture():
+def detect_image_size(path):
+    try:
+        with path.open("rb") as file:
+            header = file.read(32)
+
+        if header.startswith(b"\x89PNG\r\n\x1a\n"):
+            width = int.from_bytes(header[16:20], "big")
+            height = int.from_bytes(header[20:24], "big")
+            return width, height
+
+        if header.startswith(b"\xff\xd8"):
+            with path.open("rb") as file:
+                file.read(2)
+                while True:
+                    marker_start = file.read(1)
+                    if not marker_start:
+                        break
+                    if marker_start != b"\xff":
+                        continue
+
+                    marker = file.read(1)
+                    while marker == b"\xff":
+                        marker = file.read(1)
+
+                    if marker in [b"\xc0", b"\xc2"]:
+                        file.read(3)
+                        height = int.from_bytes(file.read(2), "big")
+                        width = int.from_bytes(file.read(2), "big")
+                        return width, height
+
+                    length_bytes = file.read(2)
+                    if len(length_bytes) != 2:
+                        break
+                    length = int.from_bytes(length_bytes, "big")
+                    file.seek(length - 2, 1)
+
+    except Exception:
+        return None, None
+
+    return None, None
+
+
+def classify_capture(path):
+    name = path.name.lower()
+
+    if "meteor" in name or "m2" in name:
+        satellite = "METEOR"
+        pipeline = "LRPT"
+    elif "noaa" in name:
+        satellite = "NOAA"
+        pipeline = "APT"
+    else:
+        satellite = "Onbekend"
+        pipeline = "Onbekend"
+
+    if "rgb" in name:
+        product = "RGB Composite"
+    elif "ir" in name or "thermal" in name:
+        product = "Infrared / Thermal"
+    elif "221" in name:
+        product = "221 Composite"
+    else:
+        product = "Image"
+
+    return satellite, pipeline, product
+
+
+def capture_to_dict(path):
+    stat = path.stat()
+    relative = path.relative_to(PROJECT_ROOT)
+    age_seconds = int(datetime.now().timestamp() - stat.st_mtime)
+    width, height = detect_image_size(path)
+    satellite, pipeline, product = classify_capture(path)
+
+    return {
+        "filename": path.name,
+        "relative_path": str(relative),
+        "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+        "size_kb": round(stat.st_size / 1024, 1),
+        "size_mb": round(stat.st_size / 1024 / 1024, 2),
+        "age_seconds": age_seconds,
+        "live": age_seconds <= 60,
+        "url": "/capture/" + str(relative).replace("\\", "/"),
+        "width": width,
+        "height": height,
+        "resolution": f"{width}x{height}" if width and height else "-",
+        "satellite": satellite,
+        "pipeline": pipeline,
+        "product": product,
+    }
+
+
+def find_capture_files():
     allowed_extensions = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
     candidates = []
 
@@ -155,24 +247,18 @@ def find_latest_capture():
             if path.is_file() and path.suffix.lower() in allowed_extensions:
                 candidates.append(path)
 
-    if not candidates:
+    return sorted(candidates, key=lambda path: path.stat().st_mtime, reverse=True)
+
+
+def find_latest_capture():
+    files = find_capture_files()
+    if not files:
         return None
+    return capture_to_dict(files[0])
 
-    latest = max(candidates, key=lambda path: path.stat().st_mtime)
-    stat = latest.stat()
-    relative = latest.relative_to(PROJECT_ROOT)
 
-    age_seconds = int(datetime.now().timestamp() - stat.st_mtime)
-
-    return {
-        "filename": latest.name,
-        "relative_path": str(relative),
-        "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
-        "size_kb": round(stat.st_size / 1024, 1),
-        "age_seconds": age_seconds,
-        "live": age_seconds <= 60,
-        "url": "/capture/" + str(relative).replace("\\", "/"),
-    }
+def recent_captures(limit=10):
+    return [capture_to_dict(path) for path in find_capture_files()[:limit]]
 
 
 def mission_engine(next_pass, latest_capture, logs):
@@ -240,6 +326,7 @@ def get_dashboard_data():
     adsb = service_state("readsb.service")
     logs = read_log_lines()
     latest_capture = find_latest_capture()
+    captures = recent_captures()
 
     return {
         "server_time_epoch": int(datetime.now().timestamp()),
@@ -252,6 +339,7 @@ def get_dashboard_data():
         "system": system_stats.get_stats(),
         "logs": logs,
         "latest_capture": latest_capture,
+        "recent_captures": captures,
         "mission": mission_engine(next_pass, latest_capture, logs),
         "actions": [{"id": action_id, "label": data["label"]} for action_id, data in ACTIONS.items()],
     }
