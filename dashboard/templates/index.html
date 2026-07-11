@@ -20,8 +20,17 @@
 <body>
 <header class="topbar">
     <div class="brand-block">
-        <h1>📡 SDR Control Center</h1>
-        <p>Mission Control · Satellietontvangst · Luchtvaart · Scheepvaart</p>
+        <img
+            class="brand-logo"
+            src="/static/assets/sdrcc.png"
+            alt="SDRCC-logo"
+        >
+        <div class="brand-copy">
+            <div class="brand-title-row">
+                <h1>SDR Control Center</h1>
+            </div>
+            <p>Mission Control · Satellietontvangst · Luchtvaart · Scheepvaart</p>
+        </div>
     </div>
     <div class="topbar-status">
         <span class="status-dot"></span>
@@ -185,8 +194,9 @@
         </section>
 
         <section class="card log-panel mission-timeline-panel">
-            <h2>🧭 Mission Timeline</h2>
-            <div id="mission-timeline" class="mission-timeline"><div class="timeline-empty">Timeline laden...</div></div>
+            <h2>🧭 Live Event Timeline</h2>
+            <div id="timeline-filters" class="timeline-toolbar" aria-label="Eventfilters"></div>
+            <div id="mission-timeline" class="mission-timeline" aria-live="polite"><div class="timeline-empty">Event Timeline laden...</div></div>
         </section>
     </div>
 </section>
