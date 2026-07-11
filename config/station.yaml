@@ -5,15 +5,24 @@ station:
   latitude: 51.908401
   longitude: 4.351168
   altitude_m: 6
-
 sdr1:
-  serial: "05419737"
-  name: "AIS Receiver"
-  task: "ais"
+  serial: 05419737
+  name: AIS Receiver
+  task: ais
   locked: true
-
 sdr2:
-  serial: "24006572"
-  name: "Dynamic Receiver"
-  task: "weather"
+  serial: '24006572'
+  name: Dynamic Receiver
+  task: weather
   locked: false
+assignments:
+  weather: sdr2
+  ais: sdr1
+  adsb: sdr2
+weather_rf:
+  gain_mode: auto
+  gain_db: 38.6
+  dc_block: true
+  iq_swap: false
+  spectrum_span_hz: 1000000
+  spectrum_bin_hz: 10000

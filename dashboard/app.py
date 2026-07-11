@@ -13,7 +13,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from flask import Flask, jsonify, render_template, request, send_file, abort
 
 from core import device_manager
+from core import config as config_core
 from core import passes
+from core import rf_diagnostics
 from core import state
 from core import tle
 from core import system_stats
@@ -339,6 +341,56 @@ def get_dashboard_data():
     latest_capture = find_latest_capture()
     captures = recent_captures()
     mission = get_mission_data_for_status()
+    scheduler = mission_scheduler_core.get_scheduler_status()
+    assignments = config_core.get_receiver_assignments()
+
+    mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
+    observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
+    weather_active = mission_phase in {"LOCK RECEIVER", "RECORDING"} or observer_phase in {
+        "PREPARE RECEIVER",
+        "FINAL APPROACH",
+        "PASS ACTIVE",
+    }
+
+    for device in devices:
+        device_id = device.get("id")
+
+        default_tasks = []
+        if assignments.get("ais") == device_id:
+            default_tasks.append("AIS")
+        if assignments.get("adsb") == device_id:
+            default_tasks.append("ADS-B")
+        default_task = " / ".join(default_tasks) if default_tasks else "Vrij"
+
+        current_task = "Vrij"
+        active_detail = "Geen actieve service"
+        status_label = "AVAILABLE"
+
+        if weather_active and assignments.get("weather") == device_id:
+            current_task = "Weather / METEOR"
+            active_detail = "Actieve satellietmissie"
+            status_label = "LOCKED"
+        elif assignments.get("ais") == device_id and ais.get("active"):
+            current_task = "AIS"
+            active_detail = "ais-catcher.service"
+            status_label = "IN USE"
+        elif assignments.get("adsb") == device_id and adsb.get("active"):
+            current_task = "ADS-B"
+            active_detail = "readsb.service"
+            status_label = "IN USE"
+
+        next_task = (
+            "Weather / METEOR"
+            if assignments.get("weather") == device_id and not weather_active
+            else "-"
+        )
+
+        device["default_task"] = default_task
+        device["current_task"] = current_task
+        device["next_task"] = next_task
+        device["active_detail"] = active_detail
+        device["status_label"] = status_label
+        device["in_use"] = status_label in {"IN USE", "LOCKED"}
 
     return {
         "server_time_epoch": int(datetime.now().timestamp()),
@@ -347,13 +399,15 @@ def get_dashboard_data():
         "ais": ais,
         "adsb": adsb,
         "devices": devices,
+        "assignments": assignments,
+        "weather_rf": config_core.get_weather_rf_config(),
         "tle_present": tle.exists(),
         "system": system_stats.get_stats(),
         "logs": logs,
         "latest_capture": latest_capture,
         "recent_captures": captures,
         "mission": mission,
-        "scheduler": mission_scheduler_core.get_scheduler_status(),
+        "scheduler": scheduler,
         "actions": [{"id": action_id, "label": data["label"]} for action_id, data in ACTIONS.items()],
     }
 
@@ -524,26 +578,30 @@ def handle_profile_action(action):
     write_log(f"Profielwissel gestart: {profile_name}")
 
     if profile_name == "weather":
-        ais_result = run_systemctl("stop", "ais-catcher.service")
-
-        if ais_result.returncode != 0:
+        device = device_manager.get_weather_device()
+        if device is None:
             return jsonify({
                 "ok": False,
-                "message": "AIS-Catcher kon niet worden gestopt.",
-                "error": ais_result.stderr,
-            }), 500
-
-        if not wait_for_service("ais-catcher.service", "inactive"):
-            return jsonify({
-                "ok": False,
-                "message": "AIS-Catcher stopte niet volledig.",
-            }), 500
-
-        if not wait_for_service("readsb.service", "active"):
-            return jsonify({
-                "ok": False,
-                "message": "ADS-B draait niet meer op SDR2.",
-            }), 500
+                "message": "Geen Weather-ontvanger toegewezen.",
+            }), 400
+        conflict_service = device_manager.get_conflicting_service(device["id"])
+        if conflict_service and service_state(conflict_service)["active"]:
+            result = run_systemctl("stop", conflict_service)
+            if result.returncode != 0:
+                return jsonify({
+                    "ok": False,
+                    "message": f"{conflict_service} kon niet worden gestopt.",
+                    "error": result.stderr,
+                }), 500
+            if not wait_for_service(conflict_service, "inactive"):
+                return jsonify({
+                    "ok": False,
+                    "message": f"{conflict_service} stopte niet volledig.",
+                }), 500
+        write_log(
+            f"Weather-profiel gebruikt {device['number']} "
+            f"({device['serial']})"
+        )
 
     elif profile_name == "adsb":
         ais_result = run_systemctl("start", "ais-catcher.service")
@@ -692,6 +750,8 @@ autopilot_runtime = {
     "locked": False,
     "record_started": False,
     "record_data": None,
+    "restore_service": None,
+    "restore_service_was_active": False,
 }
 
 
@@ -709,30 +769,39 @@ def reset_autopilot_runtime(target_pass=None):
         "locked": False,
         "record_started": False,
         "record_data": None,
+        "restore_service": None,
+        "restore_service_was_active": False,
     })
 
 
 def autopilot_prepare_receiver():
     write_log("AUTO: T-90 ontvanger voorbereiden")
+    device = device_manager.get_weather_device()
+    if device is None:
+        raise RuntimeError("Geen Weather-ontvanger toegewezen")
 
-    ais_result = run_systemctl("stop", "ais-catcher.service")
+    conflict_service = device_manager.get_conflicting_service(device["id"])
+    was_active = bool(
+        conflict_service
+        and service_state(conflict_service)["active"]
+    )
+    autopilot_runtime["restore_service"] = conflict_service
+    autopilot_runtime["restore_service_was_active"] = was_active
 
-    if ais_result.returncode != 0:
-        raise RuntimeError(
-            "AIS-Catcher kon niet worden gestopt: "
-            + ais_result.stderr.strip()
-        )
-
-    if not wait_for_service("ais-catcher.service", "inactive"):
-        raise RuntimeError("AIS-Catcher stopte niet volledig")
-
-    if not wait_for_service("readsb.service", "active"):
-        raise RuntimeError("ADS-B draait niet meer op SDR2")
+    if was_active:
+        result = run_systemctl("stop", conflict_service)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"{conflict_service} kon niet worden gestopt: "
+                + result.stderr.strip()
+            )
+        if not wait_for_service(conflict_service, "inactive"):
+            raise RuntimeError(f"{conflict_service} stopte niet volledig")
 
     profiles.set_active_profile("weather")
-
     write_log(
-        "AUTO: Weather actief op SDR1; ADS-B blijft actief op SDR2"
+        f"AUTO: Weather actief op {device['number']} "
+        f"({device['serial']}); conflict={conflict_service or 'geen'}"
     )
 
 
@@ -794,30 +863,52 @@ def monitor_auto_record_process(process):
             for line in stderr.strip().splitlines():
                 write_log("ERROR: " + line)
 
-        if process.returncode == 0:
-            write_log("AUTO: SatDump-opname succesvol afgerond")
+        record_data = autopilot_runtime.get("record_data") or {}
+        analysis = satdump_core.analyze_satdump_result(
+            returncode=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            output_path=record_data.get("output_path"),
+        )
 
+        write_log(
+            "AUTO: SatDump-resultaat "
+            f"{analysis['result']} - {analysis['detail']}"
+        )
+
+        if analysis["result"] == "SUCCESS":
             mission_engine_core.mission_set_state("DECODING")
             time.sleep(1)
-
             mission_engine_core.mission_set_state("PROCESSING")
             time.sleep(1)
-
             mission_engine_core.mission_set_state("ARCHIVING")
             time.sleep(1)
 
-            mission_engine_core.mission_finish_job(success=True)
+        metrics = {
+            "peak_snr_db": analysis.get("peak_snr_db"),
+            "frames": analysis.get("frames"),
+            "cadu_bytes": analysis.get("cadu_bytes"),
+            "image_count": analysis.get("image_count"),
+            "duration_seconds": record_data.get("timeout_seconds"),
+        }
 
-        else:
-            error_message = (
-                f"SatDump gestopt met foutcode {process.returncode}"
-            )
-            write_log(f"AUTO: {error_message}")
+        write_log(
+            "AUTO: Mission Summary | "
+            f"satellite={record_data.get('pass', {}).get('name', '-')} | "
+            f"duration={metrics.get('duration_seconds', '-')}s | "
+            f"peak_snr={metrics.get('peak_snr_db')} dB | "
+            f"frames={metrics.get('frames', 0)} | "
+            f"images={metrics.get('image_count', 0)} | "
+            f"result={analysis['result']}"
+        )
 
-            mission_engine_core.mission_finish_job(
-                success=False,
-                error=error_message,
-            )
+        mission_engine_core.mission_finish_job(
+            success=analysis["success"],
+            result=analysis["result"],
+            detail=analysis["detail"],
+            error=analysis.get("error"),
+            metrics=metrics,
+        )
 
     except Exception as error:
         write_log(f"AUTO: procesbewaking mislukt: {error}")
@@ -834,34 +925,25 @@ def monitor_auto_record_process(process):
             )
 
     finally:
-        write_log("AUTO: AIS-Catcher herstellen")
+        restore_service = autopilot_runtime.get("restore_service")
+        restore_needed = autopilot_runtime.get("restore_service_was_active", False)
 
-        ais_result = run_systemctl(
-            "start",
-            "ais-catcher.service",
-        )
-
-        if ais_result.returncode != 0:
-            write_log(
-                "AUTO ERROR: AIS-Catcher kon niet worden gestart: "
-                + ais_result.stderr.strip()
-            )
-        elif not wait_for_service(
-            "ais-catcher.service",
-            "active",
-        ):
-            write_log(
-                "AUTO ERROR: AIS-Catcher werd niet actief"
-            )
-        else:
-            write_log("AUTO: AIS-Catcher is weer actief")
+        if restore_service and restore_needed:
+            write_log(f"AUTO: {restore_service} herstellen")
+            result = run_systemctl("start", restore_service)
+            if result.returncode != 0:
+                write_log(
+                    f"AUTO ERROR: {restore_service} kon niet worden gestart: "
+                    + result.stderr.strip()
+                )
+            elif not wait_for_service(restore_service, "active"):
+                write_log(f"AUTO ERROR: {restore_service} werd niet actief")
+            else:
+                write_log(f"AUTO: {restore_service} is weer actief")
 
         profiles.set_active_profile("adsb")
         mission_engine_core.mission_set_state("READY")
-
-        write_log(
-            "AUTO: missie afgerond; profiel terug naar ADS-B"
-        )
+        write_log("AUTO: missie afgerond; profiel terug naar ADS-B")
 
 
 def autopilot_start_recording():
@@ -1003,10 +1085,12 @@ def mission_autopilot_worker():
                     "ontvangers herstellen"
                 )
 
-                run_systemctl(
-                    "start",
-                    "ais-catcher.service",
-                )
+                restore_service = autopilot_runtime.get("restore_service")
+                if (
+                    restore_service
+                    and autopilot_runtime.get("restore_service_was_active")
+                ):
+                    run_systemctl("start", restore_service)
                 profiles.set_active_profile("adsb")
                 mission_engine_core.mission_reset()
                 reset_autopilot_runtime()
@@ -1048,6 +1132,17 @@ def index():
 @app.route("/api/status")
 def api_status():
     return jsonify(get_dashboard_data())
+
+
+@app.route("/api/mission-scheduler")
+def api_mission_scheduler():
+    try:
+        return jsonify(mission_scheduler_core.get_scheduler_status())
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "error": str(error),
+        }), 500
 
 
 @app.route("/api/mission-engine")
@@ -1104,6 +1199,87 @@ def api_mission_engine_finish_recording():
         }), 500
 
 
+
+@app.route("/api/receiver-assignment", methods=["POST"])
+def api_receiver_assignment():
+    payload = request.get_json(silent=True) or {}
+    device_id = payload.get("weather")
+    mission = mission_engine_core.get_mission_status()
+    if (
+        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
+        or autopilot_runtime.get("prepared")
+        or autopilot_runtime.get("locked")
+        or autopilot_runtime.get("record_started")
+    ):
+        return jsonify({
+            "ok": False,
+            "message": "Receiverkeuze kan niet tijdens een actieve missie.",
+        }), 409
+    try:
+        device = device_manager.get_device(device_id)
+        if device is None:
+            raise ValueError("Onbekende SDR-keuze")
+        assignments = config_core.set_weather_receiver(device_id)
+        write_log(
+            f"Weather-ontvanger gewijzigd naar {device['number']} "
+            f"({device['serial']})"
+        )
+        return jsonify({
+            "ok": True,
+            "message": f"Weather gebruikt nu {device['number']}.",
+            "assignments": assignments,
+            "device": device,
+        })
+    except Exception as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+
+
+
+@app.route("/api/weather-rf", methods=["GET", "POST"])
+def api_weather_rf():
+    if request.method == "GET":
+        return jsonify({"ok": True, "settings": config_core.get_weather_rf_config()})
+    payload = request.get_json(silent=True) or {}
+    mission = get_mission_data_for_status()
+    scheduler = mission_scheduler_core.get_scheduler_status()
+    mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
+    observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
+    blocked = mission_phase not in {"", "READY", "WAIT FOR PASS"} or observer_phase in {
+        "PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"
+    }
+    if blocked:
+        return jsonify({"ok": False, "message": "RF-instellingen zijn geblokkeerd tijdens een missie."}), 409
+    try:
+        settings = config_core.set_weather_rf_config(payload)
+        write_log(f"Weather RF-instellingen gewijzigd: mode={settings['gain_mode']} gain={settings['gain_db']} dB")
+        return jsonify({"ok": True, "settings": settings, "message": "RF-instellingen opgeslagen."})
+    except ValueError as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+
+
+@app.route("/api/weather-spectrum", methods=["POST"])
+def api_weather_spectrum():
+    payload = request.get_json(silent=True) or {}
+    try:
+        center_hz = int(payload.get("frequency_hz") or 137100000)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "message": "Ongeldige frequentie."}), 400
+    if not 24000000 <= center_hz <= 1766000000:
+        return jsonify({"ok": False, "message": "Frequentie valt buiten het RTL-SDR-bereik."}), 400
+    mission = get_mission_data_for_status()
+    scheduler = mission_scheduler_core.get_scheduler_status()
+    mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
+    observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
+    busy = mission_phase not in {"", "READY", "WAIT FOR PASS"} or observer_phase in {
+        "PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"
+    }
+    try:
+        result = rf_diagnostics.scan_spectrum(center_hz, mission_busy=busy)
+        write_log(f"Spectrumscan uitgevoerd op {center_hz / 1e6:.3f} MHz met {result['device']['number']}")
+        return jsonify({"ok": True, "spectrum": result})
+    except RuntimeError as error:
+        write_log(f"Spectrumscan mislukt: {error}")
+        return jsonify({"ok": False, "message": str(error)}), 409
 
 @app.route("/api/capture-status")
 def api_capture_status():

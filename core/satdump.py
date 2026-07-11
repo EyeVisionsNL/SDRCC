@@ -6,9 +6,10 @@ import subprocess
 import time
 
 from core import passes
+from core import config as config_core
 from core import process_manager
 from core import state
-from core.device_manager import get_device
+from core.device_manager import get_conflicting_service, get_weather_device
 
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "recordings"
@@ -16,6 +17,7 @@ OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "recordings"
 
 def check_recording_allowed():
     current_state = state.get_sdr2_state()
+    device = get_weather_device()
 
     if current_state["profile"] not in {"weather", "adsb"}:
         return False, (
@@ -24,17 +26,15 @@ def check_recording_allowed():
             "weather of adsb."
         )
 
-    if current_state["locked"]:
+    if device and device["id"] == "sdr2" and current_state["locked"]:
         return False, "SDR2 is gelocked en mag nu niet gebruikt worden."
 
-    if current_state["status"] != "idle":
+    if device and device["id"] == "sdr2" and current_state["status"] != "idle":
         return False, (
             f"SDR2 is niet vrij.\n"
             f"Status : {current_state['status']}\n"
             f"Process: {current_state['process']}"
         )
-
-    device = get_device("sdr1")
 
     if device is None:
         return False, "Geen dynamische SDR gevonden."
@@ -59,7 +59,7 @@ def build_record_command():
     if next_pass is None:
         return None
 
-    device = get_device("sdr1")
+    device = get_weather_device()
 
     start_local = next_pass["start"].astimezone(LOCAL_TZ)
     safe_name = next_pass["name"].replace(" ", "_").replace("/", "_")
@@ -85,6 +85,14 @@ def build_record_command():
         "--timeout",
         str(timeout_seconds),
     ]
+
+    rf = config_core.get_weather_rf_config()
+    if rf["gain_mode"] == "manual":
+        command.extend(["--gain", str(rf["gain_db"])])
+    if rf["dc_block"]:
+        command.append("--dc_block")
+    if rf["iq_swap"]:
+        command.append("--iq_swap")
 
     return {
         "allowed": True,
@@ -205,24 +213,22 @@ def record_now():
 
     data["output_path"].mkdir(parents=True, exist_ok=True)
 
-    ais_was_active = service_is_active("ais-catcher.service")
+    conflict_service = get_conflicting_service(data["device"]["id"])
+    conflict_was_active = bool(conflict_service and service_is_active(conflict_service))
 
     print("Preparing Weather receiver...")
     print("-----------------------------")
     print("Recorder     :", data["device"]["name"])
     print("Serial       :", data["device"]["serial"])
-    print("ADS-B        : blijft actief op SDR2")
-    print("AIS actief   :", "YES" if ais_was_active else "NO")
+    print("Conflict     :", conflict_service or "geen")
 
-    if ais_was_active:
+    if conflict_was_active:
         print()
-        print("Stopping AIS-Catcher...")
-
-        if not set_service_state("ais-catcher.service", "stop"):
+        print(f"Stopping {conflict_service}...")
+        if not set_service_state(conflict_service, "stop"):
             return False
-
-        if not wait_for_service_stopped("ais-catcher.service"):
-            print("AIS-Catcher stopte niet volledig.")
+        if not wait_for_service_stopped(conflict_service):
+            print(f"{conflict_service} stopte niet volledig.")
             return False
 
     # Geef libusb tijd om SDR1 vrij te geven.
@@ -249,11 +255,10 @@ def record_now():
         print("Restoring receiver services...")
         print("-----------------------------")
 
-        if ais_was_active:
-            print("Starting AIS-Catcher...")
-            set_service_state("ais-catcher.service", "start")
+        if conflict_was_active and conflict_service:
+            print(f"Starting {conflict_service}...")
+            set_service_state(conflict_service, "start")
 
-        # SDR2 bleef tijdens de hele opname ADS-B draaien.
         state.set_sdr2_state(
             status="idle",
             profile="adsb",
@@ -280,3 +285,88 @@ def _print_record_data(data):
     print()
     print("Command:")
     print(" ".join(data["command"]))
+
+
+def analyze_satdump_result(returncode, stdout="", stderr="", output_path=None):
+    """Classificeer SatDump en lever een compacte missiesamenvatting."""
+    import re
+
+    combined = f"{stdout or ''}\n{stderr or ''}"
+    upper = combined.upper()
+
+    cadu_bytes = 0
+    image_count = 0
+    if output_path:
+        output_dir = Path(output_path)
+        if output_dir.exists():
+            cadu_bytes = sum(
+                item.stat().st_size
+                for item in output_dir.rglob("*.cadu")
+                if item.is_file()
+            )
+            image_count = sum(
+                1
+                for pattern in ("*.png", "*.jpg", "*.jpeg")
+                for item in output_dir.rglob(pattern)
+                if item.is_file()
+            )
+
+    cadu_size = 8192
+    frames = cadu_bytes // cadu_size
+
+    snr_values = [
+        float(value)
+        for value in re.findall(r"SNR\s*:\s*(-?\d+(?:\.\d+)?)\s*DB", upper)
+    ]
+    peak_snr = max(snr_values) if snr_values else None
+
+    metrics = {
+        "peak_snr_db": peak_snr,
+        "frames": frames,
+        "cadu_bytes": cadu_bytes,
+        "image_count": image_count,
+    }
+
+    if returncode != 0:
+        detail = f"SatDump stopte met foutcode {returncode}"
+        return {
+            "success": False,
+            "result": "FAILED",
+            "detail": detail,
+            "error": detail,
+            **metrics,
+        }
+
+    if cadu_bytes > 0 or "DEFRAMER : SYNC" in upper:
+        detail = (
+            f"Decode voltooid; {frames} frames, "
+            f"{cadu_bytes} bytes CADU-data, {image_count} afbeelding(en)"
+        )
+        return {
+            "success": True,
+            "result": "SUCCESS",
+            "detail": detail,
+            "error": None,
+            **metrics,
+        }
+
+    if "NOSYNC" in upper and peak_snr is not None:
+        return {
+            "success": False,
+            "result": "NO SYNC",
+            "detail": (
+                "Signaal gezien, maar geen decoder-lock; "
+                f"piek-SNR {peak_snr:.2f} dB, 0 frames"
+            ),
+            "error": None,
+            **metrics,
+        }
+
+    return {
+        "success": False,
+        "result": "NO SIGNAL",
+        "detail": "Geen bruikbaar LRPT-signaal, frames of afbeeldingen gevonden",
+        "error": None,
+        **metrics,
+    }
+

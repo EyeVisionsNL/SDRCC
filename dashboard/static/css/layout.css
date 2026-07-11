@@ -1,237 +1,195 @@
-.topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 22px;
-    background: #1e293b;
-    border-bottom: 1px solid #334155;
-}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#1e293b;border-bottom:1px solid #334155}.topbar h1{margin:0;color:#38bdf8;font-size:27px}.topbar p{margin:4px 0 0;color:#94a3b8}.topbar-status{display:flex;align-items:center;gap:10px;font-weight:700;color:#22c55e}.status-dot{width:12px;height:12px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e,0 0 16px #22c55e}.tabs{display:flex;gap:8px;padding:9px 14px;background:#111827;border-bottom:1px solid #334155}.tab-button{background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:600}.tab-button:hover{background:#334155}.tab-button.active{background:#0284c7;color:#fff;border-color:#38bdf8}.tab-page{display:none}.tab-page.active{display:block}
+.mission-layout-v3{display:grid;grid-template-columns:230px minmax(430px,620px) minmax(520px,1fr);grid-template-areas:"operations overview capture" "pass timeline timeline";gap:12px;padding:12px;align-items:start}.mission-operations{grid-area:operations;display:flex;flex-direction:column;gap:10px}.mission-overview{grid-area:overview}.mission-capture{grid-area:capture}.pass-panel{grid-area:pass}.mission-timeline-panel{grid-area:timeline}.mission-layout-v3 .card{margin:0}.compact-card{padding-bottom:12px}.control-pairs{display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important}.control-actions{display:grid!important;grid-template-columns:1fr!important;gap:7px!important;margin-top:8px}.mission-layout-v3 .control-button{width:100%;padding:9px 8px}.section-heading-row{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px}.section-heading-row h2{border:0!important;padding:0!important;margin:0!important}.service-summary{display:flex;gap:12px;flex-wrap:wrap;color:#94a3b8;font-size:.86rem}.mission-status-grid{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(250px,1.15fr);gap:12px}.mission-side-info{display:flex;flex-direction:column;gap:10px}.mission-capture{min-width:0}.mission-capture .capture-content img{width:100%;height:390px;max-height:390px;object-fit:contain}.capture-meta-compact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 12px;max-height:none!important}.capture-meta-compact p{margin:2px 0}.pass-header-row{display:flex;justify-content:space-between;align-items:center;gap:12px}.compact-countdown{min-width:150px;margin:0;padding:9px}.compact-countdown .countdown{font-size:25px}.pass-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px}.pass-grid p{min-width:0;margin:0;overflow-wrap:anywhere}.mission-timeline{max-height:300px;overflow-y:auto}.radio-page{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px}.receiver-overview-card{grid-column:1/-1}.spectrum-card{grid-column:span 2}.images-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;padding:16px}.image-main{grid-column:span 2}.log-panel-full{margin:16px}.statusbar{display:flex;justify-content:space-between;padding:12px 18px;color:#94a3b8;border-top:1px solid #334155;background:#111827}.muted{color:#94a3b8}
+@media(max-width:1350px){.mission-layout-v3{grid-template-columns:220px minmax(390px,1fr);grid-template-areas:"operations overview" "capture capture" "pass timeline"}.mission-capture .capture-content img{height:440px}.radio-page{grid-template-columns:1fr 1fr}.receiver-overview-card{grid-column:1/-1}.spectrum-card{grid-column:1/-1}}
+@media(max-width:900px){.topbar{flex-direction:column;align-items:flex-start;gap:10px}.tabs{flex-wrap:wrap}.mission-layout-v3{grid-template-columns:1fr;grid-template-areas:"operations" "overview" "capture" "pass" "timeline"}.mission-status-grid{grid-template-columns:1fr}.radio-page{grid-template-columns:1fr}.receiver-overview-card,.spectrum-card{grid-column:auto}.image-main{grid-column:auto}.statusbar{flex-direction:column;gap:6px}.capture-meta-compact{grid-template-columns:1fr 1fr}}
 
-.topbar h1 {
-    margin: 0;
-    color: #38bdf8;
-    font-size: 28px;
-}
-
-.topbar p {
-    margin: 5px 0 0 0;
-    color: #94a3b8;
-}
-
-.topbar-status {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: bold;
-    color: #22c55e;
-}
-
-.status-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #22c55e;
-    box-shadow: 0 0 8px #22c55e, 0 0 16px #22c55e;
-}
-
-.tabs {
-    display: flex;
-    gap: 8px;
-    padding: 10px 16px;
-    background: #111827;
-    border-bottom: 1px solid #334155;
-}
-
-.tab-button {
-    background: #1e293b;
-    color: #cbd5e1;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 10px 14px;
-    cursor: pointer;
-    font-weight: 600;
-}
-
-.tab-button:hover {
-    background: #334155;
-}
-
-.tab-button.active {
-    background: #0284c7;
-    color: white;
-    border-color: #38bdf8;
-}
-
-.tab-page {
-    display: none;
-}
-
-.tab-page.active {
-    display: block;
-}
-
-.mission-layout-v2 {
-    display: grid;
-    grid-template-columns: 200px 240px minmax(0, 1fr);
+/* v0.14.0b - horizontale kaart Volgende passage */
+.mission-layout-v3 {
     grid-template-areas:
-        "left middle capture"
-        "pass pass timeline";
-    gap: 12px;
-    padding: 12px;
-    align-items: start;
+        "operations overview capture"
+        "operations pass pass"
+        "operations timeline timeline";
 }
 
-.mission-left-stack {
-    grid-area: left;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.mission-middle-stack {
-    grid-area: middle;
-}
-
-.mission-right-stack {
-    grid-area: capture;
+.horizontal-pass-panel {
     min-width: 0;
 }
 
-.pass-panel {
-    grid-area: pass;
+.horizontal-pass-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 11px;
+    margin-bottom: 11px;
+    border-bottom: 1px solid #334155;
 }
 
-.mission-timeline-panel {
-    grid-area: timeline;
+.horizontal-pass-title {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    min-width: 0;
 }
 
-.mission-layout-v2 .card {
+.horizontal-pass-title h2 {
     margin: 0;
+    padding: 0;
+    border: 0;
+    white-space: nowrap;
 }
 
-.mission-layout-v2 .button-grid {
+.horizontal-pass-name {
+    color: #38bdf8;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.horizontal-pass-countdown {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-shrink: 0;
+    color: #94a3b8;
+}
+
+.horizontal-pass-countdown strong {
+    color: #22c55e;
+    font-size: 1.8rem;
+    letter-spacing: .05em;
+    font-variant-numeric: tabular-nums;
+}
+
+.horizontal-pass-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(8, minmax(105px, 1fr));
     gap: 8px;
 }
 
-.mission-layout-v2 .control-button {
-    width: 100%;
+.pass-metric {
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid #26364b;
+    border-radius: 8px;
+    background: #07111f;
 }
 
-.mission-layout-v2 .capture-panel {
-    max-height: 560px;
-    overflow: hidden;
+.pass-metric span {
+    display: block;
+    margin-bottom: 4px;
+    color: #8fa7c5;
+    font-size: .75rem;
 }
 
-.mission-layout-v2 .capture-panel img {
-    width: 100%;
-    max-height: 390px;
-    object-fit: contain;
+.pass-metric strong {
+    display: block;
+    color: #f8fafc;
+    font-size: .88rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
 }
 
-.mission-layout-v2 .capture-meta {
-    max-height: 120px;
-    overflow-y: auto;
+.pass-metric-pipeline {
+    min-width: 145px;
 }
 
-.mission-layout-v2 .pass-grid {
-    grid-template-columns: repeat(4, 1fr);
+@media (max-width: 1450px) {
+    .horizontal-pass-grid {
+        grid-template-columns: repeat(4, minmax(135px, 1fr));
+    }
 }
 
-.mission-layout-v2 .mission-timeline {
-    max-height: 230px;
-    overflow-y: auto;
-}
-
-.radio-grid,
-.images-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 16px;
-    padding: 16px;
-}
-
-.image-main {
-    grid-column: span 2;
-}
-
-.log-panel-full {
-    margin: 16px;
-}
-
-.statusbar {
-    display: flex;
-    justify-content: space-between;
-    padding: 12px 18px;
-    color: #94a3b8;
-    border-top: 1px solid #334155;
-    background: #111827;
-}
-
-.muted {
-    color: #94a3b8;
-}
-
-@media (max-width: 1100px) {
-    .mission-layout-v2 {
-        grid-template-columns: 200px 240px;
+@media (max-width: 1350px) {
+    .mission-layout-v3 {
         grid-template-areas:
-            "left middle"
-            "capture capture"
+            "operations overview"
+            "operations capture"
             "pass pass"
             "timeline timeline";
     }
 }
 
-@media (max-width: 800px) {
-    .topbar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-
-    .tabs {
-        flex-wrap: wrap;
-    }
-
-    .mission-layout-v2 {
-        grid-template-columns: 1fr;
+@media (max-width: 900px) {
+    .mission-layout-v3 {
         grid-template-areas:
-            "left"
-            "middle"
+            "operations"
+            "overview"
             "capture"
             "pass"
             "timeline";
     }
 
-    .image-main {
-        grid-column: auto;
-    }
-
-    .statusbar {
+    .horizontal-pass-header,
+    .horizontal-pass-title {
+        align-items: flex-start;
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
+    }
+
+    .horizontal-pass-countdown {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .horizontal-pass-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-/* Fix pass card overflow */
-.mission-layout-v2 .pass-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+@media (max-width: 520px) {
+    .horizontal-pass-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
-.mission-layout-v2 .pass-grid p {
-    min-width: 0;
-    margin: 0;
-    overflow-wrap: anywhere;
-}
+/* v0.14.0c - Laatste ontvangst even hoog als Missiestatus */
+@media (min-width: 1351px) {
+    .mission-overview,
+    .mission-capture {
+        align-self: stretch;
+    }
 
-.mission-layout-v2 .pass-panel {
-    overflow: hidden;
-}
+    .mission-capture {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
 
-.mission-layout-v2 .countdown {
-    font-size: 28px;
+    .mission-capture .capture-empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 0;
+    }
+
+    .mission-capture .capture-content:not(.hidden) {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        flex-direction: column;
+    }
+
+    .mission-capture .capture-content img {
+        flex: 1 1 auto;
+        width: 100%;
+        height: 0;
+        min-height: 300px;
+        max-height: none;
+        object-fit: contain;
+    }
+
+    .mission-capture .capture-meta-compact {
+        flex: 0 0 auto;
+    }
 }
+/* v0.14.3 branding */
+.brand-block{display:flex;align-items:center;gap:14px;min-width:0}
+.brand-logo{width:58px;height:58px;object-fit:contain;flex:0 0 auto;filter:drop-shadow(0 0 8px rgba(56,189,248,.22))}
+.brand-copy{min-width:0}
+.brand-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brand-title-row h1{margin:0}
+.version-badge{display:inline-flex;align-items:center;padding:3px 8px;border:1px solid #475569;border-radius:999px;background:#0f172a;color:#94a3b8;font-size:12px;font-weight:700;letter-spacing:.04em}
+@media(max-width:900px){.brand-logo{width:48px;height:48px}.brand-title-row h1{font-size:23px}}

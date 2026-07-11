@@ -1,8 +1,10 @@
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from threading import Lock
 from typing import Optional
+import json
 
 
 class MissionState(str, Enum):
@@ -15,6 +17,14 @@ class MissionState(str, Enum):
     ARCHIVING = "ARCHIVING"
 
 
+class MissionResult(str, Enum):
+    SUCCESS = "SUCCESS"
+    NO_SYNC = "NO SYNC"
+    NO_SIGNAL = "NO SIGNAL"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
 STATE_ORDER = [
     MissionState.READY,
     MissionState.WAIT_FOR_PASS,
@@ -25,17 +35,41 @@ STATE_ORDER = [
     MissionState.ARCHIVING,
 ]
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+STATE_DIR = PROJECT_ROOT / "data" / "state"
+HISTORY_FILE = STATE_DIR / "mission_history.json"
+HISTORY_LIMIT = 50
+
 
 def format_datetime(value: Optional[datetime]):
     if value is None:
         return None
-
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def calculate_progress(state: MissionState):
     current_index = STATE_ORDER.index(state)
     return int((current_index / (len(STATE_ORDER) - 1)) * 100)
+
+
+def _load_history():
+    try:
+        if not HISTORY_FILE.exists():
+            return []
+        data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_history(history):
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    temporary = HISTORY_FILE.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(history[:HISTORY_LIMIT], indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    temporary.replace(HISTORY_FILE)
 
 
 @dataclass
@@ -52,20 +86,25 @@ class MissionJob:
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     success: Optional[bool] = None
+    result: Optional[str] = None
+    detail: Optional[str] = None
     error: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    peak_snr_db: Optional[float] = None
+    frames: Optional[int] = None
+    cadu_bytes: Optional[int] = None
+    image_count: Optional[int] = None
 
     def to_dict(self):
         data = asdict(self)
-
         data["created_at"] = format_datetime(self.created_at)
         data["started_at"] = format_datetime(self.started_at)
         data["ended_at"] = format_datetime(self.ended_at)
-
-        if self.frequency is not None:
-            data["frequency_mhz"] = round(self.frequency / 1_000_000, 3)
-        else:
-            data["frequency_mhz"] = None
-
+        data["frequency_mhz"] = (
+            round(self.frequency / 1_000_000, 3)
+            if self.frequency is not None
+            else None
+        )
         return data
 
 
@@ -74,11 +113,9 @@ class MissionEngine:
         self.state = MissionState.READY
         self.started_at = datetime.now()
         self.updated_at = datetime.now()
-
         self.log = []
         self.active_job: Optional[MissionJob] = None
-        self.history = []
-
+        self.history = _load_history()
         self._lock = Lock()
         self._log("Mission Engine initialized")
 
@@ -94,20 +131,12 @@ class MissionEngine:
             "state": self.state.value,
             "message": message,
         })
-
         self.log = self.log[:100]
 
     def _generate_mission_id(self):
         return self._now().strftime("%Y%m%d-%H%M%S-%f")
 
-    def create_job(
-        self,
-        satellite="-",
-        frequency=None,
-        mode="-",
-        pipeline="-",
-        output_path="-",
-    ):
+    def create_job(self, satellite="-", frequency=None, mode="-", pipeline="-", output_path="-"):
         with self._lock:
             if self.active_job is not None:
                 raise RuntimeError(
@@ -115,7 +144,6 @@ class MissionEngine:
                 )
 
             now = self._now()
-
             self.active_job = MissionJob(
                 mission_id=self._generate_mission_id(),
                 satellite=str(satellite or "-"),
@@ -127,12 +155,10 @@ class MissionEngine:
                 progress=calculate_progress(self.state),
                 created_at=now,
             )
-
             self._log(
                 f"Mission Job aangemaakt: {self.active_job.mission_id} "
                 f"({self.active_job.satellite})"
             )
-
             return self.active_job.to_dict()
 
     def set_state(self, new_state):
@@ -146,72 +172,94 @@ class MissionEngine:
 
             if new_state == MissionState.LOCK_RECEIVER:
                 self.started_at = self.updated_at
-
-                if (
-                    self.active_job is not None
-                    and self.active_job.started_at is None
-                ):
+                if self.active_job is not None and self.active_job.started_at is None:
                     self.active_job.started_at = self.updated_at
 
             if self.active_job is not None:
                 self.active_job.status = new_state.value
                 self.active_job.progress = calculate_progress(new_state)
 
-            self._log(
-                f"State changed: {old_state.value} -> {new_state.value}"
-            )
+            self._log(f"State changed: {old_state.value} -> {new_state.value}")
 
     def next_state(self):
         index = STATE_ORDER.index(self.state)
-
         if self.state == MissionState.ARCHIVING:
             self.set_state(MissionState.READY)
             return
-
         self.set_state(STATE_ORDER[index + 1])
 
-    def finish_job(self, success=True, error=None):
+    def finish_job(
+        self,
+        success=True,
+        error=None,
+        result=None,
+        detail=None,
+        metrics=None,
+    ):
         with self._lock:
             if self.active_job is None:
                 return None
 
-            now = self._now()
+            if result is None:
+                result = MissionResult.SUCCESS.value if success else MissionResult.FAILED.value
+            elif isinstance(result, MissionResult):
+                result = result.value
 
+            now = self._now()
             self.active_job.ended_at = now
             self.active_job.success = bool(success)
+            self.active_job.result = str(result)
+            self.active_job.detail = str(detail) if detail else None
             self.active_job.error = str(error) if error else None
-            self.active_job.status = (
-                "COMPLETED" if success else "FAILED"
+            self.active_job.status = str(result)
+            self.active_job.progress = 100
+
+            metrics = metrics or {}
+            started_at = self.active_job.started_at or self.active_job.created_at
+            measured_duration = max(0, int((now - started_at).total_seconds()))
+            self.active_job.duration_seconds = int(
+                metrics.get("duration_seconds", measured_duration)
             )
-            self.active_job.progress = 100 if success else self.active_job.progress
+            peak_snr = metrics.get("peak_snr_db")
+            self.active_job.peak_snr_db = (
+                round(float(peak_snr), 2) if peak_snr is not None else None
+            )
+            frames = metrics.get("frames")
+            self.active_job.frames = int(frames) if frames is not None else None
+            cadu_bytes = metrics.get("cadu_bytes")
+            self.active_job.cadu_bytes = (
+                int(cadu_bytes) if cadu_bytes is not None else None
+            )
+            image_count = metrics.get("image_count")
+            self.active_job.image_count = (
+                int(image_count) if image_count is not None else None
+            )
 
             completed_job = self.active_job.to_dict()
-
             self.history.insert(0, completed_job)
-            self.history = self.history[:50]
+            self.history = self.history[:HISTORY_LIMIT]
+            _save_history(self.history)
 
-            result_text = "succesvol" if success else "met fout"
             self._log(
-                f"Mission Job {self.active_job.mission_id} "
-                f"afgerond {result_text}"
+                f"Mission Job {self.active_job.mission_id} afgerond: {result}"
             )
-
             self.active_job = None
-
             return completed_job
 
     def reset(self):
         with self._lock:
             if self.active_job is not None:
                 now = self._now()
-
                 self.active_job.ended_at = now
                 self.active_job.success = False
-                self.active_job.error = "Mission handmatig gereset"
-                self.active_job.status = "RESET"
-
+                self.active_job.result = MissionResult.CANCELLED.value
+                self.active_job.detail = "Mission handmatig gereset"
+                self.active_job.error = None
+                self.active_job.status = MissionResult.CANCELLED.value
+                self.active_job.progress = 100
                 self.history.insert(0, self.active_job.to_dict())
-                self.history = self.history[:50]
+                self.history = self.history[:HISTORY_LIMIT]
+                _save_history(self.history)
                 self.active_job = None
 
             self.state = MissionState.READY
@@ -227,11 +275,7 @@ class MissionEngine:
                 "updated_at": format_datetime(self.updated_at),
                 "log": list(self.log),
                 "states": [state.value for state in STATE_ORDER],
-                "active_job": (
-                    self.active_job.to_dict()
-                    if self.active_job is not None
-                    else None
-                ),
+                "active_job": self.active_job.to_dict() if self.active_job else None,
                 "history": list(self.history),
             }
 
@@ -242,32 +286,30 @@ mission_engine = MissionEngine()
 def get_mission_status():
     status = mission_engine.status()
     current_state = mission_engine.state
-    progress = calculate_progress(current_state)
+    last_result = status["history"][0] if status["history"] else None
+    detail = f"Mission Engine status: {status['state']}"
+    if status["state"] == MissionState.READY.value and last_result:
+        detail += (
+            f" | Laatste missie: {last_result.get('satellite', '-')} "
+            f"- {last_result.get('result', '-')}"
+        )
 
     return {
         "phase": status["state"],
         "state": status["state"],
-        "detail": f"Mission Engine status: {status['state']}",
-        "progress": progress,
+        "detail": detail,
+        "progress": calculate_progress(current_state),
         "started_at": status["started_at"],
         "updated_at": status["updated_at"],
-        "steps": [
-            {"name": state}
-            for state in status["states"]
-        ],
+        "steps": [{"name": state} for state in status["states"]],
         "log": status["log"],
         "active_job": status["active_job"],
         "history": status["history"],
+        "last_result": last_result,
     }
 
 
-def mission_create_job(
-    satellite="-",
-    frequency=None,
-    mode="-",
-    pipeline="-",
-    output_path="-",
-):
+def mission_create_job(satellite="-", frequency=None, mode="-", pipeline="-", output_path="-"):
     mission_engine.create_job(
         satellite=satellite,
         frequency=frequency,
@@ -275,16 +317,23 @@ def mission_create_job(
         pipeline=pipeline,
         output_path=output_path,
     )
-
     return get_mission_status()
 
 
-def mission_finish_job(success=True, error=None):
+def mission_finish_job(
+    success=True,
+    error=None,
+    result=None,
+    detail=None,
+    metrics=None,
+):
     mission_engine.finish_job(
         success=success,
         error=error,
+        result=result,
+        detail=detail,
+        metrics=metrics,
     )
-
     return get_mission_status()
 
 

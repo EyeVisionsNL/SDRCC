@@ -7,7 +7,7 @@ from core import mission_engine
 from core import passes
 from core import state
 from core import tle
-from core.device_manager import get_dynamic_device
+from core.device_manager import get_weather_device
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -60,7 +60,7 @@ def run_preflight():
 
     checks.append(
         _check(
-            "Dynamic Receiver",
+            "Weather Receiver",
             device_ok,
             (
                 f"{device.get('name')} / {device.get('serial')}"

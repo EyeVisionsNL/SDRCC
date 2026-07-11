@@ -1,78 +1,69 @@
 #!/usr/bin/env python3
 
-from core.config import load_station
+from core.config import get_receiver_assignments, load_station
 
 
 def get_devices():
     cfg = load_station()
-
+    assignments = get_receiver_assignments()
     devices = []
-
-    if "sdr1" in cfg:
-        devices.append(
-            {
-                "id": "sdr1",
-                "name": cfg["sdr1"].get("name", "SDR1"),
-                "serial": cfg["sdr1"].get("serial"),
-                "role": cfg["sdr1"].get("task", "unknown"),
-                "locked": cfg["sdr1"].get("locked", True),
-            }
-        )
-
-    if "sdr2" in cfg:
-        devices.append(
-            {
-                "id": "sdr2",
-                "name": cfg["sdr2"].get("name", "SDR2"),
-                "serial": cfg["sdr2"].get("serial"),
-                "role": cfg["sdr2"].get("task", "dynamic"),
-                "locked": cfg["sdr2"].get("locked", False),
-            }
-        )
-
+    for index in (1, 2):
+        device_id = f"sdr{index}"
+        if device_id not in cfg:
+            continue
+        item = cfg[device_id]
+        roles = [role for role, assigned in assignments.items() if assigned == device_id]
+        devices.append({
+            "id": device_id,
+            "number": f"SDR{index}",
+            "name": item.get("name", f"SDR{index}"),
+            "serial": item.get("serial"),
+            "role": item.get("task", "unknown"),
+            "roles": roles,
+            "locked": item.get("locked", False),
+            "weather_selected": assignments["weather"] == device_id,
+        })
     return devices
 
 
 def get_device(device_id):
-    for device in get_devices():
-        if device["id"] == device_id:
-            return device
+    return next((d for d in get_devices() if d["id"] == device_id), None)
 
-    return None
+
+def get_assigned_device(role):
+    assignments = get_receiver_assignments()
+    device_id = assignments.get(role)
+    return get_device(device_id) if device_id else None
+
+
+def get_weather_device():
+    return get_assigned_device("weather")
 
 
 def get_dynamic_device():
-    for device in get_devices():
-        if not device["locked"]:
-            return device
+    return get_weather_device()
 
+
+def get_conflicting_service(device_id):
+    assignments = get_receiver_assignments()
+    if assignments.get("ais") == device_id:
+        return "ais-catcher.service"
+    if assignments.get("adsb") == device_id:
+        return "readsb.service"
     return None
 
 
 def print_devices():
     print("SDR Devices")
     print("-----------------------------")
-
-    devices = get_devices()
-
-    if not devices:
-        print("Geen SDR-apparaten geconfigureerd.")
-        return
-
-    for device in devices:
+    for device in get_devices():
         print(device["name"])
         print(f"  ID     : {device['id']}")
         print(f"  Serial : {device['serial']}")
-        print(f"  Role   : {device['role']}")
+        print(f"  Roles  : {', '.join(device['roles']) or '-'}")
         print(f"  Locked : {'YES' if device['locked'] else 'NO'}")
         print()
-
-    dynamic = get_dynamic_device()
-
-    print("Selected recorder")
+    weather = get_weather_device()
+    print("Selected weather receiver")
     print("-----------------------------")
-
-    if dynamic:
-        print(f"{dynamic['name']} / {dynamic['serial']}")
-    else:
-        print("Geen vrije dynamische SDR gevonden.")
+    print(f"{weather['name']} / {weather['serial']}" if weather else "Niet ingesteld")

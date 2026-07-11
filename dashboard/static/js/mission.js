@@ -8,11 +8,53 @@ export function updateServerOffset(serverEpoch) {
     serverOffsetSeconds = serverEpoch - browserNow;
 }
 
+function resultClass(result) {
+    const normalized = String(result || "").toLowerCase().replaceAll(" ", "-");
+    if (normalized === "success") return "success";
+    if (normalized === "no-sync") return "no-sync";
+    if (normalized === "no-signal") return "no-signal";
+    if (normalized === "failed") return "failed";
+    return "";
+}
+
+function updateLastMission(mission) {
+    const result = mission.last_result || (mission.history || [])[0] || null;
+    const resultElement = document.getElementById("last-mission-result");
+
+    if (!result) {
+        setText("last-mission-result", "GEEN RESULTAAT");
+        setText("last-mission-satellite", "-");
+        setText("last-mission-snr", "-");
+        setText("last-mission-frames", "-");
+        setText("last-mission-images", "-");
+        setText("last-mission-duration", "-");
+        setText("last-mission-ended", "-");
+        setText("last-mission-detail", "Nog geen missie-uitkomst beschikbaar.");
+        if (resultElement) resultElement.className = "last-mission-result";
+        return;
+    }
+
+    const resultName = result.result || "-";
+    setText("last-mission-result", resultName);
+    setText("last-mission-satellite", result.satellite || "-");
+    setText("last-mission-snr", result.peak_snr_db == null ? "-" : `${result.peak_snr_db} dB`);
+    setText("last-mission-frames", result.frames ?? "-");
+    setText("last-mission-images", result.image_count ?? "-");
+    setText("last-mission-duration", result.duration_seconds == null ? "-" : `${result.duration_seconds} s`);
+    setText("last-mission-ended", result.ended_at || "-");
+    setText("last-mission-detail", result.detail || "-");
+
+    if (resultElement) {
+        resultElement.className = `last-mission-result ${resultClass(resultName)}`.trim();
+    }
+}
+
 export function updateMissionEngine(mission) {
     if (!mission) return;
 
     setText("mission-phase", mission.phase);
     setText("mission-detail", mission.detail);
+    updateLastMission(mission);
 
     const bar = document.getElementById("mission-progress-bar");
     if (bar) bar.style.width = `${mission.progress || 0}%`;
@@ -22,7 +64,6 @@ export function updateMissionEngine(mission) {
 
     const steps = mission.steps || [];
     const activeIndex = mission.active_index ?? 0;
-
     stepsBox.innerHTML = "";
 
     steps.forEach((step, index) => {
@@ -36,7 +77,6 @@ export function updateMissionEngine(mission) {
 export function updateNextPass(data) {
     if (data.next_pass) {
         nextPassEpoch = data.next_pass.start_epoch;
-
         setText("next-name", data.next_pass.name);
         setText("next-start", data.next_pass.start);
         setText("next-maximum", data.next_pass.maximum);
@@ -48,18 +88,8 @@ export function updateNextPass(data) {
         setText("next-pipeline", data.next_pass.pipeline);
     } else {
         nextPassEpoch = null;
-
-        setText("next-name", "Geen passage");
-        setText("next-start", "-");
-        setText("next-maximum", "-");
-        setText("next-end", "-");
-        setText("next-elevation", "-");
-        setText("next-azimuth", "-");
-        setText("next-frequency", "-");
-        setText("next-mode", "-");
-        setText("next-pipeline", "-");
+        ["next-name","next-start","next-maximum","next-end","next-elevation","next-azimuth","next-frequency","next-mode","next-pipeline"].forEach(id => setText(id, id === "next-name" ? "Geen passage" : "-"));
     }
-
     updateCountdown();
 }
 
@@ -68,10 +98,7 @@ export function updateCountdown() {
         setText("next-countdown", "-");
         return;
     }
-
     const browserNow = Math.floor(Date.now() / 1000);
     const estimatedServerNow = browserNow + serverOffsetSeconds;
-    const remaining = nextPassEpoch - estimatedServerNow;
-
-    setText("next-countdown", formatCountdown(remaining));
+    setText("next-countdown", formatCountdown(nextPassEpoch - estimatedServerNow));
 }
