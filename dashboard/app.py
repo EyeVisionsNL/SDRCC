@@ -805,6 +805,17 @@ def autopilot_prepare_receiver():
         f"AUTO: Weather actief op {device['number']} "
         f"({device['serial']}); conflict={conflict_service or 'geen'}"
     )
+    event_bus.publish_receiver(
+        "INFO",
+        "Weather-receiver voorbereid",
+        f"{device['number']} ({device['serial']}) is beschikbaar voor AUTO",
+        data={
+            "device_id": device["id"],
+            "serial": device["serial"],
+            "conflict_service": conflict_service,
+            "conflict_was_active": was_active,
+        },
+    )
 
 
 def autopilot_lock_receiver():
@@ -842,6 +853,9 @@ def autopilot_lock_receiver():
             mode=pass_data["mode"],
             pipeline=pass_data["pipeline"],
             output_path=str(record_data["output_path"]),
+            receiver=record_data["device"]["number"],
+            receiver_id=record_data["device"]["id"],
+            receiver_serial=record_data["device"]["serial"],
         )
 
     mission_engine_core.mission_set_state("LOCK RECEIVER")
@@ -850,6 +864,19 @@ def autopilot_lock_receiver():
     write_log(
         "AUTO: T-30 receiver gelocked voor "
         f"{pass_data['name']} / {record_data['device']['serial']}"
+    )
+    event_bus.publish_receiver(
+        "SYSTEM",
+        "Receiver gelocked",
+        f"{record_data['device']['number']} voor {pass_data['name']}",
+        data={
+            "device_id": record_data["device"]["id"],
+            "serial": record_data["device"]["serial"],
+            "satellite": pass_data["name"],
+            "mission_id": (
+                mission_engine_core.get_mission_status().get("active_job") or {}
+            ).get("mission_id"),
+        },
     )
 
 
@@ -871,6 +898,7 @@ def monitor_auto_record_process(process):
             stdout=stdout,
             stderr=stderr,
             output_path=record_data.get("output_path"),
+            context=satdump_core.build_event_context(record_data),
         )
 
         write_log(
@@ -942,8 +970,21 @@ def monitor_auto_record_process(process):
                 write_log(f"AUTO ERROR: {restore_service} werd niet actief")
             else:
                 write_log(f"AUTO: {restore_service} is weer actief")
+                event_bus.publish_receiver(
+                    "SUCCESS",
+                    "Receiver-service hersteld",
+                    f"{restore_service} is weer actief",
+                    data={"service": restore_service},
+                )
 
         profiles.set_active_profile("adsb")
+        released_data = autopilot_runtime.get("record_data") or {}
+        event_bus.publish_receiver(
+            "INFO",
+            "Receiver vrijgegeven",
+            "Weather-receiver is vrijgegeven na de missie",
+            data=satdump_core.build_event_context(released_data),
+        )
         mission_engine_core.mission_set_state("READY")
         write_log("AUTO: missie afgerond; profiel terug naar ADS-B")
 
@@ -978,6 +1019,15 @@ def autopilot_start_recording():
         "AUTO: SatDump gestart "
         f"(PID {process.pid}) voor "
         f"{record_data['pass']['name']}"
+    )
+    event_bus.publish_satdump(
+        "INFO",
+        "SatDump AUTO gestart",
+        f"PID {process.pid} voor {record_data['pass']['name']}",
+        data={
+            **satdump_core.build_event_context(record_data),
+            "pid": process.pid,
+        },
     )
 
 
@@ -1266,6 +1316,18 @@ def api_receiver_assignment():
             f"Weather-ontvanger gewijzigd naar {device['number']} "
             f"({device['serial']})"
         )
+        event_bus.publish_receiver(
+            "INFO",
+            "Weather-ontvanger gewijzigd",
+            f"Weather gebruikt nu {device['number']} ({device['serial']})",
+            data={
+                "role": "weather",
+                "device_id": device["id"],
+                "number": device["number"],
+                "serial": device["serial"],
+                "assignments": assignments,
+            },
+        )
         return jsonify({
             "ok": True,
             "message": f"Weather gebruikt nu {device['number']}.",
@@ -1387,6 +1449,9 @@ def api_action():
                 mode=pass_data["mode"],
                 pipeline=pass_data["pipeline"],
                 output_path=str(record_data["output_path"]),
+                receiver=record_data["device"]["number"],
+                receiver_id=record_data["device"]["id"],
+                receiver_serial=record_data["device"]["serial"],
             )
 
             mission_engine_core.mission_set_state("LOCK RECEIVER")

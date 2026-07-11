@@ -3,11 +3,12 @@
 import os
 from pathlib import Path
 
+from core import event_bus
 from core import mission_engine
 from core import passes
 from core import state
 from core import tle
-from core.device_manager import get_weather_device
+from core.device_manager import get_dynamic_device
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -115,7 +116,7 @@ def run_preflight():
         if not item["ok"]
     ]
 
-    return {
+    result = {
         "passed": passed,
         "status": "OK" if passed else "FAILED",
         "detail": (
@@ -125,3 +126,16 @@ def run_preflight():
         ),
         "checks": checks,
     }
+
+    event_bus.publish_preflight(
+        "SUCCESS" if passed else "WARNING",
+        "Preflight geslaagd" if passed else "Preflight mislukt",
+        result["detail"],
+        data={
+            "passed": passed,
+            "failed_checks": failed,
+            "checks": checks,
+        },
+    )
+
+    return result

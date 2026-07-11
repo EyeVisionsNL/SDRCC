@@ -6,6 +6,8 @@ from threading import Lock
 from typing import Optional
 import json
 
+from core import event_bus
+
 
 class MissionState(str, Enum):
     READY = "READY"
@@ -80,6 +82,9 @@ class MissionJob:
     mode: str
     pipeline: str
     output_path: str
+    receiver: Optional[str]
+    receiver_id: Optional[str]
+    receiver_serial: Optional[str]
     status: str
     progress: int
     created_at: datetime
@@ -136,7 +141,17 @@ class MissionEngine:
     def _generate_mission_id(self):
         return self._now().strftime("%Y%m%d-%H%M%S-%f")
 
-    def create_job(self, satellite="-", frequency=None, mode="-", pipeline="-", output_path="-"):
+    def create_job(
+        self,
+        satellite="-",
+        frequency=None,
+        mode="-",
+        pipeline="-",
+        output_path="-",
+        receiver=None,
+        receiver_id=None,
+        receiver_serial=None,
+    ):
         with self._lock:
             if self.active_job is not None:
                 raise RuntimeError(
@@ -151,6 +166,11 @@ class MissionEngine:
                 mode=str(mode or "-"),
                 pipeline=str(pipeline or "-"),
                 output_path=str(output_path or "-"),
+                receiver=str(receiver) if receiver else None,
+                receiver_id=str(receiver_id) if receiver_id else None,
+                receiver_serial=(
+                    str(receiver_serial) if receiver_serial else None
+                ),
                 status=self.state.value,
                 progress=calculate_progress(self.state),
                 created_at=now,
@@ -159,7 +179,15 @@ class MissionEngine:
                 f"Mission Job aangemaakt: {self.active_job.mission_id} "
                 f"({self.active_job.satellite})"
             )
-            return self.active_job.to_dict()
+            job = self.active_job.to_dict()
+
+        event_bus.publish_mission(
+            "INFO",
+            "Mission Job aangemaakt",
+            f"{job['satellite']} / {job['mission_id']}",
+            data=job,
+        )
+        return job
 
     def set_state(self, new_state):
         if isinstance(new_state, str):
@@ -180,6 +208,33 @@ class MissionEngine:
                 self.active_job.progress = calculate_progress(new_state)
 
             self._log(f"State changed: {old_state.value} -> {new_state.value}")
+            job = self.active_job.to_dict() if self.active_job else None
+
+        if old_state != new_state:
+            event_bus.publish_mission(
+                "SYSTEM",
+                "Mission-status gewijzigd",
+                f"{old_state.value} → {new_state.value}",
+                data={
+                    "from": old_state.value,
+                    "to": new_state.value,
+                    "mission_id": job.get("mission_id") if job else None,
+                    "satellite": job.get("satellite") if job else None,
+                    "receiver": job.get("receiver") if job else None,
+                    "receiver_id": job.get("receiver_id") if job else None,
+                    "receiver_serial": (
+                        job.get("receiver_serial") if job else None
+                    ),
+                    "frequency": job.get("frequency") if job else None,
+                    "frequency_mhz": (
+                        job.get("frequency_mhz") if job else None
+                    ),
+                    "mode": job.get("mode") if job else None,
+                    "pipeline": job.get("pipeline") if job else None,
+                    "output_path": job.get("output_path") if job else None,
+                    "progress": calculate_progress(new_state),
+                },
+            )
 
     def next_state(self):
         index = STATE_ORDER.index(self.state)
@@ -244,10 +299,19 @@ class MissionEngine:
                 f"Mission Job {self.active_job.mission_id} afgerond: {result}"
             )
             self.active_job = None
-            return completed_job
+
+        event_bus.publish_mission(
+            "SUCCESS" if success else "WARNING",
+            "Mission Job afgerond",
+            f"{completed_job['satellite']} - {completed_job['result']}",
+            data=completed_job,
+        )
+        return completed_job
 
     def reset(self):
+        cancelled_job = None
         with self._lock:
+            old_state = self.state
             if self.active_job is not None:
                 now = self._now()
                 self.active_job.ended_at = now
@@ -257,7 +321,8 @@ class MissionEngine:
                 self.active_job.error = None
                 self.active_job.status = MissionResult.CANCELLED.value
                 self.active_job.progress = 100
-                self.history.insert(0, self.active_job.to_dict())
+                cancelled_job = self.active_job.to_dict()
+                self.history.insert(0, cancelled_job)
                 self.history = self.history[:HISTORY_LIMIT]
                 _save_history(self.history)
                 self.active_job = None
@@ -266,6 +331,21 @@ class MissionEngine:
             self.started_at = self._now()
             self.updated_at = self.started_at
             self._log("Mission reset to READY")
+
+        event_bus.publish_mission(
+            "WARNING" if cancelled_job else "SYSTEM",
+            "Mission Engine gereset",
+            (
+                f"Mission {cancelled_job['mission_id']} is geannuleerd"
+                if cancelled_job
+                else f"{old_state.value} → READY"
+            ),
+            data={
+                "from": old_state.value,
+                "to": MissionState.READY.value,
+                "cancelled_job": cancelled_job,
+            },
+        )
 
     def status(self):
         with self._lock:
@@ -309,13 +389,25 @@ def get_mission_status():
     }
 
 
-def mission_create_job(satellite="-", frequency=None, mode="-", pipeline="-", output_path="-"):
+def mission_create_job(
+    satellite="-",
+    frequency=None,
+    mode="-",
+    pipeline="-",
+    output_path="-",
+    receiver=None,
+    receiver_id=None,
+    receiver_serial=None,
+):
     mission_engine.create_job(
         satellite=satellite,
         frequency=frequency,
         mode=mode,
         pipeline=pipeline,
         output_path=output_path,
+        receiver=receiver,
+        receiver_id=receiver_id,
+        receiver_serial=receiver_serial,
     )
     return get_mission_status()
 

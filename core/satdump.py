@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 import subprocess
 import time
 
+from core import event_bus
 from core import passes
 from core import config as config_core
 from core import process_manager
@@ -13,6 +14,69 @@ from core.device_manager import get_conflicting_service, get_weather_device
 
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "recordings"
+
+
+def _active_mission_context():
+    """Return active Mission Engine telemetry without creating an import cycle."""
+
+    try:
+        from core import mission_engine as mission_engine_core
+
+        active_job = (
+            mission_engine_core.get_mission_status().get("active_job") or {}
+        )
+        return {
+            key: active_job.get(key)
+            for key in (
+                "mission_id",
+                "satellite",
+                "receiver",
+                "receiver_id",
+                "receiver_serial",
+                "frequency",
+                "frequency_mhz",
+                "mode",
+                "pipeline",
+                "output_path",
+            )
+            if active_job.get(key) is not None
+        }
+    except Exception:
+        return {}
+
+
+def build_event_context(record_data=None):
+    """Build one consistent telemetry payload for SatDump and receiver events."""
+
+    record_data = record_data or {}
+    pass_data = record_data.get("pass") or {}
+    device = record_data.get("device") or {}
+    context = _active_mission_context()
+
+    context.update({
+        "satellite": pass_data.get("name", context.get("satellite")),
+        "receiver": device.get("number", context.get("receiver")),
+        "receiver_id": device.get("id", context.get("receiver_id")),
+        "receiver_serial": device.get(
+            "serial", context.get("receiver_serial")
+        ),
+        "frequency": pass_data.get("frequency", context.get("frequency")),
+        "frequency_mhz": (
+            round(pass_data["frequency"] / 1_000_000, 3)
+            if pass_data.get("frequency") is not None
+            else context.get("frequency_mhz")
+        ),
+        "mode": pass_data.get("mode", context.get("mode")),
+        "pipeline": pass_data.get("pipeline", context.get("pipeline")),
+        "sample_rate": pass_data.get("sample_rate"),
+        "output_path": (
+            str(record_data["output_path"])
+            if record_data.get("output_path") is not None
+            else context.get("output_path")
+        ),
+        "timeout_seconds": record_data.get("timeout_seconds"),
+    })
+    return {key: value for key, value in context.items() if value is not None}
 
 
 def check_recording_allowed():
@@ -204,12 +268,22 @@ def record_now():
 
     if data is None:
         print("Geen geschikte passage gevonden.")
+        event_bus.publish_satdump(
+            "WARNING",
+            "SatDump-opname geweigerd",
+            "Geen geschikte passage gevonden",
+        )
         return False
 
     if not data["allowed"]:
         print("Opname niet toegestaan.")
         print()
         print(data["reason"])
+        event_bus.publish_satdump(
+            "WARNING",
+            "SatDump-opname geweigerd",
+            data["reason"],
+        )
         return False
 
     data["output_path"].mkdir(parents=True, exist_ok=True)
@@ -222,6 +296,16 @@ def record_now():
     print("Recorder     :", data["device"]["name"])
     print("Serial       :", data["device"]["serial"])
     print("Conflict     :", conflict_service or "geen")
+    event_bus.publish_receiver(
+        "INFO",
+        "Weather-receiver voorbereid",
+        f"{data['device']['number']} ({data['device']['serial']})",
+        data={
+            **build_event_context(data),
+            "conflict_service": conflict_service,
+            "conflict_was_active": conflict_was_active,
+        },
+    )
 
     if conflict_was_active:
         print()
@@ -239,9 +323,29 @@ def record_now():
     print("Starting SatDump...")
     _print_record_data(data)
 
+    event_bus.publish_satdump(
+        "INFO",
+        "SatDump-opname gestart",
+        f"{data['pass']['name']} via {data['device']['number']}",
+        data={
+            **build_event_context(data),
+            "command": list(data["command"]),
+        },
+    )
+
     try:
         result = subprocess.run(data["command"])
         success = result.returncode == 0
+
+        event_bus.publish_satdump(
+            "SUCCESS" if success else "ERROR",
+            "SatDump-opname afgerond" if success else "SatDump-opname mislukt",
+            f"Returncode {result.returncode}",
+            data={
+                **build_event_context(data),
+                "returncode": result.returncode,
+            },
+        )
 
         print()
         print("SatDump finished")
@@ -259,6 +363,13 @@ def record_now():
         if conflict_was_active and conflict_service:
             print(f"Starting {conflict_service}...")
             set_service_state(conflict_service, "start")
+
+        event_bus.publish_receiver(
+            "INFO",
+            "Receiver vrijgegeven",
+            f"{data['device']['number']} is vrijgegeven",
+            data=build_event_context(data),
+        )
 
         state.set_sdr2_state(
             status="idle",
@@ -288,7 +399,13 @@ def _print_record_data(data):
     print(" ".join(data["command"]))
 
 
-def analyze_satdump_result(returncode, stdout="", stderr="", output_path=None):
+def analyze_satdump_result(
+    returncode,
+    stdout="",
+    stderr="",
+    output_path=None,
+    context=None,
+):
     """Classificeer SatDump en lever een compacte missiesamenvatting."""
     import re
 
@@ -330,29 +447,27 @@ def analyze_satdump_result(returncode, stdout="", stderr="", output_path=None):
 
     if returncode != 0:
         detail = f"SatDump stopte met foutcode {returncode}"
-        return {
+        result = {
             "success": False,
             "result": "FAILED",
             "detail": detail,
             "error": detail,
             **metrics,
         }
-
-    if cadu_bytes > 0 or "DEFRAMER : SYNC" in upper:
+    elif cadu_bytes > 0 or "DEFRAMER : SYNC" in upper:
         detail = (
             f"Decode voltooid; {frames} frames, "
             f"{cadu_bytes} bytes CADU-data, {image_count} afbeelding(en)"
         )
-        return {
+        result = {
             "success": True,
             "result": "SUCCESS",
             "detail": detail,
             "error": None,
             **metrics,
         }
-
-    if "NOSYNC" in upper and peak_snr is not None:
-        return {
+    elif "NOSYNC" in upper and peak_snr is not None:
+        result = {
             "success": False,
             "result": "NO SYNC",
             "detail": (
@@ -362,12 +477,30 @@ def analyze_satdump_result(returncode, stdout="", stderr="", output_path=None):
             "error": None,
             **metrics,
         }
+    else:
+        result = {
+            "success": False,
+            "result": "NO SIGNAL",
+            "detail": "Geen bruikbaar LRPT-signaal, frames of afbeeldingen gevonden",
+            "error": None,
+            **metrics,
+        }
 
-    return {
-        "success": False,
-        "result": "NO SIGNAL",
-        "detail": "Geen bruikbaar LRPT-signaal, frames of afbeeldingen gevonden",
-        "error": None,
-        **metrics,
-    }
-
+    level = "SUCCESS" if result["success"] else (
+        "ERROR" if result["result"] == "FAILED" else "WARNING"
+    )
+    event_bus.publish_satdump(
+        level,
+        f"SatDump-resultaat: {result['result']}",
+        result["detail"],
+        data={
+            **dict(context or _active_mission_context()),
+            "returncode": returncode,
+            "output_path": str(output_path) if output_path else None,
+            "result": result["result"],
+            "success": result["success"],
+            "detail": result["detail"],
+            **metrics,
+        },
+    )
+    return result

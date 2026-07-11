@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import threading
+import time
 import uuid
 from collections import deque
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -16,12 +19,14 @@ from typing import Any, Iterable
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_DIR = PROJECT_ROOT / "data" / "state"
 EVENTS_FILE = STATE_DIR / "events.json"
+LOCK_FILE = STATE_DIR / "events.lock"
 MAX_EVENTS = 100
 VALID_LEVELS = {"SYSTEM", "INFO", "SUCCESS", "WARNING", "ERROR"}
 
 _lock = threading.RLock()
 _events: deque[dict[str, Any]] = deque(maxlen=MAX_EVENTS)
 _loaded = False
+_recent_signatures: dict[str, tuple[float, str]] = {}
 
 
 def _now_string() -> str:
@@ -37,6 +42,26 @@ def _normalize_text(value: Any, *, fallback: str = "") -> str:
     if value is None:
         return fallback
     return str(value).strip()
+
+
+@contextmanager
+def _process_lock():
+    """Serialize event-file access across SDRCC processes."""
+
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with LOCK_FILE.open("a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _reload_locked() -> None:
+    global _loaded
+    _events.clear()
+    _loaded = False
+    _load_locked()
 
 
 def _load_locked() -> None:
@@ -112,9 +137,10 @@ def publish_event(
     }
 
     with _lock:
-        _load_locked()
-        _events.append(event)
-        _save_locked()
+        with _process_lock():
+            _reload_locked()
+            _events.append(event)
+            _save_locked()
 
     return dict(event)
 
@@ -139,6 +165,121 @@ def publish_error(category: str, title: str, detail: str | None = None, **kwargs
     return publish_event("ERROR", category, title, detail, **kwargs)
 
 
+
+def _domain_publish(
+    category: str,
+    level: str,
+    title: str,
+    detail: str | None = None,
+    *,
+    data: dict[str, Any] | None = None,
+    dedup_key: str | None = None,
+    cooldown_seconds: float = 0,
+) -> dict[str, Any] | None:
+    """Publish a normalized domain event with optional short-term deduplication."""
+
+    normalized_data = dict(data or {})
+    signature = json.dumps(
+        {
+            "level": _normalize_level(level),
+            "title": _normalize_text(title),
+            "detail": _normalize_text(detail),
+            "data": normalized_data,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+
+    if dedup_key and cooldown_seconds > 0:
+        now = time.monotonic()
+        with _lock:
+            previous = _recent_signatures.get(dedup_key)
+            if previous is not None:
+                previous_time, previous_signature = previous
+                if (
+                    previous_signature == signature
+                    and now - previous_time < float(cooldown_seconds)
+                ):
+                    return None
+            _recent_signatures[dedup_key] = (now, signature)
+
+    return publish_event(
+        level,
+        category,
+        title,
+        detail,
+        data=normalized_data,
+    )
+
+
+def publish_scheduler(
+    level: str,
+    title: str,
+    detail: str | None = None,
+    *,
+    data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _domain_publish(
+        "SCHEDULER", level, title, detail, data=data
+    )
+
+
+def publish_mission(
+    level: str,
+    title: str,
+    detail: str | None = None,
+    *,
+    data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _domain_publish(
+        "MISSION", level, title, detail, data=data
+    )
+
+
+def publish_receiver(
+    level: str,
+    title: str,
+    detail: str | None = None,
+    *,
+    data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _domain_publish(
+        "RECEIVER", level, title, detail, data=data
+    )
+
+
+def publish_preflight(
+    level: str,
+    title: str,
+    detail: str | None = None,
+    *,
+    data: dict[str, Any] | None = None,
+    dedup_key: str = "preflight-result",
+    cooldown_seconds: float = 60,
+) -> dict[str, Any] | None:
+    return _domain_publish(
+        "PREFLIGHT",
+        level,
+        title,
+        detail,
+        data=data,
+        dedup_key=dedup_key,
+        cooldown_seconds=cooldown_seconds,
+    )
+
+
+def publish_satdump(
+    level: str,
+    title: str,
+    detail: str | None = None,
+    *,
+    data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _domain_publish(
+        "SATDUMP", level, title, detail, data=data
+    )
+
 def get_events(
     *,
     limit: int = 100,
@@ -161,8 +302,9 @@ def get_events(
     }
 
     with _lock:
-        _load_locked()
-        items = list(_events)
+        with _process_lock():
+            _reload_locked()
+            items = list(_events)
 
     if normalized_levels:
         items = [item for item in items if item["level"] in normalized_levels]
@@ -179,16 +321,18 @@ def clear_events() -> None:
     """Clear all persisted events."""
 
     with _lock:
-        _load_locked()
-        _events.clear()
-        _save_locked()
+        with _process_lock():
+            _reload_locked()
+            _events.clear()
+            _save_locked()
 
 
 def get_status() -> dict[str, Any]:
     with _lock:
-        _load_locked()
-        count = len(_events)
-        latest = dict(_events[-1]) if _events else None
+        with _process_lock():
+            _reload_locked()
+            count = len(_events)
+            latest = dict(_events[-1]) if _events else None
 
     return {
         "count": count,

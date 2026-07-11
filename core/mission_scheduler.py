@@ -6,6 +6,7 @@ from threading import Lock
 from zoneinfo import ZoneInfo
 import json
 
+from core import event_bus
 from core import mission_preflight
 from core import passes
 from core.config import get_scheduler_config
@@ -225,6 +226,17 @@ class MissionScheduler:
                 "%Y-%m-%d %H:%M:%S"
             )
             _save_state(state)
+
+        event_bus.publish_scheduler(
+            "INFO",
+            "Scheduler-modus gewijzigd",
+            f"Scheduler staat nu op {mode}",
+            data={
+                "mode": mode,
+                "observer_only": bool(state.get("observer_only", True)),
+                "updated": state.get("updated"),
+            },
+        )
 
         return self.status()
 
