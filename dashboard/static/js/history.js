@@ -1,6 +1,8 @@
 let refreshTimer = null;
 let searchTimer = null;
 let initialised = false;
+let selectedMissionId = null;
+let currentMissions = [];
 
 function byId(id) {
     return document.getElementById(id);
@@ -18,11 +20,15 @@ function number(value, fallback = "-") {
 }
 
 function duration(value) {
-    if (value === null || value === undefined) return "-";
+    if (value === null || value === undefined || value === "") return "-";
     const total = Math.max(0, Math.round(Number(value) || 0));
-    const minutes = Math.floor(total / 60);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
     const seconds = total % 60;
-    return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
+
+    if (hours > 0) return `${hours}u ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+    if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+    return `${seconds}s`;
 }
 
 function resultClass(result) {
@@ -34,94 +40,78 @@ function setText(id, value) {
     if (element) element.textContent = text(value);
 }
 
-function detailItem(label, value, wide = false) {
+function metric(label, value, extraClass = "") {
     const item = document.createElement("div");
-    item.className = `history-detail-item${wide ? " history-detail-wide" : ""}`;
+    item.className = `history-metric ${extraClass}`.trim();
+
+    const strong = document.createElement("strong");
+    strong.textContent = text(value);
+    const caption = document.createElement("span");
+    caption.textContent = label;
+
+    item.append(strong, caption);
+    return item;
+}
+
+function detailItem(label, value, options = {}) {
+    const item = document.createElement("div");
+    item.className = `history-detail-item${options.wide ? " history-detail-wide" : ""}`;
 
     const name = document.createElement("span");
     name.textContent = label;
-    const content = document.createElement("strong");
+
+    const content = document.createElement(options.code ? "code" : "strong");
     content.textContent = text(value);
 
     item.append(name, content);
     return item;
 }
 
-function metric(label, value, extraClass = "") {
-    const item = document.createElement("div");
-    item.className = `history-metric ${extraClass}`.trim();
-    const strong = document.createElement("strong");
-    strong.textContent = text(value);
-    const caption = document.createElement("span");
-    caption.textContent = label;
-    item.append(strong, caption);
-    return item;
-}
-
 function missionCard(mission) {
-    const card = document.createElement("article");
+    const card = document.createElement("button");
+    card.type = "button";
     card.className = `history-mission ${resultClass(mission.result)}`;
     card.dataset.missionId = text(mission.mission_id, "");
+    card.setAttribute("aria-pressed", mission.mission_id === selectedMissionId ? "true" : "false");
 
-    const summary = document.createElement("div");
-    summary.className = "history-mission-summary";
+    if (mission.mission_id === selectedMissionId) {
+        card.classList.add("selected");
+    }
+
+    const top = document.createElement("div");
+    top.className = "history-mission-top";
 
     const main = document.createElement("div");
     main.className = "history-main";
+
     const satellite = document.createElement("strong");
     satellite.textContent = `🛰 ${text(mission.satellite)}`;
+
     const date = document.createElement("small");
-    date.textContent = `${text(mission.ended_at || mission.created_at)} · ${text(mission.mission_id)}`;
+    date.textContent = text(mission.ended_at || mission.created_at);
+
     main.append(satellite, date);
 
     const result = document.createElement("span");
     result.className = "history-result";
     result.textContent = text(mission.result);
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "control-button history-details-button";
-    button.textContent = "Details";
+    top.append(main, result);
 
-    summary.append(
-        main,
-        result,
+    const metrics = document.createElement("div");
+    metrics.className = "history-mission-metrics";
+    metrics.append(
         metric("Duur", duration(mission.duration_seconds)),
         metric("Piek-SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
-        metric("Frames", number(mission.frames), "history-hide-medium"),
-        metric("Beelden", number(mission.image_count), "history-hide-medium"),
-        button
+        metric("Beelden", number(mission.image_count))
     );
 
-    const details = document.createElement("div");
-    details.className = "history-mission-details";
-    const grid = document.createElement("div");
-    grid.className = "history-detail-grid";
-    grid.append(
-        detailItem("Mission ID", mission.mission_id),
-        detailItem("Satelliet", mission.satellite),
-        detailItem("Receiver", mission.receiver),
-        detailItem("Serienummer", mission.receiver_serial),
-        detailItem("Frequentie", mission.frequency_mhz == null ? "-" : `${mission.frequency_mhz} MHz`),
-        detailItem("Mode", mission.mode),
-        detailItem("Pipeline", mission.pipeline),
-        detailItem("Resultaat", mission.result),
-        detailItem("Start", mission.started_at || mission.created_at),
-        detailItem("Einde", mission.ended_at),
-        detailItem("CADU-bytes", number(mission.cadu_bytes)),
-        detailItem("Status", mission.status),
-        detailItem("Detail", mission.detail, true),
-        detailItem("Fout", mission.error, true),
-        detailItem("Outputmap", mission.output_path, true)
-    );
-    details.appendChild(grid);
+    const id = document.createElement("small");
+    id.className = "history-mission-id";
+    id.textContent = text(mission.mission_id);
 
-    button.addEventListener("click", () => {
-        card.classList.toggle("open");
-        button.textContent = card.classList.contains("open") ? "Sluiten" : "Details";
-    });
-
-    card.append(summary, details);
+    card.append(top, metrics, id);
+    card.addEventListener("click", () => selectMission(mission.mission_id));
     return card;
 }
 
@@ -135,19 +125,307 @@ function renderStatistics(statistics = {}) {
 }
 
 function renderMissions(missions = []) {
+    currentMissions = missions;
     const list = byId("mission-history-list");
     if (!list) return;
     list.innerHTML = "";
 
     if (!missions.length) {
+        selectedMissionId = null;
         const empty = document.createElement("div");
         empty.className = "history-empty";
         empty.textContent = "Geen missies gevonden voor deze selectie.";
         list.appendChild(empty);
+        renderEmptyDetail("Selecteer een missie om de details te bekijken.");
         return;
     }
 
+    if (!missions.some(mission => mission.mission_id === selectedMissionId)) {
+        selectedMissionId = missions[0].mission_id;
+    }
+
     missions.forEach(mission => list.appendChild(missionCard(mission)));
+
+    if (selectedMissionId) {
+        loadMissionDetail(selectedMissionId);
+    }
+}
+
+function renderEmptyDetail(message = "Selecteer een missie om de details te bekijken.") {
+    const panel = byId("mission-history-detail");
+    if (!panel) return;
+    panel.innerHTML = "";
+
+    const empty = document.createElement("div");
+    empty.className = "history-detail-empty";
+    empty.textContent = message;
+    panel.appendChild(empty);
+}
+
+function sectionTitle(title) {
+    const heading = document.createElement("h3");
+    heading.className = "history-detail-section-title";
+    heading.textContent = title;
+    return heading;
+}
+
+function statusMark(value) {
+    const mark = document.createElement("span");
+    mark.className = `history-quality-mark ${value ? "ok" : "missing"}`;
+    mark.textContent = value ? "✓" : "–";
+    return mark;
+}
+
+function qualityItem(label, value, displayValue = null) {
+    const item = document.createElement("div");
+    item.className = "history-quality-item";
+    item.append(statusMark(Boolean(value)));
+
+    const body = document.createElement("div");
+    const name = document.createElement("span");
+    name.textContent = label;
+    const content = document.createElement("strong");
+    content.textContent = displayValue === null ? (value ? "OK" : "Niet bevestigd") : text(displayValue);
+    body.append(name, content);
+    item.appendChild(body);
+    return item;
+}
+
+function formatBytes(value) {
+    const bytes = Number(value || 0);
+    if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+    if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+    if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${bytes} B`;
+}
+
+function fileItem(icon, label, info = {}) {
+    const item = document.createElement("div");
+    item.className = `history-file-item${info.available ? " available" : " unavailable"}`;
+
+    const symbol = document.createElement("span");
+    symbol.className = "history-file-icon";
+    symbol.textContent = icon;
+
+    const body = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = label;
+    const meta = document.createElement("small");
+    meta.textContent = info.available
+        ? `${number(info.count, "0")} bestand(en) · ${formatBytes(info.bytes)}`
+        : "Niet beschikbaar";
+    body.append(title, meta);
+    item.append(symbol, body);
+    return item;
+}
+
+function eventIcon(category) {
+    const icons = {
+        MISSION: "🛰",
+        RECEIVER: "🎛",
+        SATDUMP: "📡",
+        PREFLIGHT: "✅",
+        SCHEDULER: "⏰",
+        SYSTEM: "⚙"
+    };
+    return icons[String(category || "").toUpperCase()] || "•";
+}
+
+function eventTime(value) {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return text(value);
+    return parsed.toLocaleTimeString("nl-NL", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+}
+
+function missionEventItem(event) {
+    const item = document.createElement("div");
+    item.className = `history-event history-event-${String(event.level || "info").toLowerCase()}`;
+
+    const icon = document.createElement("span");
+    icon.className = "history-event-icon";
+    icon.textContent = eventIcon(event.category);
+
+    const body = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = text(event.title);
+    const detail = document.createElement("small");
+    detail.textContent = text(event.detail, "");
+    body.append(title);
+    if (detail.textContent) body.appendChild(detail);
+
+    const time = document.createElement("time");
+    time.textContent = eventTime(event.time);
+    item.append(icon, body, time);
+    return item;
+}
+
+function renderMissionDetail(payload) {
+    const mission = payload.mission || {};
+    const quality = payload.quality || {};
+    const files = payload.files || {};
+    const events = Array.isArray(payload.events) ? payload.events : [];
+    const panel = byId("mission-history-detail");
+    if (!panel) return;
+    panel.innerHTML = "";
+
+    const header = document.createElement("div");
+    header.className = "history-detail-header";
+
+    const identity = document.createElement("div");
+    const title = document.createElement("h3");
+    title.textContent = `🛰 ${text(mission.satellite)}`;
+    const missionId = document.createElement("code");
+    missionId.textContent = text(mission.mission_id);
+    identity.append(title, missionId);
+
+    const result = document.createElement("span");
+    result.className = `history-result ${resultClass(mission.result)}`;
+    result.textContent = text(mission.result);
+    header.append(identity, result);
+
+    const qualityBlock = document.createElement("section");
+    qualityBlock.className = `history-quality ${resultClass(quality.result || mission.result)}`;
+    const qualityHeading = document.createElement("div");
+    qualityHeading.className = "history-quality-heading";
+    const qualityTitle = document.createElement("h3");
+    qualityTitle.textContent = "Mission Quality";
+    const qualityResult = document.createElement("strong");
+    qualityResult.textContent = text(quality.result || mission.result);
+    qualityHeading.append(qualityTitle, qualityResult);
+
+    const qualityGrid = document.createElement("div");
+    qualityGrid.className = "history-quality-grid";
+    qualityGrid.append(
+        qualityItem("Receiver lock", quality.receiver_lock),
+        qualityItem("Recording", quality.recording),
+        qualityItem("Decoder", quality.decoder),
+        qualityItem("Beelden", Number(quality.images || 0) > 0, number(quality.images, "0")),
+        qualityItem("Piek-SNR", quality.peak_snr_db != null, quality.peak_snr_db == null ? "-" : `${quality.peak_snr_db} dB`)
+    );
+    qualityBlock.append(qualityHeading, qualityGrid);
+
+    const overview = document.createElement("div");
+    overview.className = "history-detail-overview";
+    overview.append(
+        metric("Duur", duration(mission.duration_seconds)),
+        metric("Piek-SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
+        metric("Frames", number(mission.frames)),
+        metric("CADU-bytes", number(mission.cadu_bytes)),
+        metric("Beelden", number(mission.image_count))
+    );
+
+    const summary = document.createElement("div");
+    summary.className = "history-detail-grid";
+    summary.append(
+        detailItem("Receiver", mission.receiver),
+        detailItem("Frequentie", mission.frequency_mhz == null ? "-" : `${mission.frequency_mhz} MHz`),
+        detailItem("Mode", mission.mode),
+        detailItem("Pipeline", mission.pipeline, {code: true}),
+        detailItem("Gestart", mission.started_at),
+        detailItem("Beëindigd", mission.ended_at),
+        detailItem("Status", mission.status),
+        detailItem("Progress", mission.progress == null ? "-" : `${mission.progress}%`)
+    );
+
+    const filesGrid = document.createElement("div");
+    filesGrid.className = "history-files-grid";
+    filesGrid.append(
+        fileItem("🎙", "Recording", files.recording),
+        fileItem("🖼", "Images", files.images),
+        fileItem("📄", "Log", files.logs),
+        fileItem("📊", "Telemetry", files.telemetry)
+    );
+
+    const preview = document.createElement("div");
+    preview.className = "history-preview";
+    if (files.preview?.url) {
+        const image = document.createElement("img");
+        image.src = `${files.preview.url}?t=${Date.now()}`;
+        image.alt = `Preview ${text(files.preview.filename)}`;
+        image.loading = "lazy";
+        const caption = document.createElement("small");
+        caption.textContent = text(files.preview.filename);
+        preview.append(image, caption);
+    } else {
+        const empty = document.createElement("div");
+        empty.className = "history-preview-empty";
+        empty.textContent = "Geen afbeelding beschikbaar voor deze missie.";
+        preview.appendChild(empty);
+    }
+
+    const eventList = document.createElement("div");
+    eventList.className = "history-event-list";
+    if (events.length) {
+        events.forEach(event => eventList.appendChild(missionEventItem(event)));
+    } else {
+        const empty = document.createElement("div");
+        empty.className = "history-event-empty";
+        empty.textContent = "Geen bewaarde Event Bus-events voor deze missie.";
+        eventList.appendChild(empty);
+    }
+
+    const technical = document.createElement("div");
+    technical.className = "history-detail-grid";
+    technical.append(
+        detailItem("Receiver-ID", mission.receiver_id),
+        detailItem("Serienummer", mission.receiver_serial),
+        detailItem("Aangemaakt", mission.created_at),
+        detailItem("Outputmap", mission.output_path, {wide: true, code: true}),
+        detailItem("Detail", mission.detail, {wide: true}),
+        detailItem("Fout", mission.error, {wide: true})
+    );
+
+    panel.append(
+        header,
+        qualityBlock,
+        sectionTitle("Mission Summary"),
+        overview,
+        summary,
+        sectionTitle("Bestanden"),
+        filesGrid,
+        sectionTitle("Image Preview"),
+        preview,
+        sectionTitle("Mission Events"),
+        eventList,
+        sectionTitle("Technische details"),
+        technical
+    );
+}
+
+async function loadMissionDetail(missionId) {
+    const panel = byId("mission-history-detail");
+    if (!panel || !missionId) return;
+
+    panel.setAttribute("aria-busy", "true");
+    try {
+        const response = await fetch(`/api/mission-history/${encodeURIComponent(missionId)}`, {
+            cache: "no-store"
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false || !payload.mission) {
+            throw new Error(payload.error || "Mission Detail API fout");
+        }
+        renderMissionDetail(payload);
+    } catch (error) {
+        renderEmptyDetail(`Mission Detail kon niet worden geladen: ${error.message}`);
+    } finally {
+        panel.removeAttribute("aria-busy");
+    }
+}
+
+function selectMission(missionId) {
+    if (!missionId) return;
+    selectedMissionId = missionId;
+
+    document.querySelectorAll(".history-mission").forEach(card => {
+        const selected = card.dataset.missionId === missionId;
+        card.classList.toggle("selected", selected);
+        card.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+
+    loadMissionDetail(missionId);
 }
 
 function currentParameters() {
@@ -182,6 +460,7 @@ export async function refreshMissionHistory() {
         message.className = "history-empty";
         message.textContent = `Mission History kon niet worden geladen: ${error.message}`;
         list.appendChild(message);
+        renderEmptyDetail("Mission Detail is niet beschikbaar.");
     }
 }
 
@@ -202,6 +481,7 @@ export function setupMissionHistory() {
     });
 
     document.querySelector('[data-tab="history"]')?.addEventListener("click", refreshMissionHistory);
+    renderEmptyDetail();
     refreshMissionHistory();
 
     refreshTimer = window.setInterval(() => {

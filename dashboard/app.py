@@ -313,6 +313,108 @@ def recent_captures(limit=10):
     return [capture_to_dict(path) for path in find_capture_files()[:limit]]
 
 
+
+MISSION_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+MISSION_RECORDING_EXTENSIONS = {".wav", ".raw", ".iq", ".cfile", ".bin"}
+MISSION_LOG_EXTENSIONS = {".log", ".txt"}
+MISSION_TELEMETRY_EXTENSIONS = {".json", ".csv", ".cadu"}
+
+
+def _mission_event_matches(event, mission_id):
+    data = event.get("data") if isinstance(event.get("data"), dict) else {}
+    if str(data.get("mission_id") or "") == mission_id:
+        return True
+    cancelled = data.get("cancelled_job")
+    return isinstance(cancelled, dict) and str(cancelled.get("mission_id") or "") == mission_id
+
+
+def _mission_output_inventory(mission):
+    output_value = str(mission.get("output_path") or "").strip()
+    inventory = {
+        "available": False,
+        "output_path": output_value,
+        "recording": {"available": False, "count": 0, "bytes": 0},
+        "images": {"available": False, "count": 0, "bytes": 0},
+        "logs": {"available": False, "count": 0, "bytes": 0},
+        "telemetry": {"available": False, "count": 0, "bytes": 0},
+        "other": {"available": False, "count": 0, "bytes": 0},
+        "preview": None,
+    }
+    if not output_value:
+        return inventory
+
+    root = Path(output_value).expanduser()
+    try:
+        root = root.resolve()
+    except OSError:
+        return inventory
+    if not root.exists() or not root.is_dir():
+        return inventory
+
+    inventory["available"] = True
+    image_candidates = []
+    try:
+        files = [path for path in root.rglob("*") if path.is_file()]
+    except OSError:
+        files = []
+
+    for path in files[:5000]:
+        suffix = path.suffix.lower()
+        name = path.name.lower()
+        try:
+            size = path.stat().st_size
+        except OSError:
+            size = 0
+
+        if suffix in MISSION_IMAGE_EXTENSIONS:
+            bucket = "images"
+            image_candidates.append(path)
+        elif suffix in MISSION_RECORDING_EXTENSIONS:
+            bucket = "recording"
+        elif suffix in MISSION_LOG_EXTENSIONS or "log" in name:
+            bucket = "logs"
+        elif suffix in MISSION_TELEMETRY_EXTENSIONS or "telemetry" in name:
+            bucket = "telemetry"
+        else:
+            bucket = "other"
+
+        inventory[bucket]["count"] += 1
+        inventory[bucket]["bytes"] += size
+        inventory[bucket]["available"] = True
+
+    if image_candidates:
+        newest = max(image_candidates, key=lambda path: path.stat().st_mtime if path.exists() else 0)
+        relative = newest.relative_to(root)
+        inventory["preview"] = {
+            "filename": newest.name,
+            "relative_path": str(relative),
+            "url": f"/mission-preview/{mission.get('mission_id')}/{str(relative).replace(chr(92), '/')}",
+        }
+
+    return inventory
+
+
+def _mission_quality(mission, events, inventory):
+    result = str(mission.get("result") or mission.get("status") or "UNKNOWN").upper()
+    event_text = " ".join(
+        f"{event.get('category', '')} {event.get('title', '')} {event.get('detail', '')}"
+        for event in events
+    ).upper()
+    frames = int(mission.get("frames") or 0)
+    cadu = int(mission.get("cadu_bytes") or 0)
+    images = max(int(mission.get("image_count") or 0), inventory["images"]["count"])
+
+    return {
+        "result": result,
+        "receiver_lock": bool(mission.get("receiver")) and (
+            "LOCK RECEIVER" in event_text or "RECEIVER GELOCKED" in event_text or "RECEIVER LOCK" in event_text
+        ),
+        "recording": bool(mission.get("started_at")) or "RECORDING" in event_text or inventory["recording"]["available"],
+        "decoder": frames > 0 or cadu > 0 or images > 0 or result == "SUCCESS",
+        "images": images,
+        "peak_snr_db": mission.get("peak_snr_db"),
+    }
+
 def get_mission_data_for_status():
     mission = mission_engine_core.get_mission_status()
 
@@ -1270,12 +1372,49 @@ def api_mission_history_detail(mission_id):
                 "ok": False,
                 "error": "Mission niet gevonden",
             }), 404
-        return jsonify({"ok": True, "mission": mission})
+
+        mission_id_value = str(mission.get("mission_id") or mission_id)
+        events = [
+            event for event in event_bus.get_events(limit=100, newest_first=False)
+            if _mission_event_matches(event, mission_id_value)
+        ]
+        inventory = _mission_output_inventory(mission)
+        return jsonify({
+            "ok": True,
+            "mission": mission,
+            "quality": _mission_quality(mission, events, inventory),
+            "files": inventory,
+            "events": events,
+        })
     except Exception as error:
         return jsonify({
             "ok": False,
             "error": str(error),
         }), 500
+
+
+@app.route("/mission-preview/<mission_id>/<path:relative_path>")
+def mission_preview_file(mission_id, relative_path):
+    mission = mission_history_core.get_mission(mission_id)
+    if mission is None:
+        abort(404)
+
+    output_value = str(mission.get("output_path") or "").strip()
+    if not output_value:
+        abort(404)
+
+    root = Path(output_value).expanduser().resolve()
+    requested = (root / relative_path).resolve()
+    try:
+        requested.relative_to(root)
+    except ValueError:
+        abort(403)
+
+    if requested.suffix.lower() not in MISSION_IMAGE_EXTENSIONS:
+        abort(403)
+    if not requested.exists() or not requested.is_file():
+        abort(404)
+    return send_file(requested)
 
 
 @app.route("/api/mission-engine")
