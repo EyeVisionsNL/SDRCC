@@ -1,5 +1,22 @@
 (() => {
     const POLL_MS = 2000;
+    const PIPELINE_STEPS = ["receiver", "recording", "decoder", "processing", "images", "archive"];
+    const PIPELINE_LABELS = {
+        waiting: "WACHTEN",
+        active: "ACTIEF",
+        complete: "GEREED",
+        error: "FOUT",
+    };
+    const IMAGE_STATUS_LABELS = {
+        waiting: "WACHTEN",
+        decoding: "DECODER ACTIEF",
+        building: "AFBEELDING OPBOUWEN",
+        writing: "AFBEELDING OPSLAAN",
+        complete: "GEREED",
+        error: "FOUT",
+    };
+
+    let lastImageKey = "";
 
     async function getJson(url) {
         const response = await fetch(url, { cache: "no-store" });
@@ -60,7 +77,164 @@
         return Math.max(0, Math.min(100, Number((mission && mission.progress) || 0)));
     }
 
-    function updateDashboard(status, rf) {
+    function setPipelineStep(name, state) {
+        const step = document.querySelector(`[data-pipeline-step="${name}"]`);
+        if (!step) return;
+        const normalized = PIPELINE_LABELS[state] ? state : "waiting";
+        step.className = `pipeline-step is-${normalized}`;
+        const status = step.querySelector("small");
+        if (status) status.textContent = PIPELINE_LABELS[normalized];
+    }
+
+    function decoderTelemetrySeen(rf) {
+        const viterbi = String((rf && rf.viterbi) || "UNKNOWN").toUpperCase();
+        const deframer = String((rf && rf.deframer) || "UNKNOWN").toUpperCase();
+        return Number((rf && rf.frames) || 0) > 0
+            || Number((rf && rf.cadu_bytes) || 0) > 0
+            || viterbi !== "UNKNOWN"
+            || deframer !== "UNKNOWN";
+    }
+
+    function derivePipeline(mission, rf) {
+        const state = normalizeState(mission, rf);
+        const job = mission.active_job || null;
+        const hasLiveMission = Boolean(job || (rf && rf.active));
+        const result = String((rf && rf.result) || (job && job.result) || "").toUpperCase();
+        const failed = ["FAILED", "NO SIGNAL", "NO SYNC", "CANCELLED", "ERROR"].includes(result)
+            || state === "ERROR"
+            || state === "FAILED";
+        const images = Number((rf && rf.image_count) ?? (job && job.image_count) ?? 0);
+        const decoderSeen = decoderTelemetrySeen(rf)
+            || Number((job && job.frames) || 0) > 0
+            || Number((job && job.cadu_bytes) || 0) > 0;
+
+        const statuses = Object.fromEntries(PIPELINE_STEPS.map((name) => [name, "waiting"]));
+        let currentStage = "Wachten op AOS";
+
+        if (!hasLiveMission) return { statuses, currentStage };
+
+        switch (state) {
+        case "WAIT FOR PASS":
+        case "READY":
+        case "STANDBY":
+            currentStage = "Wachten op AOS";
+            break;
+        case "LOCK RECEIVER":
+            statuses.receiver = "active";
+            currentStage = "Receiver voorbereiden en locken";
+            break;
+        case "RECORDING":
+            statuses.receiver = "complete";
+            statuses.recording = "active";
+            if (decoderSeen) statuses.decoder = "active";
+            currentStage = decoderSeen ? "Opnemen en live decoderen" : "Satellietsignaal opnemen";
+            break;
+        case "DECODING":
+            statuses.receiver = "complete";
+            statuses.recording = "complete";
+            statuses.decoder = "active";
+            currentStage = "Opname decoderen";
+            break;
+        case "PROCESSING":
+            statuses.receiver = "complete";
+            statuses.recording = "complete";
+            statuses.decoder = "complete";
+            statuses.processing = "active";
+            statuses.images = images > 0 ? "complete" : "active";
+            currentStage = images > 0 ? "Afbeeldingen verwerken" : "Producten genereren";
+            break;
+        case "ARCHIVING":
+            statuses.receiver = "complete";
+            statuses.recording = "complete";
+            statuses.decoder = decoderSeen || images > 0 ? "complete" : "waiting";
+            statuses.processing = "complete";
+            statuses.images = images > 0 ? "complete" : "waiting";
+            statuses.archive = "active";
+            currentStage = "Missie-output archiveren";
+            break;
+        default:
+            currentStage = String(state).toLowerCase().replaceAll("_", " ");
+            currentStage = currentStage.charAt(0).toUpperCase() + currentStage.slice(1);
+        }
+
+        if (failed) {
+            if (state === "LOCK RECEIVER") statuses.receiver = "error";
+            else if (state === "RECORDING") statuses.recording = "error";
+            else if (!decoderSeen && images === 0) statuses.decoder = "error";
+            else if (images === 0) statuses.images = "error";
+            else statuses.archive = "error";
+            currentStage = result ? `Missie gestopt: ${result}` : "Pipelinefout";
+        }
+
+        return { statuses, currentStage };
+    }
+
+    function updatePipeline(mission, rf) {
+        const pipeline = derivePipeline(mission, rf);
+        for (const name of PIPELINE_STEPS) setPipelineStep(name, pipeline.statuses[name]);
+        setText("briefing-current-stage", pipeline.currentStage);
+    }
+
+    function setImageStatus(status) {
+        const badge = document.getElementById("briefing-image-status");
+        if (!badge) return;
+        const normalized = IMAGE_STATUS_LABELS[status] ? status : "waiting";
+        badge.textContent = IMAGE_STATUS_LABELS[normalized];
+        badge.className = `live-image-status is-${normalized}`;
+    }
+
+    function updateImagePreview(capture, relevant) {
+        const image = document.getElementById("briefing-image-preview");
+        const empty = document.getElementById("briefing-image-empty");
+        if (!image || !empty) return;
+
+        if (!capture || !relevant) {
+            image.classList.add("hidden");
+            image.removeAttribute("src");
+            empty.classList.remove("hidden");
+            empty.textContent = "Nog geen live product";
+            lastImageKey = "";
+            return;
+        }
+
+        const key = `${capture.relative_path || capture.filename}-${capture.modified}-${capture.size_kb}`;
+        if (key !== lastImageKey) {
+            image.src = `${capture.url}?t=${capture.age_seconds || 0}-${Date.now()}`;
+            lastImageKey = key;
+        }
+        empty.classList.add("hidden");
+        image.classList.remove("hidden");
+    }
+
+    function deriveImageStatus(mission, rf, capture, relevantCapture) {
+        const state = normalizeState(mission, rf);
+        const job = mission.active_job || null;
+        const result = String((rf && rf.result) || (job && job.result) || "").toUpperCase();
+        if (["FAILED", "ERROR"].includes(result) || ["FAILED", "ERROR"].includes(state)) return "error";
+        if (state === "PROCESSING") return relevantCapture ? "writing" : "building";
+        if (state === "DECODING" || (state === "RECORDING" && decoderTelemetrySeen(rf))) return "decoding";
+        if (state === "ARCHIVING" || (relevantCapture && ["READY", "STANDBY"].includes(state))) return "complete";
+        if (relevantCapture && capture && capture.live) return "writing";
+        return "waiting";
+    }
+
+    function updateImageProcessing(mission, rf, captureData) {
+        const job = mission.active_job || null;
+        const capture = captureData && captureData.available ? captureData.latest_capture : null;
+        const hasActiveMission = Boolean(job || (rf && rf.active));
+        const relevantCapture = Boolean(capture && (!hasActiveMission || capture.live));
+        const telemetryCount = Number((rf && rf.image_count) ?? (job && job.image_count) ?? 0);
+        const products = Math.max(telemetryCount, relevantCapture ? 1 : 0);
+
+        setImageStatus(deriveImageStatus(mission, rf, capture, relevantCapture));
+        setText("briefing-image-products", products);
+        setText("briefing-image-product", relevantCapture ? (capture.product || capture.filename || "-") : "-");
+        setText("briefing-image-resolution", relevantCapture ? (capture.resolution || "-") : "-");
+        setText("briefing-image-updated", relevantCapture ? onlyTime(capture.modified) : "-");
+        updateImagePreview(capture, relevantCapture);
+    }
+
+    function updateDashboard(status, rf, captureData) {
         const mission = status.mission || {};
         const job = mission.active_job || null;
         const pass = mission.next_pass || status.next_pass || null;
@@ -113,18 +287,24 @@
         setText("briefing-lock", locked ? "LOCKED" : "VRIJ");
         const lockElement = document.getElementById("briefing-lock");
         if (lockElement) lockElement.className = locked ? "live-lock locked" : "live-lock";
+
+        updatePipeline(mission, rf || {});
+        updateImageProcessing(mission, rf || {}, captureData || {});
     }
 
     async function refresh() {
         try {
-            const [status, rf] = await Promise.all([
+            const [status, rf, captureData] = await Promise.all([
                 getJson("/api/status"),
                 getJson("/api/live-rf").catch(() => ({})),
+                getJson("/api/capture-status").catch(() => ({ available: false, latest_capture: null })),
             ]);
-            updateDashboard(status, rf);
+            updateDashboard(status, rf, captureData);
         } catch (error) {
             console.log("Live Mission Dashboard update mislukt:", error.message);
             updateStateBadge("ERROR");
+            setText("briefing-current-stage", "Telemetrie niet beschikbaar");
+            setImageStatus("error");
         }
     }
 
