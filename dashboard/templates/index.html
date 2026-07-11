@@ -90,6 +90,52 @@
                     <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Mission Reset</button>
                 </div>
                 <p class="control-result" id="control-result">Geen actie gestart.</p>
+
+                <div class="automation-policy" id="automation-policy">
+                    <div class="automation-policy-heading">
+                        <div>
+                            <strong>⚙ Automation Policy</strong>
+                            <span>Handmatige bediening blijft altijd beschikbaar.</span>
+                        </div>
+                        <span class="automation-policy-mode" id="automation-policy-mode">MANUAL</span>
+                    </div>
+
+                    <div class="automation-policy-switches">
+                        <label class="automation-policy-switch">
+                            <input type="checkbox" data-policy-key="auto_preflight">
+                            <span>Automatische preflight</span>
+                        </label>
+                        <label class="automation-policy-switch">
+                            <input type="checkbox" data-policy-key="reserve_receiver">
+                            <span>Receiver automatisch reserveren</span>
+                        </label>
+                        <label class="automation-policy-switch">
+                            <input type="checkbox" data-policy-key="prepare_sdr">
+                            <span>SDR automatisch voorbereiden</span>
+                        </label>
+                        <label class="automation-policy-switch">
+                            <input type="checkbox" data-policy-key="start_recording">
+                            <span>Opname automatisch starten</span>
+                        </label>
+                        <label class="automation-policy-switch">
+                            <input type="checkbox" data-policy-key="start_satdump">
+                            <span>SatDump automatisch starten</span>
+                        </label>
+                        <label class="automation-policy-switch">
+                            <input type="checkbox" data-policy-key="process_images">
+                            <span>Images automatisch verwerken</span>
+                        </label>
+                        <label class="automation-policy-switch">
+                            <input type="checkbox" data-policy-key="archive_mission">
+                            <span>Automatisch archiveren</span>
+                        </label>
+                        <label class="automation-policy-switch">
+                            <input type="checkbox" data-policy-key="restore_services">
+                            <span>Receiver-services herstellen</span>
+                        </label>
+                    </div>
+                    <p class="automation-policy-status" id="automation-policy-status">Policy laden...</p>
+                </div>
             </section>
         </aside>
 
@@ -158,6 +204,56 @@
                             <div class="live-mission-time align-right"><span>Resterend</span><strong id="briefing-remaining">--:--</strong></div>
                         </div>
                         <div class="live-mission-progress"><span id="briefing-progress-bar"></span></div>
+
+                        <div class="live-mission-pipeline" id="briefing-live-pipeline" aria-label="Live Mission Pipeline">
+                            <div class="pipeline-step is-waiting" data-pipeline-step="receiver">
+                                <span class="pipeline-step-index">1</span>
+                                <span class="pipeline-step-copy"><strong>Receiver</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="recording">
+                                <span class="pipeline-step-index">2</span>
+                                <span class="pipeline-step-copy"><strong>Recording</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="decoder">
+                                <span class="pipeline-step-index">3</span>
+                                <span class="pipeline-step-copy"><strong>Decoder</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="processing">
+                                <span class="pipeline-step-index">4</span>
+                                <span class="pipeline-step-copy"><strong>Processing</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="images">
+                                <span class="pipeline-step-index">5</span>
+                                <span class="pipeline-step-copy"><strong>Images</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="archive">
+                                <span class="pipeline-step-index">6</span>
+                                <span class="pipeline-step-copy"><strong>Archive</strong><small>WACHTEN</small></span>
+                            </div>
+                        </div>
+                        <div class="live-mission-stage-line">
+                            <span>Huidige stap</span>
+                            <strong id="briefing-current-stage">Wachten op AOS</strong>
+                        </div>
+
+                        <div class="live-image-processing" id="briefing-image-processing">
+                            <div class="live-image-preview-wrap">
+                                <div class="live-image-preview-empty" id="briefing-image-empty">Nog geen live product</div>
+                                <img id="briefing-image-preview" class="live-image-preview hidden" src="" alt="Laatste live satellietproduct">
+                            </div>
+                            <div class="live-image-processing-info">
+                                <div class="live-image-processing-header">
+                                    <strong>🖼 Image Processing</strong>
+                                    <span class="live-image-status is-waiting" id="briefing-image-status">WACHTEN</span>
+                                </div>
+                                <div class="live-image-processing-grid">
+                                    <span>Producten<strong id="briefing-image-products">0</strong></span>
+                                    <span>Laatste product<strong id="briefing-image-product">-</strong></span>
+                                    <span>Resolutie<strong id="briefing-image-resolution">-</strong></span>
+                                    <span>Bijgewerkt<strong id="briefing-image-updated">-</strong></span>
+                                </div>
+                            </div>
+                        </div>
 
                         <div class="live-mission-telemetry">
                             <span>Frames<strong id="briefing-frames">0</strong></span>

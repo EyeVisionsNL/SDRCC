@@ -160,3 +160,23 @@ def set_weather_rf_config(settings):
     rf.setdefault("spectrum_bin_hz", current["spectrum_bin_hz"])
     save_station(data)
     return get_weather_rf_config()
+
+
+def get_automation_policy_config():
+    """Geef opgeslagen Automation Policy-instellingen terug."""
+    data = load_station()
+    policy = data.get("automation_policy", {})
+    return policy if isinstance(policy, dict) else {}
+
+
+def set_automation_policy_config(policy):
+    """Sla de volledige Automation Policy atomisch op in station.yaml."""
+    if not isinstance(policy, dict):
+        raise ValueError("Automation Policy moet een object zijn")
+    data = load_station()
+    data["automation_policy"] = {
+        str(key): bool(value)
+        for key, value in policy.items()
+    }
+    save_station(data)
+    return get_automation_policy_config()

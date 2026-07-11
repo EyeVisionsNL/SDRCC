@@ -280,6 +280,18 @@ def publish_satdump(
         "SATDUMP", level, title, detail, data=data
     )
 
+
+def publish_automation(
+    level: str,
+    title: str,
+    detail: str | None = None,
+    *,
+    data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _domain_publish(
+        "AUTOMATION", level, title, detail, data=data
+    )
+
 def get_events(
     *,
     limit: int = 100,

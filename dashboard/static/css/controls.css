@@ -77,3 +77,106 @@
     color: #ffffff;
     box-shadow: 0 0 12px rgba(255, 90, 108, 0.35);
 }
+
+/* v0.18.0a - Automation Policy */
+.automation-policy {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.automation-policy-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.automation-policy-heading div {
+    display: grid;
+    gap: 3px;
+}
+
+.automation-policy-heading strong {
+    color: #e2e8f0;
+    font-size: 14px;
+}
+
+.automation-policy-heading span:not(.automation-policy-mode) {
+    color: #94a3b8;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.automation-policy-mode {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border: 1px solid #475569;
+    border-radius: 999px;
+    background: #0f172a;
+    color: #cbd5e1;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+}
+
+.automation-policy-mode.is-auto {
+    border-color: #22c55e;
+    color: #86efac;
+}
+
+.automation-policy-mode.is-paused {
+    border-color: #ef4444;
+    color: #fca5a5;
+}
+
+.automation-policy-switches {
+    display: grid;
+    gap: 7px;
+}
+
+.automation-policy-switch {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 30px;
+    padding: 6px 8px;
+    border: 1px solid rgba(71, 85, 105, 0.45);
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.55);
+    color: #cbd5e1;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.automation-policy-switch:hover {
+    border-color: rgba(56, 189, 248, 0.65);
+}
+
+.automation-policy-switch input {
+    width: 16px;
+    height: 16px;
+    accent-color: #0ea5e9;
+    cursor: pointer;
+}
+
+.automation-policy-switch.is-saving {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.automation-policy-status {
+    margin: 10px 0 0 !important;
+    min-height: 16px;
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+.automation-policy-status.ok {
+    color: #86efac;
+}
+
+.automation-policy-status.bad {
+    color: #fca5a5;
+}

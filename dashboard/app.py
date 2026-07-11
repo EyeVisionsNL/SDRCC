@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from flask import Flask, jsonify, render_template, request, send_file, abort
 
+from core import automation_policy
 from core import device_manager
 from core import event_bus
 from core import live_rf
@@ -1009,13 +1010,16 @@ def monitor_auto_record_process(process):
             f"{analysis['result']} - {analysis['detail']}"
         )
 
+        policy = automation_policy.get_policy()
         if analysis["result"] == "SUCCESS":
             mission_engine_core.mission_set_state("DECODING")
             time.sleep(1)
-            mission_engine_core.mission_set_state("PROCESSING")
-            time.sleep(1)
-            mission_engine_core.mission_set_state("ARCHIVING")
-            time.sleep(1)
+            if policy["process_images"]:
+                mission_engine_core.mission_set_state("PROCESSING")
+                time.sleep(1)
+            if policy["archive_mission"]:
+                mission_engine_core.mission_set_state("ARCHIVING")
+                time.sleep(1)
 
         metrics = {
             "peak_snr_db": analysis.get("peak_snr_db"),
@@ -1061,7 +1065,11 @@ def monitor_auto_record_process(process):
         restore_service = autopilot_runtime.get("restore_service")
         restore_needed = autopilot_runtime.get("restore_service_was_active", False)
 
-        if restore_service and restore_needed:
+        if (
+            restore_service
+            and restore_needed
+            and automation_policy.is_enabled("restore_services")
+        ):
             write_log(f"AUTO: {restore_service} herstellen")
             result = run_systemctl("start", restore_service)
             if result.returncode != 0:
@@ -1080,7 +1088,11 @@ def monitor_auto_record_process(process):
                     data={"service": restore_service},
                 )
 
-        profiles.set_active_profile("adsb")
+        if automation_policy.is_enabled("restore_services"):
+            profiles.set_active_profile("adsb")
+        else:
+            write_log("AUTO: serviceherstel staat UIT; Weather-profiel blijft actief")
+
         released_data = autopilot_runtime.get("record_data") or {}
         event_bus.publish_receiver(
             "INFO",
@@ -1147,6 +1159,7 @@ def mission_autopilot_worker():
                 time.sleep(AUTOPILOT_POLL_SECONDS)
                 continue
 
+            policy = automation_policy.get_policy()
             next_pass = scheduler.get("next_pass")
 
             if (
@@ -1182,6 +1195,7 @@ def mission_autopilot_worker():
 
             if (
                 0 < seconds_until_start <= preflight_seconds
+                and policy["auto_preflight"]
                 and not autopilot_runtime["preflight_ok"]
                 and time.monotonic()
                 - autopilot_runtime["last_preflight_attempt"]
@@ -1208,6 +1222,8 @@ def mission_autopilot_worker():
             if (
                 0 < seconds_until_start <= prepare_seconds
                 and autopilot_runtime["preflight_ok"]
+                and policy["reserve_receiver"]
+                and policy["prepare_sdr"]
                 and not autopilot_runtime["prepared"]
             ):
                 autopilot_prepare_receiver()
@@ -1225,6 +1241,8 @@ def mission_autopilot_worker():
             if (
                 -2 <= seconds_until_start <= 1
                 and autopilot_runtime["locked"]
+                and policy["start_recording"]
+                and policy["start_satdump"]
                 and not autopilot_runtime["record_started"]
             ):
                 autopilot_runtime["record_started"] = True
@@ -1244,9 +1262,11 @@ def mission_autopilot_worker():
                 if (
                     restore_service
                     and autopilot_runtime.get("restore_service_was_active")
+                    and policy["restore_services"]
                 ):
                     run_systemctl("start", restore_service)
-                profiles.set_active_profile("adsb")
+                if policy["restore_services"]:
+                    profiles.set_active_profile("adsb")
                 mission_engine_core.mission_reset()
                 reset_autopilot_runtime()
 
@@ -1338,6 +1358,31 @@ def api_mission_scheduler():
             "ok": False,
             "error": str(error),
         }), 500
+
+
+@app.route("/api/automation-policy", methods=["GET", "PUT"])
+def api_automation_policy():
+    try:
+        if request.method == "GET":
+            scheduler = mission_scheduler_core.get_scheduler_status()
+            return jsonify({
+                "ok": True,
+                **automation_policy.get_payload(scheduler.get("mode")),
+            })
+
+        payload = request.get_json(silent=True) or {}
+        changes = payload.get("policy", payload)
+        policy = automation_policy.update_policy(changes)
+        scheduler = mission_scheduler_core.get_scheduler_status()
+        write_log("Automation Policy bijgewerkt")
+        return jsonify({
+            "ok": True,
+            **automation_policy.get_payload(scheduler.get("mode")),
+        })
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 500
 
 
 @app.route("/api/mission-history")

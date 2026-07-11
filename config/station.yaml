@@ -26,3 +26,12 @@ weather_rf:
   iq_swap: false
   spectrum_span_hz: 1000000
   spectrum_bin_hz: 10000
+automation_policy:
+  auto_preflight: true
+  reserve_receiver: true
+  prepare_sdr: true
+  start_recording: true
+  start_satdump: true
+  process_images: true
+  archive_mission: true
+  restore_services: true
