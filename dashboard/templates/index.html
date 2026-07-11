@@ -137,17 +137,44 @@
                         <p id="last-mission-detail" class="last-mission-detail">Nog geen missie-uitkomst beschikbaar.</p>
                     </div>
 
-                    <div class="mission-briefing" id="mission-briefing">
-                        <div class="mission-briefing-title">🛰 Mission Briefing</div>
-                        <div class="mission-briefing-grid">
-                            <p>Satelliet<br><strong id="briefing-name">-</strong></p>
-                            <p>Mode<br><strong id="briefing-mode">-</strong></p>
-                            <p>Start<br><strong id="briefing-start">-</strong></p>
+                    <div class="mission-briefing live-mission-dashboard" id="mission-briefing">
+                        <div class="live-mission-header">
+                            <div>
+                                <div class="mission-briefing-title">🛰 Live Mission Dashboard</div>
+                                <strong class="live-mission-name" id="briefing-name">Geen actieve missie</strong>
+                            </div>
+                            <span class="live-mission-state" id="briefing-state">STANDBY</span>
+                        </div>
+
+                        <div class="live-mission-context">
+                            <span>Mode<strong id="briefing-mode">-</strong></span>
+                            <span>Ontvanger<strong id="briefing-receiver">-</strong></span>
+                            <span>Frequentie<strong id="briefing-frequency">-</strong></span>
+                        </div>
+
+                        <div class="live-mission-progress-row">
+                            <div class="live-mission-time"><span>Verstreken</span><strong id="briefing-elapsed">00:00</strong></div>
+                            <strong class="live-mission-percent" id="briefing-progress-text">0%</strong>
+                            <div class="live-mission-time align-right"><span>Resterend</span><strong id="briefing-remaining">--:--</strong></div>
+                        </div>
+                        <div class="live-mission-progress"><span id="briefing-progress-bar"></span></div>
+
+                        <div class="live-mission-telemetry">
+                            <span>Frames<strong id="briefing-frames">0</strong></span>
+                            <span>CADU<strong id="briefing-cadu">0 B</strong></span>
+                            <span>Piek-SNR<strong id="briefing-peak-snr">--.-- dB</strong></span>
+                            <span>Beelden<strong id="briefing-images">0</strong></span>
+                        </div>
+
+                        <div class="mission-briefing-grid live-mission-pass">
+                            <p>AOS<br><strong id="briefing-start">-</strong></p>
                             <p>Maximum<br><strong id="briefing-maximum">-</strong></p>
-                            <p>Einde<br><strong id="briefing-end">-</strong></p>
+                            <p>LOS<br><strong id="briefing-end">-</strong></p>
                             <p>Elevatie<br><strong id="briefing-elevation">-</strong></p>
                             <p>Azimuth<br><strong id="briefing-azimuth">-</strong></p>
-                            <p>Frequentie<br><strong id="briefing-frequency">-</strong></p>
+                            <p>Sample rate<br><strong id="briefing-samplerate">-</strong></p>
+                            <p>Gain<br><strong id="briefing-gain">-</strong></p>
+                            <p>Lock<strong id="briefing-lock">-</strong></p>
                         </div>
                         <div class="mission-briefing-pipeline">Pipeline<br><strong id="briefing-pipeline">-</strong></div>
                     </div>
