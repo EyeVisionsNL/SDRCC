@@ -101,6 +101,7 @@ def build_record_command():
         "device": device,
         "output_path": output_path,
         "timeout_seconds": timeout_seconds,
+        "rf": rf,
         "command": command,
     }
 

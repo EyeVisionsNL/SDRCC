@@ -13,6 +13,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from flask import Flask, jsonify, render_template, request, send_file, abort
 
 from core import device_manager
+from core import event_bus
+from core import live_rf
 from core import config as config_core
 from core import passes
 from core import rf_diagnostics
@@ -1134,6 +1136,46 @@ def api_status():
     return jsonify(get_dashboard_data())
 
 
+@app.route("/api/live-rf")
+def api_live_rf():
+    try:
+        return jsonify(live_rf.get_status())
+    except Exception as error:
+        return jsonify({
+            "active": False,
+            "state": "ERROR",
+            "error": str(error),
+        }), 500
+
+@app.route("/api/events")
+def api_events():
+    try:
+        limit = request.args.get("limit", default=100, type=int)
+        level_values = request.args.getlist("level")
+        category_values = request.args.getlist("category")
+        events = event_bus.get_events(
+            limit=limit or 100,
+            levels=level_values,
+            categories=category_values,
+            newest_first=True,
+        )
+        status = event_bus.get_status()
+        return jsonify({
+            "ok": True,
+            "count": len(events),
+            "total": status["count"],
+            "limit": status["limit"],
+            "events": events,
+        })
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "error": str(error),
+            "count": 0,
+            "events": [],
+        }), 500
+
+
 @app.route("/api/mission-scheduler")
 def api_mission_scheduler():
     try:
@@ -1388,6 +1430,11 @@ def capture_file(relative_path):
 
 
 def run():
+    event_bus.publish_system(
+        "SYSTEM",
+        "Event Bus gestart",
+        "SDRCC operator-eventopslag en API zijn actief.",
+    )
     start_mission_autopilot()
     app.run(
         host="0.0.0.0",

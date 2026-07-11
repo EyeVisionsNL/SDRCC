@@ -25,3 +25,16 @@ data/*
 
 # SatDump tijdelijke bestanden
 *.tmp
+
+# Python cache
+*.py[cod]
+
+# Lokale backups en tijdelijke bestanden
+*.bak
+*.bak-*
+*.bad-*
+*.old
+*.swp
+
+# SDRCC runtime state
+logs/

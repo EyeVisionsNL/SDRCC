@@ -114,7 +114,11 @@ def get_weather_rf_config():
     mode = str(rf.get("gain_mode", "auto")).lower()
     if mode not in {"auto", "manual"}:
         mode = "auto"
-    gain = float(rf.get("gain_db", 38.6))
+    raw_gain = rf.get("gain_db")
+    try:
+        gain = float(raw_gain) if raw_gain is not None else 38.6
+    except (TypeError, ValueError):
+        gain = 38.6
     valid_gains = [
         0.0, 0.9, 1.4, 2.7, 3.7, 7.7, 8.7, 12.5, 14.4,
         15.7, 16.6, 19.7, 20.7, 22.9, 25.4, 28.0, 29.7,

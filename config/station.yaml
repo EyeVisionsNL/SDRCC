@@ -16,7 +16,7 @@ sdr2:
   task: weather
   locked: false
 assignments:
-  weather: sdr2
+  weather: sdr1
   ais: sdr1
   adsb: sdr2
 weather_rf:

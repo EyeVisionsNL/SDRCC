@@ -109,6 +109,101 @@
         }
     }
 
+    async function getLiveRf() {
+        const response = await fetch("/api/live-rf", {cache: "no-store"});
+        if (!response.ok) throw new Error("live rf api fout");
+        return await response.json();
+    }
+
+    function formatSeconds(value, fallback = "--:--") {
+        const seconds = Number(value);
+        if (!Number.isFinite(seconds) || seconds < 0) return fallback;
+        const rounded = Math.max(0, Math.round(seconds));
+        const minutes = Math.floor(rounded / 60);
+        const remainder = rounded % 60;
+        return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+    }
+
+    function formatFrequency(value) {
+        const hz = Number(value);
+        return Number.isFinite(hz) && hz > 0 ? `${(hz / 1e6).toFixed(3)} MHz` : "-";
+    }
+
+    function formatSampleRate(value) {
+        const rate = Number(value);
+        if (!Number.isFinite(rate) || rate <= 0) return "-";
+        return rate >= 1e6 ? `${(rate / 1e6).toFixed(3)} MS/s` : `${Math.round(rate / 1e3)} kS/s`;
+    }
+
+    function formatDb(value, fallback = "--.-- dB") {
+        const number = Number(value);
+        return Number.isFinite(number) ? `${number.toFixed(2)} dB` : fallback;
+    }
+
+    function setTelemetryStatus(id, value) {
+        const element = document.getElementById(id);
+        if (!element) return;
+        const status = String(value || "UNKNOWN").toUpperCase();
+        element.textContent = status;
+        element.classList.remove("telemetry-sync", "telemetry-nosync", "telemetry-unknown");
+        if (status === "SYNC") element.classList.add("telemetry-sync");
+        else if (status === "NOSYNC") element.classList.add("telemetry-nosync");
+        else element.classList.add("telemetry-unknown");
+    }
+
+    function renderLiveRf(data) {
+        const active = Boolean(data && data.active);
+        const state = String((data && data.state) || "IDLE").toUpperCase();
+        const stateElement = document.getElementById("live-rf-state");
+        if (stateElement) {
+            stateElement.textContent = state;
+            stateElement.className = `live-rf-state live-rf-state-${state.toLowerCase().replaceAll(" ", "-")}`;
+        }
+
+        setText("live-rf-satellite", data.satellite || (active ? "Weather-missie" : "Geen actieve Weather-missie"));
+        setText("live-rf-detail", data.detail || data.last_line || (active ? "SatDump-telemetrie actief." : "SatDump-telemetrie verschijnt hier tijdens een opname."));
+        setText("live-rf-updated", data.updated_at ? `Bijgewerkt ${data.updated_at}` : "Wachten op telemetrie...");
+        setText("live-rf-elapsed", formatSeconds(data.elapsed_seconds, "00:00"));
+        setText("live-rf-remaining", formatSeconds(data.remaining_seconds));
+        setText("live-rf-snr", formatDb(data.snr_db));
+        setText("live-rf-peak-snr", formatDb(data.peak_snr_db));
+        setText("live-rf-ber", Number.isFinite(Number(data.ber)) ? Number(data.ber).toFixed(6) : "-----");
+        setText("live-rf-frames", Number(data.frames || 0).toLocaleString("nl-NL"));
+        setTelemetryStatus("live-rf-viterbi", data.viterbi);
+        setTelemetryStatus("live-rf-deframer", data.deframer);
+        setText("live-rf-receiver", data.receiver || "-");
+        setText("live-rf-serial", data.serial || "-");
+        setText("live-rf-frequency", formatFrequency(data.frequency_hz));
+        setText("live-rf-samplerate", formatSampleRate(data.sample_rate));
+        const gainMode = data.gain_mode ? String(data.gain_mode).toUpperCase() : "-";
+        const gainValue = Number.isFinite(Number(data.gain_db)) ? ` · ${Number(data.gain_db).toFixed(1)} dB` : "";
+        setText("live-rf-gain", `${gainMode}${gainValue}`);
+        setText("live-rf-processing", `DC ${data.dc_block ? "AAN" : "UIT"} · IQ ${data.iq_swap ? "SWAP" : "NORMAAL"}`);
+        setText("live-rf-cadu", Number(data.cadu_bytes || 0).toLocaleString("nl-NL"));
+        setText("live-rf-images", Number(data.image_count || 0).toLocaleString("nl-NL"));
+
+        const timeout = Number(data.timeout_seconds);
+        const elapsed = Number(data.elapsed_seconds);
+        const progress = Number.isFinite(timeout) && timeout > 0 && Number.isFinite(elapsed)
+            ? Math.max(0, Math.min(100, (elapsed / timeout) * 100))
+            : 0;
+        const progressBar = document.getElementById("live-rf-progress-bar");
+        if (progressBar) progressBar.style.width = `${progress}%`;
+
+        const snr = Number(data.snr_db);
+        const snrPercent = Number.isFinite(snr) ? Math.max(0, Math.min(100, (snr / 15) * 100)) : 0;
+        const snrBar = document.getElementById("live-rf-snr-bar");
+        if (snrBar) snrBar.style.width = `${snrPercent}%`;
+    }
+
+    async function updateLiveRf() {
+        try {
+            renderLiveRf(await getLiveRf());
+        } catch (error) {
+            console.log("Live RF update mislukt:", error.message);
+        }
+    }
+
     async function updateRadioPage() {
         try {
             const data = await getStatus();
@@ -206,5 +301,7 @@
     });
 
     updateRadioPage();
+    updateLiveRf();
     setInterval(updateRadioPage, 3000);
+    setInterval(updateLiveRf, 1000);
 })();
