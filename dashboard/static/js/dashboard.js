@@ -8,6 +8,7 @@ import {updateLatestCapture, updateRecentCaptures} from "./capture.js";
 import {updateLiveLog, updateMissionTimeline} from "./timeline.js";
 import {updateSdr} from "./sdr.js";
 import {updateStatusbar} from "./statusbar.js";
+import {setupMissionHistory} from "./history.js";
 import {
     updateScheduler,
     updateSchedulerCountdown,
@@ -54,6 +55,7 @@ async function refreshDashboard() {
 
 setupTabs();
 setupControls(refreshDashboard);
+setupMissionHistory();
 refreshDashboard();
 
 setInterval(refreshDashboard, 5000);

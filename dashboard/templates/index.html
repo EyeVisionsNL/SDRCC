@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/static/css/mission.css">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="/static/css/radio.css">
+    <link rel="stylesheet" href="/static/css/history.css">
 </head>
 <body>
 <header class="topbar">
@@ -41,6 +42,7 @@
 <nav class="tabs">
     <button class="tab-button active" data-tab="mission">🛰 Mission Control</button>
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
+    <button class="tab-button" data-tab="history">🗂 Mission History</button>
     <button class="tab-button" data-tab="images">📸 Beelden</button>
     <button class="tab-button" data-tab="logs">📜 Logs</button>
 </nav>
@@ -344,6 +346,58 @@
         <div class="radio-legacy-state" hidden>
             <span id="radio-sdr2-status"></span><span id="radio-sdr2-locked"></span><span id="radio-sdr2-profile"></span><span id="radio-sdr2-process"></span><span id="radio-sdr2-updated"></span>
         </div>
+    </div>
+</section>
+
+<section class="tab-page" id="tab-history">
+    <div class="history-page">
+        <section class="card">
+            <div class="history-header">
+                <div>
+                    <h2>🗂 Mission History</h2>
+                    <p>Blijvend overzicht van afgeronde en geannuleerde satellietmissies.</p>
+                </div>
+                <button id="history-refresh" type="button" class="control-button history-refresh">↻ Vernieuwen</button>
+            </div>
+
+            <div class="history-stat-grid">
+                <div class="history-stat"><span>Missies</span><strong id="history-stat-total">0</strong></div>
+                <div class="history-stat"><span>Succes</span><strong id="history-stat-success">0%</strong></div>
+                <div class="history-stat"><span>Beelden</span><strong id="history-stat-images">0</strong></div>
+                <div class="history-stat"><span>Gem. duur</span><strong id="history-stat-duration">-</strong></div>
+                <div class="history-stat"><span>Beste SNR</span><strong id="history-stat-snr">-</strong></div>
+                <div class="history-stat"><span>Frames totaal</span><strong id="history-stat-frames">0</strong></div>
+            </div>
+
+            <div class="history-toolbar">
+                <label>Zoeken
+                    <input id="history-search" type="search" placeholder="Satelliet, mission ID, receiver...">
+                </label>
+                <label>Resultaat
+                    <select id="history-result-filter">
+                        <option value="">Alle resultaten</option>
+                        <option value="SUCCESS">SUCCESS</option>
+                        <option value="NO SYNC">NO SYNC</option>
+                        <option value="NO SIGNAL">NO SIGNAL</option>
+                        <option value="FAILED">FAILED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                    </select>
+                </label>
+                <label>Aantal
+                    <select id="history-limit">
+                        <option value="25">25 missies</option>
+                        <option value="50">50 missies</option>
+                        <option value="100" selected>100 missies</option>
+                        <option value="250">250 missies</option>
+                    </select>
+                </label>
+            </div>
+
+            <p id="history-count" class="muted">Mission History laden...</p>
+            <div id="mission-history-list" class="history-list">
+                <div class="history-empty">Mission History laden...</div>
+            </div>
+        </section>
     </div>
 </section>
 

@@ -22,6 +22,7 @@ from core import state
 from core import tle
 from core import system_stats
 from core import mission_engine as mission_engine_core
+from core import mission_history as mission_history_core
 from core import mission_preflight
 from core import mission_scheduler as mission_scheduler_core
 from core import process_manager
@@ -1230,6 +1231,46 @@ def api_events():
 def api_mission_scheduler():
     try:
         return jsonify(mission_scheduler_core.get_scheduler_status())
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "error": str(error),
+        }), 500
+
+
+@app.route("/api/mission-history")
+def api_mission_history():
+    try:
+        limit = request.args.get("limit", default=100, type=int)
+        result = request.args.get("result", default="", type=str)
+        satellite = request.args.get("satellite", default="", type=str)
+        query = request.args.get("q", default="", type=str)
+        return jsonify(mission_history_core.get_history_payload(
+            limit=limit or 100,
+            result=result,
+            satellite=satellite,
+            query=query,
+        ))
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "error": str(error),
+            "count": 0,
+            "missions": [],
+            "statistics": {},
+        }), 500
+
+
+@app.route("/api/mission-history/<mission_id>")
+def api_mission_history_detail(mission_id):
+    try:
+        mission = mission_history_core.get_mission(mission_id)
+        if mission is None:
+            return jsonify({
+                "ok": False,
+                "error": "Mission niet gevonden",
+            }), 404
+        return jsonify({"ok": True, "mission": mission})
     except Exception as error:
         return jsonify({
             "ok": False,
