@@ -20,18 +20,9 @@ assignments:
   ais: sdr1
   adsb: sdr2
 weather_rf:
-  gain_mode: auto
-  gain_db: 38.6
-  dc_block: true
+  gain_mode: manual
+  gain_db: 42.1
+  dc_block: false
   iq_swap: false
   spectrum_span_hz: 1000000
   spectrum_bin_hz: 10000
-automation_policy:
-  auto_preflight: true
-  reserve_receiver: true
-  prepare_sdr: true
-  start_recording: true
-  start_satdump: true
-  process_images: true
-  archive_mission: true
-  restore_services: true

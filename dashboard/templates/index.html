@@ -91,50 +91,37 @@
                 </div>
                 <p class="control-result" id="control-result">Geen actie gestart.</p>
 
-                <div class="automation-policy" id="automation-policy">
-                    <div class="automation-policy-heading">
-                        <div>
-                            <strong>⚙ Automation Policy</strong>
-                            <span>Handmatige bediening blijft altijd beschikbaar.</span>
+                <div class="automation-operations">
+                    <div class="automation-controller" id="automation-controller">
+                        <div class="automation-controller-heading">
+                            <strong>🧠 Automation Controller</strong>
+                            <span class="automation-controller-state" id="automation-controller-state">LADEN</span>
                         </div>
-                        <span class="automation-policy-mode" id="automation-policy-mode">MANUAL</span>
+                        <div class="automation-controller-grid">
+                            <span>Volgende passage<strong id="automation-controller-pass">-</strong></span>
+                            <span>Countdown<strong id="automation-controller-countdown">T--:--:--</strong></span>
+                            <span>Volgende actie<strong id="automation-controller-next-action">-</strong></span>
+                            <span>Veilige modus<strong id="automation-controller-safety">Normaal</strong></span>
+                        </div>
+                        <p class="automation-controller-detail" id="automation-controller-detail">Controllerstatus laden...</p>
+                        <div class="automation-controller-actions">
+                            <button class="automation-controller-button" id="automation-dry-run" type="button">🧪 Dry Run UIT</button>
+                            <button class="automation-controller-button" id="automation-manual-override" type="button">✋ Override UIT</button>
+                            <button class="automation-controller-button danger" id="automation-skip-pass" type="button">⏭ Volgende passage overslaan</button>
+                        </div>
+                        <p class="automation-controller-status" id="automation-controller-message">Handmatige bediening blijft beschikbaar.</p>
                     </div>
 
-                    <div class="automation-policy-switches">
-                        <label class="automation-policy-switch">
-                            <input type="checkbox" data-policy-key="auto_preflight">
-                            <span>Automatische preflight</span>
-                        </label>
-                        <label class="automation-policy-switch">
-                            <input type="checkbox" data-policy-key="reserve_receiver">
-                            <span>Receiver automatisch reserveren</span>
-                        </label>
-                        <label class="automation-policy-switch">
-                            <input type="checkbox" data-policy-key="prepare_sdr">
-                            <span>SDR automatisch voorbereiden</span>
-                        </label>
-                        <label class="automation-policy-switch">
-                            <input type="checkbox" data-policy-key="start_recording">
-                            <span>Opname automatisch starten</span>
-                        </label>
-                        <label class="automation-policy-switch">
-                            <input type="checkbox" data-policy-key="start_satdump">
-                            <span>SatDump automatisch starten</span>
-                        </label>
-                        <label class="automation-policy-switch">
-                            <input type="checkbox" data-policy-key="process_images">
-                            <span>Images automatisch verwerken</span>
-                        </label>
-                        <label class="automation-policy-switch">
-                            <input type="checkbox" data-policy-key="archive_mission">
-                            <span>Automatisch archiveren</span>
-                        </label>
-                        <label class="automation-policy-switch">
-                            <input type="checkbox" data-policy-key="restore_services">
-                            <span>Receiver-services herstellen</span>
-                        </label>
+                    <div class="mission-queue" id="mission-queue">
+                        <div class="mission-queue-heading">
+                            <div><strong>📋 Mission Queue</strong><span>Komende passages en operatorplanning</span></div>
+                            <span id="mission-queue-summary">LADEN</span>
+                        </div>
+                        <div class="mission-queue-list" id="mission-queue-list">
+                            <div class="mission-queue-empty">Mission Queue laden...</div>
+                        </div>
+                        <p class="mission-queue-message" id="mission-queue-message">Maximaal 10 passages vooruit.</p>
                     </div>
-                    <p class="automation-policy-status" id="automation-policy-status">Policy laden...</p>
                 </div>
             </section>
         </aside>
@@ -500,6 +487,7 @@
                     <select id="history-result-filter">
                         <option value="">Alle resultaten</option>
                         <option value="SUCCESS">SUCCESS</option>
+                        <option value="NO IMAGES">NO IMAGES</option>
                         <option value="NO SYNC">NO SYNC</option>
                         <option value="NO SIGNAL">NO SIGNAL</option>
                         <option value="FAILED">FAILED</option>

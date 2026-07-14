@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+
+from core import mission_result
 from zoneinfo import ZoneInfo
 import subprocess
 import time
@@ -406,85 +408,13 @@ def analyze_satdump_result(
     output_path=None,
     context=None,
 ):
-    """Classificeer SatDump en lever een compacte missiesamenvatting."""
-    import re
-
-    combined = f"{stdout or ''}\n{stderr or ''}"
-    upper = combined.upper()
-
-    cadu_bytes = 0
-    image_count = 0
-    if output_path:
-        output_dir = Path(output_path)
-        if output_dir.exists():
-            cadu_bytes = sum(
-                item.stat().st_size
-                for item in output_dir.rglob("*.cadu")
-                if item.is_file()
-            )
-            image_count = sum(
-                1
-                for pattern in ("*.png", "*.jpg", "*.jpeg")
-                for item in output_dir.rglob(pattern)
-                if item.is_file()
-            )
-
-    cadu_size = 8192
-    frames = cadu_bytes // cadu_size
-
-    snr_values = [
-        float(value)
-        for value in re.findall(r"SNR\s*:\s*(-?\d+(?:\.\d+)?)\s*DB", upper)
-    ]
-    peak_snr = max(snr_values) if snr_values else None
-
-    metrics = {
-        "peak_snr_db": peak_snr,
-        "frames": frames,
-        "cadu_bytes": cadu_bytes,
-        "image_count": image_count,
-    }
-
-    if returncode != 0:
-        detail = f"SatDump stopte met foutcode {returncode}"
-        result = {
-            "success": False,
-            "result": "FAILED",
-            "detail": detail,
-            "error": detail,
-            **metrics,
-        }
-    elif cadu_bytes > 0 or "DEFRAMER : SYNC" in upper:
-        detail = (
-            f"Decode voltooid; {frames} frames, "
-            f"{cadu_bytes} bytes CADU-data, {image_count} afbeelding(en)"
-        )
-        result = {
-            "success": True,
-            "result": "SUCCESS",
-            "detail": detail,
-            "error": None,
-            **metrics,
-        }
-    elif "NOSYNC" in upper and peak_snr is not None:
-        result = {
-            "success": False,
-            "result": "NO SYNC",
-            "detail": (
-                "Signaal gezien, maar geen decoder-lock; "
-                f"piek-SNR {peak_snr:.2f} dB, 0 frames"
-            ),
-            "error": None,
-            **metrics,
-        }
-    else:
-        result = {
-            "success": False,
-            "result": "NO SIGNAL",
-            "detail": "Geen bruikbaar LRPT-signaal, frames of afbeeldingen gevonden",
-            "error": None,
-            **metrics,
-        }
+    """Classificeer SatDump centraal via core.mission_result."""
+    result = mission_result.classify(
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
+        output_path=output_path,
+    )
 
     level = "SUCCESS" if result["success"] else (
         "ERROR" if result["result"] == "FAILED" else "WARNING"
@@ -497,10 +427,7 @@ def analyze_satdump_result(
             **dict(context or _active_mission_context()),
             "returncode": returncode,
             "output_path": str(output_path) if output_path else None,
-            "result": result["result"],
-            "success": result["success"],
-            "detail": result["detail"],
-            **metrics,
+            **result,
         },
     )
     return result

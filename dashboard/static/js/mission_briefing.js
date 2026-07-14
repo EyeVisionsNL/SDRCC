@@ -100,7 +100,7 @@
         const job = mission.active_job || null;
         const hasLiveMission = Boolean(job || (rf && rf.active));
         const result = String((rf && rf.result) || (job && job.result) || "").toUpperCase();
-        const failed = ["FAILED", "NO SIGNAL", "NO SYNC", "CANCELLED", "ERROR"].includes(result)
+        const failed = ["FAILED", "NO SIGNAL", "NO SYNC", "NO IMAGES", "CANCELLED", "ERROR"].includes(result)
             || state === "ERROR"
             || state === "FAILED";
         const images = Number((rf && rf.image_count) ?? (job && job.image_count) ?? 0);

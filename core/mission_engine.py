@@ -23,6 +23,7 @@ class MissionResult(str, Enum):
     SUCCESS = "SUCCESS"
     NO_SYNC = "NO SYNC"
     NO_SIGNAL = "NO SIGNAL"
+    NO_IMAGES = "NO IMAGES"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
 

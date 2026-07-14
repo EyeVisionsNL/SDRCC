@@ -2,8 +2,6 @@ import {setText} from "./utils.js";
 
 let startEpoch = null;
 let serverOffsetSeconds = 0;
-let automationPolicyInitialized = false;
-let automationPolicySaving = false;
 
 export function updateScheduler(data) {
     const scheduler = data && data.scheduler;
@@ -17,7 +15,6 @@ export function updateScheduler(data) {
         setText("scheduler-preflight-at", "-");
         setText("scheduler-prepare-at", "-");
         setText("scheduler-lock-at", "-");
-        updateAutomationPolicy(null);
         startEpoch = null;
         return;
     }
@@ -29,10 +26,6 @@ export function updateScheduler(data) {
     setText("scheduler-prepare-at", timeOnly(observer.prepare_at));
     setText("scheduler-lock-at", timeOnly(observer.lock_at));
 
-    updateAutomationPolicy(scheduler.automation || {
-        mode: scheduler.mode,
-        policy: null,
-    });
 
     const nextPass = scheduler.next_pass;
     startEpoch = nextPass ? Number(nextPass.start_epoch) : null;
@@ -66,104 +59,6 @@ export function updateSchedulerCountdown() {
     element.textContent = formatCountdown(difference);
 }
 
-function setupAutomationPolicy() {
-    if (automationPolicyInitialized) return;
-
-    const inputs = document.querySelectorAll("[data-policy-key]");
-    if (!inputs.length) return;
-
-    inputs.forEach(input => {
-        input.addEventListener("change", async () => {
-            if (automationPolicySaving) return;
-
-            const key = input.dataset.policyKey;
-            if (!key) return;
-
-            const previousValue = !input.checked;
-            setAutomationPolicySaving(true);
-            setAutomationPolicyStatus("Instelling opslaan...", "");
-
-            try {
-                const response = await fetch("/api/automation-policy", {
-                    method: "PUT",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({
-                        policy: {[key]: input.checked},
-                    }),
-                });
-                const payload = await response.json();
-
-                if (!response.ok || payload.ok === false) {
-                    throw new Error(payload.error || "Opslaan mislukt");
-                }
-
-                updateAutomationPolicy(payload);
-                setAutomationPolicyStatus("Automation Policy opgeslagen.", "ok");
-            } catch (error) {
-                input.checked = previousValue;
-                setAutomationPolicyStatus(String(error), "bad");
-                console.error(error);
-            } finally {
-                setAutomationPolicySaving(false);
-            }
-        });
-    });
-
-    automationPolicyInitialized = true;
-}
-
-function updateAutomationPolicy(automation) {
-    setupAutomationPolicy();
-
-    const mode = String((automation && automation.mode) || "MANUAL").toUpperCase();
-    const policy = automation && automation.policy;
-    const modeElement = document.getElementById("automation-policy-mode");
-
-    if (modeElement) {
-        modeElement.textContent = mode;
-        modeElement.classList.toggle("is-auto", mode === "AUTO");
-        modeElement.classList.toggle("is-paused", mode === "PAUSED");
-    }
-
-    if (!policy || typeof policy !== "object") {
-        setAutomationPolicyStatus("Policy niet beschikbaar.", "bad");
-        return;
-    }
-
-    document.querySelectorAll("[data-policy-key]").forEach(input => {
-        const key = input.dataset.policyKey;
-        if (Object.prototype.hasOwnProperty.call(policy, key)) {
-            input.checked = Boolean(policy[key]);
-        }
-    });
-
-    if (!automationPolicySaving) {
-        const message = mode === "AUTO"
-            ? "AUTO gebruikt alleen de ingeschakelde stappen."
-            : mode === "PAUSED"
-                ? "PAUSED start geen nieuwe automatische missie."
-                : "MANUAL voert geen automatische stappen uit.";
-        setAutomationPolicyStatus(message, "");
-    }
-}
-
-function setAutomationPolicySaving(saving) {
-    automationPolicySaving = saving;
-    document.querySelectorAll(".automation-policy-switch").forEach(element => {
-        element.classList.toggle("is-saving", saving);
-    });
-    document.querySelectorAll("[data-policy-key]").forEach(input => {
-        input.disabled = saving;
-    });
-}
-
-function setAutomationPolicyStatus(message, stateClass) {
-    const element = document.getElementById("automation-policy-status");
-    if (!element) return;
-    element.textContent = message;
-    element.classList.remove("ok", "bad");
-    if (stateClass) element.classList.add(stateClass);
-}
 
 function formatCountdown(totalSeconds) {
     const prefix = totalSeconds >= 0 ? "T-" : "T+";
@@ -195,3 +90,200 @@ function timeOnly(value) {
 function pad(value) {
     return String(value).padStart(2, "0");
 }
+
+/* v0.18.0b - Automation Controller Status & Safe Override */
+let automationControllerInitialized = false;
+let automationControllerBusy = false;
+let automationControllerData = null;
+
+function setupAutomationController() {
+    if (automationControllerInitialized) return;
+    const dryRun = document.getElementById("automation-dry-run");
+    const override = document.getElementById("automation-manual-override");
+    const skip = document.getElementById("automation-skip-pass");
+    if (!dryRun || !override || !skip) return;
+
+    dryRun.addEventListener("click", () => sendControllerAction("dry_run", !Boolean(automationControllerData && automationControllerData.dry_run)));
+    override.addEventListener("click", () => sendControllerAction("manual_override", !Boolean(automationControllerData && automationControllerData.manual_override)));
+    skip.addEventListener("click", () => sendControllerAction("skip_next_pass"));
+
+    automationControllerInitialized = true;
+    refreshAutomationController();
+    window.setInterval(refreshAutomationController, 2000);
+}
+
+async function refreshAutomationController() {
+    try {
+        const response = await fetch("/api/automation-controller", {cache: "no-store"});
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Controllerstatus niet beschikbaar");
+        updateAutomationController(payload);
+    } catch (error) {
+        setText("automation-controller-state", "ERROR");
+        setText("automation-controller-detail", String(error));
+    }
+}
+
+async function sendControllerAction(action, enabled) {
+    if (automationControllerBusy) return;
+    automationControllerBusy = true;
+    setControllerButtonsDisabled(true);
+    setControllerMessage("Actie uitvoeren...", "");
+    try {
+        const body = {action};
+        if (typeof enabled === "boolean") body.enabled = enabled;
+        const response = await fetch("/api/automation-controller", {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body),
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Controlleractie mislukt");
+        updateAutomationController(payload);
+        setControllerMessage("Controllerinstelling opgeslagen.", "ok");
+    } catch (error) {
+        setControllerMessage(String(error), "bad");
+    } finally {
+        automationControllerBusy = false;
+        setControllerButtonsDisabled(false);
+    }
+}
+
+function updateAutomationController(data) {
+    automationControllerData = data || {};
+    const state = String(data.status || data.mode || "IDLE").toUpperCase();
+    const badge = document.getElementById("automation-controller-state");
+    if (badge) {
+        badge.textContent = state;
+        badge.className = "automation-controller-state";
+        if (["ERROR", "FAILED"].includes(state)) badge.classList.add("is-error");
+        else if (data.dry_run || data.manual_override || data.pass_skipped || ["PAUSED", "SKIPPED", "MANUAL OVERRIDE"].includes(state)) badge.classList.add("is-safe");
+        else if (!["MANUAL", "IDLE", "WAITING"].includes(state)) badge.classList.add("is-active");
+    }
+
+    const passData = data.target_pass || data.next_pass || null;
+    setText("automation-controller-pass", passData ? (passData.name || "-") : "-");
+    setText("automation-controller-countdown", passData && Number.isFinite(Number(passData.start_epoch))
+        ? formatCountdown(Number(passData.start_epoch) - (Math.floor(Date.now() / 1000) + serverOffsetSeconds))
+        : "T--:--:--");
+    setText("automation-controller-next-action", data.next_action || "-");
+    setText("automation-controller-detail", data.detail || "-");
+    setText("automation-controller-safety", data.manual_override ? "Manual Override" : data.dry_run ? "Dry Run" : data.pass_skipped ? "Pass overgeslagen" : "Normaal");
+
+    const dryRun = document.getElementById("automation-dry-run");
+    const override = document.getElementById("automation-manual-override");
+    const skip = document.getElementById("automation-skip-pass");
+    if (dryRun) {
+        dryRun.textContent = `🧪 Dry Run ${data.dry_run ? "AAN" : "UIT"}`;
+        dryRun.classList.toggle("is-on", Boolean(data.dry_run));
+    }
+    if (override) {
+        override.textContent = `✋ Override ${data.manual_override ? "AAN" : "UIT"}`;
+        override.classList.toggle("is-on", Boolean(data.manual_override));
+    }
+    if (skip) skip.disabled = automationControllerBusy || !data.next_pass || Boolean(data.pass_skipped);
+}
+
+function setControllerButtonsDisabled(disabled) {
+    document.querySelectorAll(".automation-controller-button").forEach(button => { button.disabled = disabled; });
+}
+
+function setControllerMessage(message, stateClass) {
+    const element = document.getElementById("automation-controller-message");
+    if (!element) return;
+    element.textContent = message;
+    element.classList.remove("ok", "bad");
+    if (stateClass) element.classList.add(stateClass);
+}
+
+setupAutomationController();
+
+/* v0.19.0a - Mission Queue */
+let missionQueueBusy = false;
+
+async function refreshMissionQueue() {
+    try {
+        const response = await fetch("/api/mission-queue?limit=10&hours=48", {cache: "no-store"});
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Mission Queue niet beschikbaar");
+        renderMissionQueue(payload);
+    } catch (error) {
+        setQueueMessage(String(error), "bad");
+    }
+}
+
+function renderMissionQueue(payload) {
+    const list = document.getElementById("mission-queue-list");
+    if (!list) return;
+    const queue = Array.isArray(payload.queue) ? payload.queue : [];
+    setText("mission-queue-summary", `${queue.length} PASSAGES`);
+    if (!queue.length) {
+        list.innerHTML = '<div class="mission-queue-empty">Geen geschikte passages gepland.</div>';
+        return;
+    }
+    list.innerHTML = queue.map(item => {
+        const start = String(item.start || "").split(" ")[1] || "-";
+        const stars = "★".repeat(Number(item.quality && item.quality.stars || 0));
+        const skipAction = item.skipped ? "activate" : "skip";
+        const skipLabel = item.skipped ? "↩" : "⏭";
+        const classes = String(item.status || "queued").toLowerCase().replaceAll(" ", "-");
+        return `<div class="mission-queue-item is-${escapeQueue(classes)}">
+            <div class="mission-queue-time">${escapeQueue(start)}</div>
+            <div class="mission-queue-copy">
+                <strong>${escapeQueue(item.name || "-")} · ${escapeQueue(item.status || "QUEUED")}</strong>
+                <span class="mission-queue-meta">${escapeQueue(stars)} ${escapeQueue(item.max_elevation)}° · ${escapeQueue(item.duration_seconds)}s · P${escapeQueue(item.priority)} · ${escapeQueue(item.receiver || "-")}</span>
+                <span class="mission-queue-status">${escapeQueue(item.frequency_mhz)} MHz · ${escapeQueue(item.pipeline || "-")}</span>
+            </div>
+            <div class="mission-queue-actions">
+                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_down" title="Prioriteit lager">−</button>
+                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_up" title="Prioriteit hoger">+</button>
+                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="${skipAction}" title="${item.skipped ? "Activeren" : "Overslaan"}">${skipLabel}</button>
+            </div>
+        </div>`;
+    }).join("");
+    list.querySelectorAll("[data-queue-action]").forEach(button => {
+        button.addEventListener("click", () => updateMissionQueueItem(button.dataset.queueKey, button.dataset.queueAction));
+    });
+    setQueueMessage(`${payload.conflicts || 0} conflict(en), ${payload.skipped || 0} overgeslagen.`, "");
+}
+
+async function updateMissionQueueItem(queueKey, action) {
+    if (missionQueueBusy) return;
+    missionQueueBusy = true;
+    document.querySelectorAll("[data-queue-action]").forEach(button => { button.disabled = true; });
+    try {
+        const response = await fetch("/api/mission-queue?limit=10&hours=48", {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({queue_key: queueKey, action}),
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Queuewijziging mislukt");
+        renderMissionQueue(payload);
+        setQueueMessage("Mission Queue opgeslagen.", "ok");
+    } catch (error) {
+        setQueueMessage(String(error), "bad");
+    } finally {
+        missionQueueBusy = false;
+    }
+}
+
+function setQueueMessage(message, stateClass) {
+    const element = document.getElementById("mission-queue-message");
+    if (!element) return;
+    element.textContent = message;
+    element.classList.remove("ok", "bad");
+    if (stateClass) element.classList.add(stateClass);
+}
+
+function escapeQueue(value) {
+    return String(value == null ? "-" : value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+refreshMissionQueue();
+window.setInterval(refreshMissionQueue, 15000);

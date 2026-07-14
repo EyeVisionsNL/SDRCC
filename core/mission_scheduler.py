@@ -6,7 +6,6 @@ from threading import Lock
 from zoneinfo import ZoneInfo
 import json
 
-from core import automation_policy
 from core import event_bus
 from core import mission_preflight
 from core import passes
@@ -268,11 +267,8 @@ class MissionScheduler:
             {},
         ).get("preflight_seconds", 300)
 
-        policy = automation_policy.get_policy()
-
         if (
             state["mode"] == "AUTO"
-            and policy["auto_preflight"]
             and countdown_seconds is not None
             and countdown_seconds <= preflight_seconds
             and countdown_seconds > 0
@@ -290,8 +286,6 @@ class MissionScheduler:
             )
         elif state["mode"] != "AUTO":
             preflight["detail"] = "Preflight wacht op AUTO-modus"
-        elif not policy["auto_preflight"]:
-            preflight["detail"] = "Automatische preflight staat UIT"
 
         if state["mode"] == "PAUSED":
             next_action = "Scheduler gepauzeerd"
@@ -322,7 +316,6 @@ class MissionScheduler:
             "next_action": next_action,
             "observer": observer,
             "preflight": preflight,
-            "automation": automation_policy.get_payload(state["mode"]),
         }
 
 

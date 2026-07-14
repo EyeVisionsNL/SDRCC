@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any, Optional
 import json
 
+from core import mission_result
+
 try:
     import fcntl
 except ImportError:  # pragma: no cover - SDRCC draait op Linux
@@ -37,7 +39,11 @@ def _read_history_unlocked() -> list[dict[str, Any]]:
 
     if not isinstance(payload, list):
         return []
-    return [item for item in payload if isinstance(item, dict)]
+    return [
+        mission_result.normalize_history_mission(item)
+        for item in payload
+        if isinstance(item, dict)
+    ]
 
 
 def load_history() -> list[dict[str, Any]]:
@@ -118,6 +124,7 @@ def get_statistics(missions: Optional[list[dict[str, Any]]] = None) -> dict[str,
     total = len(rows)
     result_counts = {
         "SUCCESS": 0,
+        "NO IMAGES": 0,
         "NO SYNC": 0,
         "NO SIGNAL": 0,
         "FAILED": 0,
