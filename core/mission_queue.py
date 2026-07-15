@@ -11,8 +11,8 @@ from threading import RLock
 from typing import Any
 import json
 
-from core import event_bus, passes
-from core.config import get_enabled_satellites, get_receiver_assignments
+from core import event_bus, passes, receiver_manager
+from core.config import get_enabled_satellites, get_receiver_assignments, get_scheduler_config
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -76,16 +76,29 @@ def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: in
     priority_delta = int(override.get("priority_delta", 0))
     priority = max(1, min(9, int(base_priority) + priority_delta))
     frequency = item.get("frequency")
+    scheduler = get_scheduler_config()
+    start_epoch = int(start.timestamp())
+    now_epoch = int(now.timestamp())
+    preflight_epoch = start_epoch - int(scheduler["preflight_seconds"])
+    prepare_epoch = start_epoch - int(scheduler["prepare_seconds"])
+    lock_epoch = start_epoch - int(scheduler["lock_seconds"])
     return {
         "queue_key": _key(item),
         "name": item.get("name"),
         "start": start.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
         "maximum": maximum.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
         "end": end.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
-        "start_epoch": int(start.timestamp()),
+        "start_epoch": start_epoch,
         "maximum_epoch": int(maximum.timestamp()),
         "end_epoch": int(end.timestamp()),
-        "seconds_until_start": int((start - now).total_seconds()),
+        "seconds_until_start": start_epoch - now_epoch,
+        "eta_preflight_seconds": preflight_epoch - now_epoch,
+        "eta_prepare_receiver_seconds": prepare_epoch - now_epoch,
+        "eta_receiver_lock_seconds": lock_epoch - now_epoch,
+        "eta_recording_seconds": start_epoch - now_epoch,
+        "preflight_at_epoch": preflight_epoch,
+        "prepare_receiver_at_epoch": prepare_epoch,
+        "receiver_lock_at_epoch": lock_epoch,
         "duration_seconds": duration,
         "max_elevation": item.get("max_elevation"),
         "azimuth": item.get("azimuth"),
@@ -114,10 +127,19 @@ def _apply_conflicts(queue: list[dict[str, Any]]) -> None:
                 other["conflict_with"].append(item["queue_key"])
 
 
-def get_queue(limit: int = 10, hours_ahead: int = 48, *, active_pass_key: str | None = None) -> list[dict[str, Any]]:
+def get_queue(
+    limit: int = 10,
+    hours_ahead: int = 48,
+    *,
+    active_pass_key: str | None = None,
+    target_pass_key: str | None = None,
+    controller_status: str | None = None,
+) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 50))
     satellites = get_enabled_satellites()
     receiver = get_receiver_assignments().get("weather", "-").upper()
+    receiver_status = receiver_manager.get_status()
+    reservation = receiver_status.get("reservation") or {}
     with _LOCK:
         state = _load_state()
         overrides = state["overrides"]
@@ -134,8 +156,17 @@ def get_queue(limit: int = 10, hours_ahead: int = 48, *, active_pass_key: str | 
     eligible = [item for item in queue if not item["skipped"]]
     next_key = eligible[0]["queue_key"] if eligible else None
     for item in queue:
+        reservation_matches = reservation.get("mission_key") == item["queue_key"]
+        item["configured_receiver"] = receiver
+        item["reserved_receiver"] = (reservation.get("receiver_id") or "").upper() if reservation_matches else None
+        item["active_receiver"] = item["reserved_receiver"] if reservation_matches and reservation.get("status") == "ACTIVE" else None
+        item["receiver_status"] = reservation.get("status") if reservation_matches else "CONFIGURED"
         if item["queue_key"] == active_pass_key:
             item["status"] = "IN PROGRESS"
+            item["live_mission_status"] = str(controller_status or "RECORDING").upper()
+        elif item["queue_key"] == target_pass_key:
+            item["status"] = "TARGET"
+            item["live_mission_status"] = str(controller_status or "WAITING").upper()
         elif item["skipped"]:
             item["status"] = "SKIPPED"
         elif item["conflict_with"]:
@@ -144,6 +175,7 @@ def get_queue(limit: int = 10, hours_ahead: int = 48, *, active_pass_key: str | 
             item["status"] = "NEXT"
         else:
             item["status"] = "QUEUED"
+        item.setdefault("live_mission_status", None)
     # Remove stale operator overrides after passages disappear from planning horizon.
     with _LOCK:
         stale = [key for key in overrides if key not in live_keys]
@@ -154,9 +186,26 @@ def get_queue(limit: int = 10, hours_ahead: int = 48, *, active_pass_key: str | 
     return queue
 
 
-def get_payload(limit: int = 10, hours_ahead: int = 48, *, active_pass_key: str | None = None) -> dict[str, Any]:
-    queue = get_queue(limit, hours_ahead, active_pass_key=active_pass_key)
+def get_payload(
+    limit: int = 10,
+    hours_ahead: int = 48,
+    *,
+    active_pass_key: str | None = None,
+    target_pass_key: str | None = None,
+    controller_status: str | None = None,
+) -> dict[str, Any]:
+    generated_at = datetime.now().astimezone()
+    queue = get_queue(
+        limit,
+        hours_ahead,
+        active_pass_key=active_pass_key,
+        target_pass_key=target_pass_key,
+        controller_status=controller_status,
+    )
     return {
+        "generated_at": generated_at.isoformat(timespec="seconds"),
+        "generated_epoch": int(generated_at.timestamp()),
+        "source": "live-pass-planning",
         "ok": True,
         "count": len(queue),
         "limit": limit,

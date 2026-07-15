@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+
+"""Central receiver assignment and runtime reservation state."""
+
+from __future__ import annotations
+
+from copy import deepcopy
+from datetime import datetime
+from pathlib import Path
+from threading import RLock
+from typing import Any
+import json
+
+from core import event_bus
+from core.device_manager import get_device, get_weather_device
+
+STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
+STATE_DIR.mkdir(parents=True, exist_ok=True)
+STATE_FILE = STATE_DIR / "receiver_manager.json"
+_LOCK = RLock()
+
+DEFAULT_STATE: dict[str, Any] = {
+    "reservation": None,
+    "last_release": None,
+}
+
+
+def _now() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _load_state() -> dict[str, Any]:
+    if not STATE_FILE.exists():
+        return deepcopy(DEFAULT_STATE)
+    try:
+        data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return deepcopy(DEFAULT_STATE)
+        state = deepcopy(DEFAULT_STATE)
+        state.update(data)
+        return state
+    except Exception:
+        return deepcopy(DEFAULT_STATE)
+
+
+def _save_state(state: dict[str, Any]) -> None:
+    temp = STATE_FILE.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    temp.replace(STATE_FILE)
+
+
+def _device_summary(device_id: str | None) -> dict[str, Any] | None:
+    if not device_id:
+        return None
+    device = get_device(device_id)
+    if device is None:
+        return {"id": device_id, "number": device_id.upper(), "missing": True}
+    return {
+        "id": device["id"],
+        "number": device["number"],
+        "name": device["name"],
+        "serial": device["serial"],
+    }
+
+
+def get_status() -> dict[str, Any]:
+    configured = get_weather_device()
+    with _LOCK:
+        state = _load_state()
+    reservation = deepcopy(state.get("reservation"))
+    if reservation:
+        reservation["device"] = _device_summary(reservation.get("receiver_id"))
+    return {
+        "ok": True,
+        "configured_receiver": _device_summary(configured.get("id") if configured else None),
+        "reservation": reservation,
+        "last_release": deepcopy(state.get("last_release")),
+        "available": reservation is None,
+    }
+
+
+def is_available(receiver_id: str, *, mission_key: str | None = None) -> bool:
+    with _LOCK:
+        reservation = _load_state().get("reservation")
+    if reservation is None:
+        return True
+    return bool(
+        reservation.get("receiver_id") == receiver_id
+        and mission_key
+        and reservation.get("mission_key") == mission_key
+    )
+
+
+def reserve(
+    receiver_id: str,
+    *,
+    mission_key: str,
+    mission_id: str | None = None,
+    reason: str = "weather mission",
+) -> dict[str, Any]:
+    device = get_device(receiver_id)
+    if device is None:
+        raise ValueError(f"Onbekende receiver: {receiver_id}")
+    key = str(mission_key or "").strip()
+    if not key:
+        raise ValueError("mission_key ontbreekt")
+
+    with _LOCK:
+        state = _load_state()
+        current = state.get("reservation")
+        if current and current.get("mission_key") != key:
+            raise RuntimeError(
+                f"{current.get('receiver_id', '-').upper()} is al gereserveerd "
+                f"voor {current.get('mission_key', '-')}"
+            )
+        if current and current.get("receiver_id") != receiver_id:
+            raise RuntimeError("De missie is al aan een andere receiver gekoppeld")
+
+        reservation = current or {
+            "receiver_id": receiver_id,
+            "mission_key": key,
+            "reserved_at": _now(),
+            "status": "RESERVED",
+            "reason": str(reason),
+        }
+        if mission_id:
+            reservation["mission_id"] = str(mission_id)
+        state["reservation"] = reservation
+        _save_state(state)
+
+    event_bus.publish_receiver(
+        "INFO",
+        "Receiver gereserveerd",
+        f"{device['number']} is gereserveerd voor {key}",
+        data=deepcopy(reservation),
+    )
+    return get_status()
+
+
+def activate(*, mission_key: str, mission_id: str | None = None) -> dict[str, Any]:
+    key = str(mission_key or "").strip()
+    with _LOCK:
+        state = _load_state()
+        reservation = state.get("reservation")
+        if reservation is None or reservation.get("mission_key") != key:
+            raise RuntimeError("Geen passende receiver-reservering gevonden")
+        reservation["status"] = "ACTIVE"
+        reservation["activated_at"] = _now()
+        if mission_id:
+            reservation["mission_id"] = str(mission_id)
+        state["reservation"] = reservation
+        _save_state(state)
+    return get_status()
+
+
+def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") -> dict[str, Any]:
+    with _LOCK:
+        state = _load_state()
+        reservation = state.get("reservation")
+        if reservation is None:
+            return get_status()
+        if mission_key and reservation.get("mission_key") != mission_key:
+            raise RuntimeError("Receiver-reservering hoort bij een andere missie")
+        released = deepcopy(reservation)
+        released["released_at"] = _now()
+        released["release_detail"] = str(detail)
+        state["last_release"] = released
+        state["reservation"] = None
+        _save_state(state)
+
+    event_bus.publish_receiver(
+        "INFO",
+        "Receiver vrijgegeven",
+        str(detail),
+        data=released,
+    )
+    return get_status()

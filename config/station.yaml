@@ -21,7 +21,7 @@ assignments:
   adsb: sdr2
 weather_rf:
   gain_mode: manual
-  gain_db: 42.1
+  gain_db: 43.9
   dc_block: false
   iq_swap: false
   spectrum_span_hz: 1000000

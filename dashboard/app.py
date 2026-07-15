@@ -19,6 +19,7 @@ from core import live_rf
 from core import config as config_core
 from core import passes
 from core import rf_diagnostics
+from core import receiver_manager
 from core import state
 from core import tle
 from core import system_stats
@@ -891,6 +892,12 @@ def autopilot_prepare_receiver():
     if device is None:
         raise RuntimeError("Geen Weather-ontvanger toegewezen")
 
+    receiver_manager.reserve(
+        device["id"],
+        mission_key=autopilot_runtime["pass_key"],
+        reason="AUTO Weather-missie",
+    )
+
     conflict_service = device_manager.get_conflicting_service(device["id"])
     was_active = bool(
         conflict_service
@@ -990,16 +997,20 @@ def autopilot_lock_receiver():
 
 
 def monitor_auto_record_process(process):
+    output_lines = []
     try:
-        stdout, stderr = process.communicate()
-
-        if stdout:
-            for line in stdout.strip().splitlines():
+        if process.stdout is not None:
+            for raw_line in process.stdout:
+                line = raw_line.rstrip("\r\n")
+                if not line:
+                    continue
+                output_lines.append(line)
                 write_log(line)
+                live_rf.update_line(line)
 
-        if stderr:
-            for line in stderr.strip().splitlines():
-                write_log("ERROR: " + line)
+        process.wait()
+        stdout = "\n".join(output_lines)
+        stderr = ""
 
         record_data = autopilot_runtime.get("record_data") or {}
         analysis = satdump_core.analyze_satdump_result(
@@ -1009,6 +1020,7 @@ def monitor_auto_record_process(process):
             output_path=record_data.get("output_path"),
             context=satdump_core.build_event_context(record_data),
         )
+        live_rf.finish(analysis)
 
         write_log(
             "AUTO: SatDump-resultaat "
@@ -1051,6 +1063,10 @@ def monitor_auto_record_process(process):
 
     except Exception as error:
         write_log(f"AUTO: procesbewaking mislukt: {error}")
+        try:
+            live_rf.fail(str(error))
+        except Exception as live_rf_error:
+            write_log(f"AUTO: Live RF kon niet worden afgerond: {live_rf_error}")
 
         try:
             mission_engine_core.mission_finish_job(
@@ -1092,6 +1108,13 @@ def monitor_auto_record_process(process):
         profiles.set_active_profile("adsb")
 
         released_data = autopilot_runtime.get("record_data") or {}
+        try:
+            receiver_manager.release(
+                mission_key=autopilot_runtime.get("pass_key"),
+                detail="Weather-receiver is vrijgegeven na de missie",
+            )
+        except Exception as release_error:
+            write_log(f"AUTO ERROR: receiver vrijgeven mislukt: {release_error}")
         event_bus.publish_receiver(
             "INFO",
             "Receiver vrijgegeven",
@@ -1110,6 +1133,13 @@ def autopilot_start_recording():
             "Geen voorbereid SatDump-commando beschikbaar"
         )
 
+    mission_status = mission_engine_core.get_mission_status()
+    active_job = mission_status.get("active_job") or {}
+    receiver_manager.activate(
+        mission_key=autopilot_runtime["pass_key"],
+        mission_id=active_job.get("mission_id"),
+    )
+
     mission_engine_core.mission_set_state("RECORDING")
 
     process = subprocess.Popen(
@@ -1117,8 +1147,10 @@ def autopilot_start_recording():
         cwd=str(PROJECT_ROOT),
         text=True,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
     )
+    live_rf.start(record_data, process.pid)
 
     watcher = threading.Thread(
         target=monitor_auto_record_process,
@@ -1503,7 +1535,7 @@ def api_mission_queue():
                 active_key = target_key
 
         controller = automation_controller.get_status(
-            mode=mission_scheduler_core.get_scheduler_mode(),
+            mode=mission_scheduler_core.get_scheduler_status().get("mode", "MANUAL"),
             next_pass=mission_scheduler_core.get_scheduler_status().get("next_pass"),
         )
         return jsonify(mission_queue_core.get_payload(
@@ -1651,16 +1683,23 @@ def api_mission_engine_finish_recording():
 
 
 
+@app.route("/api/receiver-manager", methods=["GET"])
+def api_receiver_manager():
+    return jsonify(receiver_manager.get_status())
+
+
 @app.route("/api/receiver-assignment", methods=["POST"])
 def api_receiver_assignment():
     payload = request.get_json(silent=True) or {}
     device_id = payload.get("weather")
     mission = mission_engine_core.get_mission_status()
+    receiver_runtime = receiver_manager.get_status()
     if (
         mission.get("phase") not in {"READY", "WAIT FOR PASS"}
         or autopilot_runtime.get("prepared")
         or autopilot_runtime.get("locked")
         or autopilot_runtime.get("record_started")
+        or receiver_runtime.get("reservation") is not None
     ):
         return jsonify({
             "ok": False,

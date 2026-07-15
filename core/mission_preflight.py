@@ -6,7 +6,7 @@ from pathlib import Path
 from core import event_bus
 from core import mission_engine
 from core import passes
-from core import state
+from core import receiver_manager
 from core import tle
 from core.device_manager import get_dynamic_device
 
@@ -42,21 +42,27 @@ def run_preflight():
         )
     )
 
-    sdr_state = state.get_sdr2_state()
+    device = get_dynamic_device()
+    receiver_status = receiver_manager.get_status()
+    reservation = receiver_status.get("reservation")
+    receiver_available = bool(device) and (
+        reservation is None or reservation.get("receiver_id") == device.get("id")
+    )
 
     checks.append(
         _check(
-            "SDR2 lock",
-            not sdr_state.get("locked", False),
+            "Weather Receiver beschikbaarheid",
+            receiver_available,
             (
-                "SDR2 is beschikbaar"
-                if not sdr_state.get("locked", False)
-                else "SDR2 is gelocked"
+                f"{device.get('number')} is beschikbaar"
+                if receiver_available and device
+                else f"Gereserveerd voor {reservation.get('mission_key', 'onbekend')}"
+                if reservation
+                else "Geen Weather Receiver beschikbaar"
             ),
         )
     )
 
-    device = get_dynamic_device()
     device_ok = bool(device and device.get("serial"))
 
     checks.append(

@@ -1,4 +1,12 @@
 (() => {
+    let rfFormDirty = false;
+    let rfFormSaving = false;
+    let rfFormFocused = false;
+
+    function rfFormIsBeingEdited() {
+        return rfFormDirty || rfFormSaving || rfFormFocused;
+    }
+
     async function getStatus() {
         const response = await fetch("/api/status", {cache: "no-store"});
         if (!response.ok) throw new Error("status api fout");
@@ -219,7 +227,9 @@
             const selected = (data.assignments || {}).weather;
             const radio = document.querySelector(`input[name="weather_receiver"][value="${selected}"]`);
             if (radio) radio.checked = true;
-            populateRf(data.weather_rf || {});
+            if (!rfFormIsBeingEdited()) {
+                populateRf(data.weather_rf || {});
+            }
             const weatherDevice = (data.devices || []).find(item => item.weather_selected);
             setText("spectrum-device", weatherDevice ? `${weatherDevice.number} · ${weatherDevice.serial}` : "-");
         } catch (error) {
@@ -256,27 +266,52 @@
 
     const gainMode = document.getElementById("weather-gain-mode");
     if (gainMode) gainMode.addEventListener("change", () => {
+        rfFormDirty = true;
         const gain = document.getElementById("weather-gain-db");
         if (gain) gain.disabled = gainMode.value !== "manual";
     });
 
     const rfForm = document.getElementById("weather-rf-form");
-    if (rfForm) rfForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const result = document.getElementById("weather-rf-result");
-        const payload = {
-            gain_mode: document.getElementById("weather-gain-mode").value,
-            gain_db: Number(document.getElementById("weather-gain-db").value),
-            dc_block: document.getElementById("weather-dc-block").checked,
-            iq_swap: document.getElementById("weather-iq-swap").checked,
-        };
-        try {
-            const response = await fetch("/api/weather-rf", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
-            const data = await response.json();
-            if (result) result.textContent = data.message || "-";
-            if (response.ok) populateRf(data.settings);
-        } catch (error) { if (result) result.textContent = `Opslaan mislukt: ${error.message}`; }
-    });
+    if (rfForm) {
+        for (const control of rfForm.querySelectorAll("select, input")) {
+            control.addEventListener("focus", () => { rfFormFocused = true; });
+            control.addEventListener("blur", () => { rfFormFocused = false; });
+            control.addEventListener("input", () => { rfFormDirty = true; });
+            control.addEventListener("change", () => { rfFormDirty = true; });
+        }
+
+        rfForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const result = document.getElementById("weather-rf-result");
+            const submitButton = rfForm.querySelector('button[type="submit"]');
+            const payload = {
+                gain_mode: document.getElementById("weather-gain-mode").value,
+                gain_db: Number(document.getElementById("weather-gain-db").value),
+                dc_block: document.getElementById("weather-dc-block").checked,
+                iq_swap: document.getElementById("weather-iq-swap").checked,
+            };
+            rfFormSaving = true;
+            if (submitButton) submitButton.disabled = true;
+            try {
+                const response = await fetch("/api/weather-rf", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload),
+                });
+                const data = await response.json();
+                if (result) result.textContent = data.message || "-";
+                if (response.ok) {
+                    populateRf(data.settings);
+                    rfFormDirty = false;
+                }
+            } catch (error) {
+                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+            } finally {
+                rfFormSaving = false;
+                if (submitButton) submitButton.disabled = false;
+            }
+        });
+    }
 
     const scanButton = document.getElementById("start-spectrum-scan");
     if (scanButton) scanButton.addEventListener("click", async () => {
