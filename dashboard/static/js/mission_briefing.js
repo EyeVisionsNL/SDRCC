@@ -294,12 +294,17 @@
 
     async function refresh() {
         try {
-            const [status, rf, captureData] = await Promise.all([
-                getJson("/api/status"),
-                getJson("/api/live-rf").catch(() => ({})),
+            const [operations, captureData] = await Promise.all([
+                getJson("/api/mission-operations"),
                 getJson("/api/capture-status").catch(() => ({ available: false, latest_capture: null })),
             ]);
-            updateDashboard(status, rf, captureData);
+            const status = {
+                mission: operations.mission || {},
+                scheduler: operations.scheduler || {},
+                assignments: {},
+                next_pass: (operations.scheduler || {}).next_pass || null,
+            };
+            updateDashboard(status, operations.live_rf || {}, captureData);
         } catch (error) {
             console.log("Live Mission Dashboard update mislukt:", error.message);
             updateStateBadge("ERROR");

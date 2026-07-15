@@ -25,6 +25,7 @@ from core import tle
 from core import system_stats
 from core import mission_engine as mission_engine_core
 from core import mission_history as mission_history_core
+from core import mission_operations
 from core import mission_result
 from core import mission_preflight
 from core import mission_scheduler as mission_scheduler_core
@@ -1425,6 +1426,17 @@ def index():
 def api_status():
     return jsonify(get_dashboard_data())
 
+
+
+@app.route("/api/mission-operations")
+def api_mission_operations():
+    try:
+        return jsonify(mission_operations.get_snapshot())
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "error": str(error),
+        }), 500
 
 @app.route("/api/live-rf")
 def api_live_rf():
