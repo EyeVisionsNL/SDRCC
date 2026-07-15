@@ -223,16 +223,36 @@ function renderMissionQueue(payload) {
     }
     list.innerHTML = queue.map(item => {
         const start = String(item.start || "").split(" ")[1] || "-";
-        const stars = "★".repeat(Number(item.quality && item.quality.stars || 0));
         const skipAction = item.skipped ? "activate" : "skip";
         const skipLabel = item.skipped ? "↩" : "⏭";
-        const classes = String(item.status || "queued").toLowerCase().replaceAll(" ", "-");
+        const rawStatus = String(item.status || "QUEUED").toUpperCase();
+        const classes = rawStatus.toLowerCase().replaceAll(" ", "-");
+        const satellite = item.name || "Onbekende satelliet";
+        const receiver = item.active_receiver || item.reserved_receiver || item.configured_receiver || item.receiver || "-";
+        const frequency = Number(item.frequency_mhz);
+        const frequencyLabel = Number.isFinite(frequency) ? frequency.toFixed(3) : "-";
+        const elevation = Number(item.max_elevation);
+        const elevationLabel = Number.isFinite(elevation) ? elevation.toFixed(1) : "-";
+        const stateLabel = ["TARGET", "NEXT"].includes(rawStatus)
+            ? "NEXT"
+            : ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(rawStatus)
+                ? "ACTIVE"
+                : item.skipped
+                    ? "SKIPPED"
+                    : "QUEUED";
         return `<div class="mission-queue-item is-${escapeQueue(classes)}">
-            <div class="mission-queue-time">${escapeQueue(start)}</div>
-            <div class="mission-queue-copy">
-                <strong>${escapeQueue(item.name || "-")} · ${escapeQueue(item.status || "QUEUED")}</strong>
-                <span class="mission-queue-meta">${escapeQueue(stars)} ${escapeQueue(item.max_elevation)}° · ${escapeQueue(item.duration_seconds)}s · P${escapeQueue(item.priority)} · ${escapeQueue(item.receiver || "-")}</span>
-                <span class="mission-queue-status">${escapeQueue(item.frequency_mhz)} MHz · ${escapeQueue(item.pipeline || "-")}</span>
+            <div class="mission-queue-topline">
+                <time class="mission-queue-time">${escapeQueue(start.slice(0, 5))}</time>
+                <span class="mission-queue-state is-${escapeQueue(stateLabel.toLowerCase())}">${escapeQueue(stateLabel)}</span>
+            </div>
+            <div class="mission-queue-title" title="${escapeQueue(satellite)}">
+                <span class="mission-queue-satellite-icon" aria-hidden="true">🛰</span>
+                <strong>${escapeQueue(satellite)}</strong>
+            </div>
+            <div class="mission-queue-details">
+                <span>📡 ${escapeQueue(receiver)}</span>
+                <span>▲ ${escapeQueue(elevationLabel)}°</span>
+                <span class="mission-queue-frequency">${escapeQueue(frequencyLabel)} MHz</span>
             </div>
             <div class="mission-queue-actions">
                 <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_down" title="Prioriteit lager">−</button>
