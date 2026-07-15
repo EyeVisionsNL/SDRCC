@@ -51,6 +51,12 @@
         return `${value}${suffix}`;
     }
 
+    function formatDecimal(value, digits = 2, suffix = "") {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "-";
+        return `${number.toFixed(digits)}${suffix}`;
+    }
+
     function formatBytes(value) {
         const bytes = Number(value || 0);
         if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -234,7 +240,33 @@
         updateImagePreview(capture, relevantCapture);
     }
 
-    function updateDashboard(status, rf, captureData) {
+    function resultClass(value) {
+        return String(value || "waiting").toLowerCase().replaceAll(" ", "-");
+    }
+
+    function updateOperationSummary(summary, receiverManager) {
+        const data = summary || {};
+        const result = String(data.result || data.status || (data.active ? "ACTIVE" : "WACHTEN")).toUpperCase();
+        const detail = data.detail || (data.active ? "Missie is actief." : "Nog geen afgeronde missie.");
+        const reservation = receiverManager && receiverManager.reservation;
+        const receiverStatus = String(
+            data.receiver_status
+            || (reservation && reservation.status)
+            || (receiverManager && receiverManager.last_release && receiverManager.last_release.status)
+            || "AVAILABLE"
+        ).toUpperCase();
+
+        setText("briefing-result", result);
+        setText("briefing-receiver-status", receiverStatus);
+        setText("briefing-result-detail", detail);
+
+        const resultElement = document.getElementById("briefing-result");
+        if (resultElement) resultElement.className = `operation-result is-${resultClass(result)}`;
+        const receiverElement = document.getElementById("briefing-receiver-status");
+        if (receiverElement) receiverElement.className = `receiver-operation-status is-${resultClass(receiverStatus)}`;
+    }
+
+    function updateDashboard(status, rf, captureData, summary = null, receiverManager = null) {
         const mission = status.mission || {};
         const job = mission.active_job || null;
         const pass = mission.next_pass || status.next_pass || null;
@@ -267,6 +299,11 @@
         setText("briefing-cadu", formatBytes(activeRf.cadu_bytes ?? (job && job.cadu_bytes) ?? 0));
         setText("briefing-peak-snr", formatNumber(activeRf.peak_snr_db ?? (job && job.peak_snr_db), " dB"));
         setText("briefing-images", activeRf.image_count ?? (job && job.image_count) ?? 0);
+        setText("briefing-snr", formatDecimal(activeRf.snr_db ?? (summary && summary.snr_db), 2, " dB"));
+        setText("briefing-ber", formatDecimal(activeRf.ber ?? (summary && summary.ber), 5));
+        setText("briefing-viterbi", String(activeRf.viterbi ?? (summary && summary.viterbi) ?? "UNKNOWN").toUpperCase());
+        setText("briefing-deframer", String(activeRf.deframer ?? (summary && summary.deframer) ?? "UNKNOWN").toUpperCase());
+        updateOperationSummary(summary, receiverManager);
 
         setText("briefing-start", pass ? onlyTime(pass.start) : "-");
         setText("briefing-maximum", pass ? onlyTime(pass.maximum) : "-");
@@ -304,7 +341,13 @@
                 assignments: {},
                 next_pass: (operations.scheduler || {}).next_pass || null,
             };
-            updateDashboard(status, operations.live_rf || {}, captureData);
+            updateDashboard(
+                status,
+                operations.live_rf || {},
+                captureData,
+                operations.summary || null,
+                operations.receiver_manager || null,
+            );
         } catch (error) {
             console.log("Live Mission Dashboard update mislukt:", error.message);
             updateStateBadge("ERROR");
