@@ -20,6 +20,7 @@ from core import config as config_core
 from core import passes
 from core import rf_diagnostics
 from core import receiver_manager
+from core import receiver_monitor
 from core import state
 from core import tle
 from core import system_stats
@@ -122,6 +123,183 @@ def write_log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with LOG_FILE.open("a", encoding="utf-8") as file:
         file.write(f"[{timestamp}] {message}\n")
+
+
+virtual_mission_runtime = {
+    "active": False,
+    "stop_event": None,
+    "thread": None,
+    "mission_id": None,
+}
+virtual_mission_lock = threading.RLock()
+
+
+def _virtual_mission_worker(stop_event, duration_seconds=300):
+    """Run a hardware-free mission that exercises Mission Engine and Live RF."""
+    try:
+        started = time.monotonic()
+        snr = 4.0
+        while not stop_event.wait(1):
+            elapsed = int(time.monotonic() - started)
+            snr = min(13.5, snr + 0.35)
+            live_rf.update_line(
+                f"SNR : {snr:.2f} dB, Peak SNR : {snr:.2f} dB"
+            )
+            if elapsed >= 6:
+                live_rf.update_line(
+                    "Viterbi : SYNCED BER : 0.012, Deframer : SYNCED"
+                )
+            if elapsed >= duration_seconds:
+                mission_engine_core.mission_set_state("DECODING")
+                time.sleep(0.5)
+                mission_engine_core.mission_set_state("PROCESSING")
+                time.sleep(0.5)
+                mission_engine_core.mission_set_state("ARCHIVING")
+                live_rf.finish({
+                    "result": "SUCCESS",
+                    "detail": "Virtuele missie voltooid",
+                    "peak_snr_db": snr,
+                    "frames": max(1, elapsed // 2),
+                    "cadu_bytes": max(8192, (elapsed // 2) * 8192),
+                    "image_count": 1,
+                })
+                mission_engine_core.mission_finish_job(
+                    success=True,
+                    result="SUCCESS",
+                    detail="Virtuele missie voltooid",
+                    metrics={
+                        "peak_snr_db": snr,
+                        "frames": max(1, elapsed // 2),
+                        "cadu_bytes": max(8192, (elapsed // 2) * 8192),
+                        "image_count": 1,
+                    },
+                )
+                break
+    except Exception as error:
+        write_log(f"Virtual Mission fout: {error}")
+        try:
+            live_rf.fail(f"Virtuele missie fout: {error}")
+        except Exception:
+            pass
+        try:
+            mission_engine_core.mission_cancel(
+                detail=f"Virtuele missie fout: {error}"
+            )
+        except Exception:
+            pass
+    finally:
+        with virtual_mission_lock:
+            virtual_mission_runtime.update({
+                "active": False,
+                "stop_event": None,
+                "thread": None,
+                "mission_id": None,
+            })
+
+
+def start_virtual_mission():
+    with virtual_mission_lock:
+        mission = mission_engine_core.get_mission_status()
+        if mission.get("active_job") is not None or virtual_mission_runtime["active"]:
+            raise RuntimeError("Er is al een actieve missie.")
+
+        next_pass = mission_scheduler_core.get_scheduler_status().get("next_pass") or {}
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = PROJECT_ROOT / "data" / "recordings" / f"{timestamp}_VIRTUAL-MISSION"
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        mission_engine_core.mission_create_job(
+            satellite="VIRTUAL MISSION",
+            frequency=next_pass.get("frequency", 137_900_000),
+            mode="SIMULATION",
+            pipeline="virtual_mission",
+            output_path=str(output_path),
+            receiver="SIMULATOR",
+            receiver_id="virtual",
+            receiver_serial="VIRTUAL",
+            min_elevation=next_pass.get("min_elevation"),
+            max_elevation=next_pass.get("max_elevation"),
+            azimuth=next_pass.get("azimuth"),
+            sample_rate=next_pass.get("sample_rate", 1_000_000),
+            gain_mode="manual",
+            gain_db=42.1,
+            dc_block=False,
+            iq_swap=False,
+        )
+        mission_engine_core.mission_set_state("LOCK RECEIVER")
+        mission_engine_core.mission_set_state("RECORDING")
+        mission = mission_engine_core.get_mission_status()
+        job = mission.get("active_job") or {}
+
+        record_data = {
+            "pass": {
+                "name": "VIRTUAL MISSION",
+                "frequency": job.get("frequency"),
+                "sample_rate": job.get("sample_rate"),
+            },
+            "device": {
+                "number": "SIMULATOR",
+                "id": "virtual",
+                "serial": "VIRTUAL",
+            },
+            "rf": {
+                "gain_mode": "manual",
+                "gain_db": 42.1,
+                "dc_block": False,
+                "iq_swap": False,
+            },
+            "output_path": output_path,
+            "timeout_seconds": 300,
+        }
+        live_rf.start(record_data, pid=0)
+
+        stop_event = threading.Event()
+        worker = threading.Thread(
+            target=_virtual_mission_worker,
+            args=(stop_event,),
+            name="sdrcc-virtual-mission",
+            daemon=True,
+        )
+        virtual_mission_runtime.update({
+            "active": True,
+            "stop_event": stop_event,
+            "thread": worker,
+            "mission_id": job.get("mission_id"),
+        })
+        worker.start()
+
+        event_bus.publish_mission(
+            "INFO",
+            "Virtuele missie gestart",
+            "Hardwarevrije simulatie is actief en kan met STOP MISSION worden beëindigd",
+            data={"mission_id": job.get("mission_id")},
+        )
+        write_log(f"Virtual Mission gestart: {job.get('mission_id')}")
+        return mission_engine_core.get_mission_status()
+
+
+def stop_virtual_mission():
+    with virtual_mission_lock:
+        if not virtual_mission_runtime.get("active"):
+            return False
+        stop_event = virtual_mission_runtime.get("stop_event")
+        if stop_event is not None:
+            stop_event.set()
+
+    live_rf.finish({
+        "result": "CANCELLED",
+        "detail": "Virtuele missie gestopt door operator",
+    })
+    mission_engine_core.mission_cancel(
+        detail="Virtuele missie gestopt door operator"
+    )
+    event_bus.publish_mission(
+        "WARNING",
+        "Virtuele missie gestopt",
+        "De hardwarevrije simulatie is door de operator beëindigd",
+    )
+    write_log("Virtual Mission gestopt door operator")
+    return True
 
 
 def run_command(command, timeout=60):
@@ -889,6 +1067,8 @@ autopilot_runtime = {
     "restore_service": None,
     "restore_service_was_active": False,
     "dry_run_completed": False,
+    "process": None,
+    "stop_requested": False,
 }
 
 
@@ -909,6 +1089,8 @@ def reset_autopilot_runtime(target_pass=None):
         "restore_service": None,
         "restore_service_was_active": False,
         "dry_run_completed": False,
+        "process": None,
+        "stop_requested": False,
     })
 
 
@@ -1030,6 +1212,20 @@ def autopilot_lock_receiver():
     )
 
 
+def set_autopilot_process(process):
+    autopilot_runtime["process"] = process
+
+
+def mission_stop_requested():
+    return bool(autopilot_runtime.get("stop_requested"))
+
+
+def cancel_active_mission(detail="Mission geannuleerd door operator"):
+    status = mission_engine_core.get_mission_status()
+    if status.get("active_job") is not None:
+        mission_engine_core.mission_cancel(detail)
+
+
 def monitor_auto_record_process(process):
     output_lines = []
     try:
@@ -1043,6 +1239,17 @@ def monitor_auto_record_process(process):
                 live_rf.update_line(line)
 
         process.wait()
+        autopilot_runtime["process"] = None
+
+        if mission_stop_requested():
+            write_log("AUTO: actieve missie is door operator geannuleerd")
+            try:
+                live_rf.fail("Mission geannuleerd door operator")
+            except Exception as live_error:
+                write_log(f"AUTO: Live RF stopstatus kon niet worden gezet: {live_error}")
+            cancel_active_mission()
+            return
+
         live_stdout = "\n".join(output_lines)
         record_data = autopilot_runtime.get("record_data") or {}
         output_path = record_data.get("output_path")
@@ -1086,7 +1293,18 @@ def monitor_auto_record_process(process):
                     write_log(line),
                     live_rf.update_line(line),
                 ),
+                process_callback=set_autopilot_process,
             )
+
+            if mission_stop_requested():
+                write_log("AUTO: productdecode is door operator geannuleerd")
+                try:
+                    live_rf.fail("Mission geannuleerd door operator")
+                except Exception as live_error:
+                    write_log(f"AUTO: Live RF stopstatus kon niet worden gezet: {live_error}")
+                cancel_active_mission()
+                return
+
             combined_stdout = "\n".join(
                 part
                 for part in (live_stdout, decode_data.get("stdout", ""))
@@ -1108,6 +1326,15 @@ def monitor_auto_record_process(process):
                     "log_file": decode_data.get("log_file"),
                 },
             )
+
+        if mission_stop_requested():
+            write_log("AUTO: missie geannuleerd vóór resultaatverwerking")
+            try:
+                live_rf.fail("Mission geannuleerd door operator")
+            except Exception as live_error:
+                write_log(f"AUTO: Live RF stopstatus kon niet worden gezet: {live_error}")
+            cancel_active_mission()
+            return
 
         analysis = satdump_core.analyze_satdump_result(
             returncode=final_returncode,
@@ -1235,8 +1462,11 @@ def monitor_auto_record_process(process):
             "Weather-receiver is vrijgegeven na de missie",
             data=satdump_core.build_event_context(released_data),
         )
+        autopilot_runtime["process"] = None
         mission_engine_core.mission_set_state("READY")
         write_log("AUTO: missie afgerond; profiel terug naar ADS-B")
+        if autopilot_runtime.get("stop_requested"):
+            reset_autopilot_runtime()
 
 
 def autopilot_start_recording():
@@ -1264,6 +1494,8 @@ def autopilot_start_recording():
         stderr=subprocess.STDOUT,
         bufsize=1,
     )
+    autopilot_runtime["process"] = process
+    autopilot_runtime["stop_requested"] = False
     live_rf.start(record_data, process.pid)
 
     watcher = threading.Thread(
@@ -1504,6 +1736,7 @@ def mission_autopilot_worker():
                 and not dry_run
                 and mission_engine_core.get_mission_status()["active_job"] is None
                 and mission_engine_core.get_mission_status()["phase"] == "READY"
+                and not autopilot_runtime.get("stop_requested")
             ):
                 reset_autopilot_runtime()
 
@@ -1549,6 +1782,27 @@ def api_mission_operations():
         return jsonify({
             "ok": False,
             "error": str(error),
+        }), 500
+
+
+
+@app.route("/api/receiver-monitor")
+def api_receiver_monitor():
+    try:
+        mission = mission_engine_core.get_mission_status()
+        return jsonify(receiver_monitor.get_snapshot(
+            devices=device_manager.get_devices(),
+            assignments=config_core.get_receiver_assignments(),
+            ais_service=service_state("ais-catcher.service"),
+            adsb_service=service_state("readsb.service"),
+            mission=mission,
+            live_rf=live_rf.get_status(),
+        ))
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "error": str(error),
+            "receivers": [],
         }), 500
 
 @app.route("/api/live-rf")
@@ -1788,6 +2042,93 @@ def api_mission_engine_next():
         }), 500
 
 
+@app.route("/api/mission/stop", methods=["POST"])
+def api_stop_mission():
+    if virtual_mission_runtime.get("active"):
+        mission_scheduler_core.set_scheduler_mode("MANUAL")
+        stop_virtual_mission()
+        return jsonify({
+            "ok": True,
+            "message": "Virtuele missie gestopt. Scheduler staat op MANUAL.",
+            "process_stopped": False,
+            "mission": mission_engine_core.get_mission_status(),
+            "scheduler": mission_scheduler_core.get_scheduler_status(),
+        })
+
+    mission_status = mission_engine_core.get_mission_status()
+    active_job = mission_status.get("active_job")
+    active_runtime = any((
+        autopilot_runtime.get("prepared"),
+        autopilot_runtime.get("locked"),
+        autopilot_runtime.get("record_started"),
+        autopilot_runtime.get("process") is not None,
+    ))
+
+    if active_job is None and not active_runtime:
+        return jsonify({
+            "ok": False,
+            "message": "Er is geen actieve missie om te stoppen.",
+            "mission": mission_status,
+        }), 409
+
+    mission_scheduler_core.set_scheduler_mode("MANUAL")
+    autopilot_runtime["stop_requested"] = True
+
+    process = autopilot_runtime.get("process")
+    process_stopped = False
+    if process is not None and process.poll() is None:
+        write_log(f"STOP MISSION: proces {process.pid} beëindigen")
+        process.terminate()
+        try:
+            process.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            write_log(f"STOP MISSION: proces {process.pid} reageert niet; kill")
+            process.kill()
+            process.wait(timeout=5)
+        process_stopped = True
+
+    # Vóór Recording bestaat er geen watcher die annulering en herstel uitvoert.
+    if not autopilot_runtime.get("record_started"):
+        cancel_active_mission()
+        restore_service = autopilot_runtime.get("restore_service")
+        if restore_service and autopilot_runtime.get("restore_service_was_active"):
+            result = run_systemctl("start", restore_service)
+            if result.returncode != 0:
+                write_log(
+                    f"STOP MISSION: {restore_service} kon niet worden hersteld: "
+                    + result.stderr.strip()
+                )
+        profiles.set_active_profile("adsb")
+        try:
+            receiver_manager.release(
+                mission_key=autopilot_runtime.get("pass_key"),
+                detail="Weather-receiver vrijgegeven na operatorstop",
+            )
+        except Exception as release_error:
+            write_log(f"STOP MISSION: receiver vrijgeven mislukt: {release_error}")
+        reset_autopilot_runtime()
+
+    event_bus.publish_mission(
+        "WARNING",
+        "Mission gestopt door operator",
+        "Actieve missie is gecontroleerd geannuleerd; Scheduler staat op MANUAL",
+        data={
+            "mission_id": (active_job or {}).get("mission_id"),
+            "process_stopped": process_stopped,
+            "scheduler_mode": "MANUAL",
+        },
+    )
+    write_log("STOP MISSION: annulering aangevraagd; Scheduler MANUAL")
+
+    return jsonify({
+        "ok": True,
+        "message": "Missie gestopt. Scheduler staat op MANUAL.",
+        "process_stopped": process_stopped,
+        "mission": mission_engine_core.get_mission_status(),
+        "scheduler": mission_scheduler_core.get_scheduler_status(),
+    })
+
+
 @app.route("/api/mission-engine/reset", methods=["POST"])
 def api_mission_engine_reset():
     try:
@@ -1954,6 +2295,14 @@ def api_action():
 
         if action_id in PROFILE_ACTIONS:
             return handle_profile_action(action)
+
+        if action_id == "simulate_record":
+            mission = start_virtual_mission()
+            return jsonify({
+                "ok": True,
+                "message": "Virtuele missie gestart. STOP MISSION is nu beschikbaar.",
+                "mission": mission,
+            })
 
         if action_id == "record":
             record_data = satdump_core.build_record_command()

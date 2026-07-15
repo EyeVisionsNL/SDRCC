@@ -348,7 +348,11 @@ class MissionEngine:
         )
         return completed_job
 
-    def reset(self):
+    def reset(
+        self,
+        detail="Mission handmatig gereset",
+        event_title="Mission Engine gereset",
+    ):
         cancelled_job = None
         with self._lock:
             old_state = self.state
@@ -357,7 +361,7 @@ class MissionEngine:
                 self.active_job.ended_at = now
                 self.active_job.success = False
                 self.active_job.result = MissionResult.CANCELLED.value
-                self.active_job.detail = "Mission handmatig gereset"
+                self.active_job.detail = detail
                 self.active_job.error = None
                 self.active_job.status = MissionResult.CANCELLED.value
                 self.active_job.progress = 100
@@ -374,7 +378,7 @@ class MissionEngine:
 
         event_bus.publish_mission(
             "WARNING" if cancelled_job else "SYSTEM",
-            "Mission Engine gereset",
+            event_title,
             (
                 f"Mission {cancelled_job['mission_id']} is geannuleerd"
                 if cancelled_job
@@ -492,6 +496,14 @@ def mission_next_state():
 
 def mission_reset():
     mission_engine.reset()
+    return get_mission_status()
+
+
+def mission_cancel(detail="Mission geannuleerd door operator"):
+    mission_engine.reset(
+        detail=detail,
+        event_title="Mission geannuleerd",
+    )
     return get_mission_status()
 
 

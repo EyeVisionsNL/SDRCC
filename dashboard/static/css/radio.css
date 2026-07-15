@@ -44,3 +44,23 @@
 .live-rf-details strong{color:#fff;font-size:.86rem;overflow-wrap:anywhere}
 @media(max-width:1100px){.live-rf-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.live-rf-snr-metric{grid-column:span 1}.live-rf-details{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.live-rf-summary{grid-template-columns:1fr}.live-rf-metrics{grid-template-columns:1fr 1fr}.live-rf-details{grid-template-columns:1fr}.live-rf-primary{grid-template-columns:1fr}.live-rf-state{grid-row:auto}.live-rf-primary small{grid-column:auto}}
+
+/* v0.21.0a Receiver Monitor */
+.receiver-monitor-card{grid-column:1/-1}
+.receiver-monitor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.receiver-monitor-item{min-width:0;padding:14px;border:1px solid #24364d;border-radius:11px;background:linear-gradient(180deg,#07111f,#020712)}
+.receiver-monitor-item.role-ais{border-color:#0e7490}
+.receiver-monitor-item.role-adsb{border-color:#7c3aed}
+.receiver-monitor-item.role-weather{border-color:#15803d}
+.receiver-monitor-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.receiver-monitor-heading>div:first-child{display:flex;flex-direction:column;gap:2px}
+.receiver-monitor-heading strong{color:#fff;font-size:1.08rem}
+.receiver-monitor-heading small{color:#64748b;font-size:.72rem}
+.receiver-monitor-badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.receiver-monitor-badges span{padding:4px 7px;border:1px solid #334155;border-radius:999px;background:#0f172a;color:#cbd5e1;font-size:.65rem;font-weight:800;letter-spacing:.04em}
+.receiver-monitor-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.receiver-monitor-metrics span{display:flex;flex-direction:column;gap:3px;min-width:0;padding:8px;border:1px solid #17263a;border-radius:8px;background:#020712;color:#8fa7c5;font-size:.7rem}
+.receiver-monitor-metrics strong{overflow:hidden;color:#f8fafc;font-size:.87rem;text-overflow:ellipsis;white-space:nowrap}
+.receiver-monitor-item p{margin:10px 0 0;color:#8fa7c5;font-size:.76rem;line-height:1.35}
+@media(max-width:1050px){.receiver-monitor-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.receiver-monitor-grid{grid-template-columns:1fr}}

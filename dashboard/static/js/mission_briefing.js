@@ -1,5 +1,5 @@
 (() => {
-    const POLL_MS = 2000;
+    const CAPTURE_POLL_MS = 2000;
     const PIPELINE_STEPS = ["receiver", "recording", "decoder", "processing", "images", "archive"];
     const PIPELINE_LABELS = {
         waiting: "WACHTEN",
@@ -17,6 +17,9 @@
     };
 
     let lastImageKey = "";
+    let latestCaptureData = { available: false, latest_capture: null };
+    let captureRequestInProgress = false;
+    let currentMissionSnapshot = null;
 
     async function getJson(url) {
         const response = await fetch(url, { cache: "no-store" });
@@ -266,13 +269,61 @@
         if (receiverElement) receiverElement.className = `receiver-operation-status is-${resultClass(receiverStatus)}`;
     }
 
-    function updateDashboard(status, rf, captureData, summary = null, receiverManager = null) {
+
+    function updateStopMissionButton(snapshot) {
+        const button = document.getElementById("stop-mission-button");
+        if (!button) return;
+
+        const active = Boolean(snapshot && snapshot.active === true);
+        const shouldDisable = !active;
+
+        button.disabled = shouldDisable;
+        button.className = active
+            ? "control-button danger"
+            : "control-button stop-mission-inactive";
+        button.title = active
+            ? "Actieve missie gecontroleerd stoppen"
+            : "Er is geen actieve missie";
+    }
+
+    async function stopMission() {
+        const button = document.getElementById("stop-mission-button");
+        if (!button || button.disabled) return;
+        if (!window.confirm("Stop de huidige missie? De Scheduler wordt op MANUAL gezet.")) return;
+
+        button.disabled = true;
+        button.textContent = "■ STOPPEN...";
+        try {
+            const response = await fetch("/api/mission/stop", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            });
+            const data = await response.json();
+            if (!response.ok || data.ok === false) {
+                throw new Error(data.message || data.error || `HTTP ${response.status}`);
+            }
+            const result = document.getElementById("control-result");
+            if (result) result.textContent = data.message || "Missie gestopt.";
+        } catch (error) {
+            const result = document.getElementById("control-result");
+            if (result) result.textContent = `Stop Mission mislukt: ${error.message}`;
+        } finally {
+            button.textContent = "■ STOP MISSION";
+            await window.MissionState.refresh({ force: true });
+        }
+    }
+
+    function updateDashboard(status, rf, captureData, summary = null, receiverManager = null, snapshot = null) {
         const mission = status.mission || {};
-        const job = mission.active_job || null;
+        const isActive = Boolean(snapshot && snapshot.active === true);
+        const job = isActive ? (mission.active_job || null) : null;
         const pass = mission.next_pass || status.next_pass || null;
-        const activeRf = rf && (rf.active || rf.state === "COMPLETE") ? rf : {};
-        const state = normalizeState(mission, rf);
-        const progress = calculateProgress(mission, rf);
+        const activeRf = isActive && rf ? rf : {};
+        const state = snapshot && snapshot.state
+            ? String(snapshot.state).toUpperCase()
+            : normalizeState(mission, activeRf);
+        const progress = isActive ? calculateProgress(mission, activeRf) : 0;
 
         const satellite = (job && job.satellite) || activeRf.satellite || (pass && pass.name) || "Geen actieve missie";
         const mode = (job && job.mode) || (pass && pass.mode) || "-";
@@ -299,11 +350,12 @@
         setText("briefing-cadu", formatBytes(activeRf.cadu_bytes ?? (job && job.cadu_bytes) ?? 0));
         setText("briefing-peak-snr", formatNumber(activeRf.peak_snr_db ?? (job && job.peak_snr_db), " dB"));
         setText("briefing-images", activeRf.image_count ?? (job && job.image_count) ?? 0);
-        setText("briefing-snr", formatDecimal(activeRf.snr_db ?? (summary && summary.snr_db), 2, " dB"));
-        setText("briefing-ber", formatDecimal(activeRf.ber ?? (summary && summary.ber), 5));
-        setText("briefing-viterbi", String(activeRf.viterbi ?? (summary && summary.viterbi) ?? "UNKNOWN").toUpperCase());
-        setText("briefing-deframer", String(activeRf.deframer ?? (summary && summary.deframer) ?? "UNKNOWN").toUpperCase());
+        setText("briefing-snr", formatDecimal(isActive ? activeRf.snr_db : null, 2, " dB"));
+        setText("briefing-ber", formatDecimal(isActive ? activeRf.ber : null, 5));
+        setText("briefing-viterbi", String(isActive ? (activeRf.viterbi ?? "UNKNOWN") : "UNKNOWN").toUpperCase());
+        setText("briefing-deframer", String(isActive ? (activeRf.deframer ?? "UNKNOWN") : "UNKNOWN").toUpperCase());
         updateOperationSummary(summary, receiverManager);
+        updateStopMissionButton(snapshot);
 
         setText("briefing-start", pass ? onlyTime(pass.start) : "-");
         setText("briefing-maximum", pass ? onlyTime(pass.maximum) : "-");
@@ -320,42 +372,72 @@
         }
         setText("briefing-gain", gain);
 
-        const locked = state === "LOCK RECEIVER" || state === "RECORDING" || Boolean(rf && rf.active);
+        const locked = isActive && (state === "LOCK RECEIVER" || state === "RECORDING" || Boolean(activeRf.active));
         setText("briefing-lock", locked ? "LOCKED" : "VRIJ");
         const lockElement = document.getElementById("briefing-lock");
         if (lockElement) lockElement.className = locked ? "live-lock locked" : "live-lock";
 
-        updatePipeline(mission, rf || {});
-        updateImageProcessing(mission, rf || {}, captureData || {});
+        updatePipeline(mission, activeRf);
+        updateImageProcessing(mission, activeRf, captureData || {});
     }
 
-    async function refresh() {
-        try {
-            const [operations, captureData] = await Promise.all([
-                getJson("/api/mission-operations"),
-                getJson("/api/capture-status").catch(() => ({ available: false, latest_capture: null })),
-            ]);
-            const status = {
-                mission: operations.mission || {},
-                scheduler: operations.scheduler || {},
-                assignments: {},
-                next_pass: (operations.scheduler || {}).next_pass || null,
-            };
-            updateDashboard(
-                status,
-                operations.live_rf || {},
-                captureData,
-                operations.summary || null,
-                operations.receiver_manager || null,
-            );
-        } catch (error) {
-            console.log("Live Mission Dashboard update mislukt:", error.message);
+    function renderSnapshot(snapshot) {
+        currentMissionSnapshot = snapshot;
+
+        if (!snapshot || snapshot.loading) return;
+        if (snapshot.error) {
+            console.log("Live Mission Dashboard update mislukt:", snapshot.error);
             updateStateBadge("ERROR");
             setText("briefing-current-stage", "Telemetrie niet beschikbaar");
             setImageStatus("error");
+            updateStopMissionButton(snapshot);
+            return;
         }
+
+        const status = {
+            mission: snapshot.mission || {},
+            scheduler: snapshot.scheduler || {},
+            assignments: {},
+            next_pass: (snapshot.scheduler || {}).next_pass || null,
+        };
+
+        updateDashboard(
+            status,
+            snapshot.live_rf || {},
+            latestCaptureData,
+            snapshot.summary || null,
+            snapshot.receiver_manager || null,
+            snapshot,
+        );
     }
 
-    refresh();
-    setInterval(refresh, POLL_MS);
+    async function refreshCapture() {
+        if (captureRequestInProgress) return;
+        captureRequestInProgress = true;
+
+        try {
+            latestCaptureData = await getJson("/api/capture-status");
+        } catch (error) {
+            latestCaptureData = { available: false, latest_capture: null };
+        } finally {
+            captureRequestInProgress = false;
+        }
+
+        if (currentMissionSnapshot) renderSnapshot(currentMissionSnapshot);
+    }
+
+    const stopButton = document.getElementById("stop-mission-button");
+    if (stopButton) stopButton.addEventListener("click", stopMission);
+
+    if (!window.MissionState) {
+        console.error("MissionState is niet geladen vóór mission_briefing.js");
+        updateStateBadge("ERROR");
+        setText("briefing-current-stage", "MissionState niet beschikbaar");
+        updateStopMissionButton({ active: false });
+        return;
+    }
+
+    window.MissionState.subscribe(renderSnapshot);
+    refreshCapture();
+    window.setInterval(refreshCapture, CAPTURE_POLL_MS);
 })();

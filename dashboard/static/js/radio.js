@@ -335,8 +335,90 @@
         finally { scanButton.disabled = false; }
     });
 
+
+
+    function formatMonitorFrequency(value) {
+        const hz = Number(value);
+        return Number.isFinite(hz) && hz > 0 ? `${(hz / 1e6).toFixed(hz >= 1e9 ? 0 : 3)} MHz` : "-";
+    }
+
+    function monitorMetric(label, value) {
+        const display = value === null || value === undefined || value === "" ? "-" : value;
+        return `<span>${label}<strong>${display}</strong></span>`;
+    }
+
+    function renderReceiverMetrics(receiver) {
+        const metrics = receiver.metrics || {};
+        if (receiver.role === "AIS") {
+            return [
+                monitorMetric("Schepen", Number(metrics.targets || 0).toLocaleString("nl-NL")),
+                monitorMetric("Berichten/s", metrics.messages_per_second == null ? "-" : Number(metrics.messages_per_second).toFixed(1)),
+                monitorMetric("Max. bereik", metrics.max_range_nm == null ? "-" : `${Number(metrics.max_range_nm).toFixed(1)} NM`),
+                monitorMetric("Frequentie", formatMonitorFrequency(receiver.frequency_hz)),
+            ].join("");
+        }
+        if (receiver.role === "ADS-B") {
+            return [
+                monitorMetric("Vliegtuigen", Number(metrics.targets || 0).toLocaleString("nl-NL")),
+                monitorMetric("Met positie", Number(metrics.with_position || 0).toLocaleString("nl-NL")),
+                monitorMetric("Berichten/s", metrics.messages_per_second == null ? "-" : Number(metrics.messages_per_second).toFixed(1)),
+                monitorMetric("Max. bereik", metrics.max_range_nm == null ? "-" : `${Number(metrics.max_range_nm).toFixed(1)} NM`),
+            ].join("");
+        }
+        if (receiver.role === "WEATHER") {
+            return [
+                monitorMetric("Satelliet", metrics.satellite || "-"),
+                monitorMetric("SNR", metrics.snr_db == null ? "-" : `${Number(metrics.snr_db).toFixed(2)} dB`),
+                monitorMetric("Frames", Number(metrics.frames || 0).toLocaleString("nl-NL")),
+                monitorMetric("Beelden", Number(metrics.images || 0).toLocaleString("nl-NL")),
+            ].join("");
+        }
+        return [
+            monitorMetric("Rol", "Vrij"),
+            monitorMetric("Frequentie", "-"),
+            monitorMetric("Decoder", "-"),
+            monitorMetric("Status", "AVAILABLE"),
+        ].join("");
+    }
+
+    function renderReceiverMonitor(data) {
+        const grid = document.getElementById("receiver-monitor-grid");
+        if (!grid) return;
+        const receivers = (data && data.receivers) || [];
+        grid.innerHTML = "";
+        for (const receiver of receivers) {
+            const card = document.createElement("article");
+            const roleClass = String(receiver.role || "idle").toLowerCase().replaceAll("-", "");
+            card.className = `receiver-monitor-item role-${roleClass}`;
+            card.innerHTML = `
+                <div class="receiver-monitor-heading">
+                    <div><strong>${receiver.number || receiver.id || "SDR"}</strong><small>${receiver.serial || "-"}</small></div>
+                    <div class="receiver-monitor-badges"><span>${receiver.role || "IDLE"}</span><span>${receiver.status || "-"}</span></div>
+                </div>
+                <div class="receiver-monitor-metrics">${renderReceiverMetrics(receiver)}</div>
+                <p>${receiver.detail || "-"}</p>
+            `;
+            grid.appendChild(card);
+        }
+        if (!receivers.length) grid.textContent = "Geen receiverstatus beschikbaar.";
+        setText("receiver-monitor-updated", data && data.generated_at ? `Bijgewerkt ${data.generated_at}` : "Niet beschikbaar");
+    }
+
+    async function updateReceiverMonitor() {
+        try {
+            const response = await fetch("/api/receiver-monitor", {cache: "no-store"});
+            const data = await response.json();
+            if (!response.ok || data.ok === false) throw new Error(data.error || `HTTP ${response.status}`);
+            renderReceiverMonitor(data);
+        } catch (error) {
+            const grid = document.getElementById("receiver-monitor-grid");
+            if (grid) grid.textContent = `Receiver Monitor niet beschikbaar: ${error.message}`;
+        }
+    }
     updateRadioPage();
     updateLiveRf();
+    updateReceiverMonitor();
     setInterval(updateRadioPage, 3000);
     setInterval(updateLiveRf, 1000);
+    setInterval(updateReceiverMonitor, 2000);
 })();

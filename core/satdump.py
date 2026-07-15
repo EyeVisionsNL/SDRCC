@@ -468,7 +468,12 @@ def build_cadu_decode_command(output_path, pipeline):
     }
 
 
-def decode_cadu_products(output_path, pipeline, line_callback=None):
+def decode_cadu_products(
+    output_path,
+    pipeline,
+    line_callback=None,
+    process_callback=None,
+):
     """Decode a live-created CADU into image products and preserve the full log.
 
     SatDump 1.2.x may return a non-zero code after producing valid products when
@@ -499,6 +504,8 @@ def decode_cadu_products(output_path, pipeline, line_callback=None):
             stderr=subprocess.STDOUT,
             bufsize=1,
         )
+        if process_callback is not None:
+            process_callback(process)
 
         if process.stdout is not None:
             for raw_line in process.stdout:
@@ -510,6 +517,8 @@ def decode_cadu_products(output_path, pipeline, line_callback=None):
                     line_callback(line)
 
         process.wait()
+        if process_callback is not None:
+            process_callback(None)
 
     return {
         "attempted": True,

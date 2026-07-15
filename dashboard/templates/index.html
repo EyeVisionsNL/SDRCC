@@ -78,8 +78,8 @@
                 </div>
                 <div class="button-grid control-actions">
                     <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
-                    <button class="control-button" data-action="simulate_record">🛰 Simuleer opname</button>
                     <button class="control-button danger" data-action="record">📸 Record NOW</button>
+                    <button class="control-button" id="stop-mission-button" type="button" disabled>■ STOP MISSION</button>
                     <button class="control-button" data-action="profile_adsb">📡 Profiel ADS-B</button>
                     <button class="control-button" data-action="profile_weather">🛰 Profiel Weather</button>
                     <button class="control-button" data-action="profile_manual">🔧 Profiel Manual</button>
@@ -87,8 +87,14 @@
                     <button class="control-button" data-action="scheduler_manual">🖐 Scheduler MANUAL</button>
                     <button class="control-button" data-action="scheduler_paused">⏸ Scheduler PAUSED</button>
                     <button class="control-button mission-control-button" data-mission-action="next">⏭ Mission Next</button>
-                    <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Mission Reset</button>
                 </div>
+                <details class="advanced-controls">
+                    <summary>⚙ Advanced</summary>
+                    <div class="button-grid control-actions">
+                        <button class="control-button" data-action="simulate_record">🛰 Simuleer opname</button>
+                        <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Mission Reset</button>
+                    </div>
+                </details>
                 <p class="control-result" id="control-result">Geen actie gestart.</p>
 
                 <div class="automation-operations">
@@ -342,24 +348,12 @@
             <div id="radio-devices" class="receiver-card-grid">Laden...</div>
         </section>
 
-        <section class="card radio-card service-card">
-            <h2>🚢 AIS-service</h2>
-            <div class="service-pill" id="radio-ais-pill">-</div>
-            <div class="radio-detail-list">
-                <p><span>Service</span><strong><code>ais-catcher.service</code></strong></p>
-                <p><span>Huidige ontvanger</span><strong id="radio-ais-receiver">SDR1</strong></p>
-                <p><span>Doel</span><strong>Scheepvaart / AIS</strong></p>
+        <section class="card receiver-monitor-card">
+            <div class="section-heading-row">
+                <h2>📡 Receiver Monitor</h2>
+                <span id="receiver-monitor-updated" class="muted">Status laden...</span>
             </div>
-        </section>
-
-        <section class="card radio-card service-card">
-            <h2>✈ ADS-B-service</h2>
-            <div class="service-pill" id="radio-adsb-pill">-</div>
-            <div class="radio-detail-list">
-                <p><span>Service</span><strong><code>readsb.service</code></strong></p>
-                <p><span>Huidige ontvanger</span><strong id="radio-adsb-receiver">SDR2</strong></p>
-                <p><span>Doel</span><strong>Vliegtuigtracking</strong></p>
-            </div>
+            <div id="receiver-monitor-grid" class="receiver-monitor-grid">Laden...</div>
         </section>
 
         <section class="card radio-card assignment-preview-card">
@@ -384,7 +378,7 @@
         </section>
 
         <section class="card radio-card rf-settings-card">
-            <h2>🎚 Weather RF-instellingen</h2>
+            <h2>🎚 RF-instellingen</h2>
             <form id="weather-rf-form" class="rf-settings-form">
                 <label>Gain-modus
                     <select id="weather-gain-mode">
@@ -404,7 +398,7 @@
 
         <section class="card radio-card spectrum-card">
             <div class="section-heading-row">
-                <h2>🌊 Weather Spectrum</h2>
+                <h2>🌊 Spectrum</h2>
                 <span id="spectrum-device" class="muted">-</span>
             </div>
             <div class="spectrum-controls">
@@ -585,6 +579,7 @@
 <script src="/static/dashboard.js"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/radio.js"></script>
-<script src="/static/js/mission_briefing.js"></script>
+<script src="/static/js/mission_state.js"></script>
+<script src="/static/js/mission_briefing.js?v=0.20.7c"></script>
 </body>
 </html>
