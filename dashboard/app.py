@@ -25,6 +25,7 @@ from core import tle
 from core import system_stats
 from core import mission_engine as mission_engine_core
 from core import mission_history as mission_history_core
+from core import mission_diagnostics
 from core import mission_operations
 from core import mission_result
 from core import mission_preflight
@@ -997,6 +998,14 @@ def autopilot_lock_receiver():
             receiver=record_data["device"]["number"],
             receiver_id=record_data["device"]["id"],
             receiver_serial=record_data["device"]["serial"],
+            min_elevation=pass_data.get("min_elevation"),
+            max_elevation=pass_data.get("max_elevation"),
+            azimuth=pass_data.get("azimuth"),
+            sample_rate=pass_data.get("sample_rate"),
+            gain_mode=(record_data.get("rf") or {}).get("gain_mode"),
+            gain_db=(record_data.get("rf") or {}).get("gain_db"),
+            dc_block=(record_data.get("rf") or {}).get("dc_block"),
+            iq_swap=(record_data.get("rf") or {}).get("iq_swap"),
         )
 
     mission_engine_core.mission_set_state("LOCK RECEIVER")
@@ -1116,12 +1125,39 @@ def monitor_auto_record_process(process):
 
         mission_engine_core.mission_set_state("ARCHIVING")
 
+        active_job = (
+            mission_engine_core.get_mission_status().get("active_job") or {}
+        )
+        diagnostics = mission_diagnostics.write_mission_diagnostics(
+            mission={
+                **active_job,
+                "result": analysis.get("result"),
+                "detail": analysis.get("detail"),
+                "error": analysis.get("error"),
+                "peak_snr_db": analysis.get("peak_snr_db"),
+                "frames": analysis.get("frames"),
+                "cadu_bytes": analysis.get("cadu_bytes"),
+                "image_count": analysis.get("image_count"),
+                "duration_seconds": record_data.get("timeout_seconds"),
+                "ended_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            },
+            pass_data=record_data.get("pass") or {},
+            rf=record_data.get("rf") or {},
+            analysis=analysis,
+            live_returncode=process.returncode,
+            live_command=record_data.get("command"),
+            decode_data=decode_data,
+        )
+
         metrics = {
             "peak_snr_db": analysis.get("peak_snr_db"),
             "frames": analysis.get("frames"),
             "cadu_bytes": analysis.get("cadu_bytes"),
             "image_count": analysis.get("image_count"),
             "duration_seconds": record_data.get("timeout_seconds"),
+            "quality_score": diagnostics.get("quality_score"),
+            "quality_grade": diagnostics.get("quality_grade"),
+            "diagnostics_path": diagnostics.get("diagnostics_file"),
         }
 
         write_log(
@@ -1679,10 +1715,19 @@ def api_mission_history_detail(mission_id):
             if _mission_event_matches(event, mission_id_value)
         ]
         inventory = _mission_output_inventory(mission)
+        diagnostics = mission_diagnostics.read_mission_diagnostics(
+            mission.get("output_path")
+        )
+        quality = _mission_quality(mission, events, inventory)
+        if diagnostics.get("available") and diagnostics.get("quality"):
+            quality["score"] = diagnostics["quality"].get("score")
+            quality["grade"] = diagnostics["quality"].get("grade")
+            quality["components"] = diagnostics["quality"].get("components")
         return jsonify({
             "ok": True,
             "mission": mission,
-            "quality": _mission_quality(mission, events, inventory),
+            "quality": quality,
+            "diagnostics": diagnostics,
             "files": inventory,
             "events": events,
         })

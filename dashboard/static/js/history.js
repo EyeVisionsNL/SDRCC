@@ -103,7 +103,8 @@ function missionCard(mission) {
     metrics.append(
         metric("Duur", duration(mission.duration_seconds)),
         metric("Piek-SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
-        metric("Beelden", number(mission.image_count))
+        metric("Beelden", number(mission.image_count)),
+        metric("Max elev.", mission.max_elevation == null ? "-" : `${mission.max_elevation}°`)
     );
 
     const id = document.createElement("small");
@@ -264,6 +265,7 @@ function missionEventItem(event) {
 function renderMissionDetail(payload) {
     const mission = payload.mission || {};
     const quality = payload.quality || {};
+    const diagnostics = payload.diagnostics || {};
     const files = payload.files || {};
     const events = Array.isArray(payload.events) ? payload.events : [];
     const panel = byId("mission-history-detail");
@@ -326,7 +328,10 @@ function renderMissionDetail(payload) {
         detailItem("Gestart", mission.started_at),
         detailItem("Beëindigd", mission.ended_at),
         detailItem("Status", mission.status),
-        detailItem("Progress", mission.progress == null ? "-" : `${mission.progress}%`)
+        detailItem("Progress", mission.progress == null ? "-" : `${mission.progress}%`),
+        detailItem("Min. elevatie", mission.min_elevation == null ? "-" : `${mission.min_elevation}°`),
+        detailItem("Max. elevatie", mission.max_elevation == null ? "-" : `${mission.max_elevation}°`),
+        detailItem("Kwaliteit", quality.score == null ? "-" : `${quality.score}% · ${text(quality.grade)}`)
     );
 
     const filesGrid = document.createElement("div");
@@ -419,6 +424,7 @@ function renderMissionDetail(payload) {
         detailItem("Receiver-ID", mission.receiver_id),
         detailItem("Serienummer", mission.receiver_serial),
         detailItem("Aangemaakt", mission.created_at),
+        detailItem("Diagnostiek", diagnostics.available ? diagnostics.directory : "Niet beschikbaar", {wide: true, code: true}),
         detailItem("Outputmap", mission.output_path, {wide: true, code: true}),
         detailItem("Detail", mission.detail, {wide: true}),
         detailItem("Fout", mission.error, {wide: true})

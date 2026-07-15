@@ -100,6 +100,17 @@ class MissionJob:
     frames: Optional[int] = None
     cadu_bytes: Optional[int] = None
     image_count: Optional[int] = None
+    min_elevation: Optional[float] = None
+    max_elevation: Optional[float] = None
+    azimuth: Optional[float] = None
+    sample_rate: Optional[int] = None
+    gain_mode: Optional[str] = None
+    gain_db: Optional[float] = None
+    dc_block: Optional[bool] = None
+    iq_swap: Optional[bool] = None
+    quality_score: Optional[int] = None
+    quality_grade: Optional[str] = None
+    diagnostics_path: Optional[str] = None
 
     def to_dict(self):
         data = asdict(self)
@@ -152,6 +163,14 @@ class MissionEngine:
         receiver=None,
         receiver_id=None,
         receiver_serial=None,
+        min_elevation=None,
+        max_elevation=None,
+        azimuth=None,
+        sample_rate=None,
+        gain_mode=None,
+        gain_db=None,
+        dc_block=None,
+        iq_swap=None,
     ):
         with self._lock:
             if self.active_job is not None:
@@ -172,6 +191,14 @@ class MissionEngine:
                 receiver_serial=(
                     str(receiver_serial) if receiver_serial else None
                 ),
+                min_elevation=(float(min_elevation) if min_elevation is not None else None),
+                max_elevation=(float(max_elevation) if max_elevation is not None else None),
+                azimuth=(float(azimuth) if azimuth is not None else None),
+                sample_rate=(int(sample_rate) if sample_rate is not None else None),
+                gain_mode=(str(gain_mode) if gain_mode is not None else None),
+                gain_db=(float(gain_db) if gain_db is not None else None),
+                dc_block=(bool(dc_block) if dc_block is not None else None),
+                iq_swap=(bool(iq_swap) if iq_swap is not None else None),
                 status=self.state.value,
                 progress=calculate_progress(self.state),
                 created_at=now,
@@ -290,6 +317,18 @@ class MissionEngine:
             self.active_job.image_count = (
                 int(image_count) if image_count is not None else None
             )
+            quality_score = metrics.get("quality_score")
+            self.active_job.quality_score = (
+                int(quality_score) if quality_score is not None else None
+            )
+            quality_grade = metrics.get("quality_grade")
+            self.active_job.quality_grade = (
+                str(quality_grade) if quality_grade is not None else None
+            )
+            diagnostics_path = metrics.get("diagnostics_path")
+            self.active_job.diagnostics_path = (
+                str(diagnostics_path) if diagnostics_path is not None else None
+            )
 
             completed_job = self.active_job.to_dict()
             self.history.insert(0, completed_job)
@@ -399,6 +438,14 @@ def mission_create_job(
     receiver=None,
     receiver_id=None,
     receiver_serial=None,
+    min_elevation=None,
+    max_elevation=None,
+    azimuth=None,
+    sample_rate=None,
+    gain_mode=None,
+    gain_db=None,
+    dc_block=None,
+    iq_swap=None,
 ):
     mission_engine.create_job(
         satellite=satellite,
@@ -409,6 +456,14 @@ def mission_create_job(
         receiver=receiver,
         receiver_id=receiver_id,
         receiver_serial=receiver_serial,
+        min_elevation=min_elevation,
+        max_elevation=max_elevation,
+        azimuth=azimuth,
+        sample_rate=sample_rate,
+        gain_mode=gain_mode,
+        gain_db=gain_db,
+        dc_block=dc_block,
+        iq_swap=iq_swap,
     )
     return get_mission_status()
 
