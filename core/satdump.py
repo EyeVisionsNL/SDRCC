@@ -431,3 +431,92 @@ def analyze_satdump_result(
         },
     )
     return result
+
+
+def find_cadu_input(output_path):
+    """Return the largest non-empty CADU file from a mission directory."""
+
+    output_dir = Path(output_path)
+    candidates = [
+        item
+        for item in output_dir.rglob("*.cadu")
+        if item.is_file() and item.stat().st_size > 0
+    ]
+    return max(candidates, key=lambda item: item.stat().st_size) if candidates else None
+
+
+def build_cadu_decode_command(output_path, pipeline):
+    """Build the offline product-decoding command for a completed live capture."""
+
+    output_dir = Path(output_path)
+    cadu_file = find_cadu_input(output_dir)
+    if cadu_file is None:
+        return None
+
+    products_dir = output_dir / "decoded"
+    return {
+        "cadu_file": cadu_file,
+        "products_dir": products_dir,
+        "log_file": output_dir / "satdump-decode.log",
+        "command": [
+            "satdump",
+            str(pipeline),
+            "cadu",
+            str(cadu_file),
+            str(products_dir),
+        ],
+    }
+
+
+def decode_cadu_products(output_path, pipeline, line_callback=None):
+    """Decode a live-created CADU into image products and preserve the full log.
+
+    SatDump 1.2.x may return a non-zero code after producing valid products when
+    an optional enhancement or plugin fails. The caller must therefore evaluate
+    the actual output inventory, not the return code alone.
+    """
+
+    data = build_cadu_decode_command(output_path, pipeline)
+    if data is None:
+        return {
+            "attempted": False,
+            "returncode": None,
+            "stdout": "",
+            "command": None,
+            "cadu_file": None,
+            "products_dir": None,
+            "log_file": None,
+        }
+
+    data["products_dir"].mkdir(parents=True, exist_ok=True)
+    lines = []
+
+    with data["log_file"].open("w", encoding="utf-8") as log_handle:
+        process = subprocess.Popen(
+            data["command"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=1,
+        )
+
+        if process.stdout is not None:
+            for raw_line in process.stdout:
+                line = raw_line.rstrip("\r\n")
+                lines.append(line)
+                log_handle.write(line + "\n")
+                log_handle.flush()
+                if line_callback is not None:
+                    line_callback(line)
+
+        process.wait()
+
+    return {
+        "attempted": True,
+        "returncode": process.returncode,
+        "stdout": "\n".join(lines),
+        "command": list(data["command"]),
+        "cadu_file": str(data["cadu_file"]),
+        "products_dir": str(data["products_dir"]),
+        "log_file": str(data["log_file"]),
+    }

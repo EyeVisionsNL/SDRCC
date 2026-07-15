@@ -570,3 +570,72 @@
     .history-event { grid-template-columns: 26px minmax(0, 1fr); }
     .history-event time { grid-column: 2; }
 }
+
+
+/* v0.20.2 - Mission Image Gallery */
+.history-gallery {
+    display: grid;
+    gap: 10px;
+}
+
+.history-gallery-thumbnails {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 8px;
+    max-height: 330px;
+    overflow-y: auto;
+    padding: 2px;
+    scrollbar-gutter: stable;
+}
+
+.history-gallery-thumb {
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+    padding: 6px;
+    border: 1px solid #26364b;
+    border-radius: 8px;
+    background: #07111f;
+    color: #cbd5e1;
+    cursor: pointer;
+    text-align: left;
+}
+
+.history-gallery-thumb:hover {
+    border-color: #4b6b91;
+    background: #0d1b2e;
+}
+
+.history-gallery-thumb.selected {
+    border-color: #38bdf8;
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, .28);
+    background: #102039;
+}
+
+.history-gallery-thumb:focus-visible {
+    outline: 2px solid #38bdf8;
+    outline-offset: 2px;
+}
+
+.history-gallery-thumb img {
+    width: 100%;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 5px;
+    background: #020817;
+}
+
+.history-gallery-thumb span {
+    display: block;
+    font-size: .68rem;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+    .history-gallery-thumbnails {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

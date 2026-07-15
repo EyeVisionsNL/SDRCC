@@ -338,21 +338,68 @@ function renderMissionDetail(payload) {
         fileItem("📊", "Telemetry", files.telemetry)
     );
 
+    const imageFiles = Array.isArray(files.image_files) ? files.image_files : [];
+    const gallery = document.createElement("div");
+    gallery.className = "history-gallery";
+
     const preview = document.createElement("div");
     preview.className = "history-preview";
-    if (files.preview?.url) {
-        const image = document.createElement("img");
-        image.src = `${files.preview.url}?t=${Date.now()}`;
-        image.alt = `Preview ${text(files.preview.filename)}`;
-        image.loading = "lazy";
-        const caption = document.createElement("small");
-        caption.textContent = text(files.preview.filename);
-        preview.append(image, caption);
+
+    const galleryViewer = document.createElement("img");
+    galleryViewer.loading = "lazy";
+    galleryViewer.alt = "Mission image";
+
+    const galleryCaption = document.createElement("small");
+    const thumbnails = document.createElement("div");
+    thumbnails.className = "history-gallery-thumbnails";
+
+    function selectGalleryImage(item, button = null) {
+        if (!item?.url) return;
+        galleryViewer.src = `${item.url}?t=${Date.now()}`;
+        galleryViewer.alt = `Mission image ${text(item.filename)}`;
+        galleryCaption.textContent = text(item.relative_path || item.filename);
+        thumbnails.querySelectorAll(".history-gallery-thumb").forEach(candidate => {
+            candidate.classList.toggle("selected", candidate === button);
+        });
+    }
+
+    if (imageFiles.length) {
+        preview.append(galleryViewer, galleryCaption);
+        imageFiles.forEach((item, index) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "history-gallery-thumb";
+            button.title = text(item.relative_path || item.filename);
+
+            const thumb = document.createElement("img");
+            thumb.src = `${item.url}?t=${Date.now()}`;
+            thumb.alt = text(item.filename);
+            thumb.loading = "lazy";
+
+            const label = document.createElement("span");
+            label.textContent = text(item.filename);
+            button.append(thumb, label);
+            button.addEventListener("click", () => selectGalleryImage(item, button));
+            thumbnails.appendChild(button);
+
+            if (index === 0) selectGalleryImage(item, button);
+        });
+        gallery.append(preview, thumbnails);
+    } else if (files.preview?.url) {
+        const fallback = {
+            url: files.preview.url,
+            filename: files.preview.filename,
+            relative_path: files.preview.relative_path,
+        };
+        preview.append(galleryViewer, galleryCaption);
+        selectGalleryImage(fallback);
+        gallery.appendChild(preview);
     } else {
         const empty = document.createElement("div");
         empty.className = "history-preview-empty";
         empty.textContent = "Geen afbeelding beschikbaar voor deze missie.";
         preview.appendChild(empty);
+        gallery.appendChild(preview);
     }
 
     const eventList = document.createElement("div");
@@ -385,8 +432,8 @@ function renderMissionDetail(payload) {
         summary,
         sectionTitle("Bestanden"),
         filesGrid,
-        sectionTitle("Image Preview"),
-        preview,
+        sectionTitle(`Mission Images (${imageFiles.length || files.images?.count || 0})`),
+        gallery,
         sectionTitle("Mission Events"),
         eventList,
         sectionTitle("Technische details"),

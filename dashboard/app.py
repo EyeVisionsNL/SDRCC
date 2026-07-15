@@ -344,6 +344,7 @@ def _mission_output_inventory(mission):
         "telemetry": {"available": False, "count": 0, "bytes": 0},
         "other": {"available": False, "count": 0, "bytes": 0},
         "preview": None,
+        "image_files": [],
     }
     if not output_value:
         return inventory
@@ -388,12 +389,35 @@ def _mission_output_inventory(mission):
         inventory[bucket]["available"] = True
 
     if image_candidates:
+        image_candidates = sorted(
+            image_candidates,
+            key=lambda path: (
+                str(path.relative_to(root).parent).lower(),
+                path.name.lower(),
+            ),
+        )
+        for path in image_candidates[:500]:
+            relative = path.relative_to(root)
+            try:
+                size = path.stat().st_size
+            except OSError:
+                size = 0
+            relative_value = str(relative).replace(chr(92), "/")
+            inventory["image_files"].append({
+                "filename": path.name,
+                "relative_path": relative_value,
+                "directory": str(relative.parent).replace(chr(92), "/"),
+                "bytes": size,
+                "url": f"/mission-preview/{mission.get('mission_id')}/{relative_value}",
+            })
+
         newest = max(image_candidates, key=lambda path: path.stat().st_mtime if path.exists() else 0)
         relative = newest.relative_to(root)
+        relative_value = str(relative).replace(chr(92), "/")
         inventory["preview"] = {
             "filename": newest.name,
-            "relative_path": str(relative),
-            "url": f"/mission-preview/{mission.get('mission_id')}/{str(relative).replace(chr(92), '/')}",
+            "relative_path": relative_value,
+            "url": f"/mission-preview/{mission.get('mission_id')}/{relative_value}",
         }
 
     return inventory
@@ -1010,15 +1034,77 @@ def monitor_auto_record_process(process):
                 live_rf.update_line(line)
 
         process.wait()
-        stdout = "\n".join(output_lines)
-        stderr = ""
-
+        live_stdout = "\n".join(output_lines)
         record_data = autopilot_runtime.get("record_data") or {}
-        analysis = satdump_core.analyze_satdump_result(
+        output_path = record_data.get("output_path")
+        pipeline = (record_data.get("pass") or {}).get("pipeline")
+
+        initial = satdump_core.analyze_satdump_result(
             returncode=process.returncode,
-            stdout=stdout,
-            stderr=stderr,
-            output_path=record_data.get("output_path"),
+            stdout=live_stdout,
+            stderr="",
+            output_path=output_path,
+            context=satdump_core.build_event_context(record_data),
+        )
+
+        decode_data = None
+        combined_stdout = live_stdout
+        final_returncode = process.returncode
+
+        if (
+            process.returncode == 0
+            and initial.get("cadu_bytes", 0) > 0
+            and initial.get("image_count", 0) == 0
+            and output_path
+            and pipeline
+        ):
+            mission_engine_core.mission_set_state("DECODING")
+            write_log(
+                "AUTO: live-opname bevat CADU maar nog geen beelden; "
+                "offline productdecode gestart"
+            )
+            event_bus.publish_satdump(
+                "INFO",
+                "SatDump productdecode gestart",
+                "CADU wordt verwerkt naar METEOR-beeldproducten",
+                data=satdump_core.build_event_context(record_data),
+            )
+
+            decode_data = satdump_core.decode_cadu_products(
+                output_path=output_path,
+                pipeline=pipeline,
+                line_callback=lambda line: (
+                    write_log(line),
+                    live_rf.update_line(line),
+                ),
+            )
+            combined_stdout = "\n".join(
+                part
+                for part in (live_stdout, decode_data.get("stdout", ""))
+                if part
+            )
+            final_returncode = decode_data.get("returncode")
+            mission_engine_core.mission_set_state("PROCESSING")
+
+            event_bus.publish_satdump(
+                "INFO" if final_returncode == 0 else "WARNING",
+                "SatDump productdecode afgerond",
+                f"Returncode {final_returncode}; output wordt gevalideerd",
+                data={
+                    **satdump_core.build_event_context(record_data),
+                    "returncode": final_returncode,
+                    "command": decode_data.get("command"),
+                    "cadu_file": decode_data.get("cadu_file"),
+                    "products_dir": decode_data.get("products_dir"),
+                    "log_file": decode_data.get("log_file"),
+                },
+            )
+
+        analysis = satdump_core.analyze_satdump_result(
+            returncode=final_returncode,
+            stdout=combined_stdout,
+            stderr="",
+            output_path=output_path,
             context=satdump_core.build_event_context(record_data),
         )
         live_rf.finish(analysis)
@@ -1028,13 +1114,7 @@ def monitor_auto_record_process(process):
             f"{analysis['result']} - {analysis['detail']}"
         )
 
-        if analysis["result"] == "SUCCESS":
-            mission_engine_core.mission_set_state("DECODING")
-            time.sleep(1)
-            mission_engine_core.mission_set_state("PROCESSING")
-            time.sleep(1)
-            mission_engine_core.mission_set_state("ARCHIVING")
-            time.sleep(1)
+        mission_engine_core.mission_set_state("ARCHIVING")
 
         metrics = {
             "peak_snr_db": analysis.get("peak_snr_db"),
@@ -1084,10 +1164,7 @@ def monitor_auto_record_process(process):
         restore_service = autopilot_runtime.get("restore_service")
         restore_needed = autopilot_runtime.get("restore_service_was_active", False)
 
-        if (
-            restore_service
-            and restore_needed
-        ):
+        if restore_service and restore_needed:
             write_log(f"AUTO: {restore_service} herstellen")
             result = run_systemctl("start", restore_service)
             if result.returncode != 0:

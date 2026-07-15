@@ -127,21 +127,26 @@ def classify(
             None,
             **metrics,
         )
-    elif returncode != 0:
-        detail = f"SatDump stopte met foutcode {returncode}"
-        outcome = MissionResult(False, "FAILED", detail, detail, **metrics)
     elif effective_images > 0:
+        warning = (
+            f"; SatDump eindigde met waarschuwing/foutcode {returncode}"
+            if returncode != 0
+            else ""
+        )
         outcome = MissionResult(
             True,
             "SUCCESS",
             (
                 f"Decode voltooid; {effective_frames} frames, "
                 f"{effective_cadu} bytes CADU-data, "
-                f"{effective_images} afbeelding(en)"
+                f"{effective_images} afbeelding(en){warning}"
             ),
             None,
             **metrics,
         )
+    elif returncode != 0:
+        detail = f"SatDump stopte met foutcode {returncode}"
+        outcome = MissionResult(False, "FAILED", detail, detail, **metrics)
     elif effective_cadu > 0 or effective_frames > 0 or "DEFRAMER : SYNC" in combined_upper:
         outcome = MissionResult(
             False,
