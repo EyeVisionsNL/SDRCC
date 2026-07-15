@@ -70,11 +70,17 @@ def get_status() -> dict[str, Any]:
     reservation = deepcopy(state.get("reservation"))
     if reservation:
         reservation["device"] = _device_summary(reservation.get("receiver_id"))
+    last_release = deepcopy(state.get("last_release"))
+    if isinstance(last_release, dict) and last_release.get("released_at"):
+        # Older state files may still contain ACTIVE from the former reservation.
+        # A released record is historical and must never look active.
+        last_release["status"] = "RELEASED"
+
     return {
         "ok": True,
         "configured_receiver": _device_summary(configured.get("id") if configured else None),
         "reservation": reservation,
-        "last_release": deepcopy(state.get("last_release")),
+        "last_release": last_release,
         "available": reservation is None,
     }
 
@@ -164,6 +170,7 @@ def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") 
         released = deepcopy(reservation)
         released["released_at"] = _now()
         released["release_detail"] = str(detail)
+        released["status"] = "RELEASED"
         state["last_release"] = released
         state["reservation"] = None
         _save_state(state)
