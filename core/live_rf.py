@@ -21,6 +21,7 @@ _DEFAULT_STATE: dict[str, Any] = {
     "active": False,
     "state": "IDLE",
     "satellite": None,
+    "pipeline": None,
     "receiver": None,
     "serial": None,
     "frequency_hz": None,
@@ -96,10 +97,50 @@ def _output_metrics(output_path: str | None) -> tuple[int, int, int]:
     return cadu_bytes // 8192, cadu_bytes, image_count
 
 
+
+def _first_value(*values: Any) -> Any:
+    for value in values:
+        if value is not None and value != "":
+            return value
+    return None
+
+
+def _frequency_from_command(command: Any) -> int | None:
+    if not isinstance(command, (list, tuple)):
+        return None
+    tokens = [str(item) for item in command]
+    for index, token in enumerate(tokens):
+        lowered = token.lower()
+        if lowered in {"--frequency", "--freq", "-f"} and index + 1 < len(tokens):
+            try:
+                return int(float(tokens[index + 1]))
+            except (TypeError, ValueError):
+                continue
+        match = re.match(r"^(?:--frequency|--freq)=([0-9.]+)$", lowered)
+        if match:
+            try:
+                return int(float(match.group(1)))
+            except (TypeError, ValueError):
+                continue
+    return None
+
 def start(record_data: dict[str, Any], pid: int) -> dict[str, Any]:
     pass_data = record_data.get("pass") or {}
     device = record_data.get("device") or {}
     rf = record_data.get("rf") or {}
+
+    frequency_hz = _first_value(
+        pass_data.get("frequency_hz"),
+        pass_data.get("frequency"),
+        record_data.get("frequency_hz"),
+        record_data.get("frequency"),
+        rf.get("frequency_hz"),
+        _frequency_from_command(record_data.get("command")),
+    )
+    try:
+        frequency_hz = int(float(frequency_hz)) if frequency_hz is not None else None
+    except (TypeError, ValueError):
+        frequency_hz = None
 
     now_epoch = time.time()
     with _LOCK:
@@ -109,9 +150,10 @@ def start(record_data: dict[str, Any], pid: int) -> dict[str, Any]:
             "active": True,
             "state": "RECORDING",
             "satellite": pass_data.get("name"),
+            "pipeline": _first_value(pass_data.get("pipeline"), record_data.get("pipeline")),
             "receiver": device.get("number") or device.get("id"),
             "serial": device.get("serial"),
-            "frequency_hz": pass_data.get("frequency"),
+            "frequency_hz": frequency_hz,
             "sample_rate": pass_data.get("sample_rate"),
             "gain_mode": rf.get("gain_mode"),
             "gain_db": rf.get("gain_db"),

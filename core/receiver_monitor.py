@@ -297,10 +297,18 @@ def get_snapshot(
             detail = str(live_rf.get("detail") or active_job.get("satellite") or "Actieve satellietmissie")
             metrics = {
                 "satellite": live_rf.get("satellite") or active_job.get("satellite"),
+                "pipeline": live_rf.get("pipeline") or active_job.get("pipeline"),
                 "snr_db": live_rf.get("snr_db"),
                 "peak_snr_db": live_rf.get("peak_snr_db"),
+                "ber": live_rf.get("ber"),
                 "frames": int(live_rf.get("frames") or 0),
+                "cadu_bytes": int(live_rf.get("cadu_bytes") or 0),
                 "images": int(live_rf.get("image_count") or 0),
+                "remaining_seconds": live_rf.get("remaining_seconds"),
+                "gain_db": live_rf.get("gain_db"),
+                "gain_mode": live_rf.get("gain_mode"),
+                "viterbi": live_rf.get("viterbi"),
+                "deframer": live_rf.get("deframer"),
             }
         elif assignments.get("ais") == device_id and ais_service.get("active"):
             role = "AIS"
@@ -343,9 +351,14 @@ def get_snapshot(
         elif role == "WEATHER":
             display_metrics.extend([
                 {"key": "satellite", "label": "Satelliet", "value": metrics.get("satellite"), "format": "text"},
+                {"key": "pipeline", "label": "Pipeline", "value": metrics.get("pipeline"), "format": "text"},
                 {"key": "snr_db", "label": "SNR", "value": metrics.get("snr_db"), "format": "db_2"},
+                {"key": "peak_snr_db", "label": "Peak SNR", "value": metrics.get("peak_snr_db"), "format": "db_2"},
+                {"key": "ber", "label": "BER", "value": metrics.get("ber"), "format": "decimal_4"},
                 {"key": "frames", "label": "Frames", "value": metrics.get("frames"), "format": "integer"},
+                {"key": "cadu_bytes", "label": "CADU", "value": metrics.get("cadu_bytes"), "format": "bytes"},
                 {"key": "images", "label": "Beelden", "value": metrics.get("images"), "format": "integer"},
+                {"key": "remaining_seconds", "label": "Resterend", "value": metrics.get("remaining_seconds"), "format": "duration"},
             ])
         else:
             display_metrics.extend([
