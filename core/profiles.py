@@ -4,6 +4,7 @@ from pathlib import Path
 import yaml
 
 from core import state
+from core.config import get_receiver_assignments
 
 CONFIG_FILE = Path(__file__).resolve().parent.parent / "config" / "profiles.yaml"
 
@@ -58,7 +59,9 @@ def print_profiles():
 
         print(f"{marker} {profile['name']}")
         print(f"    Key        : {key}")
-        print(f"    Device     : {profile['device']}")
+        assignments = get_receiver_assignments()
+        assigned = assignments.get(key) if key in {"ais", "adsb", "weather"} else None
+        print(f"    Receiver   : {assigned.upper() if assigned else 'via runtime'}")
         print(f"    Managed by : {profile['managed_by']}")
         print(f"    Description: {profile['description']}")
         print()

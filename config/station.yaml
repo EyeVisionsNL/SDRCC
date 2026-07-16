@@ -8,12 +8,10 @@ station:
 sdr1:
   serial: 05419737
   name: AIS Receiver
-  task: ais
   locked: true
 sdr2:
   serial: '24006572'
   name: Dynamic Receiver
-  task: weather
   locked: false
 assignments:
   weather: sdr1

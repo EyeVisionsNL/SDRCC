@@ -2,7 +2,6 @@ profiles:
   weather:
     name: Weather / METEOR
     managed_by: sdrcc
-    device: sdr1
     service: null
     start: []
     stop: []
@@ -10,7 +9,6 @@ profiles:
   adsb:
     name: ADS-B
     managed_by: external
-    device: sdr2
     service: readsb.service
     start:
     - sudo
@@ -28,7 +26,6 @@ profiles:
   lora:
     name: LoRa / MeshCore
     managed_by: external
-    device: external
     service: null
     start: []
     stop: []
@@ -37,7 +34,6 @@ profiles:
   aprs:
     name: APRS
     managed_by: sdrcc
-    device: sdr2
     service: null
     start: []
     stop: []
@@ -45,7 +41,6 @@ profiles:
   manual:
     name: Manual / Lab
     managed_by: user
-    device: sdr2
     service: null
     start: []
     stop: []

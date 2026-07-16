@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
 
 import subprocess
-from core.config import load
 
-cfg = load()
-
-SDRS = {
-    cfg["sdr1"]["serial"]: cfg["sdr1"],
-    cfg["sdr2"]["serial"]: cfg["sdr2"],
-}
+from core.device_manager import get_devices
 
 
 def detect():
-
     try:
         result = subprocess.run(
             ["rtl_test", "-t"],
@@ -20,37 +13,27 @@ def detect():
             text=True,
             timeout=10,
         )
-
         output = result.stdout + result.stderr
-
     except Exception:
         return []
 
     devices = []
-
-    for serial, info in SDRS.items():
-
-        if serial in output:
-
-            devices.append(
-                {
-                    "serial": serial,
-                    "role": info["task"],
-                    "locked": info["locked"],
-                    "name": info["name"],
-                    "status": "ONLINE",
-                }
-            )
-
+    for info in get_devices():
+        serial = str(info.get("serial", ""))
+        if serial and serial in output:
+            devices.append({
+                "serial": serial,
+                "role": info.get("role", "manual"),
+                "locked": bool(info.get("locked", False)),
+                "name": info.get("name", info.get("number", "SDR")),
+                "status": "ONLINE",
+            })
     return devices
 
 
 def print_status():
-
     print()
-
     for dev in detect():
-
         print(dev["name"])
         print("-" * len(dev["name"]))
         print("Serial :", dev["serial"])

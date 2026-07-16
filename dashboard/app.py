@@ -87,22 +87,6 @@ SCHEDULER_ACTIONS = {
 }
 
 
-PROFILE_ACTIONS = {
-    "profile_adsb": {
-        "label": "Profiel ADS-B",
-        "profile": "adsb",
-    },
-    "profile_weather": {
-        "label": "Profiel Weather",
-        "profile": "weather",
-    },
-    "profile_manual": {
-        "label": "Profiel Manual",
-        "profile": "manual",
-    },
-}
-
-
 SDRCC_ACTIONS = {
     "next_pass": {"label": "Volgende passage", "command": [sys.executable, str(SDRCC_SCRIPT), "next"], "mode": "run"},
     "schedule": {"label": "Planning tonen", "command": [sys.executable, str(SDRCC_SCRIPT), "schedule"], "mode": "run"},
@@ -114,7 +98,6 @@ SDRCC_ACTIONS = {
 ACTIONS = {}
 ACTIONS.update(SERVICE_ACTIONS)
 ACTIONS.update(SCHEDULER_ACTIONS)
-ACTIONS.update(PROFILE_ACTIONS)
 ACTIONS.update(SDRCC_ACTIONS)
 
 
@@ -969,118 +952,6 @@ def handle_scheduler_action(action):
         "ok": True,
         "message": f"{label} actief.",
         "scheduler": scheduler,
-    })
-
-
-def handle_profile_action(action):
-    profile_name = action["profile"]
-    label = action["label"]
-    current_sdr = state.get_sdr2_state()
-
-    if current_sdr.get("locked"):
-        return jsonify({
-            "ok": False,
-            "message": "Profiel wisselen kan niet: SDR2 is gelocked.",
-        }), 409
-
-    write_log(f"Profielwissel gestart: {profile_name}")
-
-    if profile_name == "weather":
-        device = device_manager.get_weather_device()
-        if device is None:
-            return jsonify({
-                "ok": False,
-                "message": "Geen Weather-ontvanger toegewezen.",
-            }), 400
-        conflict_service = device_manager.get_conflicting_service(device["id"])
-        if conflict_service and service_state(conflict_service)["active"]:
-            result = run_systemctl("stop", conflict_service)
-            if result.returncode != 0:
-                return jsonify({
-                    "ok": False,
-                    "message": f"{conflict_service} kon niet worden gestopt.",
-                    "error": result.stderr,
-                }), 500
-            if not wait_for_service(conflict_service, "inactive"):
-                return jsonify({
-                    "ok": False,
-                    "message": f"{conflict_service} stopte niet volledig.",
-                }), 500
-        write_log(
-            f"Weather-profiel gebruikt {device['number']} "
-            f"({device['serial']})"
-        )
-
-    elif profile_name == "adsb":
-        ais_result = run_systemctl("start", "ais-catcher.service")
-        adsb_result = run_systemctl("start", "readsb.service")
-
-        if ais_result.returncode != 0:
-            return jsonify({
-                "ok": False,
-                "message": "AIS-Catcher kon niet worden gestart.",
-                "error": ais_result.stderr,
-            }), 500
-
-        if adsb_result.returncode != 0:
-            return jsonify({
-                "ok": False,
-                "message": "ADS-B kon niet worden gestart.",
-                "error": adsb_result.stderr,
-            }), 500
-
-        if not wait_for_service("ais-catcher.service", "active"):
-            return jsonify({
-                "ok": False,
-                "message": "AIS-Catcher werd niet actief.",
-            }), 500
-
-        if not wait_for_service("readsb.service", "active"):
-            return jsonify({
-                "ok": False,
-                "message": "ADS-B werd niet actief.",
-            }), 500
-
-    elif profile_name == "manual":
-        adsb_result = run_systemctl("stop", "readsb.service")
-        ais_result = run_systemctl("start", "ais-catcher.service")
-
-        if adsb_result.returncode != 0:
-            return jsonify({
-                "ok": False,
-                "message": "ADS-B kon niet worden gestopt.",
-                "error": adsb_result.stderr,
-            }), 500
-
-        if ais_result.returncode != 0:
-            return jsonify({
-                "ok": False,
-                "message": "AIS-Catcher kon niet worden gestart.",
-                "error": ais_result.stderr,
-            }), 500
-
-        if not wait_for_service("readsb.service", "inactive"):
-            return jsonify({
-                "ok": False,
-                "message": "ADS-B stopte niet volledig.",
-            }), 500
-
-        if not wait_for_service("ais-catcher.service", "active"):
-            return jsonify({
-                "ok": False,
-                "message": "AIS-Catcher werd niet actief.",
-            }), 500
-
-    profile = profiles.set_active_profile(profile_name)
-
-    write_log(
-        f"Profielwissel voltooid: {profile_name} ({profile['name']})"
-    )
-
-    return jsonify({
-        "ok": True,
-        "message": f"{label} actief.",
-        "profile": profile_name,
     })
 
 
@@ -2542,9 +2413,6 @@ def api_action():
 
         if action_id in SCHEDULER_ACTIONS:
             return handle_scheduler_action(action)
-
-        if action_id in PROFILE_ACTIONS:
-            return handle_profile_action(action)
 
         if action_id == "simulate_record":
             mission = start_virtual_mission()

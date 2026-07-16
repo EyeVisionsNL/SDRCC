@@ -96,7 +96,7 @@ def profile_cmd(profile_name):
     print("-----------------------------")
     print("Profile :", profile_name)
     print("Name    :", profile["name"])
-    print("Device  :", profile["device"])
+    print("Receiver: via Receiver Manager assignments")
     print()
     state.print_sdr2_state()
 

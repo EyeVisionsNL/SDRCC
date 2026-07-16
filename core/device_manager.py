@@ -13,17 +13,30 @@ def get_devices():
             continue
         item = cfg[device_id]
         roles = [role for role, assigned in assignments.items() if assigned == device_id]
+        fixed_role = next(
+            (role for role in ("ais", "adsb") if assignments.get(role) == device_id),
+            "manual",
+        )
         devices.append({
             "id": device_id,
             "number": f"SDR{index}",
             "name": item.get("name", f"SDR{index}"),
-            "serial": item.get("serial"),
-            "role": item.get("task", "unknown"),
+            "serial": str(item.get("serial", "")),
+            "role": fixed_role,
             "roles": roles,
             "locked": item.get("locked", False),
             "weather_selected": assignments["weather"] == device_id,
         })
     return devices
+
+
+def get_receiver_role(device_id):
+    """Return the fixed receiver role from assignments only."""
+    assignments = get_receiver_assignments()
+    for role in ("ais", "adsb"):
+        if assignments.get(role) == device_id:
+            return role
+    return "manual"
 
 
 def get_device(device_id):
