@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SDR Control Center</title>
+    <link rel="icon" type="image/png" href="/static/assets/sdrcc.png">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/cards.css">
+    <link rel="stylesheet" href="/static/css/system.css">
+    <link rel="stylesheet" href="/static/css/capture.css">
+    <link rel="stylesheet" href="/static/css/log.css">
+    <link rel="stylesheet" href="/static/css/controls.css">
+    <link rel="stylesheet" href="/static/css/timeline.css">
+    <link rel="stylesheet" href="/static/css/mission.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/radio.css">
+    <link rel="stylesheet" href="/static/css/history.css">
+</head>
+<body>
+<header class="topbar">
+    <div class="brand-block">
+        <img
+            class="brand-logo"
+            src="/static/assets/sdrcc.png"
+            alt="SDRCC-logo"
+        >
+        <div class="brand-copy">
+            <div class="brand-title-row">
+                <h1>SDR Control Center</h1>
+            </div>
+            <p>Mission Control · Satellietontvangst · Luchtvaart · Scheepvaart</p>
+        </div>
+    </div>
+    <div class="topbar-status">
+        <span class="status-dot"></span>
+        <span>LIVE</span>
+    </div>
+</header>
+
+<nav class="tabs">
+    <button class="tab-button active" data-tab="mission">🛰 Mission Control</button>
+    <button class="tab-button" data-tab="radio">📻 Radio Control</button>
+    <button class="tab-button" data-tab="history">🗂 Mission History</button>
+    <button class="tab-button" data-tab="images">📸 Beelden</button>
+    <button class="tab-button" data-tab="logs">📜 Logs</button>
+</nav>
+
+<main>
+<section class="tab-page active" id="tab-mission">
+    <div class="mission-layout-v3">
+        <aside class="mission-operations">
+            <section class="card system-panel compact-card">
+                <h2>🖥 Systeem</h2>
+                <div class="system-meter">
+                    <div class="system-meter-top"><span>CPU</span><strong id="system-cpu">-</strong></div>
+                    <div class="bar"><div id="system-cpu-bar"></div></div>
+                </div>
+                <div class="system-meter">
+                    <div class="system-meter-top"><span>RAM</span><strong id="system-ram">-</strong></div>
+                    <div class="bar"><div id="system-ram-bar"></div></div>
+                </div>
+                <div class="system-meter">
+                    <div class="system-meter-top"><span>Disk</span><strong id="system-disk">-</strong></div>
+                    <div class="bar"><div id="system-disk-bar"></div></div>
+                </div>
+                <p class="uptime">⏱ Uptime: <strong id="system-uptime">-</strong></p>
+            </section>
+
+            <section class="card controls-panel">
+                <h2>🎛 Bediening</h2>
+                <div class="button-grid control-pairs">
+                    <button class="control-button" data-action="start_ais">▶ Start AIS</button>
+                    <button class="control-button danger" data-action="stop_ais">■ Stop AIS</button>
+                    <button class="control-button" data-action="start_adsb">▶ Start ADS-B</button>
+                    <button class="control-button danger" data-action="stop_adsb">■ Stop ADS-B</button>
+                </div>
+                <div class="button-grid control-actions">
+                    <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
+                    <button class="control-button danger" data-action="record">📸 Record NOW</button>
+                    <button class="control-button" id="stop-mission-button" type="button" disabled>■ STOP MISSION</button>
+                    <button class="control-button" data-action="profile_adsb">📡 Profiel ADS-B</button>
+                    <button class="control-button" data-action="profile_weather">🛰 Profiel Weather</button>
+                    <button class="control-button" data-action="profile_manual">🔧 Profiel Manual</button>
+                    <button class="control-button" data-action="scheduler_auto">🤖 Scheduler AUTO</button>
+                    <button class="control-button" data-action="scheduler_manual">🖐 Scheduler MANUAL</button>
+                    <button class="control-button" data-action="scheduler_paused">⏸ Scheduler PAUSED</button>
+                    <button class="control-button mission-control-button" data-mission-action="next">⏭ Mission Next</button>
+                </div>
+                <details class="advanced-controls">
+                    <summary>⚙ Advanced</summary>
+                    <div class="button-grid control-actions">
+                        <button class="control-button" data-action="simulate_record">🛰 Simuleer opname</button>
+                        <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Mission Reset</button>
+                    </div>
+                </details>
+                <p class="control-result" id="control-result">Geen actie gestart.</p>
+
+                <div class="automation-operations">
+                    <div class="automation-controller" id="automation-controller">
+                        <div class="automation-controller-heading">
+                            <strong>🧠 Automation Controller</strong>
+                            <span class="automation-controller-state" id="automation-controller-state">LADEN</span>
+                        </div>
+                        <div class="automation-controller-grid">
+                            <span>Volgende passage<strong id="automation-controller-pass">-</strong></span>
+                            <span>Countdown<strong id="automation-controller-countdown">T--:--:--</strong></span>
+                            <span>Volgende actie<strong id="automation-controller-next-action">-</strong></span>
+                            <span>Veilige modus<strong id="automation-controller-safety">Normaal</strong></span>
+                        </div>
+                        <p class="automation-controller-detail" id="automation-controller-detail">Controllerstatus laden...</p>
+                        <div class="automation-controller-actions">
+                            <button class="automation-controller-button" id="automation-dry-run" type="button">🧪 Dry Run UIT</button>
+                            <button class="automation-controller-button" id="automation-manual-override" type="button">✋ Override UIT</button>
+                            <button class="automation-controller-button danger" id="automation-skip-pass" type="button">⏭ Volgende passage overslaan</button>
+                        </div>
+                        <p class="automation-controller-status" id="automation-controller-message">Handmatige bediening blijft beschikbaar.</p>
+                    </div>
+
+                    <div class="mission-queue" id="mission-queue">
+                        <div class="mission-queue-heading">
+                            <div><strong>📋 Mission Queue</strong><span>Komende passages en operatorplanning</span></div>
+                            <span id="mission-queue-summary">LADEN</span>
+                        </div>
+                        <div class="mission-queue-list" id="mission-queue-list">
+                            <div class="mission-queue-empty">Mission Queue laden...</div>
+                        </div>
+                        <p class="mission-queue-message" id="mission-queue-message">Maximaal 10 passages vooruit.</p>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <section class="card mission-overview">
+            <div class="section-heading-row">
+                <h2>🚦 Missiestatus</h2>
+                <div class="service-summary">
+                    <span>AIS <strong id="ais-status" class="warn">-</strong></span>
+                    <span>ADS-B <strong id="adsb-status" class="warn">-</strong></span>
+                    <span>TLE <strong id="tle-status" class="warn">-</strong></span>
+                </div>
+            </div>
+
+            <div class="mission-status-grid">
+                <div class="mission-engine">
+                    <div class="mission-phase" id="mission-phase">-</div>
+                    <div class="mission-detail" id="mission-detail">-</div>
+                    <div class="mission-progress"><div class="mission-progress-bar" id="mission-progress-bar"></div></div>
+
+                    <div class="scheduler-observer">
+                        <div class="scheduler-observer-row"><span>Scheduler</span><strong id="scheduler-mode">-</strong></div>
+                        <div class="scheduler-observer-row"><span>Fase</span><strong id="scheduler-observer-phase">-</strong></div>
+                        <div class="scheduler-observer-countdown" id="scheduler-countdown">T--:--:--</div>
+                        <div class="scheduler-observer-detail" id="scheduler-observer-detail">-</div>
+                        <div class="scheduler-observer-times">
+                            <div class="observer-time-row"><span>Preflight</span><strong id="scheduler-preflight-at">-</strong></div>
+                            <div class="observer-time-row"><span>Prepare</span><strong id="scheduler-prepare-at">-</strong></div>
+                            <div class="observer-time-row"><span>Lock</span><strong id="scheduler-lock-at">-</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mission-side-info">
+                    <div class="last-mission-card">
+                        <div class="mini-card-title">📋 Laatste missie</div>
+                        <div class="last-mission-result" id="last-mission-result">-</div>
+                        <div class="last-mission-grid">
+                            <span>Satelliet<strong id="last-mission-satellite">-</strong></span>
+                            <span>Piek-SNR<strong id="last-mission-snr">-</strong></span>
+                            <span>Frames<strong id="last-mission-frames">-</strong></span>
+                            <span>Beelden<strong id="last-mission-images">-</strong></span>
+                            <span>Duur<strong id="last-mission-duration">-</strong></span>
+                            <span>Einde<strong id="last-mission-ended">-</strong></span>
+                        </div>
+                        <p id="last-mission-detail" class="last-mission-detail">Nog geen missie-uitkomst beschikbaar.</p>
+                    </div>
+
+                    <div class="mission-briefing live-mission-dashboard" id="mission-briefing">
+                        <div class="live-mission-header">
+                            <div>
+                                <div class="mission-briefing-title">🛰 Live Mission Dashboard</div>
+                                <strong class="live-mission-name" id="briefing-name">Geen actieve missie</strong>
+                            </div>
+                            <span class="live-mission-state" id="briefing-state">STANDBY</span>
+                        </div>
+
+                        <div class="live-mission-context">
+                            <span>Mode<strong id="briefing-mode">-</strong></span>
+                            <span>Ontvanger<strong id="briefing-receiver">-</strong></span>
+                            <span>Frequentie<strong id="briefing-frequency">-</strong></span>
+                        </div>
+
+                        <div class="live-mission-progress-row">
+                            <div class="live-mission-time"><span>Verstreken</span><strong id="briefing-elapsed">00:00</strong></div>
+                            <strong class="live-mission-percent" id="briefing-progress-text">0%</strong>
+                            <div class="live-mission-time align-right"><span>Resterend</span><strong id="briefing-remaining">--:--</strong></div>
+                        </div>
+                        <div class="live-mission-progress"><span id="briefing-progress-bar"></span></div>
+
+                        <div class="live-mission-pipeline" id="briefing-live-pipeline" aria-label="Live Mission Pipeline">
+                            <div class="pipeline-step is-waiting" data-pipeline-step="receiver">
+                                <span class="pipeline-step-index">1</span>
+                                <span class="pipeline-step-copy"><strong>Receiver</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="recording">
+                                <span class="pipeline-step-index">2</span>
+                                <span class="pipeline-step-copy"><strong>Recording</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="decoder">
+                                <span class="pipeline-step-index">3</span>
+                                <span class="pipeline-step-copy"><strong>Decoder</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="processing">
+                                <span class="pipeline-step-index">4</span>
+                                <span class="pipeline-step-copy"><strong>Processing</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="images">
+                                <span class="pipeline-step-index">5</span>
+                                <span class="pipeline-step-copy"><strong>Images</strong><small>WACHTEN</small></span>
+                            </div>
+                            <div class="pipeline-step is-waiting" data-pipeline-step="archive">
+                                <span class="pipeline-step-index">6</span>
+                                <span class="pipeline-step-copy"><strong>Archive</strong><small>WACHTEN</small></span>
+                            </div>
+                        </div>
+                        <div class="live-mission-stage-line">
+                            <span>Huidige stap</span>
+                            <strong id="briefing-current-stage">Wachten op AOS</strong>
+                        </div>
+
+                        <div class="live-image-processing" id="briefing-image-processing">
+                            <div class="live-image-preview-wrap">
+                                <div class="live-image-preview-empty" id="briefing-image-empty">Nog geen live product</div>
+                                <img id="briefing-image-preview" class="live-image-preview hidden" src="" alt="Laatste live satellietproduct">
+                            </div>
+                            <div class="live-image-processing-info">
+                                <div class="live-image-processing-header">
+                                    <strong>🖼 Image Processing</strong>
+                                    <span class="live-image-status is-waiting" id="briefing-image-status">WACHTEN</span>
+                                </div>
+                                <div class="live-image-processing-grid">
+                                    <span>Producten<strong id="briefing-image-products">0</strong></span>
+                                    <span>Laatste product<strong id="briefing-image-product">-</strong></span>
+                                    <span>Resolutie<strong id="briefing-image-resolution">-</strong></span>
+                                    <span>Bijgewerkt<strong id="briefing-image-updated">-</strong></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="live-mission-telemetry">
+                            <span>Frames<strong id="briefing-frames">0</strong></span>
+                            <span>CADU<strong id="briefing-cadu">0 B</strong></span>
+                            <span>Piek-SNR<strong id="briefing-peak-snr">--.-- dB</strong></span>
+                            <span>Beelden<strong id="briefing-images">0</strong></span>
+                        </div>
+
+                        <div class="live-mission-decoder" aria-label="Decodertelemetrie">
+                            <span>SNR<strong id="briefing-snr">-</strong></span>
+                            <span>BER<strong id="briefing-ber">-</strong></span>
+                            <span>Viterbi<strong id="briefing-viterbi">UNKNOWN</strong></span>
+                            <span>Deframer<strong id="briefing-deframer">UNKNOWN</strong></span>
+                        </div>
+
+                        <div class="mission-operation-summary" id="briefing-operation-summary">
+                            <div>
+                                <span>Mission Result</span>
+                                <strong id="briefing-result">WACHTEN</strong>
+                            </div>
+                            <div>
+                                <span>Receiver status</span>
+                                <strong id="briefing-receiver-status">AVAILABLE</strong>
+                            </div>
+                            <p id="briefing-result-detail">Nog geen afgeronde missie.</p>
+                        </div>
+
+                        <div class="mission-briefing-grid live-mission-pass">
+                            <p>AOS<br><strong id="briefing-start">-</strong></p>
+                            <p>Maximum<br><strong id="briefing-maximum">-</strong></p>
+                            <p>LOS<br><strong id="briefing-end">-</strong></p>
+                            <p>Elevatie<br><strong id="briefing-elevation">-</strong></p>
+                            <p>Azimuth<br><strong id="briefing-azimuth">-</strong></p>
+                            <p>Sample rate<br><strong id="briefing-samplerate">-</strong></p>
+                            <p>Gain<br><strong id="briefing-gain">-</strong></p>
+                            <p>Lock<br><strong id="briefing-lock">-</strong></p>
+                        </div>
+                        <div class="mission-briefing-pipeline">Pipeline<br><strong id="briefing-pipeline">-</strong></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mission-steps" id="mission-steps"></div>
+        </section>
+
+        <section class="card capture-panel mission-capture">
+            <h2>📸 Laatste ontvangst</h2>
+            <div id="capture-empty" class="capture-empty">Nog geen afbeelding gevonden.</div>
+            <div id="capture-content" class="capture-content hidden">
+                <img id="capture-image" src="" alt="Laatste capture">
+                <div class="capture-meta capture-meta-compact">
+                    <p><strong id="capture-name">-</strong></p>
+                    <p>Satelliet: <span id="capture-satellite">-</span></p>
+                    <p>Product: <span id="capture-product">-</span></p>
+                    <p>Resolutie: <span id="capture-resolution">-</span></p>
+                    <p>Gewijzigd: <span id="capture-modified">-</span></p>
+                    <p>Grootte: <span id="capture-size">-</span> KB</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="card pass-panel highlight horizontal-pass-panel">
+            <div class="horizontal-pass-header">
+                <div class="horizontal-pass-title">
+                    <h2>🛰 Volgende passage</h2>
+                    <strong class="horizontal-pass-name" id="next-name">-</strong>
+                </div>
+                <div class="horizontal-pass-countdown">
+                    <span>Start over</span>
+                    <strong id="next-countdown">-</strong>
+                </div>
+            </div>
+            <div class="horizontal-pass-grid">
+                <div class="pass-metric"><span>Start</span><strong id="next-start">-</strong></div>
+                <div class="pass-metric"><span>Maximum</span><strong id="next-maximum">-</strong></div>
+                <div class="pass-metric"><span>Einde</span><strong id="next-end">-</strong></div>
+                <div class="pass-metric"><span>Frequentie</span><strong id="next-frequency">-</strong></div>
+                <div class="pass-metric"><span>Max. elevatie</span><strong id="next-elevation">-</strong></div>
+                <div class="pass-metric"><span>Azimuth</span><strong id="next-azimuth">-</strong></div>
+                <div class="pass-metric"><span>Mode</span><strong id="next-mode">-</strong></div>
+                <div class="pass-metric pass-metric-pipeline"><span>Pipeline</span><strong id="next-pipeline">-</strong></div>
+            </div>
+        </section>
+
+        <section class="card log-panel mission-timeline-panel">
+            <h2>🧭 Live Event Timeline</h2>
+            <div id="timeline-filters" class="timeline-toolbar" aria-label="Eventfilters"></div>
+            <div id="mission-timeline" class="mission-timeline" aria-live="polite"><div class="timeline-empty">Event Timeline laden...</div></div>
+        </section>
+    </div>
+</section>
+
+<section class="tab-page" id="tab-radio">
+    <div class="radio-page">
+        <section class="card receiver-overview-card">
+            <div class="section-heading-row">
+                <h2>📻 SDR Status</h2>
+                <span class="muted">Live status van beide SDR-ontvangers</span>
+            </div>
+            <div id="radio-devices" class="receiver-card-grid">Laden...</div>
+        </section>
+
+        <section class="card receiver-monitor-card">
+            <div class="section-heading-row">
+                <h2>📡 Receiver Monitor</h2>
+                <span id="receiver-monitor-updated" class="muted">Status laden...</span>
+            </div>
+            <div id="receiver-monitor-grid" class="receiver-monitor-grid">Laden...</div>
+        </section>
+
+        <section class="card radio-card assignment-preview-card">
+            <h2>🔀 Receiver Assignment</h2>
+            <p class="muted">Kies welke SDR voor Weather- en METEOR-opnames wordt gebruikt.</p>
+            <form id="receiver-assignment-form" class="assignment-form">
+                <label class="assignment-choice">
+                    <input type="radio" name="weather_receiver" value="sdr1">
+                    <span><strong>SDR1</strong><small>05419737</small></span>
+                </label>
+                <label class="assignment-choice">
+                    <input type="radio" name="weather_receiver" value="sdr2">
+                    <span><strong>SDR2</strong><small>24006572</small></span>
+                </label>
+                <button type="submit" class="control-button" id="apply-weather-receiver">Toepassen</button>
+            </form>
+            <p id="receiver-assignment-result" class="muted">-</p>
+            <div class="assignment-preview">
+                <div><span>AIS</span><strong>SDR1</strong></div>
+                <div><span>ADS-B</span><strong>SDR2</strong></div>
+            </div>
+        </section>
+
+        <section class="card radio-card receiver-roles-card">
+            <h2>🧩 Receiver Roles</h2>
+            <p class="muted">Kies per fysieke SDR de vaste rol. WEATHER blijft apart als tijdelijke missie-overname.</p>
+            <form id="receiver-roles-form" class="rf-settings-form">
+                <label><span id="receiver-role-sdr1-label">SDR1</span>
+                    <select id="receiver-role-sdr1">
+                        <option value="ais">AIS</option>
+                        <option value="adsb">ADS-B</option>
+                        <option value="manual">MANUAL</option>
+                    </select>
+                </label>
+                <label><span id="receiver-role-sdr2-label">SDR2</span>
+                    <select id="receiver-role-sdr2">
+                        <option value="ais">AIS</option>
+                        <option value="adsb">ADS-B</option>
+                        <option value="manual">MANUAL</option>
+                    </select>
+                </label>
+                <button type="submit" class="control-button">Rollen controleren</button>
+            </form>
+            <p id="receiver-roles-result" class="muted">UI-test: deze stap wijzigt nog geen configuratie of services.</p>
+        </section>
+
+        <section class="card radio-card rf-settings-card">
+            <h2>🎚 RF-instellingen</h2>
+            <form id="weather-rf-form" class="rf-settings-form">
+                <label>Gain-modus
+                    <select id="weather-gain-mode">
+                        <option value="auto">Automatisch (tuner AGC)</option>
+                        <option value="manual">Handmatig</option>
+                    </select>
+                </label>
+                <label>Tuner gain
+                    <select id="weather-gain-db"></select>
+                </label>
+                <label class="rf-check"><input id="weather-dc-block" type="checkbox"> DC block</label>
+                <label class="rf-check"><input id="weather-iq-swap" type="checkbox"> IQ swap</label>
+                <button type="submit" class="control-button">RF-instellingen opslaan</button>
+            </form>
+            <p id="weather-rf-result" class="muted">Instellingen worden bij de volgende Weather-opname gebruikt.</p>
+        </section>
+
+        <section class="card radio-card spectrum-card">
+            <div class="section-heading-row">
+                <h2>🌊 Spectrum</h2>
+                <span id="spectrum-device" class="muted">-</span>
+            </div>
+            <div class="spectrum-controls">
+                <label>Centrumfrequentie
+                    <select id="spectrum-frequency">
+                        <option value="137100000">137.100 MHz · METEOR-M2 3</option>
+                        <option value="137900000">137.900 MHz · METEOR-M2 4</option>
+                    </select>
+                </label>
+                <button id="start-spectrum-scan" type="button" class="control-button">Spectrum meten</button>
+            </div>
+            <canvas id="weather-spectrum-canvas" width="1000" height="260"></canvas>
+            <div class="spectrum-metrics">
+                <span>Piek<strong id="spectrum-peak-frequency">-</strong></span>
+                <span>Piekniveau<strong id="spectrum-peak-db">-</strong></span>
+                <span>Ruisvloer<strong id="spectrum-noise-db">-</strong></span>
+                <span>Boven ruis<strong id="spectrum-snr-db">-</strong></span>
+            </div>
+            <p id="spectrum-result" class="muted">Een meting stopt tijdelijk alleen de service op de gekozen Weather-SDR en herstelt die daarna.</p>
+        </section>
+
+        <section class="card live-rf-console-card">
+            <div class="section-heading-row">
+                <h2>📡 Live RF Console</h2>
+                <span id="live-rf-updated" class="muted">Wachten op telemetrie...</span>
+            </div>
+
+            <div class="live-rf-summary">
+                <div class="live-rf-primary">
+                    <span id="live-rf-state" class="live-rf-state live-rf-state-idle">IDLE</span>
+                    <strong id="live-rf-satellite">Geen actieve Weather-missie</strong>
+                    <small id="live-rf-detail">SatDump-telemetrie verschijnt hier tijdens een opname.</small>
+                </div>
+                <div class="live-rf-progress-wrap">
+                    <div class="live-rf-time-row">
+                        <span>Verstreken <strong id="live-rf-elapsed">00:00</strong></span>
+                        <span>Resterend <strong id="live-rf-remaining">--:--</strong></span>
+                    </div>
+                    <div class="live-rf-progress"><span id="live-rf-progress-bar"></span></div>
+                </div>
+            </div>
+
+            <div class="live-rf-metrics">
+                <div class="live-rf-metric live-rf-snr-metric">
+                    <span>Actuele SNR</span>
+                    <strong id="live-rf-snr">--.-- dB</strong>
+                    <div class="live-rf-snr-bar"><span id="live-rf-snr-bar"></span></div>
+                </div>
+                <div class="live-rf-metric"><span>Piek-SNR</span><strong id="live-rf-peak-snr">--.-- dB</strong></div>
+                <div class="live-rf-metric"><span>BER</span><strong id="live-rf-ber">-----</strong></div>
+                <div class="live-rf-metric"><span>Frames</span><strong id="live-rf-frames">0</strong></div>
+                <div class="live-rf-metric"><span>Viterbi</span><strong id="live-rf-viterbi" class="telemetry-status">UNKNOWN</strong></div>
+                <div class="live-rf-metric"><span>Deframer</span><strong id="live-rf-deframer" class="telemetry-status">UNKNOWN</strong></div>
+            </div>
+
+            <div class="live-rf-details">
+                <span>Ontvanger<strong id="live-rf-receiver">-</strong></span>
+                <span>Serienummer<strong id="live-rf-serial">-</strong></span>
+                <span>Frequentie<strong id="live-rf-frequency">-</strong></span>
+                <span>Sample rate<strong id="live-rf-samplerate">-</strong></span>
+                <span>Gain<strong id="live-rf-gain">-</strong></span>
+                <span>DC / IQ<strong id="live-rf-processing">-</strong></span>
+                <span>CADU-bytes<strong id="live-rf-cadu">0</strong></span>
+                <span>Beelden<strong id="live-rf-images">0</strong></span>
+            </div>
+        </section>
+
+        <div class="radio-legacy-state" hidden>
+            <span id="radio-sdr2-status"></span><span id="radio-sdr2-locked"></span><span id="radio-sdr2-profile"></span><span id="radio-sdr2-process"></span><span id="radio-sdr2-updated"></span>
+        </div>
+    </div>
+</section>
+
+<section class="tab-page" id="tab-history">
+    <div class="history-page">
+        <section class="card">
+            <div class="history-header">
+                <div>
+                    <h2>🗂 Mission History</h2>
+                    <p>Blijvend overzicht van afgeronde en geannuleerde satellietmissies.</p>
+                </div>
+                <button id="history-refresh" type="button" class="control-button history-refresh">↻ Vernieuwen</button>
+            </div>
+
+            <div class="history-stat-grid">
+                <div class="history-stat"><span>Missies</span><strong id="history-stat-total">0</strong></div>
+                <div class="history-stat"><span>Succes</span><strong id="history-stat-success">0%</strong></div>
+                <div class="history-stat"><span>Beelden</span><strong id="history-stat-images">0</strong></div>
+                <div class="history-stat"><span>Gem. duur</span><strong id="history-stat-duration">-</strong></div>
+                <div class="history-stat"><span>Beste SNR</span><strong id="history-stat-snr">-</strong></div>
+                <div class="history-stat"><span>Frames totaal</span><strong id="history-stat-frames">0</strong></div>
+            </div>
+
+            <div class="history-toolbar">
+                <label>Zoeken
+                    <input id="history-search" type="search" placeholder="Satelliet, mission ID, receiver...">
+                </label>
+                <label>Resultaat
+                    <select id="history-result-filter">
+                        <option value="">Alle resultaten</option>
+                        <option value="SUCCESS">SUCCESS</option>
+                        <option value="NO IMAGES">NO IMAGES</option>
+                        <option value="NO SYNC">NO SYNC</option>
+                        <option value="NO SIGNAL">NO SIGNAL</option>
+                        <option value="FAILED">FAILED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                    </select>
+                </label>
+                <label>Aantal
+                    <select id="history-limit">
+                        <option value="25">25 missies</option>
+                        <option value="50">50 missies</option>
+                        <option value="100" selected>100 missies</option>
+                        <option value="250">250 missies</option>
+                    </select>
+                </label>
+            </div>
+
+            <p id="history-count" class="muted">Mission History laden...</p>
+            <div class="history-workspace">
+                <div class="history-list-column">
+                    <div id="mission-history-list" class="history-list">
+                        <div class="history-empty">Mission History laden...</div>
+                    </div>
+                </div>
+                <aside id="mission-history-detail" class="history-detail-panel" aria-live="polite">
+                    <div class="history-detail-empty">Selecteer een missie om de details te bekijken.</div>
+                </aside>
+            </div>
+        </section>
+    </div>
+</section>
+
+<section class="tab-page" id="tab-images">
+    <div class="images-grid">
+        <section class="card image-main">
+            <h2>📸 Laatste opname</h2>
+            <div id="capture-empty-images" class="capture-empty">Nog geen afbeelding gevonden.</div>
+            <div id="capture-content-images" class="capture-content hidden">
+                <img id="capture-image-images" src="" alt="Laatste capture">
+                <div class="capture-meta">
+                    <p><strong id="capture-name-images">-</strong></p>
+                    <p>Satelliet: <span id="capture-satellite-images">-</span></p>
+                    <p>Pipeline: <span id="capture-pipeline-images">-</span></p>
+                    <p>Product: <span id="capture-product-images">-</span></p>
+                    <p>Resolutie: <span id="capture-resolution-images">-</span></p>
+                    <p>Gewijzigd: <span id="capture-modified-images">-</span></p>
+                    <p>Grootte: <span id="capture-size-images">-</span> KB</p>
+                </div>
+            </div>
+        </section>
+        <section class="card">
+            <h2>🛰 Image Pipeline</h2>
+            <p>Laatste satelliet: <span id="image-pipeline-satellite" class="warn">-</span></p>
+            <p>Pipeline: <span id="image-pipeline-type" class="warn">-</span></p>
+            <p>Product: <span id="image-pipeline-product" class="warn">-</span></p>
+            <p>Status: <span id="image-pipeline-status" class="warn">standby</span></p>
+            <hr>
+            <h3>Laatste opnames</h3>
+            <div id="recent-captures" class="recent-captures">Nog geen opnames gevonden.</div>
+        </section>
+    </div>
+</section>
+
+<section class="tab-page" id="tab-logs">
+    <section class="card log-panel-full">
+        <h2>📜 Live Log</h2>
+        <pre id="live-log">Log laden...</pre>
+    </section>
+</section>
+</main>
+
+<footer class="statusbar">
+    <span id="statusbar-left">SDR Control Center</span>
+    <span id="statusbar-right">Live update elke 5 seconden</span>
+</footer>
+
+<script src="/static/dashboard.js"></script>
+<script src="/static/js/capture_live.js"></script>
+<script src="/static/js/radio.js"></script>
+<script src="/static/js/mission_state.js"></script>
+<script src="/static/js/mission_briefing.js?v=0.20.7c"></script>
+</body>
+</html>

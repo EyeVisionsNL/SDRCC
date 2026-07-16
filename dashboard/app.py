@@ -446,29 +446,115 @@ def classify_capture(path):
     return satellite, pipeline, product
 
 
-def capture_to_dict(path):
+def capture_to_dict(path, mission=None, root=None):
     stat = path.stat()
-    relative = path.relative_to(PROJECT_ROOT)
     age_seconds = int(datetime.now().timestamp() - stat.st_mtime)
     width, height = detect_image_size(path)
     satellite, pipeline, product = classify_capture(path)
 
+    mission = mission if isinstance(mission, dict) else None
+    if mission:
+        satellite = str(mission.get("satellite") or satellite)
+        pipeline = str(mission.get("pipeline") or pipeline)
+
+    if mission and root is not None:
+        relative = path.relative_to(root)
+        relative_value = str(relative).replace("\\", "/")
+        url = f"/mission-preview/{mission.get('mission_id')}/{relative_value}"
+        source = "mission"
+        mission_id = mission.get("mission_id")
+    else:
+        relative = path.relative_to(PROJECT_ROOT)
+        relative_value = str(relative).replace("\\", "/")
+        url = "/capture/" + relative_value
+        source = "legacy"
+        mission_id = None
+
     return {
         "filename": path.name,
-        "relative_path": str(relative),
+        "relative_path": relative_value,
         "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
         "size_kb": round(stat.st_size / 1024, 1),
         "size_mb": round(stat.st_size / 1024 / 1024, 2),
         "age_seconds": age_seconds,
         "live": age_seconds <= 60,
-        "url": "/capture/" + str(relative).replace("\\", "/"),
+        "url": url,
         "width": width,
         "height": height,
         "resolution": f"{width}x{height}" if width and height else "-",
         "satellite": satellite,
         "pipeline": pipeline,
         "product": product,
+        "source": source,
+        "mission_id": mission_id,
     }
+
+
+def _capture_image_score(path):
+    """Prefer useful processed composites over raw channels and map products."""
+    name = path.name.lower()
+    score = 0
+    preferred_tokens = ("rgb", "composite", "msa", "avhrr", "221", "false_color", "false-colour")
+    raw_tokens = ("msu-mr-1", "msu-mr-2", "msu-mr-3", "channel", "map", "projection")
+
+    for token in preferred_tokens:
+        if token in name:
+            score += 20
+    for token in raw_tokens:
+        if token in name:
+            score -= 8
+
+    try:
+        stat = path.stat()
+        score += min(int(stat.st_size / (256 * 1024)), 20)
+        modified = stat.st_mtime
+    except OSError:
+        modified = 0
+
+    return score, modified, name
+
+
+def _mission_capture_files(mission):
+    output_value = str(mission.get("output_path") or "").strip()
+    if not output_value:
+        return None, []
+
+    try:
+        root = Path(output_value).expanduser().resolve()
+    except OSError:
+        return None, []
+    if not root.exists() or not root.is_dir():
+        return None, []
+
+    try:
+        files = [
+            path for path in root.rglob("*")
+            if path.is_file() and path.suffix.lower() in MISSION_IMAGE_EXTENSIONS
+        ]
+    except OSError:
+        files = []
+
+    return root, sorted(files, key=_capture_image_score, reverse=True)
+
+
+def _latest_successful_image_mission():
+    try:
+        payload = mission_history_core.get_history_payload(limit=100)
+    except Exception:
+        return None, None, []
+
+    missions = payload.get("missions", []) if isinstance(payload, dict) else []
+    for mission in missions:
+        result = str(mission.get("result") or mission.get("status") or "").upper()
+        is_success = bool(mission.get("success")) or result == "SUCCESS"
+        if not is_success:
+            continue
+
+        root, files = _mission_capture_files(mission)
+        if files:
+            return mission, root, files
+
+    return None, None, []
 
 
 def find_capture_files():
@@ -487,6 +573,10 @@ def find_capture_files():
 
 
 def find_latest_capture():
+    mission, root, files = _latest_successful_image_mission()
+    if files:
+        return capture_to_dict(files[0], mission=mission, root=root)
+
     files = find_capture_files()
     if not files:
         return None
@@ -494,6 +584,10 @@ def find_latest_capture():
 
 
 def recent_captures(limit=10):
+    mission, root, files = _latest_successful_image_mission()
+    if files:
+        return [capture_to_dict(path, mission=mission, root=root) for path in files[:limit]]
+
     return [capture_to_dict(path) for path in find_capture_files()[:limit]]
 
 
@@ -1953,8 +2047,55 @@ def api_mission_history():
         }), 500
 
 
-@app.route("/api/mission-history/<mission_id>")
+def _active_mission_id():
+    status = mission_engine_core.get_mission_status() or {}
+    candidates = [
+        status.get("active_job"),
+        status.get("mission"),
+        status.get("target_pass"),
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, dict):
+            value = str(candidate.get("mission_id") or "").strip()
+            if value:
+                return value
+    return str(status.get("mission_id") or "").strip()
+
+
+@app.route("/api/mission-history/<mission_id>", methods=["GET", "DELETE"])
 def api_mission_history_detail(mission_id):
+    if request.method == "DELETE":
+        try:
+            if mission_id == _active_mission_id():
+                return jsonify({
+                    "ok": False,
+                    "error": "De actieve missie kan niet worden verwijderd",
+                }), 409
+
+            result = mission_history_core.delete_mission(mission_id)
+            event_bus.publish_mission(
+                "INFO",
+                "Mission History verwijderd",
+                f"Missie {mission_id} is handmatig verwijderd",
+                data={
+                    "mission_id": mission_id,
+                    "satellite": result.get("satellite"),
+                    "output_path": result.get("output_path"),
+                },
+            )
+            return jsonify(result)
+        except LookupError as error:
+            return jsonify({"ok": False, "error": str(error)}), 404
+        except ValueError as error:
+            return jsonify({"ok": False, "error": str(error)}), 400
+        except OSError as error:
+            return jsonify({
+                "ok": False,
+                "error": f"Missiebestanden konden niet worden verwijderd: {error}",
+            }), 500
+        except Exception as error:
+            return jsonify({"ok": False, "error": str(error)}), 500
+
     try:
         mission = mission_history_core.get_mission(mission_id)
         if mission is None:
@@ -2210,6 +2351,115 @@ def api_receiver_assignment():
     except Exception as error:
         return jsonify({"ok": False, "message": str(error)}), 400
 
+
+
+@app.route("/api/receiver-roles", methods=["POST"])
+def api_receiver_roles():
+    payload = request.get_json(silent=True) or {}
+    mission = mission_engine_core.get_mission_status()
+    receiver_runtime = receiver_manager.get_status()
+    if (
+        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
+        or autopilot_runtime.get("prepared")
+        or autopilot_runtime.get("locked")
+        or autopilot_runtime.get("record_started")
+        or receiver_runtime.get("reservation") is not None
+    ):
+        return jsonify({
+            "ok": False,
+            "message": "Receiverrollen kunnen niet tijdens een actieve missie worden gewijzigd.",
+        }), 409
+
+    roles = {
+        "sdr1": payload.get("sdr1", "manual"),
+        "sdr2": payload.get("sdr2", "manual"),
+    }
+    try:
+        assignments = config_core.set_receiver_roles(roles)
+        write_log(
+            "Receiverrollen opgeslagen: "
+            f"SDR1={str(roles['sdr1']).upper()}, "
+            f"SDR2={str(roles['sdr2']).upper()}"
+        )
+        return jsonify({
+            "ok": True,
+            "message": (
+                "Rollen opgeslagen. Services zijn in deze stap nog niet gewijzigd."
+            ),
+            "assignments": assignments,
+            "roles": roles,
+        })
+    except Exception as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+
+
+@app.route("/api/receiver-roles/apply", methods=["POST"])
+def api_receiver_roles_apply():
+    mission = mission_engine_core.get_mission_status()
+    receiver_runtime = receiver_manager.get_status()
+    if (
+        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
+        or autopilot_runtime.get("prepared")
+        or autopilot_runtime.get("locked")
+        or autopilot_runtime.get("record_started")
+        or receiver_runtime.get("reservation") is not None
+    ):
+        return jsonify({
+            "ok": False,
+            "message": "Receiverrollen kunnen niet tijdens een actieve missie worden toegepast.",
+        }), 409
+
+    station = config_core.load_station()
+    assignments = config_core.get_receiver_assignments()
+    ais_receiver = assignments.get("ais")
+    adsb_receiver = assignments.get("adsb")
+    if ais_receiver not in {"sdr1", "sdr2"} or adsb_receiver not in {"sdr1", "sdr2"}:
+        return jsonify({
+            "ok": False,
+            "message": "Wijs eerst zowel AIS als ADS-B aan een receiver toe.",
+        }), 400
+    if ais_receiver == adsb_receiver:
+        return jsonify({
+            "ok": False,
+            "message": "AIS en ADS-B kunnen niet dezelfde receiver gebruiken.",
+        }), 400
+
+    try:
+        ais_serial = str(station[ais_receiver]["serial"])
+        adsb_serial = str(station[adsb_receiver]["serial"])
+    except (KeyError, TypeError) as error:
+        return jsonify({
+            "ok": False,
+            "message": f"Receiver-serienummer ontbreekt: {error}",
+        }), 400
+
+    result = run_command([
+        "sudo", "-n", "/usr/local/sbin/sdrcc-apply-receiver-roles",
+        ais_serial, adsb_serial,
+    ], timeout=120)
+    raw = (result.stdout or "").strip()
+    try:
+        import json
+        payload = json.loads(raw) if raw else {}
+    except Exception:
+        payload = {}
+    message = payload.get("message") or (result.stderr or raw or "Receiverwisseling mislukt").strip()
+    if result.returncode != 0 or not payload.get("ok"):
+        write_log(f"Receiverrollen toepassen mislukt: {message}")
+        return jsonify({"ok": False, "message": message}), 500
+
+    write_log(
+        "Receiverrollen toegepast: "
+        f"AIS={ais_receiver}/{ais_serial}, ADS-B={adsb_receiver}/{adsb_serial}"
+    )
+    return jsonify({
+        "ok": True,
+        "message": message,
+        "changed": bool(payload.get("changed")),
+        "assignments": assignments,
+        "ais_serial": ais_serial,
+        "adsb_serial": adsb_serial,
+    })
 
 
 @app.route("/api/weather-rf", methods=["GET", "POST"])

@@ -1,6 +1,13 @@
 export function updateLatestCapture(capture) {
     updateCaptureBlock(capture, "");
-    updateCaptureBlock(capture, "-images");
+
+    // Initialiseer het Beelden-tabblad één keer. Daarna bepaalt een handmatige
+    // thumbnailselectie welk beeld zichtbaar blijft tijdens dashboard-refreshes.
+    const imagesViewer = document.getElementById("capture-image-images");
+    if (!imagesViewer?.getAttribute("src")) {
+        updateCaptureBlock(capture, "-images");
+    }
+
     updateImagePipeline(capture);
 }
 

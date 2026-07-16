@@ -315,16 +315,56 @@ def get_snapshot(
             detail = adsb_metrics["detail"]
             metrics = adsb_metrics
 
+        display_metrics: list[dict[str, Any]] = []
+
+        # Every active provider exposes the tuned frequency in the same way.
+        # Provider-specific metrics remain flexible and may differ per task.
+        if role != "IDLE":
+            display_metrics.append({
+                "key": "frequency",
+                "label": "Frequentie",
+                "value": frequency_hz,
+                "format": "frequency_hz",
+            })
+
+        if role == "AIS":
+            display_metrics.extend([
+                {"key": "targets", "label": "Schepen", "value": metrics.get("targets"), "format": "integer"},
+                {"key": "messages_per_second", "label": "Berichten/s", "value": metrics.get("messages_per_second"), "format": "decimal_1"},
+                {"key": "max_range_nm", "label": "Max. bereik", "value": metrics.get("max_range_nm"), "format": "distance_nm"},
+            ])
+        elif role == "ADS-B":
+            display_metrics.extend([
+                {"key": "targets", "label": "Vliegtuigen", "value": metrics.get("targets"), "format": "integer"},
+                {"key": "with_position", "label": "Met positie", "value": metrics.get("with_position"), "format": "integer"},
+                {"key": "messages_per_second", "label": "Berichten/s", "value": metrics.get("messages_per_second"), "format": "decimal_1"},
+                {"key": "max_range_nm", "label": "Max. bereik", "value": metrics.get("max_range_nm"), "format": "distance_nm"},
+            ])
+        elif role == "WEATHER":
+            display_metrics.extend([
+                {"key": "satellite", "label": "Satelliet", "value": metrics.get("satellite"), "format": "text"},
+                {"key": "snr_db", "label": "SNR", "value": metrics.get("snr_db"), "format": "db_2"},
+                {"key": "frames", "label": "Frames", "value": metrics.get("frames"), "format": "integer"},
+                {"key": "images", "label": "Beelden", "value": metrics.get("images"), "format": "integer"},
+            ])
+        else:
+            display_metrics.extend([
+                {"key": "task", "label": "Taak", "value": device.get("current_task") or "Vrij", "format": "text"},
+                {"key": "source", "label": "Bron", "value": device.get("active_detail") or "-", "format": "text"},
+            ])
+
         receiver_rows.append({
             "id": device_id,
             "number": number,
             "name": device.get("name") or device_id,
             "serial": device.get("serial"),
             "role": role,
+            "profile": str(device.get("current_task") or role).lower(),
             "status": status,
             "frequency_hz": frequency_hz,
             "detail": detail,
             "metrics": metrics,
+            "display_metrics": display_metrics,
         })
 
     return {

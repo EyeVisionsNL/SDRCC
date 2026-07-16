@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 import json
+import os
+import re
+import shutil
 
 from core import mission_result
 
@@ -18,6 +21,8 @@ HISTORY_FILE = STATE_DIR / "mission_history.json"
 LOCK_FILE = STATE_DIR / "mission_history.lock"
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
+RECORDINGS_DIR = PROJECT_ROOT / "data" / "recordings"
+MISSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,160}$")
 
 
 def _normalise_limit(limit: Any) -> int:
@@ -206,3 +211,82 @@ def get_history_payload(
             "limit": _normalise_limit(limit),
         },
     }
+
+
+def _write_history_unlocked(missions: list[dict[str, Any]]) -> None:
+    """Schrijf Mission History atomair weg terwijl de caller de exclusieve lock bezit."""
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    temporary = HISTORY_FILE.with_suffix(".json.tmp")
+    payload = json.dumps(missions, ensure_ascii=False, indent=2) + "\n"
+    temporary.write_text(payload, encoding="utf-8")
+    os.replace(temporary, HISTORY_FILE)
+
+
+def _safe_output_directory(mission: dict[str, Any]) -> tuple[Optional[Path], Optional[str]]:
+    """Bepaal of de geregistreerde outputmap veilig verwijderd mag worden.
+
+    Oude, geannuleerde en testmissies kunnen een tijdelijke output_path buiten
+    data/recordings bevatten. Zo'n pad mag nooit automatisch worden verwijderd,
+    maar de Mission History-entry zelf moet wel handmatig verwijderbaar blijven.
+    """
+    output_value = str(mission.get("output_path") or "").strip()
+    if not output_value:
+        return None, None
+
+    root = RECORDINGS_DIR.resolve()
+    candidate = Path(output_value).expanduser().resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None, "Outputmap ligt buiten data/recordings en is veilig behouden"
+
+    if candidate == root:
+        return None, "Hoofdmap data/recordings is veilig behouden"
+    return candidate, None
+
+
+def delete_mission(mission_id: str) -> dict[str, Any]:
+    """Verwijder één afgesloten missie en de bijbehorende outputmap veilig."""
+    wanted = str(mission_id or "").strip()
+    if not MISSION_ID_PATTERN.fullmatch(wanted):
+        raise ValueError("Ongeldige mission-ID")
+
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with LOCK_FILE.open("a+", encoding="utf-8") as lock_handle:
+        if fcntl is not None:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        try:
+            missions = _read_history_unlocked()
+            mission = next(
+                (item for item in missions if str(item.get("mission_id") or "") == wanted),
+                None,
+            )
+            if mission is None:
+                raise LookupError("Missie niet gevonden")
+
+            output_directory, output_warning = _safe_output_directory(mission)
+            directory_removed = False
+            if output_directory is not None and output_directory.exists():
+                if not output_directory.is_dir():
+                    raise ValueError("De geregistreerde outputlocatie is geen map")
+                shutil.rmtree(output_directory)
+                directory_removed = True
+
+            remaining = [
+                item for item in missions
+                if str(item.get("mission_id") or "") != wanted
+            ]
+            _write_history_unlocked(remaining)
+
+            return {
+                "ok": True,
+                "deleted": wanted,
+                "satellite": mission.get("satellite"),
+                "output_path": str(output_directory) if output_directory else None,
+                "directory_removed": directory_removed,
+                "output_warning": output_warning,
+                "remaining": len(remaining),
+            }
+        finally:
+            if fcntl is not None:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)

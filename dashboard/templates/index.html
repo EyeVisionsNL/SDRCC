@@ -377,6 +377,31 @@
             </div>
         </section>
 
+        <section class="card radio-card receiver-roles-card">
+            <h2>🧩 Receiver Roles</h2>
+            <p class="muted">Kies per fysieke SDR de vaste rol. WEATHER blijft apart als tijdelijke missie-overname.</p>
+            <form id="receiver-roles-form" class="rf-settings-form">
+                <label><span id="receiver-role-sdr1-label">SDR1</span>
+                    <select id="receiver-role-sdr1">
+                        <option value="ais">AIS</option>
+                        <option value="adsb">ADS-B</option>
+                        <option value="manual">MANUAL</option>
+                    </select>
+                </label>
+                <label><span id="receiver-role-sdr2-label">SDR2</span>
+                    <select id="receiver-role-sdr2">
+                        <option value="ais">AIS</option>
+                        <option value="adsb">ADS-B</option>
+                        <option value="manual">MANUAL</option>
+                    </select>
+                </label>
+                <button type="submit" class="control-button">Rollen bewaren</button>
+                <button type="button" class="control-button" id="apply-receiver-roles">Receiverrollen toepassen</button>
+            </form>
+            <p id="receiver-roles-result" class="muted">Rollen worden opgeslagen in station.yaml.</p>
+            <p id="receiver-roles-apply-result" class="muted">Toepassen stopt AIS/ADS-B netjes, wijzigt de serienummers en start de services opnieuw.</p>
+        </section>
+
         <section class="card radio-card rf-settings-card">
             <h2>🎚 RF-instellingen</h2>
             <form id="weather-rf-form" class="rf-settings-form">

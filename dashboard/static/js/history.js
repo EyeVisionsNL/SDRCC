@@ -3,6 +3,7 @@ let searchTimer = null;
 let initialised = false;
 let selectedMissionId = null;
 let currentMissions = [];
+const selectedGalleryImageByMission = new Map();
 
 function byId(id) {
     return document.getElementById(id);
@@ -282,10 +283,23 @@ function renderMissionDetail(payload) {
     missionId.textContent = text(mission.mission_id);
     identity.append(title, missionId);
 
+    const actions = document.createElement("div");
+    actions.className = "history-detail-actions";
+
     const result = document.createElement("span");
     result.className = `history-result ${resultClass(mission.result)}`;
     result.textContent = text(mission.result);
-    header.append(identity, result);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "history-delete-button";
+    deleteButton.title = "Complete missie verwijderen";
+    deleteButton.setAttribute("aria-label", `Missie ${text(mission.mission_id)} verwijderen`);
+    deleteButton.textContent = "🗑 Verwijderen";
+    deleteButton.addEventListener("click", () => deleteMission(mission, deleteButton));
+
+    actions.append(result, deleteButton);
+    header.append(identity, actions);
 
     const qualityBlock = document.createElement("section");
     qualityBlock.className = `history-quality ${resultClass(quality.result || mission.result)}`;
@@ -358,8 +372,12 @@ function renderMissionDetail(payload) {
     const thumbnails = document.createElement("div");
     thumbnails.className = "history-gallery-thumbnails";
 
+    const missionKey = text(mission.mission_id, "");
+    const imageKey = item => text(item?.relative_path || item?.url || item?.filename, "");
+
     function selectGalleryImage(item, button = null) {
         if (!item?.url) return;
+        selectedGalleryImageByMission.set(missionKey, imageKey(item));
         galleryViewer.src = `${item.url}?t=${Date.now()}`;
         galleryViewer.alt = `Mission image ${text(item.filename)}`;
         galleryCaption.textContent = text(item.relative_path || item.filename);
@@ -370,7 +388,9 @@ function renderMissionDetail(payload) {
 
     if (imageFiles.length) {
         preview.append(galleryViewer, galleryCaption);
-        imageFiles.forEach((item, index) => {
+        const galleryEntries = [];
+
+        imageFiles.forEach(item => {
             const button = document.createElement("button");
             button.type = "button";
             button.className = "history-gallery-thumb";
@@ -386,9 +406,14 @@ function renderMissionDetail(payload) {
             button.append(thumb, label);
             button.addEventListener("click", () => selectGalleryImage(item, button));
             thumbnails.appendChild(button);
-
-            if (index === 0) selectGalleryImage(item, button);
+            galleryEntries.push({item, button});
         });
+
+        const wantedKey = selectedGalleryImageByMission.get(missionKey);
+        const selectedEntry = galleryEntries.find(entry => imageKey(entry.item) === wantedKey)
+            || galleryEntries[0];
+        if (selectedEntry) selectGalleryImage(selectedEntry.item, selectedEntry.button);
+
         gallery.append(preview, thumbnails);
     } else if (files.preview?.url) {
         const fallback = {
@@ -445,6 +470,47 @@ function renderMissionDetail(payload) {
         sectionTitle("Technische details"),
         technical
     );
+}
+
+
+async function deleteMission(mission, button) {
+    const missionId = text(mission?.mission_id, "");
+    if (!missionId) return;
+
+    const satellite = text(mission?.satellite, "Onbekende satelliet");
+    const confirmed = window.confirm(
+        `Complete missie verwijderen?\n\n${satellite}\n${missionId}\n\n` +
+        "Alle opnames, beelden, telemetrie en historiegegevens van deze missie worden definitief verwijderd."
+    );
+    if (!confirmed) return;
+
+    const originalLabel = button?.textContent || "🗑 Verwijderen";
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Verwijderen…";
+    }
+
+    try {
+        const response = await fetch(`/api/mission-history/${encodeURIComponent(missionId)}`, {
+            method: "DELETE",
+            headers: {"Accept": "application/json"},
+            cache: "no-store"
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) {
+            throw new Error(payload.error || "Missie verwijderen is mislukt");
+        }
+
+        selectedMissionId = null;
+        renderEmptyDetail("Missie verwijderd. Geschiedenis wordt bijgewerkt…");
+        await refreshMissionHistory();
+    } catch (error) {
+        window.alert(`Missie kon niet worden verwijderd: ${error.message}`);
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalLabel;
+        }
+    }
 }
 
 async function loadMissionDetail(missionId) {

@@ -2,6 +2,7 @@
     let rfFormDirty = false;
     let rfFormSaving = false;
     let rfFormFocused = false;
+    let receiverRolesDirty = false;
 
     function rfFormIsBeingEdited() {
         return rfFormDirty || rfFormSaving || rfFormFocused;
@@ -78,6 +79,28 @@
         const iq = document.getElementById("weather-iq-swap");
         if (dc) dc.checked = Boolean(settings.dc_block);
         if (iq) iq.checked = Boolean(settings.iq_swap);
+    }
+
+    function populateReceiverRoles(data) {
+        if (receiverRolesDirty) return;
+        const devices = Array.isArray(data.devices) ? data.devices : [];
+        const assignments = data.assignments || {};
+        for (const receiverId of ["sdr1", "sdr2"]) {
+            const select = document.getElementById(`receiver-role-${receiverId}`);
+            const label = document.getElementById(`receiver-role-${receiverId}-label`);
+            const device = devices.find(item => String(item.id || "").toLowerCase() === receiverId)
+                || devices.find((item, index) => receiverNumber(item, index).toLowerCase() === receiverId);
+            if (label) {
+                const number = device ? (device.number || receiverId.toUpperCase()) : receiverId.toUpperCase();
+                const serial = device && device.serial ? ` · ${device.serial}` : "";
+                label.textContent = `${number}${serial}`;
+            }
+            if (!select) continue;
+            let role = "manual";
+            if (String(assignments.ais || "").toLowerCase() === receiverId) role = "ais";
+            else if (String(assignments.adsb || "").toLowerCase() === receiverId) role = "adsb";
+            select.value = role;
+        }
     }
 
     function receiverNumber(dev, index) {
@@ -224,6 +247,7 @@
             setPill("radio-ais-pill", data.ais);
             setPill("radio-adsb-pill", data.adsb);
             renderDevices(data.devices || []);
+            populateReceiverRoles(data);
             const selected = (data.assignments || {}).weather;
             const radio = document.querySelector(`input[name="weather_receiver"][value="${selected}"]`);
             if (radio) radio.checked = true;
@@ -263,6 +287,65 @@
         });
     }
 
+
+    const receiverRolesForm = document.getElementById("receiver-roles-form");
+    if (receiverRolesForm) {
+        for (const select of receiverRolesForm.querySelectorAll("select")) {
+            select.addEventListener("change", () => { receiverRolesDirty = true; });
+        }
+        receiverRolesForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const sdr1 = document.getElementById("receiver-role-sdr1")?.value || "manual";
+            const sdr2 = document.getElementById("receiver-role-sdr2")?.value || "manual";
+            const result = document.getElementById("receiver-roles-result");
+            const submitButton = receiverRolesForm.querySelector('button[type="submit"]');
+            if (sdr1 === sdr2 && ["ais", "adsb"].includes(sdr1)) {
+                if (result) result.textContent = `${sdr1.toUpperCase()} kan niet tegelijk aan SDR1 en SDR2 worden toegewezen.`;
+                return;
+            }
+            if (submitButton) submitButton.disabled = true;
+            if (result) result.textContent = "Receiverrollen worden opgeslagen...";
+            try {
+                const response = await fetch("/api/receiver-roles", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({sdr1, sdr2}),
+                });
+                const data = await response.json();
+                if (result) result.textContent = data.message || (response.ok ? "Opgeslagen." : "Mislukt.");
+                if (!response.ok) return;
+                receiverRolesDirty = false;
+                await updateRadioPage();
+            } catch (error) {
+                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+            } finally {
+                if (submitButton) submitButton.disabled = false;
+            }
+        });
+    }
+
+    const applyReceiverRolesButton = document.getElementById("apply-receiver-roles");
+    if (applyReceiverRolesButton) {
+        applyReceiverRolesButton.addEventListener("click", async () => {
+            const result = document.getElementById("receiver-roles-apply-result");
+            if (receiverRolesDirty) {
+                if (result) result.textContent = "Bewaar eerst de gewijzigde rollen.";
+                return;
+            }
+            applyReceiverRolesButton.disabled = true;
+            if (result) result.textContent = "Services worden netjes gestopt, omgezet en opnieuw gestart...";
+            try {
+                const response = await fetch("/api/receiver-roles/apply", {method: "POST"});
+                const data = await response.json();
+                if (result) result.textContent = data.message || (response.ok ? "Toegepast." : "Mislukt.");
+                if (response.ok) await updateRadioPage();
+            } catch (error) {
+                if (result) result.textContent = `Toepassen mislukt: ${error.message}`;
+            } finally {
+                applyReceiverRolesButton.disabled = false;
+            }
+        });
+    }
 
     const gainMode = document.getElementById("weather-gain-mode");
     if (gainMode) gainMode.addEventListener("change", () => {
@@ -347,38 +430,53 @@
         return `<span>${label}<strong>${display}</strong></span>`;
     }
 
-    function renderReceiverMetrics(receiver) {
+    function formatReceiverMetric(metric) {
+        const value = metric ? metric.value : null;
+        if (value === null || value === undefined || value === "") return "-";
+
+        switch (String(metric.format || "text")) {
+            case "frequency_hz":
+                return formatMonitorFrequency(value);
+            case "integer": {
+                const number = Number(value);
+                return Number.isFinite(number) ? Math.round(number).toLocaleString("nl-NL") : "-";
+            }
+            case "decimal_1": {
+                const number = Number(value);
+                return Number.isFinite(number) ? number.toFixed(1) : "-";
+            }
+            case "distance_nm": {
+                const number = Number(value);
+                return Number.isFinite(number) ? `${number.toFixed(1)} NM` : "-";
+            }
+            case "db_2": {
+                const number = Number(value);
+                return Number.isFinite(number) ? `${number.toFixed(2)} dB` : "-";
+            }
+            default:
+                return String(value);
+        }
+    }
+
+    function legacyReceiverMetrics(receiver) {
         const metrics = receiver.metrics || {};
-        if (receiver.role === "AIS") {
-            return [
-                monitorMetric("Schepen", Number(metrics.targets || 0).toLocaleString("nl-NL")),
-                monitorMetric("Berichten/s", metrics.messages_per_second == null ? "-" : Number(metrics.messages_per_second).toFixed(1)),
-                monitorMetric("Max. bereik", metrics.max_range_nm == null ? "-" : `${Number(metrics.max_range_nm).toFixed(1)} NM`),
-                monitorMetric("Frequentie", formatMonitorFrequency(receiver.frequency_hz)),
-            ].join("");
+        const items = [];
+        if (receiver.frequency_hz) {
+            items.push({label: "Frequentie", value: receiver.frequency_hz, format: "frequency_hz"});
         }
-        if (receiver.role === "ADS-B") {
-            return [
-                monitorMetric("Vliegtuigen", Number(metrics.targets || 0).toLocaleString("nl-NL")),
-                monitorMetric("Met positie", Number(metrics.with_position || 0).toLocaleString("nl-NL")),
-                monitorMetric("Berichten/s", metrics.messages_per_second == null ? "-" : Number(metrics.messages_per_second).toFixed(1)),
-                monitorMetric("Max. bereik", metrics.max_range_nm == null ? "-" : `${Number(metrics.max_range_nm).toFixed(1)} NM`),
-            ].join("");
+        for (const [key, value] of Object.entries(metrics)) {
+            if (["available", "service_active", "source", "detail", "message_rate_source"].includes(key)) continue;
+            items.push({label: key.replaceAll("_", " "), value, format: "text"});
         }
-        if (receiver.role === "WEATHER") {
-            return [
-                monitorMetric("Satelliet", metrics.satellite || "-"),
-                monitorMetric("SNR", metrics.snr_db == null ? "-" : `${Number(metrics.snr_db).toFixed(2)} dB`),
-                monitorMetric("Frames", Number(metrics.frames || 0).toLocaleString("nl-NL")),
-                monitorMetric("Beelden", Number(metrics.images || 0).toLocaleString("nl-NL")),
-            ].join("");
-        }
-        return [
-            monitorMetric("Rol", "Vrij"),
-            monitorMetric("Frequentie", "-"),
-            monitorMetric("Decoder", "-"),
-            monitorMetric("Status", "AVAILABLE"),
-        ].join("");
+        return items;
+    }
+
+    function renderReceiverMetrics(receiver) {
+        const metrics = Array.isArray(receiver.display_metrics)
+            ? receiver.display_metrics
+            : legacyReceiverMetrics(receiver);
+
+        return metrics.map(metric => monitorMetric(metric.label || metric.key || "Metric", formatReceiverMetric(metric))).join("");
     }
 
     function renderReceiverMonitor(data) {

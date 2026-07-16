@@ -107,6 +107,42 @@ def set_weather_receiver(device_id):
     return get_receiver_assignments()
 
 
+def set_receiver_roles(roles):
+    """Sla vaste receiverrollen op zonder services te wijzigen."""
+    allowed = {"ais", "adsb", "manual"}
+    normalized = {}
+    for receiver_id in ("sdr1", "sdr2"):
+        role = str((roles or {}).get(receiver_id, "manual")).strip().lower()
+        if role not in allowed:
+            raise ValueError(f"Ongeldige rol voor {receiver_id}: {role}")
+        normalized[receiver_id] = role
+
+    for exclusive_role in ("ais", "adsb"):
+        selected = [
+            receiver_id
+            for receiver_id, role in normalized.items()
+            if role == exclusive_role
+        ]
+        if len(selected) > 1:
+            raise ValueError(
+                f"{exclusive_role.upper()} kan maar aan één receiver worden toegewezen"
+            )
+
+    data = load_station()
+    assignments = data.setdefault("assignments", {})
+    assignments.setdefault("weather", "sdr1")
+    assignments["ais"] = next(
+        (receiver_id for receiver_id, role in normalized.items() if role == "ais"),
+        None,
+    )
+    assignments["adsb"] = next(
+        (receiver_id for receiver_id, role in normalized.items() if role == "adsb"),
+        None,
+    )
+    save_station(data)
+    return get_receiver_assignments()
+
+
 def get_weather_rf_config():
     """Geef Weather RF-instellingen met veilige standaardwaarden."""
     data = load_station()
