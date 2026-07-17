@@ -15,10 +15,12 @@
     <link rel="stylesheet" href="/static/css/timeline.css">
     <link rel="stylesheet" href="/static/css/mission.css">
     <link rel="stylesheet" href="/static/css/theme.css">
-    <link rel="stylesheet" href="/static/css/radio.css">
+    <link rel="stylesheet" href="/static/css/radio.css?v=0.24.1">
+    <link rel="stylesheet" href="/static/css/mission_monitor.css?v=0.24.1">
     <link rel="stylesheet" href="/static/css/history.css">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
+    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.24.0">
 </head>
 <body>
 <header class="topbar">
@@ -45,6 +47,7 @@
     <button class="tab-button active" data-tab="mission">🛰 Mission Control</button>
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
     <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>
+    <button class="tab-button" data-tab="mission-planner">🗓 Mission Planner</button>
     <button class="tab-button" data-tab="history">🗂 Mission History</button>
     <button class="tab-button" data-tab="images">📸 Beelden</button>
     <button class="tab-button" data-tab="logs">📜 Logs</button>
@@ -437,59 +440,51 @@
             </form>
             <p id="weather-rf-result" class="muted">Instellingen worden bij de volgende Weather-opname gebruikt.</p>
 
-            <div class="weather-planning-divider"></div>
-            <form id="weather-planning-form" class="rf-settings-form weather-planning-form">
-                <label>Minimale elevatie
-                    <span class="elevation-input-wrap">
-                        <input id="weather-minimum-elevation" type="number" min="5" max="90" step="1" value="40" required>
-                        <span>°</span>
-                    </span>
-                </label>
-                <button type="submit" class="control-button">Elevatie opslaan</button>
-            </form>
-            <p id="weather-planning-result" class="muted">Passages onder deze maximale elevatie worden niet ingepland.</p>
         </section>
 
-        <section class="card radio-card spectrum-card">
+        <section class="card mission-monitor-card">
             <div class="section-heading-row">
-                <h2>🌊 Spectrum</h2>
-                <span id="spectrum-device" class="muted">-</span>
+                <h2>🛰 Mission Monitor</h2>
+                <span id="mission-monitor-updated" class="muted">Loading...</span>
             </div>
-            <div class="spectrum-controls">
-                <label>Centrumfrequentie
-                    <select id="spectrum-frequency">
-                        <option value="137100000">137.100 MHz · METEOR-M2 3</option>
-                        <option value="137900000">137.900 MHz · METEOR-M2 4</option>
-                    </select>
-                </label>
-                <button id="start-spectrum-scan" type="button" class="control-button">Spectrum meten</button>
+            <div class="mission-monitor-layout">
+                <div class="mission-monitor-image-wrap">
+                    <a id="mission-monitor-image-link" class="mission-monitor-image-link" href="#" target="_blank" rel="noopener" aria-label="Open mission image full size" hidden><img id="mission-monitor-image" alt="Latest decoded satellite image"></a>
+                    <div id="mission-monitor-placeholder" class="mission-monitor-placeholder">
+                        <strong id="mission-monitor-placeholder-title">No active weather mission</strong>
+                        <span id="mission-monitor-placeholder-text">Waiting for the next mission...</span>
+                    </div>
+                </div>
+                <div class="mission-monitor-info">
+                    <div class="mission-monitor-badges"><span id="mission-monitor-state" class="live-rf-state live-rf-state-idle">IDLE</span><span id="mission-monitor-source" class="mission-monitor-source">STANDBY</span></div>
+                    <h3 id="mission-monitor-title">No active weather mission</h3>
+                    <p id="mission-monitor-message" class="muted">Waiting for the next mission...</p>
+                    <div class="mission-monitor-metrics">
+                        <span>Images<strong id="mission-monitor-images">0</strong></span>
+                        <span>Frames<strong id="mission-monitor-frames">0</strong></span>
+                        <span>CADU bytes<strong id="mission-monitor-cadu">0</strong></span>
+                        <span>Peak SNR<strong id="mission-monitor-snr">--.-- dB</strong></span>
+                    </div>
+                </div>
             </div>
-            <canvas id="weather-spectrum-canvas" width="1000" height="260"></canvas>
-            <div class="spectrum-metrics">
-                <span>Piek<strong id="spectrum-peak-frequency">-</strong></span>
-                <span>Piekniveau<strong id="spectrum-peak-db">-</strong></span>
-                <span>Ruisvloer<strong id="spectrum-noise-db">-</strong></span>
-                <span>Boven ruis<strong id="spectrum-snr-db">-</strong></span>
-            </div>
-            <p id="spectrum-result" class="muted">Een meting stopt tijdelijk alleen de service op de gekozen Weather-SDR en herstelt die daarna.</p>
         </section>
 
         <section class="card live-rf-console-card">
             <div class="section-heading-row">
                 <h2>📡 Live RF Console</h2>
-                <span id="live-rf-updated" class="muted">Wachten op telemetrie...</span>
+                <span id="live-rf-updated" class="muted">Waiting for telemetry...</span>
             </div>
 
             <div class="live-rf-summary">
                 <div class="live-rf-primary">
                     <span id="live-rf-state" class="live-rf-state live-rf-state-idle">IDLE</span>
-                    <strong id="live-rf-satellite">Geen actieve Weather-missie</strong>
-                    <small id="live-rf-detail">SatDump-telemetrie verschijnt hier tijdens een opname.</small>
+                    <strong id="live-rf-satellite">No active weather mission</strong>
+                    <small id="live-rf-detail">SatDump telemetry appears here during a recording.</small>
                 </div>
                 <div class="live-rf-progress-wrap">
                     <div class="live-rf-time-row">
-                        <span>Verstreken <strong id="live-rf-elapsed">00:00</strong></span>
-                        <span>Resterend <strong id="live-rf-remaining">--:--</strong></span>
+                        <span>Elapsed <strong id="live-rf-elapsed">00:00</strong></span>
+                        <span>Remaining <strong id="live-rf-remaining">--:--</strong></span>
                     </div>
                     <div class="live-rf-progress"><span id="live-rf-progress-bar"></span></div>
                 </div>
@@ -497,11 +492,11 @@
 
             <div class="live-rf-metrics">
                 <div class="live-rf-metric live-rf-snr-metric">
-                    <span>Actuele SNR</span>
+                    <span>Current SNR</span>
                     <strong id="live-rf-snr">--.-- dB</strong>
                     <div class="live-rf-snr-bar"><span id="live-rf-snr-bar"></span></div>
                 </div>
-                <div class="live-rf-metric"><span>Piek-SNR</span><strong id="live-rf-peak-snr">--.-- dB</strong></div>
+                <div class="live-rf-metric"><span>Peak SNR</span><strong id="live-rf-peak-snr">--.-- dB</strong></div>
                 <div class="live-rf-metric"><span>BER</span><strong id="live-rf-ber">-----</strong></div>
                 <div class="live-rf-metric"><span>Frames</span><strong id="live-rf-frames">0</strong></div>
                 <div class="live-rf-metric"><span>Viterbi</span><strong id="live-rf-viterbi" class="telemetry-status">UNKNOWN</strong></div>
@@ -509,15 +504,39 @@
             </div>
 
             <div class="live-rf-details">
-                <span>Ontvanger<strong id="live-rf-receiver">-</strong></span>
-                <span>Serienummer<strong id="live-rf-serial">-</strong></span>
-                <span>Frequentie<strong id="live-rf-frequency">-</strong></span>
+                <span>Receiver<strong id="live-rf-receiver">-</strong></span>
+                <span>Serial number<strong id="live-rf-serial">-</strong></span>
+                <span>Frequency<strong id="live-rf-frequency">-</strong></span>
                 <span>Sample rate<strong id="live-rf-samplerate">-</strong></span>
                 <span>Gain<strong id="live-rf-gain">-</strong></span>
                 <span>DC / IQ<strong id="live-rf-processing">-</strong></span>
-                <span>CADU-bytes<strong id="live-rf-cadu">0</strong></span>
-                <span>Beelden<strong id="live-rf-images">0</strong></span>
+                <span>CADU bytes<strong id="live-rf-cadu">0</strong></span>
+                <span>Images<strong id="live-rf-images">0</strong></span>
             </div>
+        </section>
+
+        <section class="card radio-card spectrum-card">
+            <div class="section-heading-row">
+                <h2>🌊 Spectrum Scan</h2>
+                <span id="spectrum-device" class="muted">-</span>
+            </div>
+            <div class="spectrum-controls">
+                <label>Center frequency
+                    <select id="spectrum-frequency">
+                        <option value="137100000">137.100 MHz · METEOR-M2 3</option>
+                        <option value="137900000">137.900 MHz · METEOR-M2 4</option>
+                    </select>
+                </label>
+                <button id="start-spectrum-scan" type="button" class="control-button spectrum-action-button">Run Spectrum Scan</button>
+            </div>
+            <canvas id="weather-spectrum-canvas" width="1000" height="260"></canvas>
+            <div class="spectrum-metrics">
+                <span>Peak<strong id="spectrum-peak-frequency">-</strong></span>
+                <span>Peak level<strong id="spectrum-peak-db">-</strong></span>
+                <span>Noise floor<strong id="spectrum-noise-db">-</strong></span>
+                <span>Above noise<strong id="spectrum-snr-db">-</strong></span>
+            </div>
+            <p id="spectrum-result" class="muted">A scan temporarily pauses only the service using the selected weather receiver and restores it afterwards.</p>
         </section>
 
         <div class="radio-legacy-state" hidden>
@@ -591,6 +610,62 @@
             </div>
             <a id="radio-view-satellite-open" class="radio-view-open-button" href="#" data-open-tab="images">Open Beelden in SDRCC →</a>
         </article>
+    </div>
+</section>
+
+
+<section class="tab-page" id="tab-mission-planner">
+    <div class="mission-planner-layout">
+        <section class="card mission-planner-header">
+            <div>
+                <h2>🗓 Mission Planner</h2>
+                <p class="muted">Satellite pass eligibility, receiver planning and mission decisions.</p>
+            </div>
+            <div class="mission-planner-header-actions">
+                <button id="mission-planner-refresh" type="button" class="control-button">↻ Refresh planning</button>
+            </div>
+        </section>
+
+        <div class="mission-planner-summary">
+            <article class="card"><span>Planned passes</span><strong id="mission-planner-pass-count">-</strong></article>
+            <article class="card"><span>Receiver conflicts</span><strong id="mission-planner-conflict-count">-</strong></article>
+            <article class="card"><span>Skipped missions</span><strong id="mission-planner-skipped-count">-</strong></article>
+            <article class="card"><span>Planning window</span><strong id="mission-planner-window">48 hours</strong></article>
+        </div>
+
+        <section class="card mission-planner-settings">
+            <div class="mission-planner-settings-copy">
+                <h2>Planning Settings</h2>
+                <p class="muted">Passes below the configured maximum elevation are excluded before they reach the Mission Queue.</p>
+            </div>
+            <form id="mission-planner-settings-form" class="mission-planner-settings-form">
+                <label>Minimum elevation
+                    <span class="mission-planner-input">
+                        <input id="mission-planner-minimum-elevation" type="number" min="5" max="90" step="1" value="40" required>
+                        <span>°</span>
+                    </span>
+                </label>
+                <button type="submit" class="control-button">Save setting</button>
+            </form>
+        </section>
+
+        <section class="card mission-planner-table-card">
+            <div class="mission-planner-table-wrap">
+                <table class="mission-planner-table">
+                    <thead><tr>
+                        <th>Satellite</th><th>Start</th><th>Max elevation</th><th>Frequency</th>
+                        <th>Receiver</th><th>Quality</th><th>Decision</th><th>Reason</th>
+                    </tr></thead>
+                    <tbody id="mission-planner-table-body">
+                        <tr><td colspan="8" class="mission-planner-empty">Loading mission planning...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mission-planner-footer">
+                <p id="mission-planner-message" class="muted">Loading planning data...</p>
+                <p class="muted">Live refresh every 15 seconds</p>
+            </div>
+        </section>
     </div>
 </section>
 
@@ -700,11 +775,13 @@
 
 <script src="/static/dashboard.js"></script>
 <script src="/static/js/capture_live.js"></script>
-<script src="/static/js/radio.js"></script>
+<script src="/static/js/radio.js?v=0.24.1"></script>
+<script src="/static/js/mission_monitor.js?v=0.24.1"></script>
 <script src="/static/js/weather_planning.js"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.23.2c"></script>
 <script src="/static/js/mission_briefing.js?v=0.20.7c"></script>
 <script src="/static/js/radio_view.js?v=0.23.3a1"></script>
+<script src="/static/js/mission_planner.js?v=0.24.0"></script>
 </body>
 </html>

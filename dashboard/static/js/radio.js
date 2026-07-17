@@ -191,9 +191,9 @@
             stateElement.className = `live-rf-state live-rf-state-${state.toLowerCase().replaceAll(" ", "-")}`;
         }
 
-        setText("live-rf-satellite", data.satellite || (active ? "Weather-missie" : "Geen actieve Weather-missie"));
-        setText("live-rf-detail", data.detail || data.last_line || (active ? "SatDump-telemetrie actief." : "SatDump-telemetrie verschijnt hier tijdens een opname."));
-        setText("live-rf-updated", data.updated_at ? `Bijgewerkt ${data.updated_at}` : "Wachten op telemetrie...");
+        setText("live-rf-satellite", data.satellite || (active ? "Weather mission" : "No active weather mission"));
+        setText("live-rf-detail", data.detail || data.last_line || (active ? "SatDump telemetry active." : "SatDump telemetry appears here during a recording."));
+        setText("live-rf-updated", data.updated_at ? `Updated ${data.updated_at}` : "Waiting for telemetry...");
         setText("live-rf-elapsed", formatSeconds(data.elapsed_seconds, "00:00"));
         setText("live-rf-remaining", formatSeconds(data.remaining_seconds));
         setText("live-rf-snr", formatDb(data.snr_db));
@@ -400,7 +400,7 @@
     if (scanButton) scanButton.addEventListener("click", async () => {
         const result = document.getElementById("spectrum-result");
         scanButton.disabled = true;
-        if (result) result.textContent = "Spectrummeting bezig; ontvangerservice wordt tijdelijk gepauzeerd...";
+        if (result) result.textContent = "Spectrum scan in progress; the receiver service is temporarily paused...";
         try {
             const frequency = Number(document.getElementById("spectrum-frequency").value);
             const response = await fetch("/api/weather-spectrum", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({frequency_hz:frequency})});

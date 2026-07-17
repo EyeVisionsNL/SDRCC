@@ -6,7 +6,7 @@ satellites:
     pipeline: meteor_m2-x_lrpt
     decoder: satdump
     sample_rate: 1000000
-    min_elevation: 55.0
+    min_elevation: 50.0
     priority: 1
   METEOR-M2 4:
     enabled: true
@@ -15,5 +15,5 @@ satellites:
     pipeline: meteor_m2-x_lrpt
     decoder: satdump
     sample_rate: 1000000
-    min_elevation: 55.0
+    min_elevation: 50.0
     priority: 1

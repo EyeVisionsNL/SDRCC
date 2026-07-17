@@ -2029,6 +2029,98 @@ def mission_preview_file(mission_id, relative_path):
     return send_file(requested)
 
 
+def _mission_monitor_payload():
+    """Return current mission state and the best available mission image."""
+    live = live_rf.get_status() or {}
+    active = bool(live.get("active"))
+    satellite = str(live.get("satellite") or "").strip()
+    state = str(live.get("state") or "IDLE").upper()
+    detail = str(live.get("detail") or live.get("last_line") or "").strip()
+    output_path = str(live.get("output_path") or "").strip()
+
+    mission = None
+    root = None
+    files = []
+
+    if output_path:
+        mission = {
+            "mission_id": "active",
+            "satellite": satellite or "Weather mission",
+            "pipeline": live.get("pipeline"),
+            "output_path": output_path,
+        }
+        root, files = _mission_capture_files(mission)
+
+    if not files:
+        mission, root, files = _latest_successful_image_mission()
+
+    image = None
+    if mission and root is not None and files:
+        selected = files[0]
+        if str(mission.get("mission_id")) == "active":
+            try:
+                relative = selected.relative_to(root)
+                image = capture_to_dict(selected, mission=None, root=None)
+                image["url"] = f"/active-mission-preview/{str(relative).replace(chr(92), '/')}"
+                image["source"] = "active"
+            except (ValueError, OSError):
+                image = None
+        else:
+            image = capture_to_dict(selected, mission=mission, root=root)
+
+    if active:
+        title = satellite or "Active weather mission"
+        message = detail or "Waiting for the first decoded image..."
+    elif image:
+        title = str((mission or {}).get("satellite") or "Last successful mission")
+        message = "Last successful mission image"
+    else:
+        title = "No active weather mission"
+        message = "Waiting for the next mission..."
+
+    return {
+        "ok": True,
+        "active": active,
+        "state": state,
+        "title": title,
+        "message": message,
+        "satellite": satellite or (mission or {}).get("satellite"),
+        "image": image,
+        "image_count": int(live.get("image_count") or 0),
+        "frames": int(live.get("frames") or 0),
+        "cadu_bytes": int(live.get("cadu_bytes") or 0),
+        "peak_snr_db": live.get("peak_snr_db"),
+        "updated_at": live.get("updated_at"),
+    }
+
+
+@app.route("/api/mission-monitor")
+def api_mission_monitor():
+    try:
+        return jsonify(_mission_monitor_payload())
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 500
+
+
+@app.route("/active-mission-preview/<path:relative_path>")
+def active_mission_preview(relative_path):
+    live = live_rf.get_status() or {}
+    output_value = str(live.get("output_path") or "").strip()
+    if not output_value:
+        abort(404)
+    root = Path(output_value).expanduser().resolve()
+    requested = (root / relative_path).resolve()
+    try:
+        requested.relative_to(root)
+    except ValueError:
+        abort(403)
+    if requested.suffix.lower() not in MISSION_IMAGE_EXTENSIONS:
+        abort(403)
+    if not requested.exists() or not requested.is_file():
+        abort(404)
+    return send_file(requested)
+
+
 @app.route("/api/mission-engine")
 def api_mission_engine():
     try:

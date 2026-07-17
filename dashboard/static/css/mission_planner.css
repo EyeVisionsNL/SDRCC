@@ -1,0 +1,48 @@
+/* SDRCC v0.24.0 Mission Planner */
+.mission-planner-layout { display: grid; gap: 16px; }
+.mission-planner-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.mission-planner-header h2 { margin-bottom: 4px; }
+.mission-planner-header-actions { display: flex; gap: 10px; align-items: center; }
+.mission-planner-summary { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 12px; }
+.mission-planner-summary article { padding: 16px; }
+.mission-planner-summary span { display: block; opacity: .72; font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; }
+.mission-planner-summary strong { display: block; margin-top: 6px; font-size: 1.35rem; }
+.mission-planner-settings { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+.mission-planner-settings-copy { max-width: 620px; }
+.mission-planner-settings-copy h2 { margin-bottom: 6px; }
+.mission-planner-settings-form { display: flex; align-items: end; gap: 10px; }
+.mission-planner-settings-form label { display: grid; gap: 6px; font-size: .82rem; opacity: .9; }
+.mission-planner-input { display: flex; align-items: center; gap: 8px; }
+.mission-planner-input input { width: 100px; }
+.mission-planner-table-card { overflow: hidden; }
+.mission-planner-table-wrap { overflow-x: auto; }
+.mission-planner-table { width: 100%; border-collapse: collapse; min-width: 1050px; }
+.mission-planner-table th, .mission-planner-table td { padding: 12px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.08); vertical-align: top; }
+.mission-planner-table th { font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; opacity: .68; }
+.mission-planner-table td:first-child strong, .mission-planner-table td:first-child span { display: block; }
+.mission-planner-table td:first-child span { margin-top: 3px; opacity: .66; font-size: .8rem; }
+.mission-planner-state { display: inline-flex; padding: 4px 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; font-size: .72rem; font-weight: 800; white-space: nowrap; }
+.mission-planner-state.is-target, .mission-planner-state.is-active { border-color: rgba(93, 201, 255, .55); }
+.mission-planner-state.is-eligible { border-color: rgba(104, 224, 154, .45); }
+.mission-planner-state.is-conflict, .mission-planner-state.is-blocked { border-color: rgba(255, 187, 92, .55); }
+.mission-planner-state.is-skipped { opacity: .65; }
+.mission-planner-empty { text-align: center !important; padding: 30px !important; opacity: .7; }
+.mission-planner-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; }
+
+/* Align Radio View actions with standard SDRCC controls. */
+.radio-view-open-button {
+    color: inherit;
+    background: var(--button-bg, rgba(255,255,255,.06));
+    border-color: var(--button-border, rgba(255,255,255,.16));
+    font-weight: 600;
+}
+.radio-view-open-button:hover {
+    color: inherit;
+    background: var(--button-hover-bg, rgba(255,255,255,.1));
+    border-color: var(--button-hover-border, rgba(255,255,255,.3));
+}
+
+@media (max-width: 900px) {
+    .mission-planner-header, .mission-planner-settings { align-items: stretch; flex-direction: column; }
+    .mission-planner-summary { grid-template-columns: repeat(2, 1fr); }
+}
