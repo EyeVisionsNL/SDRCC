@@ -2170,9 +2170,47 @@ def api_mission_engine_finish_recording():
 
 
 
+def get_reconciled_receiver_manager_status():
+    """Release a persisted receiver reservation when no mission runtime owns it.
+
+    Receiver reservations are stored on disk so they survive a process restart.
+    After an unexpected restart this can leave an ACTIVE reservation behind while
+    Mission Engine is already back in READY or WAIT FOR PASS.  Only clear it when
+    there is no active Mission Job and no prepared/locked/recording runtime.
+    """
+    mission = mission_engine_core.get_mission_status()
+    phase = str(mission.get("phase") or mission.get("state") or "").upper()
+    runtime_active = any((
+        virtual_mission_runtime.get("active"),
+        autopilot_runtime.get("prepared"),
+        autopilot_runtime.get("locked"),
+        autopilot_runtime.get("record_started"),
+        autopilot_runtime.get("process") is not None,
+    ))
+
+    status = receiver_manager.get_status()
+    if (
+        status.get("reservation") is not None
+        and mission.get("active_job") is None
+        and phase in {"READY", "WAIT FOR PASS"}
+        and not runtime_active
+    ):
+        stale = status.get("reservation") or {}
+        receiver_manager.release(
+            detail="Automatisch vrijgegeven: geen actieve missie",
+        )
+        write_log(
+            "Receiver Manager: achtergebleven reservering automatisch "
+            f"vrijgegeven ({stale.get('mission_key', '-')})"
+        )
+        status = receiver_manager.get_status()
+
+    return status
+
+
 @app.route("/api/receiver-manager", methods=["GET"])
 def api_receiver_manager():
-    return jsonify(receiver_manager.get_status())
+    return jsonify(get_reconciled_receiver_manager_status())
 
 
 @app.route("/api/receiver-assignment", methods=["POST"])
@@ -2180,7 +2218,7 @@ def api_receiver_assignment():
     payload = request.get_json(silent=True) or {}
     device_id = payload.get("weather")
     mission = mission_engine_core.get_mission_status()
-    receiver_runtime = receiver_manager.get_status()
+    receiver_runtime = get_reconciled_receiver_manager_status()
     if (
         mission.get("phase") not in {"READY", "WAIT FOR PASS"}
         or autopilot_runtime.get("prepared")
@@ -2228,7 +2266,7 @@ def api_receiver_assignment():
 def api_receiver_roles():
     payload = request.get_json(silent=True) or {}
     mission = mission_engine_core.get_mission_status()
-    receiver_runtime = receiver_manager.get_status()
+    receiver_runtime = get_reconciled_receiver_manager_status()
     if (
         mission.get("phase") not in {"READY", "WAIT FOR PASS"}
         or autopilot_runtime.get("prepared")
@@ -2267,7 +2305,7 @@ def api_receiver_roles():
 @app.route("/api/receiver-roles/apply", methods=["POST"])
 def api_receiver_roles_apply():
     mission = mission_engine_core.get_mission_status()
-    receiver_runtime = receiver_manager.get_status()
+    receiver_runtime = get_reconciled_receiver_manager_status()
     if (
         mission.get("phase") not in {"READY", "WAIT FOR PASS"}
         or autopilot_runtime.get("prepared")
