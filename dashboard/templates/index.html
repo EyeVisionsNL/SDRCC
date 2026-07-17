@@ -436,6 +436,18 @@
                 <button type="submit" class="control-button">RF-instellingen opslaan</button>
             </form>
             <p id="weather-rf-result" class="muted">Instellingen worden bij de volgende Weather-opname gebruikt.</p>
+
+            <div class="weather-planning-divider"></div>
+            <form id="weather-planning-form" class="rf-settings-form weather-planning-form">
+                <label>Minimale elevatie
+                    <span class="elevation-input-wrap">
+                        <input id="weather-minimum-elevation" type="number" min="5" max="90" step="1" value="40" required>
+                        <span>°</span>
+                    </span>
+                </label>
+                <button type="submit" class="control-button">Elevatie opslaan</button>
+            </form>
+            <p id="weather-planning-result" class="muted">Passages onder deze maximale elevatie worden niet ingepland.</p>
         </section>
 
         <section class="card radio-card spectrum-card">
@@ -689,6 +701,7 @@
 <script src="/static/dashboard.js"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/radio.js"></script>
+<script src="/static/js/weather_planning.js"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.23.2c"></script>
 <script src="/static/js/mission_briefing.js?v=0.20.7c"></script>

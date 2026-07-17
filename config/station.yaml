@@ -14,7 +14,7 @@ sdr2:
   name: Dynamic Receiver
   locked: false
 assignments:
-  weather: sdr2
+  weather: sdr1
   ais: sdr1
   adsb: sdr2
 weather_rf:
@@ -24,3 +24,5 @@ weather_rf:
   iq_swap: false
   spectrum_span_hz: 1000000
   spectrum_bin_hz: 10000
+weather_planning:
+  minimum_elevation: 55.0

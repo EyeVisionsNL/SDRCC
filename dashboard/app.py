@@ -14,6 +14,7 @@ from flask import Flask, jsonify, render_template, request, send_file, abort
 
 from core import automation_controller
 from core import device_manager
+from core import weather_planning as weather_planning_core
 from core import event_bus
 from core import live_rf
 from core import config as config_core
@@ -2369,6 +2370,38 @@ def api_receiver_roles_apply():
         "ais_serial": ais_serial,
         "adsb_serial": adsb_serial,
     })
+
+
+@app.route("/api/weather-planning", methods=["GET", "POST"])
+def api_weather_planning():
+    if request.method == "GET":
+        try:
+            return jsonify({"ok": True, "settings": weather_planning_core.get_config()})
+        except (ValueError, OSError) as error:
+            return jsonify({"ok": False, "message": str(error)}), 500
+
+    payload = request.get_json(silent=True) or {}
+    mission = get_mission_data_for_status()
+    scheduler = mission_scheduler_core.get_scheduler_status()
+    mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
+    observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
+    blocked = mission_phase not in {"", "READY", "WAIT FOR PASS"} or observer_phase in {
+        "PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"
+    }
+    if blocked:
+        return jsonify({"ok": False, "message": "Weather Planning is geblokkeerd tijdens een missie."}), 409
+    try:
+        settings = weather_planning_core.set_config(payload)
+        write_log(f"Minimale weather-elevatie gewijzigd naar {settings['minimum_elevation']} graden")
+        return jsonify({
+            "ok": True,
+            "settings": settings,
+            "message": f"Minimale elevatie opgeslagen op {settings['minimum_elevation']:.1f}°. De Mission Queue gebruikt dit direct.",
+        })
+    except ValueError as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+    except OSError as error:
+        return jsonify({"ok": False, "message": f"Configuratie kon niet worden opgeslagen: {error}"}), 500
 
 
 @app.route("/api/weather-rf", methods=["GET", "POST"])

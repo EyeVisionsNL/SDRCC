@@ -64,3 +64,22 @@
 .receiver-monitor-item p{margin:10px 0 0;color:#8fa7c5;font-size:.76rem;line-height:1.35}
 @media(max-width:1050px){.receiver-monitor-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.receiver-monitor-grid{grid-template-columns:1fr}}
+
+
+/* v0.23.4 Weather Planning */
+.weather-planning-divider {
+    height: 1px;
+    margin: 16px 0;
+    background: var(--border-color, rgba(255, 255, 255, 0.12));
+}
+.weather-planning-form .elevation-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.weather-planning-form input[type="number"] {
+    width: 110px;
+}
+.error-text {
+    color: #ff8c8c !important;
+}

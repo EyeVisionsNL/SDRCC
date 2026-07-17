@@ -38,3 +38,6 @@ data/*
 
 # SDRCC runtime state
 logs/
+
+# SDRCC install backups
+backups/

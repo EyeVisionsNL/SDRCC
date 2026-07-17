@@ -1,5 +1,4 @@
 satellites:
-
   METEOR-M2 3:
     enabled: true
     frequency: 137100000
@@ -7,9 +6,8 @@ satellites:
     pipeline: meteor_m2-x_lrpt
     decoder: satdump
     sample_rate: 1000000
-    min_elevation: 40
+    min_elevation: 55.0
     priority: 1
-
   METEOR-M2 4:
     enabled: true
     frequency: 137900000
@@ -17,5 +15,5 @@ satellites:
     pipeline: meteor_m2-x_lrpt
     decoder: satdump
     sample_rate: 1000000
-    min_elevation: 40
+    min_elevation: 55.0
     priority: 1

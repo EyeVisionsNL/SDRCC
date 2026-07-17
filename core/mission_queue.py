@@ -11,7 +11,7 @@ from threading import RLock
 from typing import Any
 import json
 
-from core import event_bus, passes, receiver_manager
+from core import event_bus, passes, receiver_manager, weather_planning
 from core.config import get_enabled_satellites, get_receiver_assignments, get_scheduler_config
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
@@ -101,6 +101,7 @@ def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: in
         "receiver_lock_at_epoch": lock_epoch,
         "duration_seconds": duration,
         "max_elevation": item.get("max_elevation"),
+        "min_elevation": item.get("min_elevation"),
         "azimuth": item.get("azimuth"),
         "frequency": frequency,
         "frequency_mhz": round(frequency / 1_000_000, 3) if frequency else None,
@@ -143,6 +144,8 @@ def get_queue(
     with _LOCK:
         state = _load_state()
         overrides = state["overrides"]
+    planning = weather_planning.get_config()
+    minimum_elevation = float(planning["minimum_elevation"])
     raw = passes.get_passes(hours_ahead)
     queue = []
     live_keys = set()
@@ -210,6 +213,7 @@ def get_payload(
         "count": len(queue),
         "limit": limit,
         "hours_ahead": hours_ahead,
+        "minimum_elevation": weather_planning.get_config()["minimum_elevation"],
         "conflicts": sum(1 for item in queue if item["status"] == "CONFLICT"),
         "skipped": sum(1 for item in queue if item["status"] == "SKIPPED"),
         "queue": queue,
