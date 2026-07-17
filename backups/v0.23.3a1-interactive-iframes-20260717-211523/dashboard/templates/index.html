@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="/static/css/radio.css">
     <link rel="stylesheet" href="/static/css/history.css">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
-    <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
+    <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a-2">
 </head>
 <body>
 <header class="topbar">
@@ -534,6 +534,7 @@
             </div>
             <div class="radio-view-frame-wrap">
                 <iframe id="radio-view-adsb-frame" title="ADS-B tar1090 kaart" loading="lazy"></iframe>
+                <a id="radio-view-adsb-open-overlay" class="radio-view-open-overlay" target="_blank" rel="noopener noreferrer" aria-label="Open ADS-B Radar volledig"></a>
                 <div id="radio-view-adsb-error" class="radio-view-frame-error hidden">ADS-B Viewer is momenteel niet bereikbaar.</div>
             </div>
             <a id="radio-view-adsb-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open volledige ADS-B Viewer ↗</a>
@@ -549,6 +550,7 @@
             </div>
             <div class="radio-view-frame-wrap">
                 <iframe id="radio-view-ais-frame" title="AIS-Catcher scheepvaartkaart" loading="lazy"></iframe>
+                <a id="radio-view-ais-open-overlay" class="radio-view-open-overlay" target="_blank" rel="noopener noreferrer" aria-label="Open AIS Traffic volledig"></a>
                 <div id="radio-view-ais-error" class="radio-view-frame-error hidden">AIS Viewer is momenteel niet bereikbaar.</div>
             </div>
             <a id="radio-view-ais-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open volledige AIS Viewer ↗</a>
@@ -692,6 +694,6 @@
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.23.2c"></script>
 <script src="/static/js/mission_briefing.js?v=0.20.7c"></script>
-<script src="/static/js/radio_view.js?v=0.23.3a1"></script>
+<script src="/static/js/radio_view.js?v=0.23.3a-2"></script>
 </body>
 </html>

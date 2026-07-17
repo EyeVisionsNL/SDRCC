@@ -18,7 +18,6 @@
     <link rel="stylesheet" href="/static/css/radio.css">
     <link rel="stylesheet" href="/static/css/history.css">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
-    <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
 </head>
 <body>
 <header class="topbar">
@@ -44,7 +43,6 @@
 <nav class="tabs">
     <button class="tab-button active" data-tab="mission">🛰 Mission Control</button>
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
-    <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>
     <button class="tab-button" data-tab="history">🗂 Mission History</button>
     <button class="tab-button" data-tab="images">📸 Beelden</button>
     <button class="tab-button" data-tab="logs">📜 Logs</button>
@@ -133,7 +131,7 @@
 
             <section class="card mission-sounds-panel compact-card" aria-labelledby="mission-sounds-title">
                 <div class="mission-sounds-heading">
-                    <h2 id="mission-sounds-title">🔊 Mission Event Center</h2>
+                    <h2 id="mission-sounds-title">🔊 Mission Sounds</h2>
                     <label class="mission-sounds-toggle">
                         <input id="mission-sounds-enabled" type="checkbox">
                         <span>Geluid aan</span>
@@ -514,74 +512,6 @@
     </div>
 </section>
 
-<section class="tab-page" id="tab-radio-view">
-    <section class="radio-view-header card">
-        <div>
-            <h2>🌐 Radio View</h2>
-            <p class="muted">Live overzicht van luchtvaart, scheepvaart en satellietontvangst.</p>
-        </div>
-        <span id="radio-view-status" class="radio-view-status">Stand-by</span>
-    </section>
-
-    <div class="radio-view-grid">
-        <article class="card radio-view-panel">
-            <div class="radio-view-panel-heading">
-                <div>
-                    <h2>✈ ADS-B Radar</h2>
-                    <p>Live tar1090-weergave</p>
-                </div>
-                <span id="radio-view-adsb-state" class="radio-view-badge">Controleren...</span>
-            </div>
-            <div class="radio-view-frame-wrap">
-                <iframe id="radio-view-adsb-frame" title="ADS-B tar1090 kaart" loading="lazy"></iframe>
-                <div id="radio-view-adsb-error" class="radio-view-frame-error hidden">ADS-B Viewer is momenteel niet bereikbaar.</div>
-            </div>
-            <a id="radio-view-adsb-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open volledige ADS-B Viewer ↗</a>
-        </article>
-
-        <article class="card radio-view-panel">
-            <div class="radio-view-panel-heading">
-                <div>
-                    <h2>🚢 AIS Traffic</h2>
-                    <p>Live AIS-Catcher-weergave</p>
-                </div>
-                <span id="radio-view-ais-state" class="radio-view-badge">Controleren...</span>
-            </div>
-            <div class="radio-view-frame-wrap">
-                <iframe id="radio-view-ais-frame" title="AIS-Catcher scheepvaartkaart" loading="lazy"></iframe>
-                <div id="radio-view-ais-error" class="radio-view-frame-error hidden">AIS Viewer is momenteel niet bereikbaar.</div>
-            </div>
-            <a id="radio-view-ais-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open volledige AIS Viewer ↗</a>
-        </article>
-
-        <article class="card radio-view-panel radio-view-satellite-panel">
-            <div class="radio-view-panel-heading">
-                <div>
-                    <h2>🛰 Satellite View</h2>
-                    <p id="radio-view-satellite-subtitle">Ground Track en live missiebeeld</p>
-                </div>
-                <span id="radio-view-satellite-state" class="radio-view-badge">Stand-by</span>
-            </div>
-            <div id="radio-view-satellite-content" class="radio-view-satellite-content">
-                <div id="radio-view-ground-track" class="radio-view-ground-track">
-                    <div class="radio-view-orbit-line"></div>
-                    <span class="radio-view-station-marker" title="Grondstation Vlaardingen">⌂</span>
-                    <span class="radio-view-satellite-marker" title="Volgende satelliet">🛰</span>
-                    <div class="radio-view-ground-track-copy">
-                        <strong id="radio-view-next-satellite">Volgende passage laden...</strong>
-                        <span id="radio-view-next-pass-detail">Ground Track-koppeling is voorbereid.</span>
-                    </div>
-                </div>
-                <div id="radio-view-live-image-wrap" class="radio-view-live-image-wrap hidden">
-                    <img id="radio-view-live-image" alt="Laatste beeld van de actieve satellietmissie">
-                    <div id="radio-view-live-image-wait" class="radio-view-image-wait">Wachten op het eerste missiebeeld...</div>
-                </div>
-            </div>
-            <a id="radio-view-satellite-open" class="radio-view-open-button" href="#" data-open-tab="images">Open Beelden in SDRCC →</a>
-        </article>
-    </div>
-</section>
-
 <section class="tab-page" id="tab-history">
     <div class="history-page">
         <section class="card">
@@ -690,8 +620,7 @@
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/radio.js"></script>
 <script src="/static/js/mission_state.js"></script>
-<script src="/static/js/mission_sounds.js?v=0.23.2c"></script>
+<script src="/static/js/mission_sounds.js?v=0.23.2b"></script>
 <script src="/static/js/mission_briefing.js?v=0.20.7c"></script>
-<script src="/static/js/radio_view.js?v=0.23.3a1"></script>
 </body>
 </html>
