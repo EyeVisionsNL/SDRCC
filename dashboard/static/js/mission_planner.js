@@ -26,8 +26,14 @@
         if (item.skipped) return {label: "SKIPPED", reason: "Manually skipped by the operator.", cls: "skipped"};
         if ((item.conflict_with || []).length) return {label: "CONFLICT", reason: `Receiver conflict with ${(item.conflict_with || []).join(", ")}.`, cls: "conflict"};
         const elevation = Number(item.max_elevation);
-        if (Number.isFinite(elevation) && elevation < minimumElevation) {
-            return {label: "BELOW LIMIT", reason: `Maximum elevation ${elevation.toFixed(1)}° is below the ${minimumElevation.toFixed(1)}° limit.`, cls: "blocked"};
+        const requiredElevation = item.mission_type === "VOICE"
+            ? Number(item.required_min_elevation ?? 10)
+            : minimumElevation;
+        if (Number.isFinite(elevation) && elevation < requiredElevation) {
+            return {label: "BELOW LIMIT", reason: `Maximum elevation ${elevation.toFixed(1)}° is below the ${requiredElevation.toFixed(1)}° limit.`, cls: "blocked"};
+        }
+        if (item.mission_type === "VOICE" && item.automation_enabled === false) {
+            return {label: "PLANNED", reason: "Visible for planning; automatic ISS execution is not enabled yet.", cls: "planned"};
         }
         const status = String(item.status || "QUEUED").toUpperCase();
         if (["TARGET", "NEXT"].includes(status)) return {label: "TARGET", reason: "Selected as the next automated mission.", cls: "target"};
@@ -47,7 +53,7 @@
         const body = byId("mission-planner-table-body");
         if (!body) return;
         if (!queue.length) {
-            body.innerHTML = '<tr><td colspan="8" class="mission-planner-empty">No eligible missions found in the planning window.</td></tr>';
+            body.innerHTML = '<tr><td colspan="9" class="mission-planner-empty">No eligible missions found in the planning window.</td></tr>';
             return;
         }
 
@@ -57,7 +63,9 @@
             const elevation = Number(item.max_elevation);
             const frequency = Number(item.frequency_mhz);
             const quality = item.quality?.label || "-";
+            const missionType = String(item.mission_type || "WEATHER").toUpperCase();
             return `<tr class="mission-planner-row is-${escapeHtml(result.cls)}">
+                <td><span class="mission-type-badge is-${escapeHtml(missionType.toLowerCase())}">${escapeHtml(missionType)}</span></td>
                 <td><strong>${escapeHtml(item.name || "Unknown satellite")}</strong><span>${escapeHtml(item.mode || item.pipeline || "-")}</span></td>
                 <td>${escapeHtml(formatDateTime(item.start))}</td>
                 <td>${Number.isFinite(elevation) ? `${elevation.toFixed(1)}°` : "-"}</td>

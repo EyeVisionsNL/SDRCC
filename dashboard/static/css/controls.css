@@ -293,3 +293,18 @@
     max-width: 145px;
     line-height: 1.2;
 }
+
+/* v0.28.0c - mission type labels */
+.mission-queue-type {
+    flex: 0 0 auto;
+    padding: 2px 5px;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    font-size: .48rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+}
+.mission-queue-type.is-voice { border-color: rgba(192,132,252,.65); color: #d8b4fe; }
+.mission-queue-type.is-weather { border-color: rgba(56,189,248,.55); color: #7dd3fc; }
+.mission-queue-readonly { color: #c4b5fd; font-size: .52rem; font-weight: 800; }
+.mission-queue-state.is-planned { border-color: rgba(192,132,252,.65); color: #d8b4fe; }

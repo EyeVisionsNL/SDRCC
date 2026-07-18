@@ -67,7 +67,14 @@ def _quality(elevation: float, duration_seconds: int) -> dict[str, Any]:
     return {"stars": stars, "label": label}
 
 
-def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: int, receiver: str) -> dict[str, Any]:
+def _serialize(
+    item: dict[str, Any],
+    override: dict[str, Any],
+    base_priority: int,
+    receiver: str,
+    *,
+    automation_enabled: bool,
+) -> dict[str, Any]:
     start = item["start"]
     maximum = item["maximum"]
     end = item["end"]
@@ -110,6 +117,10 @@ def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: in
         "mode": item.get("mode"),
         "decoder": item.get("decoder"),
         "receiver": receiver,
+        "mission_type": str(item.get("mission_type") or "WEATHER").upper(),
+        "target_group": str(item.get("target_group") or "weather").lower(),
+        "required_min_elevation": float(item.get("min_elevation") or 0),
+        "automation_enabled": bool(automation_enabled),
         "base_priority": int(base_priority),
         "priority_delta": priority_delta,
         "priority": priority,
@@ -123,6 +134,8 @@ def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: in
 def _apply_conflicts(queue: list[dict[str, Any]]) -> None:
     for index, item in enumerate(queue):
         for other in queue[index + 1:]:
+            if not item.get("automation_enabled") or not other.get("automation_enabled"):
+                continue
             if item["start_epoch"] < other["end_epoch"] and other["start_epoch"] < item["end_epoch"]:
                 item["conflict_with"].append(other["queue_key"])
                 other["conflict_with"].append(item["queue_key"])
@@ -138,7 +151,9 @@ def get_queue(
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 50))
     satellites = get_enabled_satellites()
-    receiver = get_receiver_assignments().get("weather", "-").upper()
+    voice_targets = passes.get_enabled_voice_targets()
+    assignments = get_receiver_assignments()
+    weather_receiver = str(assignments.get("weather", "-")).upper()
     receiver_status = receiver_manager.get_status()
     reservation = receiver_status.get("reservation") or {}
     with _LOCK:
@@ -146,21 +161,39 @@ def get_queue(
         overrides = state["overrides"]
     planning = weather_planning.get_config()
     minimum_elevation = float(planning["minimum_elevation"])
-    raw = passes.get_passes(hours_ahead)
+    raw = passes.get_plannable_passes(hours_ahead)
     queue = []
     live_keys = set()
     for item in raw[:safe_limit]:
         key = _key(item)
         live_keys.add(key)
-        sat_cfg = satellites.get(item.get("name"), {})
-        base_priority = int(sat_cfg.get("priority", 5))
-        queue.append(_serialize(item, overrides.get(key, {}), base_priority, receiver))
+        mission_type = str(item.get("mission_type") or "WEATHER").upper()
+        automation_enabled = mission_type == "WEATHER"
+        if automation_enabled:
+            target_cfg = satellites.get(item.get("name"), {})
+            receiver = weather_receiver
+        else:
+            target_cfg = voice_targets.get(item.get("name"), {})
+            receiver = "NOT ASSIGNED"
+        base_priority = int(target_cfg.get("priority", 5))
+        queue.append(
+            _serialize(
+                item,
+                overrides.get(key, {}),
+                base_priority,
+                receiver,
+                automation_enabled=automation_enabled,
+            )
+        )
     _apply_conflicts(queue)
-    eligible = [item for item in queue if not item["skipped"]]
-    next_key = eligible[0]["queue_key"] if eligible else None
+    eligible_weather = [
+        item for item in queue
+        if item.get("automation_enabled") and not item["skipped"]
+    ]
+    next_key = eligible_weather[0]["queue_key"] if eligible_weather else None
     for item in queue:
         reservation_matches = reservation.get("mission_key") == item["queue_key"]
-        item["configured_receiver"] = receiver
+        item["configured_receiver"] = item.get("receiver")
         item["reserved_receiver"] = (reservation.get("receiver_id") or "").upper() if reservation_matches else None
         item["active_receiver"] = item["reserved_receiver"] if reservation_matches and reservation.get("status") == "ACTIVE" else None
         item["receiver_status"] = reservation.get("status") if reservation_matches else "CONFIGURED"
@@ -176,6 +209,8 @@ def get_queue(
             item["status"] = "CONFLICT"
         elif item["queue_key"] == next_key:
             item["status"] = "NEXT"
+        elif not item.get("automation_enabled"):
+            item["status"] = "PLANNED"
         else:
             item["status"] = "QUEUED"
         item.setdefault("live_mission_status", None)
@@ -208,12 +243,15 @@ def get_payload(
     return {
         "generated_at": generated_at.isoformat(timespec="seconds"),
         "generated_epoch": int(generated_at.timestamp()),
-        "source": "live-pass-planning",
+        "source": "combined-pass-planning",
         "ok": True,
         "count": len(queue),
         "limit": limit,
         "hours_ahead": hours_ahead,
         "minimum_elevation": weather_planning.get_config()["minimum_elevation"],
+        "weather_count": sum(1 for item in queue if item.get("mission_type") == "WEATHER"),
+        "voice_count": sum(1 for item in queue if item.get("mission_type") == "VOICE"),
+        "automation_scope": "WEATHER_ONLY",
         "conflicts": sum(1 for item in queue if item["status"] == "CONFLICT"),
         "skipped": sum(1 for item in queue if item["status"] == "SKIPPED"),
         "queue": queue,

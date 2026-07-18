@@ -91,10 +91,11 @@
         if (!badge || !groundTrack || !liveWrap) return;
 
         try {
-            const [mission, capture, status] = await Promise.all([
+            const [mission, capture, status, planning] = await Promise.all([
                 fetchJson("/api/mission-engine"),
                 fetchJson("/api/capture-status"),
                 fetchJson("/api/status"),
+                fetchJson("/api/mission-queue?limit=20&hours=48"),
             ]);
 
             const phase = String(mission.state || mission.phase || "").toUpperCase();
@@ -133,9 +134,13 @@
             overallStatus.textContent = "Stand-by";
             overallStatus.classList.remove("is-live");
 
-            const [name, detail] = formatPass(status.next_pass);
-            nextName.textContent = name;
-            nextDetail.textContent = detail;
+            const plannedPass = Array.isArray(planning.queue) && planning.queue.length
+                ? planning.queue[0]
+                : status.next_pass;
+            const [name, detail] = formatPass(plannedPass);
+            const missionType = String(plannedPass?.mission_type || "WEATHER").toUpperCase();
+            nextName.textContent = `${missionType === "VOICE" ? "🎙 " : ""}${name}`;
+            nextDetail.textContent = `${missionType} · ${detail}`;
         } catch (error) {
             console.warn("Radio View update mislukt:", error);
             badge.textContent = "No Data";

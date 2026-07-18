@@ -233,21 +233,25 @@ function renderMissionQueue(payload) {
         const frequencyLabel = Number.isFinite(frequency) ? frequency.toFixed(3) : "-";
         const elevation = Number(item.max_elevation);
         const elevationLabel = Number.isFinite(elevation) ? elevation.toFixed(1) : "-";
-        const stateLabel = ["TARGET", "NEXT"].includes(rawStatus)
-            ? "NEXT"
-            : ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(rawStatus)
-                ? "ACTIVE"
-                : item.skipped
-                    ? "SKIPPED"
-                    : "QUEUED";
+        const missionType = String(item.mission_type || "WEATHER").toUpperCase();
+        const stateLabel = missionType === "VOICE"
+            ? "PLANNED"
+            : ["TARGET", "NEXT"].includes(rawStatus)
+                ? "NEXT"
+                : ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(rawStatus)
+                    ? "ACTIVE"
+                    : item.skipped
+                        ? "SKIPPED"
+                        : "QUEUED";
         return `<div class="mission-queue-item is-${escapeQueue(classes)}">
             <div class="mission-queue-topline">
                 <time class="mission-queue-time">${escapeQueue(start.slice(0, 5))}</time>
                 <span class="mission-queue-state is-${escapeQueue(stateLabel.toLowerCase())}">${escapeQueue(stateLabel)}</span>
             </div>
             <div class="mission-queue-title" title="${escapeQueue(satellite)}">
-                <span class="mission-queue-satellite-icon" aria-hidden="true">🛰</span>
+                <span class="mission-queue-satellite-icon" aria-hidden="true">${missionType === "VOICE" ? "🎙" : "🛰"}</span>
                 <strong>${escapeQueue(satellite)}</strong>
+                <span class="mission-queue-type is-${escapeQueue(missionType.toLowerCase())}">${escapeQueue(missionType)}</span>
             </div>
             <div class="mission-queue-details">
                 <span>📡 ${escapeQueue(receiver)}</span>
@@ -255,9 +259,10 @@ function renderMissionQueue(payload) {
                 <span class="mission-queue-frequency">${escapeQueue(frequencyLabel)} MHz</span>
             </div>
             <div class="mission-queue-actions">
+                ${missionType === "VOICE" ? '<span class="mission-queue-readonly" title="ISS execution is not enabled yet">VIEW</span>' : `
                 <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_down" title="Prioriteit lager">−</button>
                 <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_up" title="Prioriteit hoger">+</button>
-                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="${skipAction}" title="${item.skipped ? "Enable" : "Skip"}">${skipLabel}</button>
+                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="${skipAction}" title="${item.skipped ? "Enable" : "Skip"}">${skipLabel}</button>`}
             </div>
         </div>`;
     }).join("");
