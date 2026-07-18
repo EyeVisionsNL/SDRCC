@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
-"""Central receiver assignment and runtime reservation state."""
+"""Central receiver assignment and runtime reservation state.
+
+The manager stores generic reservation metadata only. Stopping and starting
+system services remains the responsibility of the mission runtime, which keeps
+this module safe to use for WEATHER, VOICE and future mission types.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ from typing import Any
 import json
 
 from core import event_bus
-from core.device_manager import get_device, get_weather_device
+from core.device_manager import get_device, get_receiver_context, get_weather_device
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,6 +49,7 @@ def _load_state() -> dict[str, Any]:
 
 
 def _save_state(state: dict[str, Any]) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     temp = STATE_FILE.with_suffix(".json.tmp")
     temp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
     temp.replace(STATE_FILE)
@@ -72,8 +78,6 @@ def get_status() -> dict[str, Any]:
         reservation["device"] = _device_summary(reservation.get("receiver_id"))
     last_release = deepcopy(state.get("last_release"))
     if isinstance(last_release, dict) and last_release.get("released_at"):
-        # Older state files may still contain ACTIVE from the former reservation.
-        # A released record is historical and must never look active.
         last_release["status"] = "RELEASED"
 
     return {
@@ -102,7 +106,9 @@ def reserve(
     *,
     mission_key: str,
     mission_id: str | None = None,
-    reason: str = "weather mission",
+    reason: str = "mission",
+    mission_type: str = "WEATHER",
+    target: str | None = None,
 ) -> dict[str, Any]:
     device = get_device(receiver_id)
     if device is None:
@@ -110,6 +116,9 @@ def reserve(
     key = str(mission_key or "").strip()
     if not key:
         raise ValueError("mission_key ontbreekt")
+
+    context = get_receiver_context(receiver_id) or {}
+    normalized_type = str(mission_type or "MISSION").strip().upper()
 
     with _LOCK:
         state = _load_state()
@@ -128,9 +137,25 @@ def reserve(
             "reserved_at": _now(),
             "status": "RESERVED",
             "reason": str(reason),
+            "mission_type": normalized_type,
+            "previous_role": context.get("previous_role", "manual"),
+            "conflicting_service": context.get("conflicting_service"),
+            "service_was_active": None,
+            "service_stopped": False,
+            "restore_required": False,
+            "restore_status": "NOT_REQUIRED",
         }
+        reservation.setdefault("mission_type", normalized_type)
+        reservation.setdefault("previous_role", context.get("previous_role", "manual"))
+        reservation.setdefault("conflicting_service", context.get("conflicting_service"))
+        reservation.setdefault("service_was_active", None)
+        reservation.setdefault("service_stopped", False)
+        reservation.setdefault("restore_required", False)
+        reservation.setdefault("restore_status", "NOT_REQUIRED")
         if mission_id:
             reservation["mission_id"] = str(mission_id)
+        if target:
+            reservation["target"] = str(target)
         state["reservation"] = reservation
         _save_state(state)
 
@@ -140,6 +165,66 @@ def reserve(
         f"{device['number']} is gereserveerd voor {key}",
         data=deepcopy(reservation),
     )
+    return get_status()
+
+
+def set_service_snapshot(
+    *,
+    mission_key: str,
+    service_was_active: bool,
+    service_stopped: bool = False,
+) -> dict[str, Any]:
+    """Store the pre-mission service state after the runtime inspected it."""
+    key = str(mission_key or "").strip()
+    with _LOCK:
+        state = _load_state()
+        reservation = state.get("reservation")
+        if reservation is None or reservation.get("mission_key") != key:
+            raise RuntimeError("Geen passende receiver-reservering gevonden")
+        reservation["service_was_active"] = bool(service_was_active)
+        reservation["service_stopped"] = bool(service_stopped)
+        reservation["restore_required"] = bool(service_was_active)
+        reservation["restore_status"] = (
+            "PENDING" if service_was_active else "NOT_REQUIRED"
+        )
+        reservation["service_snapshot_at"] = _now()
+        state["reservation"] = reservation
+        _save_state(state)
+    return get_status()
+
+
+def mark_service_stopped(*, mission_key: str) -> dict[str, Any]:
+    key = str(mission_key or "").strip()
+    with _LOCK:
+        state = _load_state()
+        reservation = state.get("reservation")
+        if reservation is None or reservation.get("mission_key") != key:
+            raise RuntimeError("Geen passende receiver-reservering gevonden")
+        reservation["service_stopped"] = True
+        reservation["service_stopped_at"] = _now()
+        state["reservation"] = reservation
+        _save_state(state)
+    return get_status()
+
+
+def mark_restore_result(
+    *,
+    mission_key: str,
+    success: bool,
+    detail: str | None = None,
+) -> dict[str, Any]:
+    key = str(mission_key or "").strip()
+    with _LOCK:
+        state = _load_state()
+        reservation = state.get("reservation")
+        if reservation is None or reservation.get("mission_key") != key:
+            raise RuntimeError("Geen passende receiver-reservering gevonden")
+        reservation["restore_status"] = "RESTORED" if success else "FAILED"
+        reservation["restored_at"] = _now()
+        if detail:
+            reservation["restore_detail"] = str(detail)
+        state["reservation"] = reservation
+        _save_state(state)
     return get_status()
 
 

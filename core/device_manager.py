@@ -66,6 +66,28 @@ def get_conflicting_service(device_id):
     return None
 
 
+
+def get_receiver_context(device_id):
+    """Return the configured role and conflicting service for a receiver.
+
+    This is intentionally configuration-only. Runtime reservation state remains
+    owned by :mod:`core.receiver_manager`.
+    """
+    device = get_device(device_id)
+    if device is None:
+        return None
+    role = get_receiver_role(device_id)
+    service = get_conflicting_service(device_id)
+    return {
+        "receiver_id": device_id,
+        "receiver_number": device.get("number"),
+        "receiver_name": device.get("name"),
+        "receiver_serial": device.get("serial"),
+        "previous_role": role,
+        "conflicting_service": service,
+    }
+
+
 def print_devices():
     print("SDR Devices")
     print("-----------------------------")
