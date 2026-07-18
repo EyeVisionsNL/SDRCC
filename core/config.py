@@ -174,6 +174,32 @@ def get_weather_rf_config():
     }
 
 
+
+
+def get_mission_recommendation_config():
+    """Geef instellingen voor historische RF-aanbevelingen."""
+    data = load_station()
+    automation = data.get("automation", {})
+    return {
+        "auto_apply_rf_recommendation": bool(
+            automation.get("auto_apply_rf_recommendation", False)
+        ),
+    }
+
+
+def set_mission_recommendation_config(settings):
+    """Sla de automatische RF-aanbevelingsinstelling op."""
+    current = get_mission_recommendation_config()
+    enabled = settings.get(
+        "auto_apply_rf_recommendation",
+        current["auto_apply_rf_recommendation"],
+    )
+    data = load_station()
+    automation = data.setdefault("automation", {})
+    automation["auto_apply_rf_recommendation"] = bool(enabled)
+    save_station(data)
+    return get_mission_recommendation_config()
+
 def set_weather_rf_config(settings):
     """Sla gevalideerde Weather RF-instellingen op."""
     current = get_weather_rf_config()

@@ -1035,6 +1035,14 @@ autopilot_runtime = {
     "dry_run_completed": False,
     "process": None,
     "stop_requested": False,
+    "rf_recommendation": {
+        "status": "IDLE",
+        "applied": False,
+        "message": "No recommendation evaluated",
+        "configuration": None,
+        "match": None,
+        "source": "Historical RF Intelligence",
+    },
 }
 
 
@@ -1057,14 +1065,171 @@ def reset_autopilot_runtime(target_pass=None):
         "dry_run_completed": False,
         "process": None,
         "stop_requested": False,
+        "rf_recommendation": {
+            "status": "IDLE",
+            "applied": False,
+            "message": "No recommendation evaluated",
+            "configuration": None,
+            "match": None,
+            "source": "Historical RF Intelligence",
+        },
     })
 
+
+
+def _normalise_match_value(value):
+    return str(value or "").strip().lower()
+
+
+def select_historical_rf_recommendation(target_pass, device):
+    """Selecteer de beste veilige historische RF-configuratie."""
+    statistics = mission_history_core.get_statistics()
+    intelligence = statistics.get("rf_intelligence") or {}
+    configurations = intelligence.get("configurations") or []
+    satellite = _normalise_match_value((target_pass or {}).get("name"))
+    pipeline = _normalise_match_value((target_pass or {}).get("pipeline"))
+    frequency = (target_pass or {}).get("frequency")
+    sample_rate = (target_pass or {}).get("sample_rate")
+    serial = _normalise_match_value((device or {}).get("serial"))
+    receiver_id = _normalise_match_value((device or {}).get("id"))
+
+    candidates = []
+    for configuration in configurations:
+        if _normalise_match_value(configuration.get("satellite")) != satellite:
+            continue
+        config_serial = _normalise_match_value(configuration.get("receiver_serial"))
+        config_receiver_id = _normalise_match_value(configuration.get("receiver_id"))
+        if serial and config_serial != serial:
+            continue
+        if not serial and receiver_id and config_receiver_id != receiver_id:
+            continue
+        if pipeline and _normalise_match_value(configuration.get("pipeline")) != pipeline:
+            continue
+        if frequency is not None and int(configuration.get("frequency") or 0) != int(frequency):
+            continue
+        if sample_rate is not None and int(configuration.get("sample_rate") or 0) != int(sample_rate):
+            continue
+        candidates.append(configuration)
+
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda item: (
+            -float(item.get("score") or 0),
+            -int(item.get("missions") or 0),
+        )
+    )
+    return candidates[0]
+
+
+def apply_historical_rf_recommendation(target_pass, device):
+    """Pas een exacte historische aanbeveling toe en verifieer het resultaat."""
+    runtime = autopilot_runtime["rf_recommendation"]
+    settings = config_core.get_mission_recommendation_config()
+    if not settings.get("auto_apply_rf_recommendation"):
+        runtime.update({
+            "status": "DISABLED",
+            "applied": False,
+            "message": "Automatic RF recommendation is disabled",
+            "configuration": None,
+            "match": None,
+        })
+        return runtime
+
+    recommendation = select_historical_rf_recommendation(target_pass, device)
+    if recommendation is None:
+        runtime.update({
+            "status": "NO MATCH",
+            "applied": False,
+            "message": "No exact historical RF match for this satellite and receiver",
+            "configuration": None,
+            "match": "NONE",
+        })
+        write_log("AUTO RF: geen exacte historische configuratie gevonden; bestaande instellingen blijven actief")
+        return runtime
+
+    previous = config_core.get_weather_rf_config()
+    requested = {
+        "gain_mode": recommendation.get("gain_mode"),
+        "gain_db": (
+            recommendation.get("manual_gain_db")
+            if recommendation.get("gain_mode") == "manual"
+            else recommendation.get("observed_average_gain_db") or previous.get("gain_db")
+        ),
+        "dc_block": recommendation.get("dc_block"),
+        "iq_swap": recommendation.get("iq_swap"),
+    }
+    try:
+        applied = config_core.set_weather_rf_config(requested)
+        verified = all(
+            applied.get(key) == requested.get(key)
+            for key in ("gain_mode", "dc_block", "iq_swap")
+        )
+        if requested.get("gain_mode") == "manual":
+            verified = verified and float(applied.get("gain_db")) == float(requested.get("gain_db"))
+        if not verified:
+            raise RuntimeError("RF verification mismatch after applying recommendation")
+    except Exception:
+        config_core.set_weather_rf_config(previous)
+        runtime.update({
+            "status": "FAILED",
+            "applied": False,
+            "message": "Recommendation failed; previous RF settings restored",
+            "configuration": recommendation,
+            "match": "EXACT",
+        })
+        raise
+
+    runtime.update({
+        "status": "APPLIED",
+        "applied": True,
+        "message": "Exact historical RF recommendation applied and verified",
+        "configuration": recommendation,
+        "match": "EXACT",
+        "previous": {
+            "gain_mode": previous.get("gain_mode"),
+            "gain_db": previous.get("gain_db"),
+            "dc_block": previous.get("dc_block"),
+            "iq_swap": previous.get("iq_swap"),
+        },
+        "applied_settings": {
+            "gain_mode": applied.get("gain_mode"),
+            "gain_db": applied.get("gain_db"),
+            "dc_block": applied.get("dc_block"),
+            "iq_swap": applied.get("iq_swap"),
+        },
+    })
+    write_log(
+        "AUTO RF: historische aanbeveling toegepast: "
+        f"mode={applied['gain_mode']} gain={applied['gain_db']} dB "
+        f"dc_block={applied['dc_block']} iq_swap={applied['iq_swap']}"
+    )
+    event_bus.publish_automation(
+        "SUCCESS",
+        "Historical RF recommendation applied",
+        runtime["message"],
+        data={
+            "satellite": (target_pass or {}).get("name"),
+            "receiver": (device or {}).get("number"),
+            "receiver_serial": (device or {}).get("serial"),
+            "configuration": runtime["applied_settings"],
+            "confidence": recommendation.get("confidence"),
+            "missions": recommendation.get("missions"),
+            "score": recommendation.get("score"),
+        },
+    )
+    return runtime
 
 def autopilot_prepare_receiver():
     write_log("AUTO: T-90 ontvanger voorbereiden")
     device = device_manager.get_weather_device()
     if device is None:
         raise RuntimeError("Geen Weather-ontvanger toegewezen")
+
+    apply_historical_rf_recommendation(
+        autopilot_runtime.get("target_pass"),
+        device,
+    )
 
     receiver_manager.reserve(
         device["id"],
@@ -2495,6 +2660,26 @@ def api_weather_planning():
     except OSError as error:
         return jsonify({"ok": False, "message": f"Configuratie kon niet worden opgeslagen: {error}"}), 500
 
+
+
+@app.route("/api/mission-recommendation", methods=["GET", "POST"])
+def api_mission_recommendation():
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        settings = config_core.set_mission_recommendation_config(payload)
+        write_log(
+            "Automatic RF recommendation "
+            + ("enabled" if settings["auto_apply_rf_recommendation"] else "disabled")
+        )
+    else:
+        settings = config_core.get_mission_recommendation_config()
+
+    return jsonify({
+        "ok": True,
+        "settings": settings,
+        "runtime": autopilot_runtime.get("rf_recommendation"),
+        "target_pass": autopilot_runtime.get("target_pass"),
+    })
 
 @app.route("/api/weather-rf", methods=["GET", "POST"])
 def api_weather_rf():

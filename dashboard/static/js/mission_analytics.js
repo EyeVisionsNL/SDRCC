@@ -1,5 +1,6 @@
 const API_URL = "/api/mission-history?limit=250";
 const AUTOMATION_API_URL = "/api/automation-controller";
+const RECOMMENDATION_API_URL = "/api/mission-recommendation";
 let refreshTimer = null;
 let loading = false;
 
@@ -233,6 +234,50 @@ function renderMissionRecommendation(intelligence, automation) {
         </div>`;
 }
 
+
+function recommendationRuntimeLabel(runtime) {
+    const status = String(runtime?.status || "IDLE").toUpperCase();
+    if (status === "APPLIED") return "Applied and verified";
+    if (status === "DISABLED") return "Automatic application disabled";
+    if (status === "NO MATCH") return "No exact historical match";
+    if (status === "FAILED") return "Application failed; previous settings restored";
+    return "Waiting for receiver preparation";
+}
+
+function renderRecommendationAutomation(payload) {
+    const checkbox = document.getElementById("analytics-auto-apply-rf");
+    const state = document.getElementById("analytics-auto-apply-state");
+    const runtime = payload?.runtime || {};
+    const enabled = Boolean(payload?.settings?.auto_apply_rf_recommendation);
+    if (checkbox) checkbox.checked = enabled;
+    if (state) {
+        state.textContent = `${enabled ? "Enabled" : "Disabled"} · ${recommendationRuntimeLabel(runtime)}`;
+        state.dataset.status = String(runtime?.status || "IDLE").toLowerCase();
+    }
+}
+
+async function updateRecommendationAutomation(enabled) {
+    const checkbox = document.getElementById("analytics-auto-apply-rf");
+    const state = document.getElementById("analytics-auto-apply-state");
+    if (checkbox) checkbox.disabled = true;
+    if (state) state.textContent = "Saving automatic RF setting...";
+    try {
+        const response = await fetch(RECOMMENDATION_API_URL, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({auto_apply_rf_recommendation: Boolean(enabled)}),
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.ok !== true) throw new Error(payload.message || `HTTP ${response.status}`);
+        renderRecommendationAutomation(payload);
+    } catch (error) {
+        if (checkbox) checkbox.checked = !enabled;
+        if (state) state.textContent = `Save failed: ${error.message}`;
+    } finally {
+        if (checkbox) checkbox.disabled = false;
+    }
+}
+
 function renderRfRanking(intelligence) {
     const container = document.getElementById("analytics-rf-configurations");
     if (!container) return;
@@ -427,7 +472,7 @@ function renderTrends(missions) {
     );
 }
 
-function render(stats, automation) {
+function render(stats, automation, recommendationAutomation) {
     setText("analytics-total", number(stats.total || 0));
     setText("analytics-completed", `${number(stats.completed || 0)} completed`);
     setText("analytics-success-rate", percent(stats.success_rate));
@@ -441,6 +486,7 @@ function render(stats, automation) {
     setText("analytics-total-cadu", `CADU: ${bytes(stats.total_cadu_bytes || 0)}`);
 
     renderMissionRecommendation(stats.rf_intelligence, automation);
+    renderRecommendationAutomation(recommendationAutomation);
     renderRfIntelligence(stats.rf_intelligence, stats.total);
     renderPerformance("analytics-receivers", stats.receiver_statistics, "receiver");
     renderPerformance("analytics-satellites", stats.satellite_statistics, "satellite");
@@ -456,19 +502,23 @@ async function refreshAnalytics() {
     setText("mission-analytics-message", "Loading analytics data...");
 
     try {
-        const [historyResponse, automationResponse] = await Promise.all([
+        const [historyResponse, automationResponse, recommendationResponse] = await Promise.all([
             fetch(API_URL, {cache: "no-store"}),
             fetch(AUTOMATION_API_URL, {cache: "no-store"}),
+            fetch(RECOMMENDATION_API_URL, {cache: "no-store"}),
         ]);
         if (!historyResponse.ok) throw new Error(`Mission History HTTP ${historyResponse.status}`);
         if (!automationResponse.ok) throw new Error(`Automation Controller HTTP ${automationResponse.status}`);
+        if (!recommendationResponse.ok) throw new Error(`Mission Recommendation HTTP ${recommendationResponse.status}`);
         const payload = await historyResponse.json();
         const automation = await automationResponse.json();
+        const recommendationAutomation = await recommendationResponse.json();
         if (payload.ok !== true) throw new Error("Mission History API returned ok=false");
         if (automation.ok !== true) throw new Error("Automation Controller API returned ok=false");
+        if (recommendationAutomation.ok !== true) throw new Error("Mission Recommendation API returned ok=false");
         const stats = payload.statistics || {};
         if (stats.schema_version !== 3) throw new Error("Analytics schema 3 is not available");
-        render(stats, automation);
+        render(stats, automation, recommendationAutomation);
         renderTrends(payload.missions || []);
         setText("mission-analytics-updated", `Updated ${new Date().toLocaleTimeString()}`);
         setText("mission-analytics-message", `Analytics based on ${number(stats.total || 0)} stored missions.`);
@@ -485,6 +535,13 @@ export function setupMissionAnalytics() {
     const refreshButton = document.getElementById("mission-analytics-refresh");
     if (!refreshButton) return;
     refreshButton.addEventListener("click", refreshAnalytics);
+
+    const autoApply = document.getElementById("analytics-auto-apply-rf");
+    if (autoApply) {
+        autoApply.addEventListener("change", event => {
+            updateRecommendationAutomation(event.target.checked);
+        });
+    }
 
     const tabButton = document.querySelector('[data-tab="mission-analytics"]');
     if (tabButton) tabButton.addEventListener("click", refreshAnalytics);

@@ -552,3 +552,42 @@
 .mission-recommendation-empty p { margin: 0; }
 @media (max-width: 1180px) { .mission-recommendation-grid { grid-template-columns: 1fr 1fr; } .mission-recommendation-arrow { display: none; } }
 @media (max-width: 760px) { .mission-recommendation-grid { grid-template-columns: 1fr; } }
+
+/* v0.26.2 - automatic historical RF recommendation */
+.mission-recommendation-automation {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border: 1px solid rgba(49, 190, 255, 0.35);
+    border-radius: 10px;
+    background: rgba(7, 18, 38, 0.58);
+}
+.mission-recommendation-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #dceaff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.mission-recommendation-toggle input {
+    width: 17px;
+    height: 17px;
+    accent-color: #31beff;
+}
+.mission-recommendation-runtime {
+    color: #93a9c8;
+    font-size: 0.76rem;
+    text-align: right;
+}
+.mission-recommendation-runtime[data-status="applied"] { color: #64dca2; }
+.mission-recommendation-runtime[data-status="failed"] { color: #ff7c88; }
+.mission-recommendation-runtime[data-status="no match"] { color: #e7ba61; }
+@media (max-width: 760px) {
+    .mission-recommendation-automation { align-items: flex-start; flex-direction: column; }
+    .mission-recommendation-runtime { text-align: left; }
+}

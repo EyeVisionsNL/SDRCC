@@ -689,7 +689,7 @@
                 <div>
                     <span class="mission-intelligence-kicker">MISSION RECOMMENDATION</span>
                     <h2>💡 Recommended RF Configuration</h2>
-                    <p class="muted">Read-only advice for the next target passage. No receiver settings are changed.</p>
+                    <p class="muted">Historical advice for the next target passage, with optional verified application during receiver preparation.</p>
                 </div>
                 <div class="mission-intelligence-badges">
                     <span class="mission-rf-readonly">ADVISORY</span>
@@ -698,6 +698,13 @@
             </div>
             <div id="analytics-mission-recommendation" class="mission-recommendation-content">
                 <div class="mission-analytics-empty">Loading mission recommendation...</div>
+            </div>
+            <div class="mission-recommendation-automation">
+                <label class="mission-recommendation-toggle">
+                    <input id="analytics-auto-apply-rf" type="checkbox">
+                    <span>Apply exact historical RF recommendation automatically during receiver preparation</span>
+                </label>
+                <span id="analytics-auto-apply-state" class="mission-recommendation-runtime">Loading automation status...</span>
             </div>
         </section>
 
