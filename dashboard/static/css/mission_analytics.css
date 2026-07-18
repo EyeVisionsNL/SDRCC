@@ -360,3 +360,175 @@
 @media (max-width: 1200px) {
     .mission-analytics-trends { grid-template-columns: 1fr; }
 }
+
+/* v0.26.0 - RF Configuration Intelligence */
+.mission-intelligence-hero {
+    display: grid;
+    gap: 14px;
+    border-color: #0ea5e9;
+}
+
+.mission-intelligence-heading,
+.mission-rf-ranking-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.mission-intelligence-heading h2 {
+    margin: 4px 0 5px;
+    color: #7dd3fc;
+}
+
+.mission-intelligence-kicker {
+    color: #38bdf8;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.mission-intelligence-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.mission-intelligence-status,
+.mission-intelligence-confidence,
+.mission-rf-readonly,
+.mission-rf-confidence-inline {
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: .7rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.mission-intelligence-status,
+.mission-rf-readonly { color: #38bdf8; }
+.mission-intelligence-confidence.low,
+.mission-rf-confidence-inline.low { color: #fbbf24; }
+.mission-intelligence-confidence.medium,
+.mission-rf-confidence-inline.medium { color: #a3e635; }
+.mission-intelligence-confidence.high,
+.mission-rf-confidence-inline.high { color: #4ade80; }
+
+.mission-intelligence-configuration {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+    gap: 12px;
+}
+
+.mission-intelligence-facts,
+.mission-intelligence-outcome {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    background: #0f172a;
+}
+
+.mission-intelligence-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mission-intelligence-outcome { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.mission-intelligence-facts span,
+.mission-intelligence-outcome span {
+    min-width: 0;
+}
+
+.mission-intelligence-facts small,
+.mission-intelligence-outcome small {
+    display: block;
+    color: #94a3b8;
+    font-size: .68rem;
+}
+
+.mission-intelligence-facts strong,
+.mission-intelligence-outcome strong {
+    display: block;
+    margin-top: 3px;
+    color: #e2e8f0;
+    font-size: .88rem;
+    overflow-wrap: anywhere;
+}
+
+.mission-intelligence-outcome strong { color: #7dd3fc; }
+
+.mission-intelligence-coverage {
+    margin: 0;
+    text-align: right;
+    font-size: .74rem;
+}
+
+.mission-rf-ranking {
+    display: grid;
+    gap: 9px;
+}
+
+.mission-rf-rank-card {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) minmax(300px, auto);
+    gap: 12px;
+    align-items: center;
+    padding: 11px;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    background: #0f172a;
+}
+
+.mission-rf-rank-number {
+    color: #38bdf8;
+    font-size: 1rem;
+    font-weight: 800;
+    text-align: center;
+}
+
+.mission-rf-rank-main { min-width: 0; }
+.mission-rf-rank-title strong,
+.mission-rf-rank-title span { display: block; overflow-wrap: anywhere; }
+.mission-rf-rank-title strong { color: #e2e8f0; font-size: .88rem; }
+.mission-rf-rank-title span { margin-top: 3px; color: #94a3b8; font-size: .72rem; }
+
+.mission-rf-rank-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    margin-top: 7px;
+    color: #64748b;
+    font-size: .68rem;
+}
+
+.mission-rf-rank-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(65px, 1fr));
+    gap: 8px;
+}
+
+.mission-rf-rank-metrics small,
+.mission-rf-rank-metrics strong { display: block; text-align: right; }
+.mission-rf-rank-metrics small { color: #94a3b8; font-size: .65rem; }
+.mission-rf-rank-metrics strong { margin-top: 3px; color: #e2e8f0; font-size: .8rem; }
+
+@media (max-width: 1100px) {
+    .mission-intelligence-configuration { grid-template-columns: 1fr; }
+    .mission-rf-rank-card { grid-template-columns: 42px minmax(0, 1fr); }
+    .mission-rf-rank-metrics { grid-column: 2; }
+}
+
+@media (max-width: 700px) {
+    .mission-intelligence-heading,
+    .mission-rf-ranking-heading { flex-direction: column; }
+    .mission-intelligence-badges { justify-content: flex-start; }
+    .mission-intelligence-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mission-intelligence-outcome { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mission-rf-rank-card { grid-template-columns: 1fr; }
+    .mission-rf-rank-number { text-align: left; }
+    .mission-rf-rank-metrics { grid-column: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mission-rf-rank-metrics small,
+    .mission-rf-rank-metrics strong { text-align: left; }
+}

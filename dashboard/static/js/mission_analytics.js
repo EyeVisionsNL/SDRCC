@@ -48,6 +48,129 @@ function setText(id, value) {
     if (element) element.textContent = value;
 }
 
+
+function onOff(value) {
+    if (value === true) return "ON";
+    if (value === false) return "OFF";
+    return "Unknown";
+}
+
+function frequency(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? `${number(parsed / 1_000_000, 3)} MHz` : "-";
+}
+
+function sampleRate(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? `${number(parsed / 1_000_000, 3)} MS/s` : "-";
+}
+
+function gainLabel(config) {
+    const mode = String(config?.gain_mode || "unknown").toLowerCase();
+    if (mode === "manual") return `Manual · ${number(config?.manual_gain_db, 1)} dB`;
+    if (mode === "auto") return "Auto";
+    return "Unknown";
+}
+
+function confidenceClass(confidence) {
+    const level = String(confidence?.level || "LOW").toLowerCase();
+    return ["low", "medium", "high"].includes(level) ? level : "low";
+}
+
+function configurationFacts(config) {
+    return [
+        ["Satellite", config?.satellite || "Unknown"],
+        ["Receiver", `${config?.receiver || "Unknown"} · ${config?.receiver_serial || "no serial"}`],
+        ["Frequency", frequency(config?.frequency)],
+        ["Sample rate", sampleRate(config?.sample_rate)],
+        ["Gain", gainLabel(config)],
+        ["DC Block", onOff(config?.dc_block)],
+        ["IQ Swap", onOff(config?.iq_swap)],
+        ["Pipeline", config?.pipeline || "Unknown"],
+    ];
+}
+
+function renderBestRfConfiguration(intelligence) {
+    const container = document.getElementById("analytics-rf-best");
+    if (!container) return;
+    const best = intelligence?.best_observed_configuration;
+    setText("analytics-rf-status", String(intelligence?.status || "LEARNING"));
+
+    const confidenceElement = document.getElementById("analytics-rf-confidence");
+    const confidence = best?.confidence || {level: "LOW", label: "Low"};
+    if (confidenceElement) {
+        confidenceElement.textContent = `${confidence.label || "Low"} confidence`;
+        confidenceElement.className = `mission-intelligence-confidence ${confidenceClass(confidence)}`;
+    }
+
+    if (!best) {
+        container.innerHTML = '<div class="mission-analytics-empty">No complete RF configurations have been stored yet.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="mission-intelligence-configuration">
+            <div class="mission-intelligence-facts">
+                ${configurationFacts(best).map(([label, value]) => `
+                    <span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></span>
+                `).join("")}
+            </div>
+            <div class="mission-intelligence-outcome">
+                <span><small>Observed score</small><strong>${number(best.score, 1)}</strong></span>
+                <span><small>Missions</small><strong>${number(best.missions)}</strong></span>
+                <span><small>Success</small><strong>${percent(best.success_rate)}</strong></span>
+                <span><small>Avg. peak SNR</small><strong>${db(best.average_peak_snr_db)}</strong></span>
+                <span><small>Avg. images</small><strong>${number(best.average_images, 1)}</strong></span>
+                <span><small>Avg. elevation</small><strong>${degrees(best.average_max_elevation)}</strong></span>
+            </div>
+        </div>`;
+}
+
+function renderRfRanking(intelligence) {
+    const container = document.getElementById("analytics-rf-configurations");
+    if (!container) return;
+    const rows = Array.isArray(intelligence?.configurations) ? intelligence.configurations : [];
+    if (rows.length === 0) {
+        container.innerHTML = '<div class="mission-analytics-empty">No complete RF configuration history available.</div>';
+        return;
+    }
+
+    container.innerHTML = rows.slice(0, 5).map((config, index) => `
+        <article class="mission-rf-rank-card">
+            <div class="mission-rf-rank-number">#${index + 1}</div>
+            <div class="mission-rf-rank-main">
+                <div class="mission-rf-rank-title">
+                    <strong>${escapeHtml(config?.satellite || "Unknown satellite")}</strong>
+                    <span>${escapeHtml(config?.receiver || "Unknown receiver")} · ${escapeHtml(gainLabel(config))} · DC ${onOff(config?.dc_block)} · IQ ${onOff(config?.iq_swap)}</span>
+                </div>
+                <div class="mission-rf-rank-meta">
+                    <span>${frequency(config?.frequency)}</span>
+                    <span>${sampleRate(config?.sample_rate)}</span>
+                    <span>${number(config?.missions)} mission${Number(config?.missions) === 1 ? "" : "s"}</span>
+                    <span class="mission-rf-confidence-inline ${confidenceClass(config?.confidence)}">${escapeHtml(config?.confidence?.label || "Low")}</span>
+                </div>
+            </div>
+            <div class="mission-rf-rank-metrics">
+                <span><small>Score</small><strong>${number(config?.score, 1)}</strong></span>
+                <span><small>Success</small><strong>${percent(config?.success_rate)}</strong></span>
+                <span><small>Avg. SNR</small><strong>${db(config?.average_peak_snr_db)}</strong></span>
+                <span><small>Images</small><strong>${number(config?.average_images, 1)}</strong></span>
+            </div>
+        </article>
+    `).join("");
+}
+
+function renderRfIntelligence(intelligence, totalMissions) {
+    renderBestRfConfiguration(intelligence || {});
+    renderRfRanking(intelligence || {});
+    const eligible = Number(intelligence?.eligible_missions || 0);
+    const missing = Number(intelligence?.missing_rf_missions || 0);
+    setText(
+        "analytics-rf-coverage",
+        `Based on ${number(eligible)} complete RF mission${eligible === 1 ? "" : "s"} · ${number(missing)} of ${number(totalMissions || 0)} missing complete RF history · learning thresholds: Medium 5, High 20`,
+    );
+}
+
 function performanceCard(item, kind) {
     const name = item?.name || "Unknown";
     const missions = Number(item?.missions || 0);
@@ -210,6 +333,7 @@ function render(stats) {
     setText("analytics-total-frames", number(stats.total_frames || 0));
     setText("analytics-total-cadu", `CADU: ${bytes(stats.total_cadu_bytes || 0)}`);
 
+    renderRfIntelligence(stats.rf_intelligence, stats.total);
     renderPerformance("analytics-receivers", stats.receiver_statistics, "receiver");
     renderPerformance("analytics-satellites", stats.satellite_statistics, "satellite");
     renderBreakdown("analytics-results", stats.result_counts, stats.total);
@@ -229,7 +353,7 @@ async function refreshAnalytics() {
         const payload = await response.json();
         if (payload.ok !== true) throw new Error("Mission History API returned ok=false");
         const stats = payload.statistics || {};
-        if (stats.schema_version !== 2) throw new Error("Analytics schema 2 is not available");
+        if (stats.schema_version !== 3) throw new Error("Analytics schema 3 is not available");
         render(stats);
         renderTrends(payload.missions || []);
         setText("mission-analytics-updated", `Updated ${new Date().toLocaleTimeString()}`);

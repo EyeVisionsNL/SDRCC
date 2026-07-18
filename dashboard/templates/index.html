@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.24.0">
-    <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.25.2">
+    <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.26.0">
 </head>
 <body>
 <header class="topbar">
@@ -681,6 +681,34 @@
             <div class="mission-analytics-header-actions">
                 <span id="mission-analytics-updated" class="muted">Not loaded</span>
                 <button id="mission-analytics-refresh" type="button" class="control-button">↻ Refresh analytics</button>
+            </div>
+        </section>
+
+        <section class="card mission-intelligence-hero" aria-labelledby="rf-intelligence-title">
+            <div class="mission-intelligence-heading">
+                <div>
+                    <span class="mission-intelligence-kicker">MISSION INTELLIGENCE</span>
+                    <h2 id="rf-intelligence-title">🏆 Best Observed RF Configuration</h2>
+                    <p class="muted">Historical observation only. Automatic RF changes are not enabled.</p>
+                </div>
+                <div class="mission-intelligence-badges">
+                    <span id="analytics-rf-status" class="mission-intelligence-status">LEARNING</span>
+                    <span id="analytics-rf-confidence" class="mission-intelligence-confidence low">Low confidence</span>
+                </div>
+            </div>
+            <div id="analytics-rf-best" class="mission-intelligence-best">
+                <div class="mission-analytics-empty">Loading RF Configuration Intelligence...</div>
+            </div>
+            <p id="analytics-rf-coverage" class="mission-intelligence-coverage muted">RF history coverage not loaded.</p>
+        </section>
+
+        <section class="card mission-analytics-panel mission-rf-ranking-panel">
+            <div class="mission-analytics-panel-heading mission-rf-ranking-heading">
+                <div><h2>⚙️ RF Configuration Ranking</h2><p class="muted">Observed outcomes grouped by satellite, receiver and complete RF setup.</p></div>
+                <span class="mission-rf-readonly">READ ONLY</span>
+            </div>
+            <div id="analytics-rf-configurations" class="mission-rf-ranking">
+                <div class="mission-analytics-empty">Loading RF configurations...</div>
             </div>
         </section>
 
