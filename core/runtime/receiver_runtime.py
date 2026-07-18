@@ -18,14 +18,11 @@ def _utc_now() -> str:
 
 _ALLOWED_TRANSITIONS: dict[RuntimeState, set[RuntimeState]] = {
     RuntimeState.OFFLINE: {RuntimeState.IDLE, RuntimeState.ERROR},
-    RuntimeState.IDLE: {
-        RuntimeState.OFFLINE,
-        RuntimeState.RESERVED,
-        RuntimeState.ERROR,
-    },
+    RuntimeState.IDLE: {RuntimeState.OFFLINE, RuntimeState.RESERVED, RuntimeState.ERROR},
     RuntimeState.RESERVED: {
         RuntimeState.IDLE,
         RuntimeState.PREPARING,
+        RuntimeState.RUNNING,
         RuntimeState.RESTORING,
         RuntimeState.ERROR,
     },
@@ -37,10 +34,12 @@ _ALLOWED_TRANSITIONS: dict[RuntimeState, set[RuntimeState]] = {
     RuntimeState.RUNNING: {
         RuntimeState.PROCESSING,
         RuntimeState.RESTORING,
+        RuntimeState.IDLE,
         RuntimeState.ERROR,
     },
     RuntimeState.PROCESSING: {
         RuntimeState.RESTORING,
+        RuntimeState.IDLE,
         RuntimeState.ERROR,
     },
     RuntimeState.RESTORING: {
@@ -73,12 +72,6 @@ class ReceiverRuntime:
     _lock: RLock = field(default_factory=RLock, repr=False, compare=False)
 
     def transition(self, target: RuntimeState | str, *, detail: str | None = None) -> None:
-        """Move to a valid lifecycle state.
-
-        Runtime v2 callers will use this after adapters are introduced. The
-        foundation already validates transitions so invalid lifecycle jumps do
-        not silently enter the shared runtime state.
-        """
         target_state = RuntimeState(target)
         with self._lock:
             if target_state != self.state and target_state not in _ALLOWED_TRANSITIONS[self.state]:
@@ -109,6 +102,34 @@ class ReceiverRuntime:
             self.name = name
             self.serial = serial
             self.capabilities = capabilities
+            self.updated_at = _utc_now()
+
+    def observe_legacy_reservation(self, reservation: dict[str, Any] | None) -> None:
+        """Mirror the authoritative v1 receiver reservation without owning it."""
+        with self._lock:
+            self.reservation = deepcopy(reservation)
+            if reservation is None:
+                self.active_mission = None
+                if self.state not in {RuntimeState.OFFLINE, RuntimeState.ERROR}:
+                    self.state = RuntimeState.IDLE
+                self.detail = "No active legacy reservation"
+            else:
+                status = str(reservation.get("status") or "RESERVED").upper()
+                mission = {
+                    "mission_key": reservation.get("mission_key"),
+                    "mission_id": reservation.get("mission_id"),
+                    "mission_type": reservation.get("mission_type"),
+                    "target": reservation.get("target"),
+                    "status": status,
+                    "source": "receiver-manager-v1",
+                }
+                self.active_mission = mission if status == "ACTIVE" else None
+                self.state = RuntimeState.RUNNING if status == "ACTIVE" else RuntimeState.RESERVED
+                self.detail = (
+                    "Observed active legacy mission"
+                    if status == "ACTIVE"
+                    else "Observed legacy receiver reservation"
+                )
             self.updated_at = _utc_now()
 
     def snapshot(self) -> dict[str, Any]:
