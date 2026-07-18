@@ -2178,6 +2178,25 @@ def api_voice_receiver_stop():
         return jsonify({"ok": False, "error": str(exc)}), 500
 
 
+
+
+@app.route("/api/voice-recordings")
+def api_voice_recordings():
+    try:
+        limit = max(1, min(int(request.args.get("limit", 50)), 200))
+        return jsonify({"ok": True, "recordings": voice_receiver_core.list_recordings(limit)})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc), "recordings": []}), 500
+
+
+@app.route("/voice-recording/<path:relative_path>")
+def voice_recording_file(relative_path):
+    try:
+        return send_file(voice_receiver_core.recording_file(relative_path), mimetype="audio/wav", as_attachment=False)
+    except FileNotFoundError:
+        abort(404)
+
+
 @app.route("/api/mission-history")
 def api_mission_history():
     try:
@@ -2963,6 +2982,7 @@ def run():
         "SDRCC operator event storage and API are active.",
     )
     start_mission_autopilot()
+    voice_schedule_core.start_executor()
     app.run(
         host="0.0.0.0",
         port=8080,

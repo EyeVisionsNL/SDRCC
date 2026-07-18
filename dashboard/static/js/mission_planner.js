@@ -106,7 +106,7 @@
             if (!response.ok || payload.ok === false) throw new Error(payload.message || "Save failed.");
             setMessage(payload.message || "Minimum elevation saved.");
             window.dispatchEvent(new CustomEvent("sdrcc:weather-planning-changed", {detail: payload.settings}));
-            await Promise.all([loadPlanner(), loadVoiceSchedule()]);
+            await Promise.all([loadPlanner(), loadVoiceSchedule(), loadVoiceRecordings()]);
         } catch (error) { setMessage(`Save failed: ${error.message}`, true); }
         finally { state.busy = false; if (button) button.disabled = false; }
     }
@@ -153,6 +153,52 @@
         }).join("");
     }
 
+
+    function formatBytes(value) {
+        const bytes = Number(value || 0);
+        if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+        if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+        if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${bytes} B`;
+    }
+
+    function formatDuration(value) {
+        const seconds = Math.max(0, Number(value || 0));
+        const minutes = Math.floor(seconds / 60);
+        const remainder = Math.floor(seconds % 60);
+        return `${minutes}:${String(remainder).padStart(2, "0")}`;
+    }
+
+    function renderVoiceRecordings(payload) {
+        const list = byId("voice-recordings-list");
+        if (!list) return;
+        const recordings = Array.isArray(payload.recordings) ? payload.recordings : [];
+        if (!recordings.length) {
+            list.innerHTML = '<div class="mission-planner-empty">No completed Voice recordings yet.</div>';
+            return;
+        }
+        list.innerHTML = recordings.map((item) => `<article class="voice-recording-library-item">
+            <div class="voice-recording-library-meta">
+                <strong>${escapeHtml(item.filename)}</strong>
+                <span>${escapeHtml(formatDateTime(String(item.modified_at || "").replace("T", " ")))} · ${escapeHtml(formatDuration(item.duration_seconds))} · ${escapeHtml(formatBytes(item.bytes))}</span>
+            </div>
+            <audio controls preload="metadata" src="${escapeHtml(item.url)}"></audio>
+            <a class="control-button voice-recording-download" href="${escapeHtml(item.url)}" download>Download WAV</a>
+        </article>`).join("");
+    }
+
+    async function loadVoiceRecordings() {
+        try {
+            const response = await fetch("/api/voice-recordings?limit=25", {cache: "no-store"});
+            const payload = await response.json();
+            if (!response.ok || payload.ok === false) throw new Error(payload.error || "Voice recordings unavailable.");
+            renderVoiceRecordings(payload);
+        } catch (error) {
+            const list = byId("voice-recordings-list");
+            if (list) list.innerHTML = `<div class="mission-planner-empty error-text">${escapeHtml(error.message)}</div>`;
+        }
+    }
+
     async function loadVoiceSchedule() {
         try {
             const response = await fetch("/api/voice-schedule?hours=48", {cache: "no-store"});
@@ -192,8 +238,9 @@
     });
 
     byId("mission-planner-settings-form")?.addEventListener("submit", saveMinimumElevation);
-    byId("mission-planner-refresh")?.addEventListener("click", () => Promise.all([loadPlanner(), loadVoiceSchedule()]));
+    byId("mission-planner-refresh")?.addEventListener("click", () => Promise.all([loadPlanner(), loadVoiceSchedule(), loadVoiceRecordings()]));
+    byId("voice-recordings-refresh")?.addEventListener("click", loadVoiceRecordings);
     window.addEventListener("sdrcc:weather-planning-changed", () => Promise.all([loadPlanner(), loadVoiceSchedule()]));
-    Promise.all([loadPlanner(), loadVoiceSchedule()]);
-    state.timer = window.setInterval(() => Promise.all([loadPlanner(), loadVoiceSchedule()]), 15000);
+    Promise.all([loadPlanner(), loadVoiceSchedule(), loadVoiceRecordings()]);
+    state.timer = window.setInterval(() => Promise.all([loadPlanner(), loadVoiceSchedule(), loadVoiceRecordings()]), 15000);
 })();

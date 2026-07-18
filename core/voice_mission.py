@@ -120,7 +120,7 @@ def _serialize_timeline(item: dict[str, Any], now_epoch: int) -> dict[str, Any]:
         "state_order": VOICE_STATE_ORDER,
         "detail": detail,
         "execution_enabled": True,
-        "automatic_start_enabled": False,
+        "automatic_start_enabled": True,
         "service_handover_enabled": True,
         "audio_enabled": True,
     }
@@ -142,10 +142,10 @@ def get_status(hours_ahead: int = 48) -> dict[str, Any]:
     )
     return {
         "ok": True,
-        "version": "v0.29.0d3a",
+        "version": "v0.30.0a",
         "observer_only": False,
-        "automatic_start_enabled": False,
-        "automation_scope": "WEATHER_AUTO_VOICE_MANUAL",
+        "automatic_start_enabled": True,
+        "automation_scope": "WEATHER_AUTO_VOICE_SCHEDULED",
         "now_epoch": now_epoch,
         "voice_count": len(voice_items),
         "mission": _serialize_timeline(active_or_next, now_epoch) if active_or_next else None,

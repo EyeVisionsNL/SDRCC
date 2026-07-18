@@ -154,3 +154,16 @@
 .voice-recording-actions .control-button{min-width:145px;padding:8px 12px}
 @media(max-width:1200px){.voice-recording-form{grid-template-columns:repeat(3,minmax(0,1fr))}.voice-recording-actions{grid-column:1/-1}}
 @media(max-width:800px){.voice-recording-pass,.voice-recording-form{grid-template-columns:1fr}.voice-recording-actions{grid-column:auto}}
+
+/* v0.30.0a - automatic Voice recording and playback */
+.voice-recordings-library { display: grid; gap: 12px; margin-top: 8px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); }
+.voice-recordings-library h3 { margin: 0 0 4px; }
+.voice-recordings-list { display: grid; gap: 10px; }
+.voice-recording-library-item { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(280px, 1.4fr) auto; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(2,7,18,.55); }
+.voice-recording-library-meta { display: grid; gap: 4px; min-width: 0; }
+.voice-recording-library-meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-recording-library-meta span { color: #8fa7c5; font-size: .78rem; }
+.voice-recording-library-item audio { width: 100%; min-width: 240px; }
+.voice-recording-download { text-decoration: none; white-space: nowrap; }
+.voice-recording-item.is-scheduled .mission-planner-state { border-color: rgba(104,224,154,.55); }
+@media(max-width:900px){.voice-recording-library-item{grid-template-columns:1fr}.voice-recording-library-item audio{min-width:0}.voice-recording-download{text-align:center}}

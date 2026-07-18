@@ -693,8 +693,17 @@
             </div>
             <div class="voice-recording-footer">
                 <p id="voice-recording-message" class="muted">Loading Voice planning...</p>
-                <p class="muted">Automatic execution remains disabled in this correction release.</p>
+                <p class="muted">Scheduled recordings start and stop automatically.</p>
             </div>
+            <section class="voice-recordings-library" aria-labelledby="voice-recordings-library-title">
+                <div class="mission-planner-section-heading">
+                    <div><h3 id="voice-recordings-library-title">🎧 Voice Recordings</h3><p class="muted">Completed WAV recordings can be played directly in SDRCC.</p></div>
+                    <button id="voice-recordings-refresh" type="button" class="control-button">↻ Refresh recordings</button>
+                </div>
+                <div id="voice-recordings-list" class="voice-recordings-list">
+                    <div class="mission-planner-empty">No Voice recordings loaded.</div>
+                </div>
+            </section>
         </section>
 
     </div>
