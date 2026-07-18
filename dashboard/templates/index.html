@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.24.0">
-    <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.26.0">
+    <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.26.1">
 </head>
 <body>
 <header class="topbar">
@@ -681,6 +681,23 @@
             <div class="mission-analytics-header-actions">
                 <span id="mission-analytics-updated" class="muted">Not loaded</span>
                 <button id="mission-analytics-refresh" type="button" class="control-button">↻ Refresh analytics</button>
+            </div>
+        </section>
+
+        <section class="card mission-recommendation-panel">
+            <div class="mission-intelligence-heading">
+                <div>
+                    <span class="mission-intelligence-kicker">MISSION RECOMMENDATION</span>
+                    <h2>💡 Recommended RF Configuration</h2>
+                    <p class="muted">Read-only advice for the next target passage. No receiver settings are changed.</p>
+                </div>
+                <div class="mission-intelligence-badges">
+                    <span class="mission-rf-readonly">ADVISORY</span>
+                    <span id="analytics-recommendation-confidence" class="mission-intelligence-confidence low">Learning</span>
+                </div>
+            </div>
+            <div id="analytics-mission-recommendation" class="mission-recommendation-content">
+                <div class="mission-analytics-empty">Loading mission recommendation...</div>
             </div>
         </section>
 

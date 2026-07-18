@@ -1,4 +1,5 @@
 const API_URL = "/api/mission-history?limit=250";
+const AUTOMATION_API_URL = "/api/automation-controller";
 let refreshTimer = null;
 let loading = false;
 
@@ -122,6 +123,112 @@ function renderBestRfConfiguration(intelligence) {
                 <span><small>Avg. peak SNR</small><strong>${db(best.average_peak_snr_db)}</strong></span>
                 <span><small>Avg. images</small><strong>${number(best.average_images, 1)}</strong></span>
                 <span><small>Avg. elevation</small><strong>${degrees(best.average_max_elevation)}</strong></span>
+            </div>
+        </div>`;
+}
+
+
+function normalizeMatchValue(value) {
+    return String(value || "").trim().toLowerCase();
+}
+
+function selectMissionRecommendation(intelligence, automation) {
+    const target = automation?.target_pass || automation?.next_pass || null;
+    const configurations = Array.isArray(intelligence?.configurations) ? intelligence.configurations : [];
+    if (!target) return {target: null, configuration: null, match: "NO_PASS"};
+
+    const targetSatellite = normalizeMatchValue(target.name || target.satellite);
+    const targetPipeline = normalizeMatchValue(target.pipeline);
+    const targetFrequency = Number(target.frequency);
+    const targetSampleRate = Number(target.sample_rate);
+    const satelliteMatches = configurations.filter(config => normalizeMatchValue(config?.satellite) === targetSatellite);
+    const fullMatches = satelliteMatches.filter(config => {
+        const pipelineMatches = !targetPipeline || normalizeMatchValue(config?.pipeline) === targetPipeline;
+        const frequencyMatches = !Number.isFinite(targetFrequency) || Number(config?.frequency) === targetFrequency;
+        const sampleRateMatches = !Number.isFinite(targetSampleRate) || Number(config?.sample_rate) === targetSampleRate;
+        return pipelineMatches && frequencyMatches && sampleRateMatches;
+    });
+    const pipelineMatches = satelliteMatches.filter(config => !targetPipeline || normalizeMatchValue(config?.pipeline) === targetPipeline);
+
+    if (fullMatches.length) return {target, configuration: fullMatches[0], match: "FULL"};
+    if (pipelineMatches.length) return {target, configuration: pipelineMatches[0], match: "PIPELINE"};
+    if (satelliteMatches.length) return {target, configuration: satelliteMatches[0], match: "SATELLITE"};
+    return {target, configuration: null, match: "NO_HISTORY"};
+}
+
+function recommendationMatchLabel(match) {
+    if (match === "FULL") return "Exact historical match";
+    if (match === "PIPELINE") return "Satellite and pipeline match";
+    if (match === "SATELLITE") return "Satellite-only match";
+    if (match === "NO_PASS") return "No future passage available";
+    return "No matching RF history";
+}
+
+function renderMissionRecommendation(intelligence, automation) {
+    const container = document.getElementById("analytics-mission-recommendation");
+    const badge = document.getElementById("analytics-recommendation-confidence");
+    if (!container) return;
+    const recommendation = selectMissionRecommendation(intelligence, automation);
+    const target = recommendation.target;
+    const config = recommendation.configuration;
+
+    if (!target) {
+        if (badge) {
+            badge.textContent = "WAITING";
+            badge.className = "mission-intelligence-confidence low";
+        }
+        container.innerHTML = '<div class="mission-analytics-empty">No upcoming target passage is currently available from the Automation Controller.</div>';
+        return;
+    }
+
+    if (!config) {
+        if (badge) {
+            badge.textContent = "LEARNING";
+            badge.className = "mission-intelligence-confidence low";
+        }
+        container.innerHTML = `
+            <div class="mission-recommendation-empty">
+                <strong>${escapeHtml(target?.name || "Unknown satellite")}</strong>
+                <span>${frequency(target?.frequency)} · ${sampleRate(target?.sample_rate)} · ${degrees(target?.max_elevation)}</span>
+                <p>No comparable completed mission with a full RF configuration has been stored yet.</p>
+            </div>`;
+        return;
+    }
+
+    const confidence = config?.confidence || {level: "LOW", label: "Low"};
+    if (badge) {
+        badge.textContent = `${confidence.label || "Low"} confidence`;
+        badge.className = `mission-intelligence-confidence ${confidenceClass(confidence)}`;
+    }
+
+    container.innerHTML = `
+        <div class="mission-recommendation-grid">
+            <div class="mission-recommendation-target">
+                <span class="mission-recommendation-label">UPCOMING MISSION</span>
+                <strong>${escapeHtml(target?.name || "Unknown satellite")}</strong>
+                <div class="mission-recommendation-target-facts">
+                    <span><small>Start</small><b>${escapeHtml(target?.start || "-")}</b></span>
+                    <span><small>Maximum elevation</small><b>${degrees(target?.max_elevation)}</b></span>
+                    <span><small>Frequency</small><b>${frequency(target?.frequency)}</b></span>
+                    <span><small>Sample rate</small><b>${sampleRate(target?.sample_rate)}</b></span>
+                </div>
+            </div>
+            <div class="mission-recommendation-arrow" aria-hidden="true">→</div>
+            <div class="mission-recommendation-settings">
+                <span class="mission-recommendation-label">HISTORICAL RECOMMENDATION</span>
+                <strong>${escapeHtml(config?.receiver || "Unknown receiver")} · ${escapeHtml(config?.receiver_serial || "no serial")}</strong>
+                <div class="mission-recommendation-settings-grid">
+                    <span><small>Gain</small><b>${escapeHtml(gainLabel(config))}</b></span>
+                    <span><small>DC Block</small><b>${onOff(config?.dc_block)}</b></span>
+                    <span><small>IQ Swap</small><b>${onOff(config?.iq_swap)}</b></span>
+                    <span><small>Pipeline</small><b>${escapeHtml(config?.pipeline || "Unknown")}</b></span>
+                </div>
+            </div>
+            <div class="mission-recommendation-evidence">
+                <span><small>Match</small><strong>${escapeHtml(recommendationMatchLabel(recommendation.match))}</strong></span>
+                <span><small>Based on</small><strong>${number(config?.missions)} mission${Number(config?.missions) === 1 ? "" : "s"}</strong></span>
+                <span><small>Observed score</small><strong>${number(config?.score, 1)}</strong></span>
+                <span><small>Success</small><strong>${percent(config?.success_rate)}</strong></span>
             </div>
         </div>`;
 }
@@ -320,7 +427,7 @@ function renderTrends(missions) {
     );
 }
 
-function render(stats) {
+function render(stats, automation) {
     setText("analytics-total", number(stats.total || 0));
     setText("analytics-completed", `${number(stats.completed || 0)} completed`);
     setText("analytics-success-rate", percent(stats.success_rate));
@@ -333,6 +440,7 @@ function render(stats) {
     setText("analytics-total-frames", number(stats.total_frames || 0));
     setText("analytics-total-cadu", `CADU: ${bytes(stats.total_cadu_bytes || 0)}`);
 
+    renderMissionRecommendation(stats.rf_intelligence, automation);
     renderRfIntelligence(stats.rf_intelligence, stats.total);
     renderPerformance("analytics-receivers", stats.receiver_statistics, "receiver");
     renderPerformance("analytics-satellites", stats.satellite_statistics, "satellite");
@@ -348,13 +456,19 @@ async function refreshAnalytics() {
     setText("mission-analytics-message", "Loading analytics data...");
 
     try {
-        const response = await fetch(API_URL, {cache: "no-store"});
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const payload = await response.json();
+        const [historyResponse, automationResponse] = await Promise.all([
+            fetch(API_URL, {cache: "no-store"}),
+            fetch(AUTOMATION_API_URL, {cache: "no-store"}),
+        ]);
+        if (!historyResponse.ok) throw new Error(`Mission History HTTP ${historyResponse.status}`);
+        if (!automationResponse.ok) throw new Error(`Automation Controller HTTP ${automationResponse.status}`);
+        const payload = await historyResponse.json();
+        const automation = await automationResponse.json();
         if (payload.ok !== true) throw new Error("Mission History API returned ok=false");
+        if (automation.ok !== true) throw new Error("Automation Controller API returned ok=false");
         const stats = payload.statistics || {};
         if (stats.schema_version !== 3) throw new Error("Analytics schema 3 is not available");
-        render(stats);
+        render(stats, automation);
         renderTrends(payload.missions || []);
         setText("mission-analytics-updated", `Updated ${new Date().toLocaleTimeString()}`);
         setText("mission-analytics-message", `Analytics based on ${number(stats.total || 0)} stored missions.`);

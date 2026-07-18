@@ -532,3 +532,23 @@
     .mission-rf-rank-metrics small,
     .mission-rf-rank-metrics strong { text-align: left; }
 }
+
+
+/* v0.26.1 - read-only mission recommendation */
+.mission-recommendation-panel { border-color: rgba(49, 190, 255, 0.75); }
+.mission-recommendation-content { margin-top: 18px; }
+.mission-recommendation-grid { display: grid; grid-template-columns: minmax(250px, 1fr) auto minmax(300px, 1.25fr) minmax(190px, 0.75fr); gap: 12px; align-items: stretch; }
+.mission-recommendation-target, .mission-recommendation-settings, .mission-recommendation-evidence, .mission-recommendation-empty { border: 1px solid rgba(105, 139, 183, 0.35); border-radius: 10px; background: rgba(7, 18, 38, 0.68); padding: 14px; }
+.mission-recommendation-target, .mission-recommendation-settings { display: flex; flex-direction: column; gap: 10px; }
+.mission-recommendation-target > strong, .mission-recommendation-settings > strong, .mission-recommendation-empty > strong { color: #f2f7ff; font-size: 1rem; }
+.mission-recommendation-label { color: #31beff; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.09em; }
+.mission-recommendation-target-facts, .mission-recommendation-settings-grid, .mission-recommendation-evidence { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 14px; }
+.mission-recommendation-target-facts span, .mission-recommendation-settings-grid span, .mission-recommendation-evidence span { display: flex; flex-direction: column; gap: 3px; }
+.mission-recommendation-target-facts small, .mission-recommendation-settings-grid small, .mission-recommendation-evidence small { color: #8199ba; font-size: 0.68rem; }
+.mission-recommendation-target-facts b, .mission-recommendation-settings-grid b, .mission-recommendation-evidence strong { color: #dceaff; font-size: 0.79rem; }
+.mission-recommendation-evidence { grid-template-columns: 1fr; }
+.mission-recommendation-arrow { align-self: center; color: #31beff; font-size: 1.8rem; font-weight: 700; }
+.mission-recommendation-empty { display: flex; flex-direction: column; gap: 7px; color: #93a9c8; }
+.mission-recommendation-empty p { margin: 0; }
+@media (max-width: 1180px) { .mission-recommendation-grid { grid-template-columns: 1fr 1fr; } .mission-recommendation-arrow { display: none; } }
+@media (max-width: 760px) { .mission-recommendation-grid { grid-template-columns: 1fr; } }
