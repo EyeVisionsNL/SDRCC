@@ -83,3 +83,22 @@
 .error-text {
     color: #ff8c8c !important;
 }
+
+/* v0.29.0b Mission assignments and active reservations */
+.mission-assignment-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.mission-assignment-form label{display:flex;flex-direction:column;gap:6px;color:#8fa7c5}
+.mission-assignment-form select{background:#07111f;color:#fff;border:1px solid #2b405b;border-radius:8px;padding:9px}
+.mission-assignment-form button{grid-column:1/-1}
+.active-reservations-card{grid-column:1/-1}
+.active-reservations-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.active-reservation-item{padding:13px;border:1px solid #24364d;border-radius:10px;background:#07111f}
+.active-reservation-item.is-reserved{border-color:#f59e0b;box-shadow:0 0 0 1px rgba(245,158,11,.18) inset}
+.active-reservation-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}
+.active-reservation-heading strong{color:#fff;font-size:1.05rem}
+.active-reservation-heading span{padding:4px 8px;border:1px solid #334155;border-radius:999px;background:#0f172a;color:#cbd5e1;font-size:.7rem;font-weight:800}
+.active-reservation-item.is-reserved .active-reservation-heading span{border-color:#92400e;background:#2a1f08;color:#facc15}
+.active-reservation-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.active-reservation-details span{display:flex;flex-direction:column;gap:3px;min-width:0;padding:8px;border:1px solid #17263a;border-radius:8px;background:#020712;color:#8fa7c5;font-size:.72rem}
+.active-reservation-details strong{overflow-wrap:anywhere;color:#fff;font-size:.84rem}
+@media(max-width:900px){.active-reservation-details{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.mission-assignment-form,.active-reservations-grid,.active-reservation-details{grid-template-columns:1fr}}

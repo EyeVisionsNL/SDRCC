@@ -27,6 +27,7 @@ _LOCK = RLock()
 DEFAULT_STATE: dict[str, Any] = {
     "reservation": None,
     "last_release": None,
+    "pending_roles": None,
 }
 
 
@@ -80,14 +81,42 @@ def get_status() -> dict[str, Any]:
     if isinstance(last_release, dict) and last_release.get("released_at"):
         last_release["status"] = "RELEASED"
 
+    pending_roles = deepcopy(state.get("pending_roles"))
     return {
         "ok": True,
         "configured_receiver": _device_summary(configured.get("id") if configured else None),
         "reservation": reservation,
         "last_release": last_release,
+        "pending_roles": pending_roles,
         "available": reservation is None,
     }
 
+
+
+def set_pending_roles(roles: dict[str, str]) -> dict[str, Any]:
+    """Queue default-role changes while a receiver reservation is active."""
+    normalized = {key: str((roles or {}).get(key, "manual")).lower() for key in ("sdr1", "sdr2")}
+    if any(value not in {"ais", "adsb", "manual"} for value in normalized.values()):
+        raise ValueError("Ongeldige pending receiverrol")
+    if normalized["sdr1"] == normalized["sdr2"] and normalized["sdr1"] in {"ais", "adsb"}:
+        raise ValueError("AIS en ADS-B kunnen elk maar aan één receiver worden toegewezen")
+    with _LOCK:
+        state = _load_state()
+        state["pending_roles"] = {
+            "roles": normalized,
+            "queued_at": _now(),
+            "status": "PENDING",
+        }
+        _save_state(state)
+    return get_status()
+
+
+def clear_pending_roles() -> dict[str, Any]:
+    with _LOCK:
+        state = _load_state()
+        state["pending_roles"] = None
+        _save_state(state)
+    return get_status()
 
 def is_available(receiver_id: str, *, mission_key: str | None = None) -> bool:
     with _LOCK:
@@ -349,7 +378,23 @@ def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") 
         released["status"] = "RELEASED"
         state["last_release"] = released
         state["reservation"] = None
+        pending = deepcopy(state.get("pending_roles"))
+        state["pending_roles"] = None
         _save_state(state)
+
+    if pending and isinstance(pending.get("roles"), dict):
+        from core.config import set_receiver_roles
+        try:
+            set_receiver_roles(pending["roles"])
+            released["pending_roles_applied"] = deepcopy(pending["roles"])
+        except Exception as error:
+            released["pending_roles_error"] = str(error)
+            with _LOCK:
+                state = _load_state()
+                pending["status"] = "FAILED"
+                pending["error"] = str(error)
+                state["pending_roles"] = pending
+                _save_state(state)
 
     event_bus.publish_receiver(
         "INFO",

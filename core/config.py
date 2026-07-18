@@ -87,8 +87,12 @@ def get_receiver_assignments():
     """Geef receiver-toewijzingen met veilige defaults."""
     data = load_station()
     assignments = data.get("assignments", {})
+    voice = str(assignments.get("voice", "auto") or "auto").strip().lower()
+    if voice not in {"auto", "sdr1", "sdr2", "manual"}:
+        voice = "auto"
     return {
         "weather": assignments.get("weather", "sdr1"),
+        "voice": voice,
         "ais": assignments.get("ais", "sdr1"),
         "adsb": assignments.get("adsb", "sdr2"),
     }
@@ -102,10 +106,34 @@ def set_weather_receiver(device_id):
     assignments = data.setdefault("assignments", {})
     assignments.setdefault("ais", "sdr1")
     assignments.setdefault("adsb", "sdr2")
+    assignments.setdefault("voice", "auto")
     assignments["weather"] = device_id
     save_station(data)
     return get_receiver_assignments()
 
+
+
+def set_mission_receiver_assignments(*, weather=None, voice=None):
+    """Store WEATHER and VOICE mission receiver preferences.
+
+    WEATHER currently requires a physical receiver. VOICE may use automatic
+    selection, a fixed receiver, or manual-only execution.
+    """
+    current = get_receiver_assignments()
+    weather_value = str(weather or current["weather"]).strip().lower()
+    voice_value = str(voice or current["voice"]).strip().lower()
+    if weather_value not in {"sdr1", "sdr2"}:
+        raise ValueError("Weather-ontvanger moet sdr1 of sdr2 zijn")
+    if voice_value not in {"auto", "sdr1", "sdr2", "manual"}:
+        raise ValueError("VOICE-keuze moet auto, sdr1, sdr2 of manual zijn")
+    data = load_station()
+    assignments = data.setdefault("assignments", {})
+    assignments.setdefault("ais", "sdr1")
+    assignments.setdefault("adsb", "sdr2")
+    assignments["weather"] = weather_value
+    assignments["voice"] = voice_value
+    save_station(data)
+    return get_receiver_assignments()
 
 def set_receiver_roles(roles):
     """Sla vaste receiverrollen op zonder services te wijzigen."""
@@ -131,6 +159,7 @@ def set_receiver_roles(roles):
     data = load_station()
     assignments = data.setdefault("assignments", {})
     assignments.setdefault("weather", "sdr1")
+    assignments.setdefault("voice", "auto")
     assignments["ais"] = next(
         (receiver_id for receiver_id, role in normalized.items() if role == "ais"),
         None,

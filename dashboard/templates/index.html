@@ -378,29 +378,37 @@
         </section>
 
         <section class="card radio-card assignment-preview-card">
-            <h2>🔀 Receiver Assignment</h2>
-            <p class="muted">Choose which SDR is used for Weather and METEOR recordings.</p>
-            <form id="receiver-assignment-form" class="assignment-form">
-                <label class="assignment-choice">
-                    <input type="radio" name="weather_receiver" value="sdr1">
-                    <span><strong>SDR1</strong><small>05419737</small></span>
+            <h2>🔀 Mission Receiver Assignment</h2>
+            <p class="muted">Choose the preferred receiver per mission type. Default AIS/ADS-B roles remain separate.</p>
+            <form id="receiver-assignment-form" class="mission-assignment-form">
+                <label>WEATHER / METEOR
+                    <select id="weather-receiver-assignment">
+                        <option value="sdr1">SDR1</option>
+                        <option value="sdr2">SDR2</option>
+                    </select>
                 </label>
-                <label class="assignment-choice">
-                    <input type="radio" name="weather_receiver" value="sdr2">
-                    <span><strong>SDR2</strong><small>24006572</small></span>
+                <label>ISS Voice
+                    <select id="voice-receiver-assignment">
+                        <option value="auto">AUTO</option>
+                        <option value="sdr1">SDR1</option>
+                        <option value="sdr2">SDR2</option>
+                        <option value="manual">MANUAL ONLY</option>
+                    </select>
                 </label>
-                <button type="submit" class="control-button" id="apply-weather-receiver">Apply</button>
+                <button type="submit" class="control-button" id="apply-mission-receivers">Save Mission Assignments</button>
             </form>
-            <p id="receiver-assignment-result" class="muted">-</p>
-            <div class="assignment-preview">
-                <div><span>AIS</span><strong>SDR1</strong></div>
-                <div><span>ADS-B</span><strong>SDR2</strong></div>
-            </div>
+            <p id="receiver-assignment-result" class="muted">Assignments are stored in station.yaml.</p>
+        </section>
+
+        <section class="card radio-card active-reservations-card">
+            <h2>🔒 Active Reservations</h2>
+            <p class="muted">Live difference between default role, current mission role and restore role.</p>
+            <div id="active-reservations" class="active-reservations-grid">Loading receiver state...</div>
         </section>
 
         <section class="card radio-card receiver-roles-card">
             <h2>🧩 Receiver Roles</h2>
-            <p class="muted">Choose the fixed role for each physical SDR. WEATHER remains separate as a temporary mission assignment.</p>
+            <p class="muted">Choose the default role for each physical SDR. Changes during a reservation are queued and applied after release.</p>
             <form id="receiver-roles-form" class="rf-settings-form">
                 <label><span id="receiver-role-sdr1-label">SDR1</span>
                     <select id="receiver-role-sdr1">
@@ -419,7 +427,7 @@
                 <button type="submit" class="control-button">Save Roles</button>
                 <button type="button" class="control-button" id="apply-receiver-roles">Apply Receiver Roles</button>
             </form>
-            <p id="receiver-roles-result" class="muted">Roles are saved in station.yaml.</p>
+            <p id="receiver-roles-result" class="muted">Default roles are saved in station.yaml; pending changes are shown below.</p>
             <p id="receiver-roles-apply-result" class="muted">Apply cleanly stops AIS/ADS-B, updates the serial numbers, and restarts the services.</p>
         </section>
 

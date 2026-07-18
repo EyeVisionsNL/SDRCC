@@ -736,6 +736,9 @@ def get_dashboard_data():
     mission = get_mission_data_for_status()
     scheduler = mission_scheduler_core.get_scheduler_status()
     assignments = config_core.get_receiver_assignments()
+    receiver_runtime = receiver_manager.get_status()
+    active_reservation = receiver_runtime.get("reservation") or {}
+    pending_roles = receiver_runtime.get("pending_roles") or {}
 
     mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
     observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
@@ -747,6 +750,7 @@ def get_dashboard_data():
 
     for device in devices:
         device_id = device.get("id")
+        is_reserved = active_reservation.get("receiver_id") == device_id
 
         default_tasks = []
         if assignments.get("ais") == device_id:
@@ -759,7 +763,12 @@ def get_dashboard_data():
         active_detail = "No active service"
         status_label = "AVAILABLE"
 
-        if weather_active and assignments.get("weather") == device_id:
+        if is_reserved:
+            current_task = str(active_reservation.get("mission_type") or "MISSION").upper()
+            target = active_reservation.get("target") or active_reservation.get("mission_key") or "mission"
+            active_detail = f"Reserved by {target}"
+            status_label = str(active_reservation.get("status") or "RESERVED").upper()
+        elif weather_active and assignments.get("weather") == device_id:
             current_task = "Weather / METEOR"
             active_detail = "Active satellite mission"
             status_label = "LOCKED"
@@ -783,7 +792,12 @@ def get_dashboard_data():
         device["next_task"] = next_task
         device["active_detail"] = active_detail
         device["status_label"] = status_label
-        device["in_use"] = status_label in {"IN USE", "LOCKED"}
+        device["in_use"] = status_label in {"IN USE", "LOCKED", "RESERVED", "ACTIVE", "REQUIRES_ATTENTION"}
+        device["default_role"] = device.get("role", "manual")
+        device["reserved"] = is_reserved
+        device["reservation"] = active_reservation if is_reserved else None
+        device["pending_role"] = (pending_roles.get("roles") or {}).get(device_id)
+        device["restore_role"] = active_reservation.get("previous_role") if is_reserved else None
 
     return {
         "server_time_epoch": int(datetime.now().timestamp()),
@@ -793,6 +807,7 @@ def get_dashboard_data():
         "adsb": adsb,
         "devices": devices,
         "assignments": assignments,
+        "receiver_management": receiver_runtime,
         "weather_rf": config_core.get_weather_rf_config(),
         "tle_present": tle.exists(),
         "system": system_stats.get_stats(),
@@ -2485,46 +2500,37 @@ def api_receiver_manager():
 @app.route("/api/receiver-assignment", methods=["POST"])
 def api_receiver_assignment():
     payload = request.get_json(silent=True) or {}
-    device_id = payload.get("weather")
+    weather = payload.get("weather")
+    voice = payload.get("voice")
     mission = mission_engine_core.get_mission_status()
     receiver_runtime = get_reconciled_receiver_manager_status()
-    if (
+    active = (
         mission.get("phase") not in {"READY", "WAIT FOR PASS"}
         or autopilot_runtime.get("prepared")
         or autopilot_runtime.get("locked")
         or autopilot_runtime.get("record_started")
         or receiver_runtime.get("reservation") is not None
-    ):
+    )
+    current = config_core.get_receiver_assignments()
+    if active and weather and weather != current.get("weather"):
         return jsonify({
             "ok": False,
-            "message": "Receiver selection cannot be changed during an active mission.",
+            "message": "WEATHER assignment cannot change during an active mission.",
         }), 409
     try:
-        device = device_manager.get_device(device_id)
-        if device is None:
-            raise ValueError("Onbekende SDR-keuze")
-        assignments = config_core.set_weather_receiver(device_id)
-        write_log(
-            f"Weather receiver changed to {device['number']} "
-            f"({device['serial']})"
+        assignments = config_core.set_mission_receiver_assignments(
+            weather=weather or current.get("weather"),
+            voice=voice or current.get("voice"),
         )
-        event_bus.publish_receiver(
-            "INFO",
-            "Weather receiver changed",
-            f"Weather gebruikt nu {device['number']} ({device['serial']})",
-            data={
-                "role": "weather",
-                "device_id": device["id"],
-                "number": device["number"],
-                "serial": device["serial"],
-                "assignments": assignments,
-            },
+        write_log(
+            "Mission receiver assignments saved: "
+            f"WEATHER={assignments['weather'].upper()}, "
+            f"VOICE={assignments['voice'].upper()}"
         )
         return jsonify({
             "ok": True,
-            "message": f"Weather gebruikt nu {device['number']}.",
+            "message": "Mission receiver assignments saved.",
             "assignments": assignments,
-            "device": device,
         })
     except Exception as error:
         return jsonify({"ok": False, "message": str(error)}), 400
@@ -2536,34 +2542,41 @@ def api_receiver_roles():
     payload = request.get_json(silent=True) or {}
     mission = mission_engine_core.get_mission_status()
     receiver_runtime = get_reconciled_receiver_manager_status()
-    if (
+    active = (
         mission.get("phase") not in {"READY", "WAIT FOR PASS"}
         or autopilot_runtime.get("prepared")
         or autopilot_runtime.get("locked")
         or autopilot_runtime.get("record_started")
         or receiver_runtime.get("reservation") is not None
-    ):
-        return jsonify({
-            "ok": False,
-            "message": "Receiver roles cannot be changed during an active mission.",
-        }), 409
-
+    )
     roles = {
         "sdr1": payload.get("sdr1", "manual"),
         "sdr2": payload.get("sdr2", "manual"),
     }
     try:
+        if active:
+            status = receiver_manager.set_pending_roles(roles)
+            write_log(
+                "Receiverrollen pending opgeslagen: "
+                f"SDR1={str(roles['sdr1']).upper()}, SDR2={str(roles['sdr2']).upper()}"
+            )
+            return jsonify({
+                "ok": True,
+                "pending": True,
+                "message": "Roles queued and will be applied after the active reservation is released.",
+                "receiver_management": status,
+                "roles": roles,
+            })
         assignments = config_core.set_receiver_roles(roles)
+        receiver_manager.clear_pending_roles()
         write_log(
             "Receiverrollen opgeslagen: "
-            f"SDR1={str(roles['sdr1']).upper()}, "
-            f"SDR2={str(roles['sdr2']).upper()}"
+            f"SDR1={str(roles['sdr1']).upper()}, SDR2={str(roles['sdr2']).upper()}"
         )
         return jsonify({
             "ok": True,
-            "message": (
-                "Roles saved. Services were not changed in this step."
-            ),
+            "pending": False,
+            "message": "Default roles saved. Services were not changed in this step.",
             "assignments": assignments,
             "roles": roles,
         })

@@ -15,6 +15,7 @@ sdr2:
   locked: false
 assignments:
   weather: sdr1
+  voice: auto
   ais: sdr1
   adsb: sdr2
 weather_rf:

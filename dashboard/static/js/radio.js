@@ -103,6 +103,44 @@
         }
     }
 
+    function formatRole(value) {
+        const role = String(value || "manual").toUpperCase();
+        return role === "MANUAL" ? "MANUAL" : role;
+    }
+
+    function renderReceiverManagement(data) {
+        const container = document.getElementById("active-reservations");
+        if (!container) return;
+        const devices = Array.isArray(data.devices) ? data.devices : [];
+        const management = data.receiver_management || {};
+        const reservation = management.reservation || null;
+        const pendingRoles = (management.pending_roles || {}).roles || {};
+        container.innerHTML = "";
+        for (const [index, dev] of devices.entries()) {
+            const receiverId = String(dev.id || `sdr${index + 1}`).toLowerCase();
+            const reserved = reservation && String(reservation.receiver_id || "").toLowerCase() === receiverId;
+            const item = document.createElement("article");
+            item.className = `active-reservation-item${reserved ? " is-reserved" : ""}`;
+            const reservedUntil = reserved ? (reservation.reserved_until || reservation.los || "Mission release") : "-";
+            item.innerHTML = `
+                <div class="active-reservation-heading">
+                    <strong>${dev.number || receiverId.toUpperCase()}</strong>
+                    <span>${reserved ? String(reservation.status || "RESERVED").toUpperCase() : "AVAILABLE"}</span>
+                </div>
+                <div class="active-reservation-details">
+                    <span>Default role<strong>${formatRole(dev.default_role)}</strong></span>
+                    <span>Current role<strong>${reserved ? formatRole(reservation.mission_type || "MISSION") : formatRole(dev.current_task)}</strong></span>
+                    <span>Reserved by<strong>${reserved ? (reservation.target || reservation.mission_key || "Mission") : "-"}</strong></span>
+                    <span>Restore role<strong>${reserved ? formatRole(reservation.previous_role) : "-"}</strong></span>
+                    <span>Reserved until<strong>${reservedUntil}</strong></span>
+                    <span>Pending role<strong>${pendingRoles[receiverId] ? formatRole(pendingRoles[receiverId]) : "-"}</strong></span>
+                </div>
+            `;
+            container.appendChild(item);
+        }
+        if (!devices.length) container.textContent = "No SDR devices found.";
+    }
+
     function receiverNumber(dev, index) {
         const name = String(dev.name || dev.id || "");
         const match = name.match(/SDR\s*(\d+)/i);
@@ -248,9 +286,12 @@
             setPill("radio-adsb-pill", data.adsb);
             renderDevices(data.devices || []);
             populateReceiverRoles(data);
-            const selected = (data.assignments || {}).weather;
-            const radio = document.querySelector(`input[name="weather_receiver"][value="${selected}"]`);
-            if (radio) radio.checked = true;
+            const assignments = data.assignments || {};
+            const weatherAssignment = document.getElementById("weather-receiver-assignment");
+            const voiceAssignment = document.getElementById("voice-receiver-assignment");
+            if (weatherAssignment) weatherAssignment.value = assignments.weather || "sdr1";
+            if (voiceAssignment) voiceAssignment.value = assignments.voice || "auto";
+            renderReceiverManagement(data);
             if (!rfFormIsBeingEdited()) {
                 populateRf(data.weather_rf || {});
             }
@@ -265,20 +306,17 @@
     if (form) {
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
-            const selected = form.querySelector('input[name="weather_receiver"]:checked');
             const result = document.getElementById("receiver-assignment-result");
-            if (!selected) {
-                if (result) result.textContent = "Select SDR1 or SDR2 first.";
-                return;
-            }
+            const weather = document.getElementById("weather-receiver-assignment")?.value || "sdr1";
+            const voice = document.getElementById("voice-receiver-assignment")?.value || "auto";
             try {
                 const response = await fetch("/api/receiver-assignment", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({weather: selected.value}),
+                    body: JSON.stringify({weather, voice}),
                 });
                 const data = await response.json();
-                if (result) result.textContent = data.message || (response.ok ? "Opgeslagen." : "Mislukt.");
+                if (result) result.textContent = data.message || (response.ok ? "Saved." : "Failed.");
                 if (!response.ok) return;
                 await updateRadioPage();
             } catch (error) {
@@ -286,6 +324,7 @@
             }
         });
     }
+
 
 
     const receiverRolesForm = document.getElementById("receiver-roles-form");
