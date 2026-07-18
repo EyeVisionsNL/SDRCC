@@ -1,0 +1,231 @@
+/* v0.25.1 - Mission Analytics Dashboard */
+.mission-analytics-layout {
+    display: grid;
+    gap: 14px;
+    padding: 14px;
+}
+
+.mission-analytics-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.mission-analytics-header h2,
+.mission-analytics-panel h2 {
+    margin: 0 0 5px;
+    color: #7dd3fc;
+}
+
+.mission-analytics-header p,
+.mission-analytics-panel p {
+    margin: 0;
+}
+
+.mission-analytics-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    text-align: right;
+}
+
+.mission-analytics-header-actions .control-button {
+    width: auto;
+    min-width: 160px;
+}
+
+.mission-analytics-summary {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(135px, 1fr));
+    gap: 10px;
+}
+
+.mission-analytics-stat {
+    min-width: 0;
+    padding: 14px;
+}
+
+.mission-analytics-stat span,
+.mission-analytics-stat small {
+    display: block;
+    color: #94a3b8;
+}
+
+.mission-analytics-stat span {
+    font-size: .78rem;
+    margin-bottom: 7px;
+}
+
+.mission-analytics-stat strong {
+    display: block;
+    color: #e2e8f0;
+    font-size: 1.45rem;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+}
+
+.mission-analytics-stat small {
+    margin-top: 8px;
+    font-size: .72rem;
+}
+
+.mission-analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+
+.mission-analytics-panel {
+    min-width: 0;
+}
+
+.mission-analytics-panel-heading {
+    margin-bottom: 12px;
+}
+
+.mission-analytics-cards {
+    display: grid;
+    gap: 10px;
+}
+
+.mission-analytics-performance {
+    border: 1px solid #334155;
+    border-radius: 10px;
+    background: #0f172a;
+    padding: 12px;
+}
+
+.mission-analytics-performance-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 11px;
+}
+
+.mission-analytics-performance-title > strong {
+    color: #e2e8f0;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+}
+
+.mission-analytics-rate {
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: .75rem;
+    font-weight: 700;
+}
+
+.mission-analytics-rate.good { color: #4ade80; }
+.mission-analytics-rate.warn { color: #fbbf24; }
+.mission-analytics-rate.bad { color: #fb7185; }
+
+.mission-analytics-performance-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.mission-analytics-performance-grid span {
+    min-width: 0;
+    color: #94a3b8;
+    font-size: .72rem;
+}
+
+.mission-analytics-performance-grid strong {
+    display: block;
+    margin-top: 3px;
+    color: #e2e8f0;
+    font-size: .92rem;
+    overflow-wrap: anywhere;
+}
+
+.mission-analytics-breakdown {
+    display: grid;
+    gap: 11px;
+}
+
+.mission-analytics-breakdown-row {
+    display: grid;
+    grid-template-columns: minmax(110px, .8fr) minmax(150px, 1.5fr) 58px;
+    align-items: center;
+    gap: 12px;
+}
+
+.mission-analytics-breakdown-row > div:first-child {
+    min-width: 0;
+}
+
+.mission-analytics-breakdown-row strong,
+.mission-analytics-breakdown-row span {
+    display: block;
+}
+
+.mission-analytics-breakdown-row strong {
+    color: #e2e8f0;
+    font-size: .82rem;
+    overflow-wrap: anywhere;
+}
+
+.mission-analytics-breakdown-row > div:first-child span {
+    margin-top: 2px;
+    color: #94a3b8;
+    font-size: .7rem;
+}
+
+.mission-analytics-breakdown-row b {
+    color: #cbd5e1;
+    font-size: .78rem;
+    text-align: right;
+}
+
+.mission-analytics-bar {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #162237;
+}
+
+.mission-analytics-bar span {
+    height: 100%;
+    min-width: 2px;
+    border-radius: inherit;
+    background: #38bdf8;
+}
+
+.mission-analytics-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: #94a3b8;
+    border: 1px dashed #334155;
+    border-radius: 10px;
+    background: #0f172a;
+}
+
+.mission-analytics-message {
+    margin: 0;
+    text-align: right;
+    font-size: .78rem;
+}
+
+@media (max-width: 1200px) {
+    .mission-analytics-summary { grid-template-columns: repeat(3, minmax(135px, 1fr)); }
+}
+
+@media (max-width: 850px) {
+    .mission-analytics-header,
+    .mission-analytics-header-actions { align-items: stretch; flex-direction: column; text-align: left; }
+    .mission-analytics-grid { grid-template-columns: 1fr; }
+    .mission-analytics-summary { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+}
+
+@media (max-width: 560px) {
+    .mission-analytics-summary { grid-template-columns: 1fr; }
+    .mission-analytics-performance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mission-analytics-breakdown-row { grid-template-columns: 1fr 50px; }
+    .mission-analytics-breakdown-row .mission-analytics-bar { grid-column: 1 / -1; grid-row: 2; }
+}
