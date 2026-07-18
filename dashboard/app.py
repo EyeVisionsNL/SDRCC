@@ -34,6 +34,8 @@ from core import mission_preflight
 from core import mission_scheduler as mission_scheduler_core
 from core import mission_queue as mission_queue_core
 from core import voice_mission as voice_mission_core
+from core import voice_receiver as voice_receiver_core
+from core import voice_schedule as voice_schedule_core
 from core import process_manager
 from core import profiles
 from core import satdump as satdump_core
@@ -49,12 +51,12 @@ IMAGE_DIRS = [
 ]
 
 SERVICE_ACTIONS = {
-    "start_ais": {"label": "AIS starten", "service": "ais-catcher.service", "systemctl": "start"},
-    "stop_ais": {"label": "AIS stoppen", "service": "ais-catcher.service", "systemctl": "stop"},
-    "restart_ais": {"label": "AIS herstarten", "service": "ais-catcher.service", "systemctl": "restart"},
-    "start_adsb": {"label": "ADS-B starten", "service": "readsb.service", "systemctl": "start"},
-    "stop_adsb": {"label": "ADS-B stoppen", "service": "readsb.service", "systemctl": "stop"},
-    "restart_adsb": {"label": "ADS-B herstarten", "service": "readsb.service", "systemctl": "restart"},
+    "start_ais": {"label": "Start AIS", "service": "ais-catcher.service", "systemctl": "start"},
+    "stop_ais": {"label": "Stop AIS", "service": "ais-catcher.service", "systemctl": "stop"},
+    "restart_ais": {"label": "Restart AIS", "service": "ais-catcher.service", "systemctl": "restart"},
+    "start_adsb": {"label": "Start ADS-B", "service": "readsb.service", "systemctl": "start"},
+    "stop_adsb": {"label": "Stop ADS-B", "service": "readsb.service", "systemctl": "stop"},
+    "restart_adsb": {"label": "Restart ADS-B", "service": "readsb.service", "systemctl": "restart"},
 }
 
 SCHEDULER_ACTIONS = {
@@ -91,7 +93,7 @@ SCHEDULER_ACTIONS = {
 
 SDRCC_ACTIONS = {
     "next_pass": {"label": "Next Pass", "command": [sys.executable, str(SDRCC_SCRIPT), "next"], "mode": "run"},
-    "schedule": {"label": "Planning tonen", "command": [sys.executable, str(SDRCC_SCRIPT), "schedule"], "mode": "run"},
+    "schedule": {"label": "Show Schedule", "command": [sys.executable, str(SDRCC_SCRIPT), "schedule"], "mode": "run"},
     "simulate_record": {"label": "Simulate Recording", "command": [sys.executable, str(SDRCC_SCRIPT), "simulate-record"], "mode": "run"},
     "record": {"label": "Record NOW", "command": [sys.executable, str(SDRCC_SCRIPT), "record"], "mode": "start"},
     "update_tle": {"label": "Update TLE", "command": [sys.executable, str(SDRCC_SCRIPT), "update-tle"], "mode": "run"},
@@ -256,7 +258,7 @@ def start_virtual_mission():
         event_bus.publish_mission(
             "INFO",
             "Virtual mission started",
-            "Hardwarevrije simulatie is actief en kan met STOP MISSION worden beëindigd",
+            "Hardware-free simulation is active and can be stopped with STOP MISSION",
             data={"mission_id": job.get("mission_id")},
         )
         write_log(f"Virtual Mission gestart: {job.get('mission_id')}")
@@ -281,7 +283,7 @@ def stop_virtual_mission():
     event_bus.publish_mission(
         "WARNING",
         "Virtual mission stopped",
-        "De hardwarevrije simulatie is door de operator beëindigd",
+        "The hardware-free simulation was stopped by the operator",
     )
     write_log("Virtual Mission gestopt door operator")
     return True
@@ -926,7 +928,7 @@ def monitor_record_process(process):
             mission_engine_core.mission_set_state("READY")
 
     except Exception as error:
-        write_log(f"Mission Engine procesbewaking mislukt: {error}")
+        write_log(f"Mission Engine process monitoring failed: {error}")
 
         try:
             mission_engine_core.mission_finish_job(
@@ -962,7 +964,7 @@ def handle_scheduler_action(action):
     scheduler = mission_scheduler_core.set_scheduler_mode(mode)
 
     write_log(
-        f"Scheduler-modus gewijzigd naar {scheduler['mode']}"
+        f"Scheduler mode changed to {scheduler['mode']}"
     )
 
     return jsonify({
@@ -1278,8 +1280,8 @@ def autopilot_prepare_receiver():
     )
     event_bus.publish_receiver(
         "INFO",
-        "Weather-receiver voorbereid",
-        f"{device['number']} ({device['serial']}) is beschikbaar voor AUTO",
+        "Weather receiver prepared",
+        f"{device['number']} ({device['serial']}) is available for AUTO",
         data={
             "device_id": device["id"],
             "serial": device["serial"],
@@ -1307,7 +1309,7 @@ def autopilot_lock_receiver():
 
         if abs(expected_start - actual_start) > 5:
             raise RuntimeError(
-                "SatDump-pass wijkt af of de geplande AUTO-pass"
+                "SatDump pass differs from the scheduled AUTO pass"
             )
 
     record_data["output_path"].mkdir(
@@ -1429,7 +1431,7 @@ def monitor_auto_record_process(process):
             event_bus.publish_satdump(
                 "INFO",
                 "SatDump productdecode gestart",
-                "CADU wordt verwerkt naar METEOR-beeldproducten",
+                "CADU is being processed into METEOR image products",
                 data=satdump_core.build_event_context(record_data),
             )
 
@@ -1463,7 +1465,7 @@ def monitor_auto_record_process(process):
             event_bus.publish_satdump(
                 "INFO" if final_returncode == 0 else "WARNING",
                 "SatDump productdecode afgerond",
-                f"Returncode {final_returncode}; output wordt gevalideerd",
+                f"Return code {final_returncode}; output is being validated",
                 data={
                     **satdump_core.build_event_context(record_data),
                     "returncode": final_returncode,
@@ -1553,7 +1555,7 @@ def monitor_auto_record_process(process):
         )
 
     except Exception as error:
-        write_log(f"AUTO: procesbewaking mislukt: {error}")
+        write_log(f"AUTO: process monitoring failed: {error}")
         try:
             live_rf.fail(str(error))
         except Exception as live_rf_error:
@@ -1704,7 +1706,7 @@ def mission_autopilot_worker():
             if controller.get("manual_override") and not autopilot_runtime.get("record_started"):
                 automation_controller.update_status(
                     "MANUAL OVERRIDE",
-                    "Automatische voorbereiding is tijdelijk geblokkeerd",
+                    "Automatic preparation is temporarily blocked",
                     next_action="Manual Override opheffen",
                     target_pass=autopilot_runtime.get("target_pass") or next_pass,
                 )
@@ -1765,10 +1767,10 @@ def mission_autopilot_worker():
             if 0 < seconds_until_start <= preflight_seconds:
                 status = "PREFLIGHT"
                 detail = "Preflightvenster is actief"
-                next_action = "Receiver voorbereiden"
+                next_action = "Prepare receiver"
             if 0 < seconds_until_start <= prepare_seconds:
                 status = "PREPARING"
-                detail = "Receiver voorbereiden"
+                detail = "Prepare receiver"
                 next_action = "Receiver locken"
             if 0 < seconds_until_start <= lock_seconds:
                 status = "LOCKING"
@@ -1812,8 +1814,8 @@ def mission_autopilot_worker():
                     autopilot_runtime["prepared"] = True
                     event_bus.publish_automation(
                         "INFO",
-                        "Dry Run: receiver voorbereiden",
-                        f"Receiver voor {target['name']} zou nu worden voorbereid",
+                        "Dry Run: prepare receiver",
+                        f"Receiver for {target['name']} would now be prepared",
                         data={"pass": target, "dry_run": True},
                     )
                 else:
@@ -2064,25 +2066,114 @@ def api_mission_queue():
             mode=mission_scheduler_core.get_scheduler_status().get("mode", "MANUAL"),
             next_pass=mission_scheduler_core.get_scheduler_status().get("next_pass"),
         )
-        return jsonify(mission_queue_core.get_payload(
-            limit=limit,
+        payload = mission_queue_core.get_payload(
+            limit=max(limit, 100),
             hours_ahead=hours,
             active_pass_key=active_key,
             target_pass_key=target_key,
             controller_status=controller.get("status"),
-        ))
+        )
+        minimum = float(weather_planning_core.get_config().get("minimum_elevation", 40.0))
+        queue = [
+            item for item in payload.get("queue", [])
+            if float(item.get("max_elevation") or 0.0) >= minimum
+        ]
+        assignments = config_core.get_receiver_assignments()
+        voice_default_receiver = str(assignments.get("voice") or "auto").upper()
+        if voice_default_receiver not in {"AUTO", "SDR1", "SDR2"}:
+            voice_default_receiver = "AUTO"
+
+        quality_labels = {
+            "KORT": "SHORT",
+            "MATIG": "FAIR",
+            "REDELIJK": "FAIR",
+            "GOED": "GOOD",
+            "ZEER GOED": "VERY GOOD",
+            "UITSTEKEND": "EXCELLENT",
+        }
+
+        for item in queue:
+            quality = item.get("quality")
+            if isinstance(quality, dict):
+                raw_label = str(quality.get("label") or "").strip().upper()
+                if raw_label in quality_labels:
+                    quality["label"] = quality_labels[raw_label]
+
+            if str(item.get("mission_type") or "").upper() != "VOICE":
+                continue
+
+            configured = str(item.get("configured_receiver") or voice_default_receiver).upper()
+            if configured not in {"AUTO", "SDR1", "SDR2"}:
+                configured = voice_default_receiver
+            item["configured_receiver"] = configured
+
+            runtime_receiver = item.get("active_receiver") or item.get("reserved_receiver")
+            if runtime_receiver:
+                item["receiver"] = str(runtime_receiver).upper()
+            else:
+                item["receiver"] = configured
+                item["receiver_status"] = "CONFIGURED"
+
+        payload["voice_default_receiver"] = voice_default_receiver
+        payload["queue"] = queue[:limit]
+        payload["minimum_elevation"] = minimum
+        payload["eligible_count"] = len(queue)
+        return jsonify(payload)
     except ValueError as error:
         return jsonify({"ok": False, "error": str(error)}), 400
     except Exception as error:
         return jsonify({"ok": False, "error": str(error), "queue": []}), 500
 
 
+@app.route("/api/voice-schedule", methods=["GET", "PUT", "DELETE"])
+def api_voice_schedule():
+    try:
+        hours = max(1, min(int(request.args.get("hours", 48)), 168))
+        if request.method == "PUT":
+            item = voice_schedule_core.set_item(request.get_json(silent=True) or {})
+            return jsonify({"ok": True, "item": item, **voice_schedule_core.get_payload(hours)})
+        if request.method == "DELETE":
+            payload = request.get_json(silent=True) or {}
+            voice_schedule_core.remove_item(str(payload.get("queue_key") or ""))
+            return jsonify(voice_schedule_core.get_payload(hours))
+        return jsonify(voice_schedule_core.get_payload(hours))
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
 @app.route("/api/voice-mission")
 def api_voice_mission():
-    """Read-only VOICE mission state and pass timeline."""
+    """VOICE mission state, timeline and live receiver status."""
     try:
         hours = max(1, min(int(request.args.get("hours", 48)), 168))
         return jsonify(voice_mission_core.get_status(hours_ahead=hours))
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/voice-receiver/start", methods=["POST"])
+def api_voice_receiver_start():
+    try:
+        hours = max(1, min(int((request.get_json(silent=True) or {}).get("hours", 48)), 168))
+        mission = voice_mission_core.get_status(hours_ahead=hours).get("mission")
+        if not mission:
+            return jsonify({"ok": False, "error": "No ISS Voice pass is available"}), 409
+        return jsonify(voice_receiver_core.start(mission))
+    except RuntimeError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 409
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/voice-receiver/stop", methods=["POST"])
+def api_voice_receiver_stop():
+    try:
+        payload = request.get_json(silent=True) or {}
+        return jsonify(voice_receiver_core.stop(reason=str(payload.get("reason") or "Operator stop")))
+    except RuntimeError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 409
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
@@ -2373,12 +2464,12 @@ def api_stop_mission():
     process = autopilot_runtime.get("process")
     process_stopped = False
     if process is not None and process.poll() is None:
-        write_log(f"STOP MISSION: proces {process.pid} beëindigen")
+        write_log(f"STOP MISSION: terminating process {process.pid}")
         process.terminate()
         try:
             process.wait(timeout=8)
         except subprocess.TimeoutExpired:
-            write_log(f"STOP MISSION: proces {process.pid} reageert niet; kill")
+            write_log(f"STOP MISSION: process {process.pid} is not responding; killing it")
             process.kill()
             process.wait(timeout=5)
         process_stopped = True
@@ -2557,7 +2648,7 @@ def api_receiver_roles():
         if active:
             status = receiver_manager.set_pending_roles(roles)
             write_log(
-                "Receiverrollen pending opgeslagen: "
+                "Pending receiver roles saved: "
                 f"SDR1={str(roles['sdr1']).upper()}, SDR2={str(roles['sdr2']).upper()}"
             )
             return jsonify({
@@ -2570,7 +2661,7 @@ def api_receiver_roles():
         assignments = config_core.set_receiver_roles(roles)
         receiver_manager.clear_pending_roles()
         write_log(
-            "Receiverrollen opgeslagen: "
+            "Receiver roles saved: "
             f"SDR1={str(roles['sdr1']).upper()}, SDR2={str(roles['sdr2']).upper()}"
         )
         return jsonify({
@@ -2673,11 +2764,11 @@ def api_weather_planning():
         return jsonify({"ok": False, "message": "Weather Planning is blocked during a mission."}), 409
     try:
         settings = weather_planning_core.set_config(payload)
-        write_log(f"Minimale weather-elevatie gewijzigd naar {settings['minimum_elevation']} graden")
+        write_log(f"Minimum Weather elevation changed to {settings['minimum_elevation']} degrees")
         return jsonify({
             "ok": True,
             "settings": settings,
-            "message": f"Minimale elevatie opgeslagen op {settings['minimum_elevation']:.1f}°. De Mission Queue gebruikt dit direct.",
+            "message": f"Minimum elevation saved at {settings['minimum_elevation']:.1f}°. The Mission Queue uses this immediately.",
         })
     except ValueError as error:
         return jsonify({"ok": False, "message": str(error)}), 400
@@ -2721,8 +2812,8 @@ def api_weather_rf():
         return jsonify({"ok": False, "message": "RF settings are blocked during a mission."}), 409
     try:
         settings = config_core.set_weather_rf_config(payload)
-        write_log(f"Weather RF-instellingen gewijzigd: mode={settings['gain_mode']} gain={settings['gain_db']} dB")
-        return jsonify({"ok": True, "settings": settings, "message": "RF-instellingen opgeslagen."})
+        write_log(f"Weather RF settings changed: mode={settings['gain_mode']} gain={settings['gain_db']} dB")
+        return jsonify({"ok": True, "settings": settings, "message": "RF settings saved."})
     except ValueError as error:
         return jsonify({"ok": False, "message": str(error)}), 400
 
@@ -2790,7 +2881,7 @@ def api_action():
             mission = start_virtual_mission()
             return jsonify({
                 "ok": True,
-                "message": "Virtual mission started. STOP MISSION is nu beschikbaar.",
+                "message": "Virtual mission started. STOP MISSION is now available.",
                 "mission": mission,
             })
 

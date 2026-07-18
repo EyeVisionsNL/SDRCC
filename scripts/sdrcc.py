@@ -1,9 +1,22 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+VENV_PYTHON = PROJECT_ROOT / "venv" / "bin" / "python3"
+
+# SDRCC_VENV_REEXEC: make direct CLI use deterministic outside an activated venv.
+if (
+    VENV_PYTHON.exists()
+    and Path(sys.executable).resolve() != VENV_PYTHON.resolve()
+    and os.environ.get("SDRCC_VENV_REEXEC") != "1"
+):
+    env = os.environ.copy()
+    env["SDRCC_VENV_REEXEC"] = "1"
+    os.execve(str(VENV_PYTHON), [str(VENV_PYTHON), str(Path(__file__).resolve()), *sys.argv[1:]], env)
+
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core import device_manager

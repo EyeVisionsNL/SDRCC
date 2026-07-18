@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 
-"""Read-only VOICE mission observer and timeline model.
-
-v0.29.0a deliberately does not reserve receivers, stop services or start rtl_fm.
-It converts the next planned VOICE pass into a stable mission-state payload for
-Mission Planner and future Voice Mission execution.
-"""
+"""VOICE mission timeline model with manual live receiver runtime."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
 
+from core import config as config_core
 from core import mission_queue
+from core import voice_receiver
+from core import weather_planning
 
 VOICE_STATE_ORDER = [
     "WAIT_FOR_AOS",
@@ -47,16 +45,36 @@ def _state_for_pass(item: dict[str, Any], now_epoch: int) -> tuple[str, str]:
     if now_epoch < start_epoch - 120:
         return "PREPARING", "VOICE mission preparation window is active."
     if now_epoch < start_epoch - 60:
-        return "RESERVING_RECEIVER", "Receiver reservation is modelled but not executed in v0.29.0a."
+        return "RESERVING_RECEIVER", "Ready to reserve the configured Voice receiver."
     if now_epoch < start_epoch - 20:
-        return "SERVICE_HANDOVER", "Service handover is modelled but not executed in v0.29.0a."
+        return "SERVICE_HANDOVER", "Ready for live service handover."
     if now_epoch < start_epoch:
-        return "TUNING", "Tuning phase is modelled; rtl_fm is not started yet."
+        return "TUNING", "Ready to tune rtl_fm to the ISS Voice frequency."
     if now_epoch <= end_epoch:
-        return "LISTENING", "ISS is above the horizon; audio execution arrives in v0.29.0b."
+        return "LISTENING", "ISS is above the horizon; manual live listening is available."
     if now_epoch <= end_epoch + 30:
         return "FINISHING", "Pass has ended; future execution will restore services here."
     return "COMPLETE", "Planned VOICE pass is complete."
+
+
+def _voice_default_receiver() -> str:
+    assignments = config_core.get_receiver_assignments()
+    receiver = str(assignments.get("voice") or "auto").upper()
+    return receiver if receiver in {"AUTO", "SDR1", "SDR2"} else "AUTO"
+
+
+def _normalized_receiver(*values: Any) -> str:
+    """Return the first usable receiver value, falling back to Voice assignment.
+
+    Mission Queue may expose placeholder values such as ``NOT ASSIGNED`` in
+    ``configured_receiver`` before runtime reservation. Those placeholders must
+    never override the configured Voice receiver from station.yaml.
+    """
+    for value in values:
+        receiver = str(value or "").strip().upper()
+        if receiver in {"AUTO", "SDR1", "SDR2"}:
+            return receiver
+    return _voice_default_receiver()
 
 
 def _serialize_timeline(item: dict[str, Any], now_epoch: int) -> dict[str, Any]:
@@ -79,7 +97,12 @@ def _serialize_timeline(item: dict[str, Any], now_epoch: int) -> dict[str, Any]:
         "frequency": item.get("frequency"),
         "frequency_mhz": item.get("frequency_mhz"),
         "mode": item.get("mode") or "FM VOICE",
-        "receiver": item.get("active_receiver") or item.get("reserved_receiver") or item.get("configured_receiver") or item.get("receiver") or "NOT ASSIGNED",
+        "receiver": _normalized_receiver(
+            item.get("active_receiver"),
+            item.get("reserved_receiver"),
+            item.get("configured_receiver"),
+            item.get("receiver"),
+        ),
         "aos": item.get("start"),
         "maximum": item.get("maximum"),
         "los": item.get("end"),
@@ -96,18 +119,22 @@ def _serialize_timeline(item: dict[str, Any], now_epoch: int) -> dict[str, Any]:
         "state": state,
         "state_order": VOICE_STATE_ORDER,
         "detail": detail,
-        "execution_enabled": False,
-        "service_handover_enabled": False,
-        "audio_enabled": False,
+        "execution_enabled": True,
+        "automatic_start_enabled": False,
+        "service_handover_enabled": True,
+        "audio_enabled": True,
     }
 
 
 def get_status(hours_ahead: int = 48) -> dict[str, Any]:
     now_epoch = int(datetime.now(timezone.utc).timestamp())
     payload = mission_queue.get_payload(limit=50, hours_ahead=hours_ahead)
+    minimum = float(weather_planning.get_config().get("minimum_elevation", 40.0))
     voice_items = [
         item for item in payload.get("queue", [])
-        if str(item.get("mission_type") or "").upper() == "VOICE" and not item.get("skipped")
+        if str(item.get("mission_type") or "").upper() == "VOICE"
+        and not item.get("skipped")
+        and float(item.get("max_elevation") or 0.0) >= minimum
     ]
     active_or_next = next(
         (item for item in voice_items if int(item.get("end_epoch") or 0) >= now_epoch - 30),
@@ -115,10 +142,12 @@ def get_status(hours_ahead: int = 48) -> dict[str, Any]:
     )
     return {
         "ok": True,
-        "version": "v0.29.0a",
-        "observer_only": True,
-        "automation_scope": "WEATHER_ONLY",
+        "version": "v0.29.0d3a",
+        "observer_only": False,
+        "automatic_start_enabled": False,
+        "automation_scope": "WEATHER_AUTO_VOICE_MANUAL",
         "now_epoch": now_epoch,
         "voice_count": len(voice_items),
         "mission": _serialize_timeline(active_or_next, now_epoch) if active_or_next else None,
+        "receiver_runtime": voice_receiver.get_status().get("runtime"),
     }

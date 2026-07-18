@@ -102,3 +102,42 @@
 .active-reservation-details strong{overflow-wrap:anywhere;color:#fff;font-size:.84rem}
 @media(max-width:900px){.active-reservation-details{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.mission-assignment-form,.active-reservations-grid,.active-reservation-details{grid-template-columns:1fr}}
+
+/* v0.29.0c2 - deterministic Radio page layout; no empty grid cell */
+.radio-page{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.receiver-overview-card,.receiver-monitor-card,.radio-grid-reservations,.mission-monitor-card,.live-rf-console-card,.spectrum-card{grid-column:1/-1}
+.radio-grid-assignment{grid-column:1}
+.radio-grid-roles{grid-column:2}
+.radio-grid-rf{grid-column:1/-1}
+.radio-grid-rf .rf-settings-form{grid-template-columns:repeat(4,minmax(0,1fr))}
+.radio-grid-rf .rf-settings-form button{grid-column:1/-1}
+@media(max-width:900px){.radio-grid-assignment,.radio-grid-roles,.radio-grid-rf{grid-column:1/-1}.radio-grid-rf .rf-settings-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.radio-page,.radio-grid-rf .rf-settings-form{grid-template-columns:1fr}}
+
+/* v0.29.0c5 - fixed Radio grid order with named areas */
+.radio-page{
+  grid-template-areas:
+    "overview overview"
+    "monitor monitor"
+    "assignment roles"
+    "reservations reservations"
+    "rf rf";
+}
+.receiver-overview-card{grid-area:overview}
+.receiver-monitor-card{grid-area:monitor}
+.radio-grid-assignment{grid-area:assignment}
+.radio-grid-roles{grid-area:roles}
+.radio-grid-reservations{grid-area:reservations}
+.radio-grid-rf{grid-area:rf}
+@media(max-width:900px){
+  .radio-page{
+    grid-template-columns:1fr;
+    grid-template-areas:
+      "overview"
+      "monitor"
+      "assignment"
+      "roles"
+      "reservations"
+      "rf";
+  }
+}

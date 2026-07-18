@@ -119,8 +119,8 @@
                         </div>
                         <p class="automation-controller-detail" id="automation-controller-detail">Loading controller status...</p>
                         <div class="automation-controller-actions">
-                            <button class="automation-controller-button" id="automation-dry-run" type="button">🧪 Dry Run UIT</button>
-                            <button class="automation-controller-button" id="automation-manual-override" type="button">✋ Override UIT</button>
+                            <button class="automation-controller-button" id="automation-dry-run" type="button">🧪 Dry Run OFF</button>
+                            <button class="automation-controller-button" id="automation-manual-override" type="button">✋ Override OFF</button>
                             <button class="automation-controller-button danger" id="automation-skip-pass" type="button">⏭ Skip Next Pass</button>
                         </div>
                         <p class="automation-controller-status" id="automation-controller-message">Manual controls remain available.</p>
@@ -377,7 +377,7 @@
             <div id="receiver-monitor-grid" class="receiver-monitor-grid">Laden...</div>
         </section>
 
-        <section class="card radio-card assignment-preview-card">
+        <section class="card radio-card assignment-preview-card radio-grid-assignment">
             <h2>🔀 Mission Receiver Assignment</h2>
             <p class="muted">Choose the preferred receiver per mission type. Default AIS/ADS-B roles remain separate.</p>
             <form id="receiver-assignment-form" class="mission-assignment-form">
@@ -400,13 +400,13 @@
             <p id="receiver-assignment-result" class="muted">Assignments are stored in station.yaml.</p>
         </section>
 
-        <section class="card radio-card active-reservations-card">
+        <section class="card radio-card active-reservations-card radio-grid-reservations">
             <h2>🔒 Active Reservations</h2>
             <p class="muted">Live difference between default role, current mission role and restore role.</p>
             <div id="active-reservations" class="active-reservations-grid">Loading receiver state...</div>
         </section>
 
-        <section class="card radio-card receiver-roles-card">
+        <section class="card radio-card receiver-roles-card radio-grid-roles">
             <h2>🧩 Receiver Roles</h2>
             <p class="muted">Choose the default role for each physical SDR. Changes during a reservation are queued and applied after release.</p>
             <form id="receiver-roles-form" class="rf-settings-form">
@@ -431,7 +431,7 @@
             <p id="receiver-roles-apply-result" class="muted">Apply cleanly stops AIS/ADS-B, updates the serial numbers, and restarts the services.</p>
         </section>
 
-        <section class="card radio-card rf-settings-card">
+        <section class="card radio-card rf-settings-card radio-grid-rf">
             <h2>🎚 RF Settings</h2>
             <form id="weather-rf-form" class="rf-settings-form">
                 <label>Gain Mode
@@ -576,7 +576,7 @@
                 <iframe id="radio-view-adsb-frame" title="ADS-B tar1090 kaart" loading="lazy"></iframe>
                 <div id="radio-view-adsb-error" class="radio-view-frame-error hidden">ADS-B Viewer is momenteel niet bereikbaar.</div>
             </div>
-            <a id="radio-view-adsb-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open volledige ADS-B Viewer ↗</a>
+            <a id="radio-view-adsb-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open full ADS-B Viewer ↗</a>
         </article>
 
         <article class="card radio-view-panel">
@@ -591,7 +591,7 @@
                 <iframe id="radio-view-ais-frame" title="AIS-Catcher maritime map" loading="lazy"></iframe>
                 <div id="radio-view-ais-error" class="radio-view-frame-error hidden">AIS Viewer is momenteel niet bereikbaar.</div>
             </div>
-            <a id="radio-view-ais-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open volledige AIS Viewer ↗</a>
+            <a id="radio-view-ais-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open full AIS Viewer ↗</a>
         </article>
 
         <article class="card radio-view-panel radio-view-satellite-panel">
@@ -605,11 +605,11 @@
             <div id="radio-view-satellite-content" class="radio-view-satellite-content">
                 <div id="radio-view-ground-track" class="radio-view-ground-track">
                     <div class="radio-view-orbit-line"></div>
-                    <span class="radio-view-station-marker" title="Grondstation Vlaardingen">⌂</span>
+                    <span class="radio-view-station-marker" title="Ground Station Vlaardingen">⌂</span>
                     <span class="radio-view-satellite-marker" title="Next Satellite">🛰</span>
                     <div class="radio-view-ground-track-copy">
                         <strong id="radio-view-next-satellite">Loading Next Pass...</strong>
-                        <span id="radio-view-next-pass-detail">Ground Track-koppeling is voorbereid.</span>
+                        <span id="radio-view-next-pass-detail">Ground Track integration is prepared.</span>
                     </div>
                 </div>
                 <div id="radio-view-live-image-wrap" class="radio-view-live-image-wrap hidden">
@@ -636,16 +636,16 @@
         </section>
 
         <div class="mission-planner-summary">
-            <article class="card"><span>Planned passes</span><strong id="mission-planner-pass-count">-</strong></article>
-            <article class="card"><span>Receiver conflicts</span><strong id="mission-planner-conflict-count">-</strong></article>
-            <article class="card"><span>Skipped missions</span><strong id="mission-planner-skipped-count">-</strong></article>
+            <article class="card"><span>Weather missions</span><strong id="mission-planner-weather-count">-</strong></article>
+            <article class="card"><span>Voice passes</span><strong id="mission-planner-voice-count">-</strong></article>
+            <article class="card"><span>Total eligible</span><strong id="mission-planner-pass-count">-</strong></article>
             <article class="card"><span>Planning window</span><strong id="mission-planner-window">48 hours</strong></article>
         </div>
 
         <section class="card mission-planner-settings">
             <div class="mission-planner-settings-copy">
                 <h2>Planning Settings</h2>
-                <p class="muted">Passes below the configured maximum elevation are excluded before they reach the Mission Queue.</p>
+                <p class="muted">Passes below the configured minimum elevation are excluded before they reach the Mission Queue.</p>
             </div>
             <form id="mission-planner-settings-form" class="mission-planner-settings-form">
                 <label>Minimum elevation
@@ -658,44 +658,10 @@
             </form>
         </section>
 
-        <section class="card voice-mission-card" aria-labelledby="voice-mission-title">
-            <div class="voice-mission-heading">
-                <div>
-                    <span class="mission-type-badge is-voice">VOICE</span>
-                    <h2 id="voice-mission-title">🎙 ISS Voice Mission</h2>
-                    <p class="muted">Read-only mission timeline. Automatic receiver handover and audio remain disabled in v0.29.0a.</p>
-                </div>
-                <span id="voice-mission-state" class="voice-mission-state">LOADING</span>
-            </div>
-            <div id="voice-mission-empty" class="voice-mission-empty">Loading next ISS Voice passage...</div>
-            <div id="voice-mission-content" class="voice-mission-content hidden">
-                <div class="voice-mission-meta">
-                    <div><span>Target</span><strong id="voice-mission-target">-</strong></div>
-                    <div><span>Frequency</span><strong id="voice-mission-frequency">-</strong></div>
-                    <div><span>Van (AOS)</span><strong id="voice-mission-aos">-</strong></div>
-                    <div><span>Tot (LOS)</span><strong id="voice-mission-los">-</strong></div>
-                    <div><span>Duur</span><strong id="voice-mission-duration">-</strong></div>
-                    <div><span>Max elevatie</span><strong id="voice-mission-elevation">-</strong></div>
-                    <div><span>Receiver</span><strong id="voice-mission-receiver">-</strong></div>
-                    <div><span>Countdown / resterend</span><strong id="voice-mission-countdown">-</strong></div>
-                </div>
-                <div class="pass-timeline" aria-label="ISS pass timeline">
-                    <div class="pass-timeline-track">
-                        <span class="pass-timeline-progress" id="voice-mission-progress"></span>
-                        <span class="pass-timeline-maximum" id="voice-mission-maximum-marker" title="Maximum elevation"></span>
-                        <span class="pass-timeline-now" id="voice-mission-now-marker" title="Current position"></span>
-                    </div>
-                    <div class="pass-timeline-labels">
-                        <span><b>AOS</b><small id="voice-mission-aos-time">-</small></span>
-                        <span><b>MAX</b><small id="voice-mission-max-time">-</small></span>
-                        <span><b>LOS</b><small id="voice-mission-los-time">-</small></span>
-                    </div>
-                </div>
-                <p id="voice-mission-detail" class="muted voice-mission-detail">-</p>
-            </div>
-        </section>
-
         <section class="card mission-planner-table-card">
+            <div class="mission-planner-section-heading">
+                <div><h2>Executable Mission Queue</h2><p class="muted">Only passes that meet the current minimum elevation are shown.</p></div>
+            </div>
             <div class="mission-planner-table-wrap">
                 <table class="mission-planner-table">
                     <thead><tr>
@@ -712,6 +678,25 @@
                 <p class="muted">Live refresh every 15 seconds</p>
             </div>
         </section>
+
+        <section class="card voice-recording-planner" aria-labelledby="voice-recording-title">
+            <div class="voice-recording-heading">
+                <div>
+                    <span class="mission-type-badge is-voice">VOICE</span>
+                    <h2 id="voice-recording-title">🎙 ISS Voice Recording Planner</h2>
+                    <p class="muted">Select which eligible ISS pass to record. Audio recording is always enabled; live monitoring is optional.</p>
+                </div>
+                <span class="voice-recording-mode">RECORDING FIRST</span>
+            </div>
+            <div id="voice-recording-list" class="voice-recording-list">
+                <div class="mission-planner-empty">Loading eligible ISS passes...</div>
+            </div>
+            <div class="voice-recording-footer">
+                <p id="voice-recording-message" class="muted">Loading Voice planning...</p>
+                <p class="muted">Automatic execution remains disabled in this correction release.</p>
+            </div>
+        </section>
+
     </div>
 </section>
 
