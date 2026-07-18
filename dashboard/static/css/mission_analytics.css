@@ -1,4 +1,4 @@
-/* v0.25.1 - Mission Analytics Dashboard */
+/* v0.25.2 - Mission Analytics Trends */
 .mission-analytics-layout {
     display: grid;
     gap: 14px;
@@ -228,4 +228,135 @@
     .mission-analytics-performance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .mission-analytics-breakdown-row { grid-template-columns: 1fr 50px; }
     .mission-analytics-breakdown-row .mission-analytics-bar { grid-column: 1 / -1; grid-row: 2; }
+}
+
+
+/* v0.25.2 - compact mission trend visualisations */
+.mission-analytics-trends {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+
+.mission-analytics-trend-list,
+.mission-analytics-timeline {
+    display: grid;
+    gap: 9px;
+}
+
+.mission-analytics-trend-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+    padding: 10px;
+    border: 1px solid #334155;
+    border-radius: 9px;
+    background: #0f172a;
+}
+
+.mission-analytics-trend-label {
+    min-width: 0;
+}
+
+.mission-analytics-trend-label strong,
+.mission-analytics-trend-label span {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.mission-analytics-trend-label strong {
+    color: #e2e8f0;
+    font-size: .82rem;
+}
+
+.mission-analytics-trend-label span {
+    margin-top: 3px;
+    color: #94a3b8;
+    font-size: .7rem;
+}
+
+.mission-analytics-trend-value {
+    color: #cbd5e1;
+    font-weight: 700;
+    font-size: .82rem;
+    text-align: right;
+}
+
+.mission-analytics-trend-bar {
+    grid-column: 1 / -1;
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #162237;
+}
+
+.mission-analytics-trend-bar span {
+    display: block;
+    height: 100%;
+    min-width: 2px;
+    border-radius: inherit;
+    background: #38bdf8;
+}
+
+.mission-analytics-timeline-row {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid #334155;
+    border-radius: 9px;
+    background: #0f172a;
+}
+
+.mission-analytics-timeline-row > div {
+    min-width: 0;
+}
+
+.mission-analytics-timeline-row strong,
+.mission-analytics-timeline-row span {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.mission-analytics-timeline-row strong {
+    color: #e2e8f0;
+    font-size: .82rem;
+}
+
+.mission-analytics-timeline-row div span {
+    margin-top: 3px;
+    color: #94a3b8;
+    font-size: .7rem;
+}
+
+.mission-analytics-timeline-row b {
+    font-size: .72rem;
+    text-align: right;
+}
+
+.mission-analytics-timeline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #64748b;
+    box-shadow: 0 0 0 3px rgba(100, 116, 139, .14);
+}
+
+.mission-analytics-timeline-dot.good { background: #4ade80; box-shadow: 0 0 0 3px rgba(74, 222, 128, .14); }
+.mission-analytics-timeline-dot.warn { background: #fbbf24; box-shadow: 0 0 0 3px rgba(251, 191, 36, .14); }
+.mission-analytics-timeline-dot.bad { background: #fb7185; box-shadow: 0 0 0 3px rgba(251, 113, 133, .14); }
+.mission-analytics-timeline-row b.good { color: #4ade80; }
+.mission-analytics-timeline-row b.warn { color: #fbbf24; }
+.mission-analytics-timeline-row b.bad { color: #fb7185; }
+
+.mission-analytics-trend-coverage {
+    margin: 0;
+    text-align: right;
+    font-size: .76rem;
+}
+
+@media (max-width: 1200px) {
+    .mission-analytics-trends { grid-template-columns: 1fr; }
 }

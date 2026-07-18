@@ -115,6 +115,88 @@ function renderBreakdown(id, values, total) {
         }).join("");
 }
 
+
+function missionLabel(mission) {
+    const timestamp = mission?.started_at || mission?.created_at || "";
+    const date = timestamp ? new Date(timestamp.replace(" ", "T")) : null;
+    const dateLabel = date && !Number.isNaN(date.getTime())
+        ? date.toLocaleDateString(undefined, {month: "short", day: "numeric"})
+        : "Unknown date";
+    return `${dateLabel} · ${mission?.satellite || "Unknown satellite"}`;
+}
+
+function resultClass(result) {
+    const normalized = String(result || "OTHER").toUpperCase();
+    if (normalized === "SUCCESS") return "good";
+    if (["NO SYNC", "NO SIGNAL", "NO IMAGES"].includes(normalized)) return "warn";
+    return "bad";
+}
+
+function renderMetricTrend(id, missions, field, formatter) {
+    const container = document.getElementById(id);
+    if (!container) return;
+    const rows = (Array.isArray(missions) ? missions : [])
+        .map(mission => ({mission, value: Number(mission?.[field])}))
+        .filter(row => Number.isFinite(row.value))
+        .slice()
+        .reverse();
+
+    if (rows.length === 0) {
+        container.innerHTML = '<div class="mission-analytics-empty">No trend data available.</div>';
+        return;
+    }
+
+    const maximum = Math.max(...rows.map(row => row.value), 1);
+    container.innerHTML = rows.map(({mission, value}) => {
+        const width = Math.max(2, Math.min(100, value / maximum * 100));
+        return `
+            <div class="mission-analytics-trend-row">
+                <div class="mission-analytics-trend-label">
+                    <strong>${escapeHtml(missionLabel(mission))}</strong>
+                    <span>${escapeHtml(mission?.receiver || "Unknown receiver")}</span>
+                </div>
+                <div class="mission-analytics-trend-value">${formatter(value)}</div>
+                <div class="mission-analytics-trend-bar"><span style="width:${width.toFixed(1)}%"></span></div>
+            </div>`;
+    }).join("");
+}
+
+function renderOutcomeTimeline(id, missions) {
+    const container = document.getElementById(id);
+    if (!container) return;
+    const rows = (Array.isArray(missions) ? missions : []).slice().reverse();
+    if (rows.length === 0) {
+        container.innerHTML = '<div class="mission-analytics-empty">No mission results available.</div>';
+        return;
+    }
+
+    container.innerHTML = rows.map(mission => {
+        const result = String(mission?.result || mission?.status || "OTHER").toUpperCase();
+        return `
+            <div class="mission-analytics-timeline-row">
+                <span class="mission-analytics-timeline-dot ${resultClass(result)}" aria-hidden="true"></span>
+                <div>
+                    <strong>${escapeHtml(missionLabel(mission))}</strong>
+                    <span>${escapeHtml(mission?.receiver || "Unknown receiver")}</span>
+                </div>
+                <b class="${resultClass(result)}">${escapeHtml(result)}</b>
+            </div>`;
+    }).join("");
+}
+
+function renderTrends(missions) {
+    const rows = Array.isArray(missions) ? missions : [];
+    renderMetricTrend("analytics-snr-trend", rows, "peak_snr_db", db);
+    renderMetricTrend("analytics-images-trend", rows, "image_count", value => number(value));
+    renderOutcomeTimeline("analytics-outcome-timeline", rows);
+
+    const ratedElevation = rows.filter(mission => Number.isFinite(Number(mission?.max_elevation))).length;
+    setText(
+        "analytics-trend-coverage",
+        `Showing ${number(rows.length)} missions · elevation available for ${number(ratedElevation)}`,
+    );
+}
+
 function render(stats) {
     setText("analytics-total", number(stats.total || 0));
     setText("analytics-completed", `${number(stats.completed || 0)} completed`);
@@ -149,6 +231,7 @@ async function refreshAnalytics() {
         const stats = payload.statistics || {};
         if (stats.schema_version !== 2) throw new Error("Analytics schema 2 is not available");
         render(stats);
+        renderTrends(payload.missions || []);
         setText("mission-analytics-updated", `Updated ${new Date().toLocaleTimeString()}`);
         setText("mission-analytics-message", `Analytics based on ${number(stats.total || 0)} stored missions.`);
     } catch (error) {

@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.24.0">
-    <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.25.1">
+    <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.25.2">
 </head>
 <body>
 <header class="topbar">
@@ -712,6 +712,37 @@
                 </div>
             </section>
         </div>
+
+        <div class="mission-analytics-trends">
+            <section class="card mission-analytics-panel">
+                <div class="mission-analytics-panel-heading">
+                    <div><h2>Peak SNR Trend</h2><p class="muted">Peak signal-to-noise ratio per stored mission.</p></div>
+                </div>
+                <div id="analytics-snr-trend" class="mission-analytics-trend-list">
+                    <div class="mission-analytics-empty">Loading SNR trend...</div>
+                </div>
+            </section>
+
+            <section class="card mission-analytics-panel">
+                <div class="mission-analytics-panel-heading">
+                    <div><h2>Images per Mission</h2><p class="muted">Decoded image output per stored mission.</p></div>
+                </div>
+                <div id="analytics-images-trend" class="mission-analytics-trend-list">
+                    <div class="mission-analytics-empty">Loading image trend...</div>
+                </div>
+            </section>
+
+            <section class="card mission-analytics-panel">
+                <div class="mission-analytics-panel-heading">
+                    <div><h2>Mission Outcome Timeline</h2><p class="muted">Chronological mission result overview.</p></div>
+                </div>
+                <div id="analytics-outcome-timeline" class="mission-analytics-timeline">
+                    <div class="mission-analytics-empty">Loading mission timeline...</div>
+                </div>
+            </section>
+        </div>
+
+        <p id="analytics-trend-coverage" class="mission-analytics-trend-coverage muted">Trend coverage not loaded.</p>
 
         <div class="mission-analytics-grid mission-analytics-grid-secondary">
             <section class="card mission-analytics-panel">
