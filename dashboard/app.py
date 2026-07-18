@@ -33,6 +33,7 @@ from core import mission_result
 from core import mission_preflight
 from core import mission_scheduler as mission_scheduler_core
 from core import mission_queue as mission_queue_core
+from core import voice_mission as voice_mission_core
 from core import process_manager
 from core import profiles
 from core import satdump as satdump_core
@@ -2059,6 +2060,16 @@ def api_mission_queue():
         return jsonify({"ok": False, "error": str(error)}), 400
     except Exception as error:
         return jsonify({"ok": False, "error": str(error), "queue": []}), 500
+
+
+@app.route("/api/voice-mission")
+def api_voice_mission():
+    """Read-only VOICE mission state and pass timeline."""
+    try:
+        hours = max(1, min(int(request.args.get("hours", 48)), 168))
+        return jsonify(voice_mission_core.get_status(hours_ahead=hours))
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @app.route("/api/mission-history")

@@ -650,6 +650,43 @@
             </form>
         </section>
 
+        <section class="card voice-mission-card" aria-labelledby="voice-mission-title">
+            <div class="voice-mission-heading">
+                <div>
+                    <span class="mission-type-badge is-voice">VOICE</span>
+                    <h2 id="voice-mission-title">🎙 ISS Voice Mission</h2>
+                    <p class="muted">Read-only mission timeline. Automatic receiver handover and audio remain disabled in v0.29.0a.</p>
+                </div>
+                <span id="voice-mission-state" class="voice-mission-state">LOADING</span>
+            </div>
+            <div id="voice-mission-empty" class="voice-mission-empty">Loading next ISS Voice passage...</div>
+            <div id="voice-mission-content" class="voice-mission-content hidden">
+                <div class="voice-mission-meta">
+                    <div><span>Target</span><strong id="voice-mission-target">-</strong></div>
+                    <div><span>Frequency</span><strong id="voice-mission-frequency">-</strong></div>
+                    <div><span>Van (AOS)</span><strong id="voice-mission-aos">-</strong></div>
+                    <div><span>Tot (LOS)</span><strong id="voice-mission-los">-</strong></div>
+                    <div><span>Duur</span><strong id="voice-mission-duration">-</strong></div>
+                    <div><span>Max elevatie</span><strong id="voice-mission-elevation">-</strong></div>
+                    <div><span>Receiver</span><strong id="voice-mission-receiver">-</strong></div>
+                    <div><span>Countdown / resterend</span><strong id="voice-mission-countdown">-</strong></div>
+                </div>
+                <div class="pass-timeline" aria-label="ISS pass timeline">
+                    <div class="pass-timeline-track">
+                        <span class="pass-timeline-progress" id="voice-mission-progress"></span>
+                        <span class="pass-timeline-maximum" id="voice-mission-maximum-marker" title="Maximum elevation"></span>
+                        <span class="pass-timeline-now" id="voice-mission-now-marker" title="Current position"></span>
+                    </div>
+                    <div class="pass-timeline-labels">
+                        <span><b>AOS</b><small id="voice-mission-aos-time">-</small></span>
+                        <span><b>MAX</b><small id="voice-mission-max-time">-</small></span>
+                        <span><b>LOS</b><small id="voice-mission-los-time">-</small></span>
+                    </div>
+                </div>
+                <p id="voice-mission-detail" class="muted voice-mission-detail">-</p>
+            </div>
+        </section>
+
         <section class="card mission-planner-table-card">
             <div class="mission-planner-table-wrap">
                 <table class="mission-planner-table">
@@ -928,6 +965,6 @@
 <script src="/static/js/mission_sounds.js?v=0.27.0"></script>
 <script src="/static/js/mission_briefing.js?v=0.27.0"></script>
 <script src="/static/js/radio_view.js?v=0.28.0c"></script>
-<script src="/static/js/mission_planner.js?v=0.28.0c"></script>
+<script src="/static/js/mission_planner.js?v=0.29.0a"></script>
 </body>
 </html>

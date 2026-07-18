@@ -60,3 +60,30 @@
 .mission-type-badge.is-voice { border-color: rgba(192,132,252,.6); }
 .mission-type-badge.is-weather { border-color: rgba(56,189,248,.55); }
 .mission-planner-state.is-planned { border-color: rgba(192,132,252,.55); }
+
+/* v0.29.0a - Voice Mission observer and generic pass timeline */
+.voice-mission-card { display: grid; gap: 18px; }
+.voice-mission-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.voice-mission-heading h2 { margin: 8px 0 4px; }
+.voice-mission-state { display: inline-flex; padding: 7px 11px; border: 1px solid rgba(192,132,252,.55); border-radius: 999px; font-size: .72rem; font-weight: 800; letter-spacing: .05em; white-space: nowrap; }
+.voice-mission-empty { padding: 18px; border: 1px dashed rgba(255,255,255,.16); border-radius: 10px; opacity: .72; }
+.voice-mission-content { display: grid; gap: 18px; }
+.voice-mission-content.hidden, .voice-mission-empty.hidden { display: none; }
+.voice-mission-meta { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 12px; }
+.voice-mission-meta > div { padding: 12px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(255,255,255,.025); }
+.voice-mission-meta span { display: block; opacity: .66; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+.voice-mission-meta strong { display: block; margin-top: 5px; font-size: .98rem; }
+.pass-timeline { padding: 8px 4px 0; }
+.pass-timeline-track { position: relative; height: 10px; border-radius: 999px; background: rgba(255,255,255,.09); overflow: visible; }
+.pass-timeline-progress { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: linear-gradient(90deg, rgba(192,132,252,.55), rgba(56,189,248,.72)); transition: width .4s ease; }
+.pass-timeline-now, .pass-timeline-maximum { position: absolute; top: 50%; width: 2px; transform: translate(-50%, -50%); }
+.pass-timeline-now { height: 24px; background: currentColor; box-shadow: 0 0 0 3px rgba(255,255,255,.12); }
+.pass-timeline-maximum { height: 18px; background: rgba(255,187,92,.95); }
+.pass-timeline-labels { display: grid; grid-template-columns: 1fr 1fr 1fr; margin-top: 13px; }
+.pass-timeline-labels span { display: grid; gap: 2px; }
+.pass-timeline-labels span:nth-child(2) { text-align: center; }
+.pass-timeline-labels span:last-child { text-align: right; }
+.pass-timeline-labels b { font-size: .72rem; letter-spacing: .06em; }
+.pass-timeline-labels small { opacity: .7; }
+.voice-mission-detail { margin: 0; }
+@media (max-width: 900px) { .voice-mission-meta { grid-template-columns: repeat(2, 1fr); } .voice-mission-heading { flex-direction: column; } }

@@ -124,3 +124,90 @@
     loadPlanner();
     state.timer = window.setInterval(loadPlanner, 15000);
 })();
+
+/* v0.29.0a - read-only Voice Mission observer and pass timeline */
+(() => {
+    const byId = (id) => document.getElementById(id);
+
+    function localTime(value) {
+        if (!value) return "-";
+        const time = String(value).split(" ")[1] || String(value);
+        return time.slice(0, 8);
+    }
+
+    function formatSeconds(seconds, prefix = "") {
+        const total = Math.max(0, Math.round(Math.abs(Number(seconds) || 0)));
+        const minutes = Math.floor(total / 60);
+        const remainder = total % 60;
+        return `${prefix}${minutes}m ${String(remainder).padStart(2, "0")}s`;
+    }
+
+    function setVoiceValue(id, value) {
+        const node = byId(id);
+        if (node) node.textContent = value ?? "-";
+    }
+
+    function renderVoiceMission(payload) {
+        const mission = payload?.mission;
+        const empty = byId("voice-mission-empty");
+        const content = byId("voice-mission-content");
+        const stateNode = byId("voice-mission-state");
+        if (!empty || !content || !stateNode) return;
+        if (!mission) {
+            empty.textContent = "No ISS Voice passage found in the planning window.";
+            empty.classList.remove("hidden");
+            content.classList.add("hidden");
+            stateNode.textContent = "NO PASS";
+            stateNode.dataset.state = "empty";
+            return;
+        }
+
+        empty.classList.add("hidden");
+        content.classList.remove("hidden");
+        stateNode.textContent = String(mission.state || "PLANNED").replaceAll("_", " ");
+        stateNode.dataset.state = String(mission.state || "planned").toLowerCase();
+        setVoiceValue("voice-mission-target", mission.target || "ISS");
+        setVoiceValue("voice-mission-frequency", Number.isFinite(Number(mission.frequency_mhz)) ? `${Number(mission.frequency_mhz).toFixed(3)} MHz` : "-");
+        setVoiceValue("voice-mission-aos", mission.aos || "-");
+        setVoiceValue("voice-mission-los", mission.los || "-");
+        setVoiceValue("voice-mission-duration", mission.duration_label || "-");
+        setVoiceValue("voice-mission-elevation", Number.isFinite(Number(mission.max_elevation)) ? `${Number(mission.max_elevation).toFixed(1)}°` : "-");
+        setVoiceValue("voice-mission-receiver", mission.receiver || "NOT ASSIGNED");
+        const countdown = Number(mission.seconds_until_aos) > 0
+            ? formatSeconds(mission.seconds_until_aos, "T-")
+            : formatSeconds(mission.seconds_remaining, "");
+        setVoiceValue("voice-mission-countdown", countdown);
+        setVoiceValue("voice-mission-aos-time", localTime(mission.aos));
+        setVoiceValue("voice-mission-max-time", localTime(mission.maximum));
+        setVoiceValue("voice-mission-los-time", localTime(mission.los));
+        setVoiceValue("voice-mission-detail", mission.detail || "-");
+
+        const progress = Math.max(0, Math.min(100, Number(mission.progress_percent) || 0));
+        const maximum = Math.max(0, Math.min(100, Number(mission.maximum_position_percent) || 50));
+        const progressNode = byId("voice-mission-progress");
+        const nowNode = byId("voice-mission-now-marker");
+        const maximumNode = byId("voice-mission-maximum-marker");
+        if (progressNode) progressNode.style.width = `${progress}%`;
+        if (nowNode) nowNode.style.left = `${progress}%`;
+        if (maximumNode) maximumNode.style.left = `${maximum}%`;
+    }
+
+    async function loadVoiceMission() {
+        try {
+            const response = await fetch("/api/voice-mission?hours=48", {cache: "no-store"});
+            const payload = await response.json();
+            if (!response.ok || payload.ok === false) throw new Error(payload.error || "Voice mission unavailable");
+            renderVoiceMission(payload);
+        } catch (error) {
+            const empty = byId("voice-mission-empty");
+            const content = byId("voice-mission-content");
+            const state = byId("voice-mission-state");
+            if (empty) { empty.textContent = `Voice Mission unavailable: ${error.message}`; empty.classList.remove("hidden"); }
+            if (content) content.classList.add("hidden");
+            if (state) state.textContent = "ERROR";
+        }
+    }
+
+    loadVoiceMission();
+    window.setInterval(loadVoiceMission, 5000);
+})();
