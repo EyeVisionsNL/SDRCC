@@ -233,6 +233,53 @@ def set_service_group_snapshot(
         _save_state(state)
     return get_status()
 
+
+
+def mark_handover_stopped(
+    *,
+    mission_key: str,
+    handover_result: dict[str, Any],
+) -> dict[str, Any]:
+    key = str(mission_key or "").strip()
+    with _LOCK:
+        state = _load_state()
+        reservation = state.get("reservation")
+        if reservation is None or reservation.get("mission_key") != key:
+            raise RuntimeError("Geen passende receiver-reservering gevonden")
+        reservation["handover_mode"] = "LIVE"
+        reservation["handover_status"] = "STOPPED"
+        reservation["handover_result"] = deepcopy(handover_result)
+        reservation["service_stopped"] = True
+        reservation["service_stopped_at"] = _now()
+        reservation["requires_attention"] = False
+        state["reservation"] = reservation
+        _save_state(state)
+    return get_status()
+
+
+def mark_handover_attention(
+    *,
+    mission_key: str,
+    detail: str,
+    handover_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    key = str(mission_key or "").strip()
+    with _LOCK:
+        state = _load_state()
+        reservation = state.get("reservation")
+        if reservation is None or reservation.get("mission_key") != key:
+            raise RuntimeError("Geen passende receiver-reservering gevonden")
+        reservation["status"] = "REQUIRES_ATTENTION"
+        reservation["handover_status"] = "REQUIRES_ATTENTION"
+        reservation["requires_attention"] = True
+        reservation["attention_detail"] = str(detail)
+        reservation["attention_at"] = _now()
+        if handover_result is not None:
+            reservation["handover_result"] = deepcopy(handover_result)
+        state["reservation"] = reservation
+        _save_state(state)
+    return get_status()
+
 def mark_service_stopped(*, mission_key: str) -> dict[str, Any]:
     key = str(mission_key or "").strip()
     with _LOCK:
@@ -292,6 +339,10 @@ def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") 
             return get_status()
         if mission_key and reservation.get("mission_key") != mission_key:
             raise RuntimeError("Receiver-reservering hoort bij een andere missie")
+        if reservation.get("requires_attention"):
+            raise RuntimeError("Receiver vereist handmatige controle voordat deze kan worden vrijgegeven")
+        if reservation.get("restore_required") and reservation.get("restore_status") != "RESTORED":
+            raise RuntimeError("Receiver kan niet worden vrijgegeven voordat serviceherstel is bevestigd")
         released = deepcopy(reservation)
         released["released_at"] = _now()
         released["release_detail"] = str(detail)
