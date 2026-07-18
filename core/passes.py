@@ -15,14 +15,18 @@ from zoneinfo import ZoneInfo
 
 from skyfield.api import EarthSatellite, load, wgs84
 
-from core.config import get_enabled_satellites, load_station
+from core.config import get_enabled_satellites, load_station, load_yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TLE_FILE = PROJECT_ROOT / "data" / "tle" / "weather.tle"
+ISS_TLE_FILE = PROJECT_ROOT / "data" / "tle" / "iss.tle"
+VOICE_TARGETS_CONFIG = PROJECT_ROOT / "config" / "voice_targets.yaml"
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 
 WEATHER_MISSION_TYPE = "WEATHER"
 WEATHER_TARGET_GROUP = "weather"
+VOICE_MISSION_TYPE = "VOICE"
+VOICE_TARGET_GROUP = "voice"
 
 
 def _load_station_location():
@@ -168,6 +172,46 @@ def get_weather_passes(hours_ahead: float = 48) -> list[dict[str, Any]]:
         hours_ahead=hours_ahead,
         mission_type=WEATHER_MISSION_TYPE,
         target_group=WEATHER_TARGET_GROUP,
+    )
+
+
+def get_enabled_voice_targets() -> dict[str, dict[str, Any]]:
+    """Return enabled voice targets from config/voice_targets.yaml."""
+    if not VOICE_TARGETS_CONFIG.exists():
+        return {}
+
+    data = load_yaml(VOICE_TARGETS_CONFIG) or {}
+    targets = data.get("voice_targets", {})
+    if not isinstance(targets, Mapping):
+        return {}
+
+    return {
+        str(name): dict(config)
+        for name, config in targets.items()
+        if isinstance(config, Mapping) and bool(config.get("enabled", False))
+    }
+
+
+def get_iss_passes(hours_ahead: float = 48) -> list[dict[str, Any]]:
+    """Return configured ISS Voice passes without adding them to automation."""
+    return get_target_passes(
+        get_enabled_voice_targets(),
+        tle_file=ISS_TLE_FILE,
+        hours_ahead=hours_ahead,
+        mission_type=VOICE_MISSION_TYPE,
+        target_group=VOICE_TARGET_GROUP,
+    )
+
+
+def get_plannable_passes(hours_ahead: float = 48) -> list[dict[str, Any]]:
+    """Return WEATHER and VOICE passes for future planner/UI integration.
+
+    Existing automation deliberately continues to call ``get_passes()``, which
+    remains WEATHER-only until receiver reservation and voice execution exist.
+    """
+    return merge_pass_sources(
+        get_weather_passes(hours_ahead),
+        get_iss_passes(hours_ahead),
     )
 
 

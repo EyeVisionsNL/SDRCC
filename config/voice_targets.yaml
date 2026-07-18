@@ -1,0 +1,11 @@
+voice_targets:
+  ISS (ZARYA):
+    enabled: true
+    norad_id: 25544
+    frequency: 145800000
+    mode: FM VOICE
+    pipeline: iss_voice
+    decoder: rtl_fm
+    sample_rate: 240000
+    min_elevation: 10.0
+    priority: 2
