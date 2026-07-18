@@ -102,3 +102,39 @@ def print_devices():
     print("Selected weather receiver")
     print("-----------------------------")
     print(f"{weather['name']} / {weather['serial']}" if weather else "Niet ingesteld")
+
+
+def get_conflicting_service_group(device_id):
+    """Return the ordered systemd service group conflicting with a receiver.
+
+    Stop order and restore order are explicit. AIS control is stopped before
+    AIS-catcher so the controller cannot interfere during a handover. Restore
+    happens in reverse dependency order: AIS-catcher first, control second.
+    """
+    assignments = get_receiver_assignments()
+    if assignments.get("ais") == device_id:
+        return {
+            "role": "ais",
+            "name": "AIS",
+            "stop_order": [
+                "ais-catcher-control.service",
+                "ais-catcher.service",
+            ],
+            "restore_order": [
+                "ais-catcher.service",
+                "ais-catcher-control.service",
+            ],
+        }
+    if assignments.get("adsb") == device_id:
+        return {
+            "role": "adsb",
+            "name": "ADS-B",
+            "stop_order": ["readsb.service"],
+            "restore_order": ["readsb.service"],
+        }
+    return {
+        "role": "manual",
+        "name": "NONE",
+        "stop_order": [],
+        "restore_order": [],
+    }
