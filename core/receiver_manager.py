@@ -193,6 +193,46 @@ def set_service_snapshot(
     return get_status()
 
 
+
+def set_service_group_snapshot(
+    *,
+    mission_key: str,
+    service_group: dict[str, Any],
+    service_snapshot: dict[str, Any],
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Store a complete service-group inspection for a reserved receiver.
+
+    This records observed state and the intended handover plan. It performs no
+    systemd changes. The existing single-service fields remain populated for
+    backwards compatibility with v0.28.0d.
+    """
+    key = str(mission_key or "").strip()
+    if not key:
+        raise ValueError("mission_key ontbreekt")
+    group = deepcopy(service_group or {})
+    snapshot = deepcopy(service_snapshot or {})
+    services = snapshot.get("services", {})
+    any_active = any(bool(item.get("was_active")) for item in services.values())
+
+    with _LOCK:
+        state = _load_state()
+        reservation = state.get("reservation")
+        if reservation is None or reservation.get("mission_key") != key:
+            raise RuntimeError("Geen passende receiver-reservering gevonden")
+        reservation["service_group"] = group
+        reservation["service_snapshot"] = snapshot
+        reservation["handover_mode"] = "DRY_RUN" if dry_run else "LIVE"
+        reservation["handover_status"] = "INSPECTED"
+        reservation["handover_inspected_at"] = _now()
+        reservation["service_was_active"] = any_active
+        reservation["service_stopped"] = False
+        reservation["restore_required"] = any_active
+        reservation["restore_status"] = "PENDING" if any_active else "NOT_REQUIRED"
+        state["reservation"] = reservation
+        _save_state(state)
+    return get_status()
+
 def mark_service_stopped(*, mission_key: str) -> dict[str, Any]:
     key = str(mission_key or "").strip()
     with _LOCK:
