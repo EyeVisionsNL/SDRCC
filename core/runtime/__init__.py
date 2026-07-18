@@ -1,8 +1,4 @@
-"""SDRCC Runtime v2 foundation.
-
-This package is deliberately isolated from existing mission execution during
-v0.30.1b. Import ``get_snapshot`` to inspect configured receiver runtimes.
-"""
+"""SDRCC Runtime v2 context foundation."""
 
 from .health import ReceiverHealth
 from .receiver_runtime import ReceiverRuntime

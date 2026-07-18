@@ -1,4 +1,4 @@
-"""Generic multi-receiver Runtime Manager with a read-only v1 reservation bridge."""
+"""Generic multi-receiver manager with Runtime Context Foundation."""
 
 from __future__ import annotations
 
@@ -27,8 +27,25 @@ def _normalise_capabilities(value: Any) -> tuple[str, ...]:
     return result or _DEFAULT_CAPABILITIES
 
 
+def _receiver_number(receiver_id: str) -> str:
+    suffix = receiver_id[3:] if receiver_id.lower().startswith("sdr") else receiver_id
+    return f"SDR{suffix}"
+
+
+def _configured_roles(station: dict[str, Any]) -> dict[str, str]:
+    assignments = station.get("assignments")
+    if not isinstance(assignments, dict):
+        return {}
+    result: dict[str, str] = {}
+    for role, receiver_id in assignments.items():
+        key = str(receiver_id).strip().lower()
+        if key and key not in result:
+            result[key] = str(role).strip().lower()
+    return result
+
+
 class RuntimeManager:
-    """Own generic runtime snapshots while v1 remains authoritative."""
+    """Own receiver contexts while receiver_manager v1 remains authoritative."""
 
     def __init__(self) -> None:
         self._lock = RLock()
@@ -44,6 +61,7 @@ class RuntimeManager:
             for receiver_id, receiver_config in station.items()
             if _RECEIVER_ID.fullmatch(str(receiver_id)) and isinstance(receiver_config, dict)
         }
+        roles = _configured_roles(station)
         with self._lock:
             for receiver_id in sorted(configured):
                 receiver_config = configured[receiver_id]
@@ -57,10 +75,18 @@ class RuntimeManager:
                         receiver_id=receiver_id,
                         name=name,
                         serial=serial,
+                        number=_receiver_number(receiver_id),
                         capabilities=capabilities,
+                        roles={"current": roles.get(receiver_id), "previous": None, "requested": None},
                     )
                 else:
-                    runtime.update_configuration(name=name, serial=serial, capabilities=capabilities)
+                    runtime.update_configuration(
+                        name=name,
+                        serial=serial,
+                        number=_receiver_number(receiver_id),
+                        capabilities=capabilities,
+                        current_role=roles.get(receiver_id),
+                    )
 
             for receiver_id in set(self._receivers) - set(configured):
                 runtime = self._receivers[receiver_id]
@@ -84,7 +110,7 @@ class RuntimeManager:
                         deepcopy(reservation) if current_id == receiver_id else None
                     )
             self._bridge_error = None
-        except Exception as error:  # observer failure must never break SDRCC
+        except Exception as error:
             self._bridge_error = str(error)
 
     def get(self, receiver_id: str) -> ReceiverRuntime:
@@ -106,8 +132,9 @@ class RuntimeManager:
             }
         return {
             "ok": True,
-            "version": "v0.30.1c",
-            "architecture": "runtime-v2-reservation-bridge",
+            "version": "v0.30.2",
+            "architecture": "runtime-v2-context-foundation",
+            "context_version": "1.0",
             "mode": "parallel-observer",
             "authority": "receiver-manager-v1",
             "bridge": {
@@ -122,8 +149,9 @@ class RuntimeManager:
             "updated_at": _utc_now(),
             "notes": [
                 "Existing mission execution and reservation ownership remain authoritative.",
-                "Runtime v2 mirrors live reservation and active-mission metadata.",
-                "Hardware health probing is not active yet.",
+                "Runtime Context groups identity, lifecycle, roles, hardware, metrics, scheduler and metadata.",
+                "Existing receiver API fields remain available for backwards compatibility.",
+                "Hardware health probing and subsystem writers are not active yet.",
             ],
         }
 
