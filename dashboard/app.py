@@ -22,6 +22,7 @@ from core import passes
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_monitor
+from core.runtime import runtime_manager as runtime_manager_core
 from core import state
 from core import tle
 from core import system_stats
@@ -1933,6 +1934,22 @@ def api_mission_operations():
             "error": str(error),
         }), 500
 
+
+
+
+
+@app.route("/api/runtime")
+def api_runtime():
+    """Return the parallel Runtime v2 receiver snapshot."""
+    try:
+        return jsonify(runtime_manager_core.get_snapshot())
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "version": "v0.30.1b",
+            "error": str(error),
+            "receivers": {},
+        }), 500
 
 
 @app.route("/api/receiver-monitor")
