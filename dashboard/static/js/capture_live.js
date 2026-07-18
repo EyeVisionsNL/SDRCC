@@ -6,7 +6,7 @@ async function fetchCaptureStatus() {
     });
 
     if (!response.ok) {
-        throw new Error("Capture status API fout");
+        throw new Error("Capture status API error");
     }
 
     return await response.json();

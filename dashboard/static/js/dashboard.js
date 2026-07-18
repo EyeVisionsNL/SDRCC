@@ -40,10 +40,10 @@ async function refreshDashboard() {
         const tleStatus = document.getElementById("tle-status");
         if (tleStatus) {
             if (data.tle_present) {
-                tleStatus.innerText = "aanwezig";
+                tleStatus.innerText = "available";
                 tleStatus.className = "ok";
             } else {
-                tleStatus.innerText = "ontbreekt";
+                tleStatus.innerText = "missing";
                 tleStatus.className = "bad";
             }
         }

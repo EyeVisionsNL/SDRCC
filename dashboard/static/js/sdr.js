@@ -24,6 +24,6 @@ export function updateSdr(data) {
             `;
         });
     } else {
-        container.innerHTML = "Geen SDR devices gevonden.";
+        container.innerHTML = "No SDR devices found.";
     }
 }

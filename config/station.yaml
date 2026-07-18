@@ -19,10 +19,10 @@ assignments:
   adsb: sdr2
 weather_rf:
   gain_mode: manual
-  gain_db: 43.4
+  gain_db: 38.6
   dc_block: false
   iq_swap: false
   spectrum_span_hz: 1000000
   spectrum_bin_hz: 10000
 weather_planning:
-  minimum_elevation: 54.0
+  minimum_elevation: 50.0

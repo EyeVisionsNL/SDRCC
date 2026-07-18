@@ -2,17 +2,17 @@
     const CAPTURE_POLL_MS = 2000;
     const PIPELINE_STEPS = ["receiver", "recording", "decoder", "processing", "images", "archive"];
     const PIPELINE_LABELS = {
-        waiting: "WACHTEN",
+        waiting: "WAITING",
         active: "ACTIEF",
-        complete: "GEREED",
+        complete: "COMPLETE",
         error: "FOUT",
     };
     const IMAGE_STATUS_LABELS = {
-        waiting: "WACHTEN",
+        waiting: "WAITING",
         decoding: "DECODER ACTIEF",
         building: "AFBEELDING OPBOUWEN",
         writing: "AFBEELDING OPSLAAN",
-        complete: "GEREED",
+        complete: "COMPLETE",
         error: "FOUT",
     };
 
@@ -118,7 +118,7 @@
             || Number((job && job.cadu_bytes) || 0) > 0;
 
         const statuses = Object.fromEntries(PIPELINE_STEPS.map((name) => [name, "waiting"]));
-        let currentStage = "Wachten op AOS";
+        let currentStage = "Waiting for AOS";
 
         if (!hasLiveMission) return { statuses, currentStage };
 
@@ -126,7 +126,7 @@
         case "WAIT FOR PASS":
         case "READY":
         case "STANDBY":
-            currentStage = "Wachten op AOS";
+            currentStage = "Waiting for AOS";
             break;
         case "LOCK RECEIVER":
             statuses.receiver = "active";
@@ -136,13 +136,13 @@
             statuses.receiver = "complete";
             statuses.recording = "active";
             if (decoderSeen) statuses.decoder = "active";
-            currentStage = decoderSeen ? "Opnemen en live decoderen" : "Satellietsignaal opnemen";
+            currentStage = decoderSeen ? "Recording and live decoding" : "Recording satellite signal";
             break;
         case "DECODING":
             statuses.receiver = "complete";
             statuses.recording = "complete";
             statuses.decoder = "active";
-            currentStage = "Opname decoderen";
+            currentStage = "Decoding Recording";
             break;
         case "PROCESSING":
             statuses.receiver = "complete";
@@ -150,7 +150,7 @@
             statuses.decoder = "complete";
             statuses.processing = "active";
             statuses.images = images > 0 ? "complete" : "active";
-            currentStage = images > 0 ? "Afbeeldingen verwerken" : "Producten genereren";
+            currentStage = images > 0 ? "Images verwerken" : "Generating Products";
             break;
         case "ARCHIVING":
             statuses.receiver = "complete";
@@ -159,7 +159,7 @@
             statuses.processing = "complete";
             statuses.images = images > 0 ? "complete" : "waiting";
             statuses.archive = "active";
-            currentStage = "Missie-output archiveren";
+            currentStage = "Archiving Mission Output";
             break;
         default:
             currentStage = String(state).toLowerCase().replaceAll("_", " ");
@@ -172,7 +172,7 @@
             else if (!decoderSeen && images === 0) statuses.decoder = "error";
             else if (images === 0) statuses.images = "error";
             else statuses.archive = "error";
-            currentStage = result ? `Missie gestopt: ${result}` : "Pipelinefout";
+            currentStage = result ? `Mission gestopt: ${result}` : "Pipeline Error";
         }
 
         return { statuses, currentStage };
@@ -201,7 +201,7 @@
             image.classList.add("hidden");
             image.removeAttribute("src");
             empty.classList.remove("hidden");
-            empty.textContent = "Nog geen live product";
+            empty.textContent = "No live product yet";
             lastImageKey = "";
             return;
         }
@@ -249,8 +249,8 @@
 
     function updateOperationSummary(summary, receiverManager) {
         const data = summary || {};
-        const result = String(data.result || data.status || (data.active ? "ACTIVE" : "WACHTEN")).toUpperCase();
-        const detail = data.detail || (data.active ? "Missie is actief." : "Nog geen afgeronde missie.");
+        const result = String(data.result || data.status || (data.active ? "ACTIVE" : "WAITING")).toUpperCase();
+        const detail = data.detail || (data.active ? "Mission is actief." : "No completed mission yet.");
         const reservation = receiverManager && receiverManager.reservation;
         const receiverStatus = String(
             data.receiver_status
@@ -282,14 +282,14 @@
             ? "control-button danger"
             : "control-button stop-mission-inactive";
         button.title = active
-            ? "Actieve missie gecontroleerd stoppen"
-            : "Er is geen actieve missie";
+            ? "Safely stop active mission"
+            : "There is no active mission";
     }
 
     async function stopMission() {
         const button = document.getElementById("stop-mission-button");
         if (!button || button.disabled) return;
-        if (!window.confirm("Stop de huidige missie? De Scheduler wordt op MANUAL gezet.")) return;
+        if (!window.confirm("Stop the current mission? The Scheduler will be set to MANUAL.")) return;
 
         button.disabled = true;
         button.textContent = "■ STOPPEN...";
@@ -304,7 +304,7 @@
                 throw new Error(data.message || data.error || `HTTP ${response.status}`);
             }
             const result = document.getElementById("control-result");
-            if (result) result.textContent = data.message || "Missie gestopt.";
+            if (result) result.textContent = data.message || "Mission gestopt.";
         } catch (error) {
             const result = document.getElementById("control-result");
             if (result) result.textContent = `Stop Mission mislukt: ${error.message}`;
@@ -325,7 +325,7 @@
             : normalizeState(mission, activeRf);
         const progress = isActive ? calculateProgress(mission, activeRf) : 0;
 
-        const satellite = (job && job.satellite) || activeRf.satellite || (pass && pass.name) || "Geen actieve missie";
+        const satellite = (job && job.satellite) || activeRf.satellite || (pass && pass.name) || "No Active Mission";
         const mode = (job && job.mode) || (pass && pass.mode) || "-";
         const receiver = (job && job.receiver) || activeRf.receiver || "-";
         const frequencyMhz = (job && job.frequency_mhz)
@@ -388,7 +388,7 @@
         if (snapshot.error) {
             console.log("Live Mission Dashboard update mislukt:", snapshot.error);
             updateStateBadge("ERROR");
-            setText("briefing-current-stage", "Telemetrie niet beschikbaar");
+            setText("briefing-current-stage", "Telemetry not available");
             setImageStatus("error");
             updateStopMissionButton(snapshot);
             return;
@@ -430,9 +430,9 @@
     if (stopButton) stopButton.addEventListener("click", stopMission);
 
     if (!window.MissionState) {
-        console.error("MissionState is niet geladen vóór mission_briefing.js");
+        console.error("MissionState was not loaded before mission_briefing.js");
         updateStateBadge("ERROR");
-        setText("briefing-current-stage", "MissionState niet beschikbaar");
+        setText("briefing-current-stage", "MissionState not available");
         updateStopMissionButton({ active: false });
         return;
     }

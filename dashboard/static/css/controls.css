@@ -273,3 +273,23 @@
     box-shadow: none;
     cursor: not-allowed;
 }
+
+/* v0.27.1 - Mission Queue follows Next Pass in Mission Status */
+.mission-queue-in-status {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #24364d;
+}
+
+.mission-queue-in-status .mission-queue-list {
+    max-height: 390px;
+}
+
+.mission-queue-in-status .mission-queue-item {
+    padding: 6px;
+}
+
+.mission-queue-in-status .mission-queue-heading > div > span {
+    max-width: 145px;
+    line-height: 1.2;
+}

@@ -116,7 +116,7 @@ async function refreshAutomationController() {
     try {
         const response = await fetch("/api/automation-controller", {cache: "no-store"});
         const payload = await response.json();
-        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Controllerstatus niet beschikbaar");
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Controller status unavailable");
         updateAutomationController(payload);
     } catch (error) {
         setText("automation-controller-state", "ERROR");
@@ -128,7 +128,7 @@ async function sendControllerAction(action, enabled) {
     if (automationControllerBusy) return;
     automationControllerBusy = true;
     setControllerButtonsDisabled(true);
-    setControllerMessage("Actie uitvoeren...", "");
+    setControllerMessage("Running action...", "");
     try {
         const body = {action};
         if (typeof enabled === "boolean") body.enabled = enabled;
@@ -140,7 +140,7 @@ async function sendControllerAction(action, enabled) {
         const payload = await response.json();
         if (!response.ok || payload.ok === false) throw new Error(payload.error || "Controlleractie mislukt");
         updateAutomationController(payload);
-        setControllerMessage("Controllerinstelling opgeslagen.", "ok");
+        setControllerMessage("Controller setting saved.", "ok");
     } catch (error) {
         setControllerMessage(String(error), "bad");
     } finally {
@@ -168,7 +168,7 @@ function updateAutomationController(data) {
         : "T--:--:--");
     setText("automation-controller-next-action", data.next_action || "-");
     setText("automation-controller-detail", data.detail || "-");
-    setText("automation-controller-safety", data.manual_override ? "Manual Override" : data.dry_run ? "Dry Run" : data.pass_skipped ? "Pass overgeslagen" : "Normaal");
+    setText("automation-controller-safety", data.manual_override ? "Manual Override" : data.dry_run ? "Dry Run" : data.pass_skipped ? "Pass overgeslagen" : "Normal");
 
     const dryRun = document.getElementById("automation-dry-run");
     const override = document.getElementById("automation-manual-override");
@@ -205,7 +205,7 @@ async function refreshMissionQueue() {
     try {
         const response = await fetch("/api/mission-queue?limit=10&hours=48", {cache: "no-store"});
         const payload = await response.json();
-        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Mission Queue niet beschikbaar");
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Mission Queue unavailable");
         renderMissionQueue(payload);
     } catch (error) {
         setQueueMessage(String(error), "bad");
@@ -218,7 +218,7 @@ function renderMissionQueue(payload) {
     const queue = Array.isArray(payload.queue) ? payload.queue : [];
     setText("mission-queue-summary", `${queue.length} PASSAGES`);
     if (!queue.length) {
-        list.innerHTML = '<div class="mission-queue-empty">Geen geschikte passages gepland.</div>';
+        list.innerHTML = '<div class="mission-queue-empty">No suitable passes scheduled.</div>';
         return;
     }
     list.innerHTML = queue.map(item => {
@@ -227,7 +227,7 @@ function renderMissionQueue(payload) {
         const skipLabel = item.skipped ? "↩" : "⏭";
         const rawStatus = String(item.status || "QUEUED").toUpperCase();
         const classes = rawStatus.toLowerCase().replaceAll(" ", "-");
-        const satellite = item.name || "Onbekende satelliet";
+        const satellite = item.name || "Unknown Satellite";
         const receiver = item.active_receiver || item.reserved_receiver || item.configured_receiver || item.receiver || "-";
         const frequency = Number(item.frequency_mhz);
         const frequencyLabel = Number.isFinite(frequency) ? frequency.toFixed(3) : "-";
@@ -257,7 +257,7 @@ function renderMissionQueue(payload) {
             <div class="mission-queue-actions">
                 <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_down" title="Prioriteit lager">−</button>
                 <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_up" title="Prioriteit hoger">+</button>
-                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="${skipAction}" title="${item.skipped ? "Activeren" : "Overslaan"}">${skipLabel}</button>
+                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="${skipAction}" title="${item.skipped ? "Enable" : "Skip"}">${skipLabel}</button>
             </div>
         </div>`;
     }).join("");

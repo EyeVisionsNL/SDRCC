@@ -1,7 +1,7 @@
 export function updateLatestCapture(capture) {
     updateCaptureBlock(capture, "");
 
-    // Initialiseer het Beelden-tabblad één keer. Daarna bepaalt een handmatige
+    // Initialiseer het Images-tabblad één keer. Daarna bepaalt een handmatige
     // thumbnailselectie welk beeld zichtbaar blijft tijdens dashboard-refreshes.
     const imagesViewer = document.getElementById("capture-image-images");
     if (!imagesViewer?.getAttribute("src")) {
@@ -16,7 +16,7 @@ export function updateRecentCaptures(captures) {
     if (!box) return;
 
     if (!captures || captures.length === 0) {
-        box.textContent = "Nog geen opnames gevonden.";
+        box.textContent = "No recordings found yet.";
         return;
     }
 
@@ -56,7 +56,7 @@ function updateCaptureBlock(capture, suffix = "") {
 
     if (!capture) {
         empty.style.display = "block";
-        empty.textContent = "Nog geen afbeelding gevonden.";
+        empty.textContent = "No image found yet.";
         content.classList.add("hidden");
         image.removeAttribute("src");
         return;

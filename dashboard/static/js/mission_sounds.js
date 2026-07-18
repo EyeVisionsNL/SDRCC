@@ -138,10 +138,10 @@
             audio.currentTime = 0;
             audio.volume = oldVolume;
             audioUnlocked = true;
-            setStatus(readEnabled() ? "Mission Event Center gereed." : "Mission Sounds staan uit.", readEnabled() ? "is-ready" : "is-muted");
+            setStatus(readEnabled() ? "Mission Event Center ready." : "Mission Sounds are off.", readEnabled() ? "is-ready" : "is-muted");
             return true;
         } catch (error) {
-            setStatus("Audio is nog geblokkeerd; gebruik de testknop.", "is-muted");
+            setStatus("Audio is still blocked; use the test button.", "is-muted");
             return false;
         }
     }
@@ -165,10 +165,10 @@
             audio.pause();
             audio.currentTime = 0;
             await audio.play();
-            if (test) setStatus("Startgeluid wordt afgespeeld.", "is-ready");
+            if (test) setStatus("Playing mission start sound.", "is-ready");
         } catch (error) {
             console.error(`Mission sound '${name}' mislukt:`, error);
-            setStatus("Mission-geluid kon niet worden afgespeeld.", "is-error");
+            setStatus("Mission sound could not be played.", "is-error");
         }
     }
 
@@ -201,7 +201,7 @@
     function notifyRecording(data) {
         playSound("start");
         const details = [data.receiver !== "-" ? data.receiver : "", formatFrequency(data.frequencyHz)].filter(Boolean).join(" · ");
-        showNotification({ icon: "🛰", title: `Mission gestart — ${data.satellite}`, message: details, tone: "live", duration: 7500 });
+        showNotification({ icon: "🛰", title: `Mission Started — ${data.satellite}`, message: details, tone: "live", duration: 7500 });
         setLiveTitle(data.satellite);
     }
 
@@ -212,7 +212,7 @@
 
     function notifyFirstImage(data) {
         playSound("image");
-        showNotification({ icon: "📷", title: "Eerste afbeelding ontvangen", message: data.satellite, tone: "image" });
+        showNotification({ icon: "📷", title: "First Image Received", message: data.satellite, tone: "image" });
     }
 
     function notifyResult(result) {
@@ -221,17 +221,17 @@
         const images = Number(result?.image_count || 0);
         const peak = Number(result?.peak_snr_db);
         const extras = [];
-        if (images > 0) extras.push(`${images} afbeelding${images === 1 ? "" : "en"}`);
+        if (images > 0) extras.push(`${images} image${images === 1 ? "" : "s"}`);
         if (Number.isFinite(peak)) extras.push(`Peak SNR ${peak.toFixed(2)} dB`);
         const message = [satellite, extras.join(" · ")].filter(Boolean).join(" — ");
 
         if (raw === "SUCCESS") {
             playSound("success");
-            showNotification({ icon: "✅", title: "Mission voltooid", message, tone: "success", duration: 8000 });
+            showNotification({ icon: "✅", title: "Mission Completed", message, tone: "success", duration: 8000 });
             setResultTitle("✅", "SUCCESS");
         } else if (raw === "NO SYNC" || raw === "NO_SYNC") {
             playSound("noSync");
-            showNotification({ icon: "⚠️", title: "Geen synchronisatie", message: satellite, tone: "warning", duration: 8000 });
+            showNotification({ icon: "⚠️", title: "No Sync", message: satellite, tone: "warning", duration: 8000 });
             setResultTitle("⚠️", "NO SYNC");
         } else if (raw === "FAILED" || raw === "NO SIGNAL" || raw === "NO IMAGES") {
             playSound("failed");
@@ -239,7 +239,7 @@
             setResultTitle("❌", raw);
         } else if (raw === "CANCELLED") {
             playSound("cancelled");
-            showNotification({ icon: "⏹️", title: "Mission geannuleerd", message: satellite, tone: "cancelled" });
+            showNotification({ icon: "⏹️", title: "Mission Cancelled", message: satellite, tone: "cancelled" });
             setResultTitle("⏹️", "CANCELLED");
         }
     }
@@ -294,7 +294,7 @@
             enabled.checked = enabledValue;
             enabled.addEventListener("change", () => {
                 localStorage.setItem(STORAGE_ENABLED, String(enabled.checked));
-                setStatus(enabled.checked ? "Mission Sounds staan aan." : "Mission Sounds staan uit.", enabled.checked ? "is-ready" : "is-muted");
+                setStatus(enabled.checked ? "Mission Sounds are on." : "Mission Sounds are off.", enabled.checked ? "is-ready" : "is-muted");
             });
         }
 
@@ -318,7 +318,7 @@
 
         document.addEventListener("pointerdown", unlockAudio, { once: true, passive: true });
         window.addEventListener("sdrcc:mission-state", event => handleMissionState(event.detail || {}));
-        setStatus(enabledValue ? "Klik eenmaal in het dashboard om audio te activeren." : "Mission Sounds staan uit.", enabledValue ? "" : "is-muted");
+        setStatus(enabledValue ? "Click once in the dashboard to enable audio." : "Mission Sounds are off.", enabledValue ? "" : "is-muted");
     }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setupControls, { once: true });

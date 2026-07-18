@@ -640,7 +640,7 @@
     }
 }
 
-/* v0.22.0b - Mission History handmatig verwijderen */
+/* v0.22.0b - Mission History handmatig delete */
 .history-detail-actions {
     display: flex;
     align-items: center;

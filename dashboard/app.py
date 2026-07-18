@@ -89,9 +89,9 @@ SCHEDULER_ACTIONS = {
 
 
 SDRCC_ACTIONS = {
-    "next_pass": {"label": "Volgende passage", "command": [sys.executable, str(SDRCC_SCRIPT), "next"], "mode": "run"},
+    "next_pass": {"label": "Next Pass", "command": [sys.executable, str(SDRCC_SCRIPT), "next"], "mode": "run"},
     "schedule": {"label": "Planning tonen", "command": [sys.executable, str(SDRCC_SCRIPT), "schedule"], "mode": "run"},
-    "simulate_record": {"label": "Simuleer opname", "command": [sys.executable, str(SDRCC_SCRIPT), "simulate-record"], "mode": "run"},
+    "simulate_record": {"label": "Simulate Recording", "command": [sys.executable, str(SDRCC_SCRIPT), "simulate-record"], "mode": "run"},
     "record": {"label": "Record NOW", "command": [sys.executable, str(SDRCC_SCRIPT), "record"], "mode": "start"},
     "update_tle": {"label": "Update TLE", "command": [sys.executable, str(SDRCC_SCRIPT), "update-tle"], "mode": "run"},
 }
@@ -141,7 +141,7 @@ def _virtual_mission_worker(stop_event, duration_seconds=300):
                 mission_engine_core.mission_set_state("ARCHIVING")
                 live_rf.finish({
                     "result": "SUCCESS",
-                    "detail": "Virtuele missie voltooid",
+                    "detail": "Virtual mission completed",
                     "peak_snr_db": snr,
                     "frames": max(1, elapsed // 2),
                     "cadu_bytes": max(8192, (elapsed // 2) * 8192),
@@ -150,7 +150,7 @@ def _virtual_mission_worker(stop_event, duration_seconds=300):
                 mission_engine_core.mission_finish_job(
                     success=True,
                     result="SUCCESS",
-                    detail="Virtuele missie voltooid",
+                    detail="Virtual mission completed",
                     metrics={
                         "peak_snr_db": snr,
                         "frames": max(1, elapsed // 2),
@@ -160,14 +160,14 @@ def _virtual_mission_worker(stop_event, duration_seconds=300):
                 )
                 break
     except Exception as error:
-        write_log(f"Virtual Mission fout: {error}")
+        write_log(f"Virtual Mission error: {error}")
         try:
-            live_rf.fail(f"Virtuele missie fout: {error}")
+            live_rf.fail(f"Virtual mission error: {error}")
         except Exception:
             pass
         try:
             mission_engine_core.mission_cancel(
-                detail=f"Virtuele missie fout: {error}"
+                detail=f"Virtual mission error: {error}"
             )
         except Exception:
             pass
@@ -185,7 +185,7 @@ def start_virtual_mission():
     with virtual_mission_lock:
         mission = mission_engine_core.get_mission_status()
         if mission.get("active_job") is not None or virtual_mission_runtime["active"]:
-            raise RuntimeError("Er is al een actieve missie.")
+            raise RuntimeError("A mission is already active.")
 
         next_pass = mission_scheduler_core.get_scheduler_status().get("next_pass") or {}
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -254,7 +254,7 @@ def start_virtual_mission():
 
         event_bus.publish_mission(
             "INFO",
-            "Virtuele missie gestart",
+            "Virtual mission started",
             "Hardwarevrije simulatie is actief en kan met STOP MISSION worden beëindigd",
             data={"mission_id": job.get("mission_id")},
         )
@@ -272,14 +272,14 @@ def stop_virtual_mission():
 
     live_rf.finish({
         "result": "CANCELLED",
-        "detail": "Virtuele missie gestopt door operator",
+        "detail": "Virtual mission stopped by operator",
     })
     mission_engine_core.mission_cancel(
-        detail="Virtuele missie gestopt door operator"
+        detail="Virtual mission stopped by operator"
     )
     event_bus.publish_mission(
         "WARNING",
-        "Virtuele missie gestopt",
+        "Virtual mission stopped",
         "De hardwarevrije simulatie is door de operator beëindigd",
     )
     write_log("Virtual Mission gestopt door operator")
@@ -755,12 +755,12 @@ def get_dashboard_data():
         default_task = " / ".join(default_tasks) if default_tasks else "Vrij"
 
         current_task = "Vrij"
-        active_detail = "Geen actieve service"
+        active_detail = "No active service"
         status_label = "AVAILABLE"
 
         if weather_active and assignments.get("weather") == device_id:
             current_task = "Weather / METEOR"
-            active_detail = "Actieve satellietmissie"
+            active_detail = "Active satellite mission"
             status_label = "LOCKED"
         elif assignments.get("ais") == device_id and ais.get("active"):
             current_task = "AIS"
@@ -828,7 +828,7 @@ def handle_service_action(action_id, action):
         write_log(f"{label}: service is nu {after['state']}")
         return jsonify({
             "ok": True,
-            "message": f"{label} uitgevoerd. Status: {after['state']}",
+            "message": f"{label} completed. Status: {after['state']}",
             "before": before,
             "after": after,
         })
@@ -836,7 +836,7 @@ def handle_service_action(action_id, action):
     write_log(f"{label}: mislukt met returncode {result.returncode}")
     return jsonify({
         "ok": False,
-        "message": f"{label} mislukt. Status: {after['state']}",
+        "message": f"{label} failed. Status: {after['state']}",
         "before": before,
         "after": after,
         "stdout": result.stdout,
@@ -881,7 +881,7 @@ def monitor_record_process(process):
                 write_log("ERROR: " + line)
 
         if process.returncode == 0:
-            write_log("Mission Engine: SatDump-opname succesvol afgerond")
+            write_log("Mission Engine: SatDump recording completed successfully")
 
             mission_engine_core.mission_set_state("DECODING")
             time.sleep(1)
@@ -899,7 +899,7 @@ def monitor_record_process(process):
 
         else:
             error_message = (
-                f"SatDump gestopt met foutcode {process.returncode}"
+                f"SatDump stopped with error code {process.returncode}"
             )
 
             write_log(f"Mission Engine: {error_message}")
@@ -920,7 +920,7 @@ def monitor_record_process(process):
             mission_engine_core.mission_set_state("READY")
         except Exception as reset_error:
             write_log(
-                "Mission Engine kon na procesfout niet herstellen: "
+                "Mission Engine could not recover after process error: "
                 f"{reset_error}"
             )
 
@@ -1010,10 +1010,10 @@ def handle_sdrcc_action(action_id, action):
             "output": result.stdout,
         })
 
-    write_log(f"Dashboard actie fout: {label} returncode {result.returncode}")
+    write_log(f"Dashboard action error: {label} returncode {result.returncode}")
     return jsonify({
         "ok": False,
-        "message": f"{label} gaf een fout.",
+        "message": f"{label} returned an error.",
         "output": result.stdout,
         "error": result.stderr,
     }), 500
@@ -1145,7 +1145,7 @@ def apply_historical_rf_recommendation(target_pass, device):
             "configuration": None,
             "match": "NONE",
         })
-        write_log("AUTO RF: geen exacte historische configuratie gevonden; bestaande instellingen blijven actief")
+        write_log("AUTO RF: no exact historical configuration found; current settings remain active")
         return runtime
 
     previous = config_core.get_weather_rf_config()
@@ -1221,10 +1221,10 @@ def apply_historical_rf_recommendation(target_pass, device):
     return runtime
 
 def autopilot_prepare_receiver():
-    write_log("AUTO: T-90 ontvanger voorbereiden")
+    write_log("AUTO: T-90 prepare receiver")
     device = device_manager.get_weather_device()
     if device is None:
-        raise RuntimeError("Geen Weather-ontvanger toegewezen")
+        raise RuntimeError("No Weather receiver assigned")
 
     apply_historical_rf_recommendation(
         autopilot_runtime.get("target_pass"),
@@ -1234,7 +1234,7 @@ def autopilot_prepare_receiver():
     receiver_manager.reserve(
         device["id"],
         mission_key=autopilot_runtime["pass_key"],
-        reason="AUTO Weather-missie",
+        reason="AUTO Weather mission",
     )
 
     conflict_service = device_manager.get_conflicting_service(device["id"])
@@ -1258,7 +1258,7 @@ def autopilot_prepare_receiver():
     profiles.set_active_profile("weather")
     write_log(
         f"AUTO: Weather actief op {device['number']} "
-        f"({device['serial']}); conflict={conflict_service or 'geen'}"
+        f"({device['serial']}); conflict={conflict_service or 'none'}"
     )
     event_bus.publish_receiver(
         "INFO",
@@ -1277,7 +1277,7 @@ def autopilot_lock_receiver():
     record_data = satdump_core.build_record_command()
 
     if record_data is None:
-        raise RuntimeError("Geen geschikte passage gevonden")
+        raise RuntimeError("No suitable pass found")
 
     if not record_data["allowed"]:
         raise RuntimeError(record_data["reason"])
@@ -1291,7 +1291,7 @@ def autopilot_lock_receiver():
 
         if abs(expected_start - actual_start) > 5:
             raise RuntimeError(
-                "SatDump-pass wijkt af van de geplande AUTO-pass"
+                "SatDump-pass wijkt af of de geplande AUTO-pass"
             )
 
     record_data["output_path"].mkdir(
@@ -1351,7 +1351,7 @@ def mission_stop_requested():
     return bool(autopilot_runtime.get("stop_requested"))
 
 
-def cancel_active_mission(detail="Mission geannuleerd door operator"):
+def cancel_active_mission(detail="Mission Cancelled door operator"):
     status = mission_engine_core.get_mission_status()
     if status.get("active_job") is not None:
         mission_engine_core.mission_cancel(detail)
@@ -1373,9 +1373,9 @@ def monitor_auto_record_process(process):
         autopilot_runtime["process"] = None
 
         if mission_stop_requested():
-            write_log("AUTO: actieve missie is door operator geannuleerd")
+            write_log("AUTO: active mission was cancelled by operator")
             try:
-                live_rf.fail("Mission geannuleerd door operator")
+                live_rf.fail("Mission Cancelled door operator")
             except Exception as live_error:
                 write_log(f"AUTO: Live RF stopstatus kon niet worden gezet: {live_error}")
             cancel_active_mission()
@@ -1407,7 +1407,7 @@ def monitor_auto_record_process(process):
         ):
             mission_engine_core.mission_set_state("DECODING")
             write_log(
-                "AUTO: live-opname bevat CADU maar nog geen beelden; "
+                "AUTO: live recording contains CADU but no images yet; "
                 "offline productdecode gestart"
             )
             event_bus.publish_satdump(
@@ -1430,7 +1430,7 @@ def monitor_auto_record_process(process):
             if mission_stop_requested():
                 write_log("AUTO: productdecode is door operator geannuleerd")
                 try:
-                    live_rf.fail("Mission geannuleerd door operator")
+                    live_rf.fail("Mission Cancelled door operator")
                 except Exception as live_error:
                     write_log(f"AUTO: Live RF stopstatus kon niet worden gezet: {live_error}")
                 cancel_active_mission()
@@ -1459,9 +1459,9 @@ def monitor_auto_record_process(process):
             )
 
         if mission_stop_requested():
-            write_log("AUTO: missie geannuleerd vóór resultaatverwerking")
+            write_log("AUTO: mission cancelled before result processing")
             try:
-                live_rf.fail("Mission geannuleerd door operator")
+                live_rf.fail("Mission Cancelled door operator")
             except Exception as live_error:
                 write_log(f"AUTO: Live RF stopstatus kon niet worden gezet: {live_error}")
             cancel_active_mission()
@@ -1583,19 +1583,19 @@ def monitor_auto_record_process(process):
         try:
             receiver_manager.release(
                 mission_key=autopilot_runtime.get("pass_key"),
-                detail="Weather-receiver is vrijgegeven na de missie",
+                detail="Weather receiver released after the mission",
             )
         except Exception as release_error:
             write_log(f"AUTO ERROR: receiver vrijgeven mislukt: {release_error}")
         event_bus.publish_receiver(
             "INFO",
             "Receiver vrijgegeven",
-            "Weather-receiver is vrijgegeven na de missie",
+            "Weather receiver released after the mission",
             data=satdump_core.build_event_context(released_data),
         )
         autopilot_runtime["process"] = None
         mission_engine_core.mission_set_state("READY")
-        write_log("AUTO: missie afgerond; profiel terug naar ADS-B")
+        write_log("AUTO: mission completed; profile restored to ADS-B")
         if autopilot_runtime.get("stop_requested"):
             reset_autopilot_runtime()
 
@@ -1605,7 +1605,7 @@ def autopilot_start_recording():
 
     if record_data is None:
         raise RuntimeError(
-            "Geen voorbereid SatDump-commando beschikbaar"
+            "No prepared SatDump command available"
         )
 
     mission_status = mission_engine_core.get_mission_status()
@@ -1670,7 +1670,7 @@ def mission_autopilot_worker():
                 automation_controller.update_status(
                     "MANUAL",
                     "Automation Controller staat in handmatige modus",
-                    next_action="Wachten op AUTO-modus",
+                    next_action="Waiting for AUTO mode",
                 )
                 time.sleep(AUTOPILOT_POLL_SECONDS)
                 continue
@@ -1678,8 +1678,8 @@ def mission_autopilot_worker():
             if mode == "PAUSED":
                 automation_controller.update_status(
                     "PAUSED",
-                    "Nieuwe automatische missies zijn gepauzeerd",
-                    next_action="Lopende missie veilig laten afronden",
+                    "New automatic missions are paused",
+                    next_action="Allow active mission to finish safely",
                     target_pass=autopilot_runtime.get("target_pass"),
                 )
                 time.sleep(AUTOPILOT_POLL_SECONDS)
@@ -1699,8 +1699,8 @@ def mission_autopilot_worker():
             if automation_controller.is_pass_skipped(next_pass):
                 automation_controller.update_status(
                     "SKIPPED",
-                    f"{next_pass.get('name', 'Passage')} wordt overgeslagen",
-                    next_action="Wachten op volgende passage",
+                    f"{next_pass.get('name', 'Pass')} will be skipped",
+                    next_action="Waiting for next pass",
                     target_pass=next_pass,
                 )
                 if autopilot_runtime.get("target_pass") and not autopilot_runtime.get("record_started"):
@@ -1711,12 +1711,12 @@ def mission_autopilot_worker():
             if autopilot_runtime["target_pass"] is None and next_pass is not None:
                 reset_autopilot_runtime(next_pass)
                 write_log(
-                    "AUTO: passage geselecteerd: "
+                    "AUTO: pass selected: "
                     f"{next_pass['name']} om {next_pass['start']}"
                 )
                 event_bus.publish_automation(
                     "INFO",
-                    "Passage geselecteerd",
+                    "Pass selected",
                     f"{next_pass['name']} om {next_pass['start']}",
                     data={"pass": next_pass},
                 )
@@ -1726,8 +1726,8 @@ def mission_autopilot_worker():
             if target is None:
                 automation_controller.update_status(
                     "WAITING",
-                    "Geen geschikte passage gepland",
-                    next_action="Wachten op passageplanning",
+                    "No suitable pass scheduled",
+                    next_action="Waiting for pass planning",
                 )
                 time.sleep(AUTOPILOT_POLL_SECONDS)
                 continue
@@ -1744,7 +1744,7 @@ def mission_autopilot_worker():
             dry_run = bool(controller.get("dry_run"))
 
             status = "WAITING"
-            detail = f"Wachten op {target['name']}"
+            detail = f"Waiting for {target['name']}"
             next_action = "Preflight uitvoeren"
             if 0 < seconds_until_start <= preflight_seconds:
                 status = "PREFLIGHT"
@@ -1757,15 +1757,15 @@ def mission_autopilot_worker():
             if 0 < seconds_until_start <= lock_seconds:
                 status = "LOCKING"
                 detail = "Receiver locken en laatste controles"
-                next_action = "Opname starten bij AOS"
+                next_action = "Start recording at AOS"
             if autopilot_runtime.get("dry_run_completed"):
                 status = "DRY RUN COMPLETE"
                 detail = f"Volledige beslisketen voor {target['name']} doorlopen"
-                next_action = "Wachten tot passage is beëindigd"
+                next_action = "Waiting for pass to end"
             elif autopilot_runtime.get("record_started"):
                 status = "RECORDING"
-                detail = "Automatische opname is actief"
-                next_action = "Opname afhandelen"
+                detail = "Automatic recording is active"
+                next_action = "Finalize recording"
 
             automation_controller.update_status(
                 status,
@@ -1832,20 +1832,20 @@ def mission_autopilot_worker():
                     automation_controller.update_status(
                         "DRY RUN COMPLETE",
                         f"Volledige beslisketen voor {target['name']} doorlopen",
-                        next_action="Wachten tot passage is beëindigd",
+                        next_action="Waiting for pass to end",
                         target_pass=target,
                     )
                     event_bus.publish_automation(
                         "SUCCESS",
                         "Dry Run voltooid",
-                        f"Geen receiver of SatDump gestart voor {target['name']}",
+                        f"No receiver or SatDump started for {target['name']}",
                         data={"pass": target, "dry_run": True},
                     )
                 else:
                     autopilot_start_recording()
 
             if now_epoch > end_epoch and not autopilot_runtime["record_started"]:
-                write_log("AUTO: passage gemist zonder opname; ontvangers herstellen")
+                write_log("AUTO: pass missed without recording; restoring receivers")
                 restore_service = autopilot_runtime.get("restore_service")
                 if (
                     restore_service
@@ -1872,7 +1872,7 @@ def mission_autopilot_worker():
                 reset_autopilot_runtime()
 
         except Exception as error:
-            write_log(f"AUTO-controller fout: {error}")
+            write_log(f"AUTO Controller error: {error}")
             automation_controller.update_status(
                 "ERROR",
                 str(error),
@@ -2106,14 +2106,14 @@ def api_mission_history_detail(mission_id):
             if mission_id == _active_mission_id():
                 return jsonify({
                     "ok": False,
-                    "error": "De actieve missie kan niet worden verwijderd",
+                    "error": "The active mission cannot be deleted",
                 }), 409
 
             result = mission_history_core.delete_mission(mission_id)
             event_bus.publish_mission(
                 "INFO",
                 "Mission History verwijderd",
-                f"Missie {mission_id} is handmatig verwijderd",
+                f"Mission {mission_id} was manually deleted",
                 data={
                     "mission_id": mission_id,
                     "satellite": result.get("satellite"),
@@ -2128,7 +2128,7 @@ def api_mission_history_detail(mission_id):
         except OSError as error:
             return jsonify({
                 "ok": False,
-                "error": f"Missiebestanden konden niet worden verwijderd: {error}",
+                "error": f"Mission files could not be deleted: {error}",
             }), 500
         except Exception as error:
             return jsonify({"ok": False, "error": str(error)}), 500
@@ -2293,7 +2293,7 @@ def api_mission_engine():
     except Exception as error:
         return jsonify({
             "phase": "IDLE",
-            "detail": f"Mission Engine fout: {error}",
+            "detail": f"Mission Engine error: {error}",
             "progress": 0,
             "steps": [],
             "error": str(error),
@@ -2319,7 +2319,7 @@ def api_stop_mission():
         stop_virtual_mission()
         return jsonify({
             "ok": True,
-            "message": "Virtuele missie gestopt. Scheduler staat op MANUAL.",
+            "message": "Virtual mission stopped. Scheduler staat op MANUAL.",
             "process_stopped": False,
             "mission": mission_engine_core.get_mission_status(),
             "scheduler": mission_scheduler_core.get_scheduler_status(),
@@ -2337,7 +2337,7 @@ def api_stop_mission():
     if active_job is None and not active_runtime:
         return jsonify({
             "ok": False,
-            "message": "Er is geen actieve missie om te stoppen.",
+            "message": "There is no active mission to stop.",
             "mission": mission_status,
         }), 409
 
@@ -2381,7 +2381,7 @@ def api_stop_mission():
     event_bus.publish_mission(
         "WARNING",
         "Mission gestopt door operator",
-        "Actieve missie is gecontroleerd geannuleerd; Scheduler staat op MANUAL",
+        "Active mission was safely cancelled; Scheduler is set to MANUAL",
         data={
             "mission_id": (active_job or {}).get("mission_id"),
             "process_stopped": process_stopped,
@@ -2392,7 +2392,7 @@ def api_stop_mission():
 
     return jsonify({
         "ok": True,
-        "message": "Missie gestopt. Scheduler staat op MANUAL.",
+        "message": "Mission gestopt. Scheduler staat op MANUAL.",
         "process_stopped": process_stopped,
         "mission": mission_engine_core.get_mission_status(),
         "scheduler": mission_scheduler_core.get_scheduler_status(),
@@ -2418,7 +2418,7 @@ def api_mission_engine_finish_recording():
         mission_engine_core.mission_set_state("PROCESSING")
         mission_engine_core.mission_set_state("ARCHIVING")
         mission_engine_core.mission_set_state("READY")
-        write_log("Mission Engine: opname-afhandeling afgerond")
+        write_log("Mission Engine: recording finalization completed")
         return jsonify(mission_engine_core.get_mission_status())
     except Exception as error:
         return jsonify({
@@ -2455,7 +2455,7 @@ def get_reconciled_receiver_manager_status():
     ):
         stale = status.get("reservation") or {}
         receiver_manager.release(
-            detail="Automatisch vrijgegeven: geen actieve missie",
+            detail="Automatically released: no active mission",
         )
         write_log(
             "Receiver Manager: achtergebleven reservering automatisch "
@@ -2486,7 +2486,7 @@ def api_receiver_assignment():
     ):
         return jsonify({
             "ok": False,
-            "message": "Receiverkeuze kan niet tijdens een actieve missie.",
+            "message": "Receiver selection cannot be changed during an active mission.",
         }), 409
     try:
         device = device_manager.get_device(device_id)
@@ -2494,12 +2494,12 @@ def api_receiver_assignment():
             raise ValueError("Onbekende SDR-keuze")
         assignments = config_core.set_weather_receiver(device_id)
         write_log(
-            f"Weather-ontvanger gewijzigd naar {device['number']} "
+            f"Weather receiver changed to {device['number']} "
             f"({device['serial']})"
         )
         event_bus.publish_receiver(
             "INFO",
-            "Weather-ontvanger gewijzigd",
+            "Weather receiver changed",
             f"Weather gebruikt nu {device['number']} ({device['serial']})",
             data={
                 "role": "weather",
@@ -2534,7 +2534,7 @@ def api_receiver_roles():
     ):
         return jsonify({
             "ok": False,
-            "message": "Receiverrollen kunnen niet tijdens een actieve missie worden gewijzigd.",
+            "message": "Receiver roles cannot be changed during an active mission.",
         }), 409
 
     roles = {
@@ -2551,7 +2551,7 @@ def api_receiver_roles():
         return jsonify({
             "ok": True,
             "message": (
-                "Rollen opgeslagen. Services zijn in deze stap nog niet gewijzigd."
+                "Roles saved. Services were not changed in this step."
             ),
             "assignments": assignments,
             "roles": roles,
@@ -2573,7 +2573,7 @@ def api_receiver_roles_apply():
     ):
         return jsonify({
             "ok": False,
-            "message": "Receiverrollen kunnen niet tijdens een actieve missie worden toegepast.",
+            "message": "Receiver roles cannot be applied during an active mission.",
         }), 409
 
     station = config_core.load_station()
@@ -2597,7 +2597,7 @@ def api_receiver_roles_apply():
     except (KeyError, TypeError) as error:
         return jsonify({
             "ok": False,
-            "message": f"Receiver-serienummer ontbreekt: {error}",
+            "message": f"Receiver-serienummer missing: {error}",
         }), 400
 
     result = run_command([
@@ -2612,7 +2612,7 @@ def api_receiver_roles_apply():
         payload = {}
     message = payload.get("message") or (result.stderr or raw or "Receiverwisseling mislukt").strip()
     if result.returncode != 0 or not payload.get("ok"):
-        write_log(f"Receiverrollen toepassen mislukt: {message}")
+        write_log(f"Applying receiver roles failed: {message}")
         return jsonify({"ok": False, "message": message}), 500
 
     write_log(
@@ -2646,7 +2646,7 @@ def api_weather_planning():
         "PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"
     }
     if blocked:
-        return jsonify({"ok": False, "message": "Weather Planning is geblokkeerd tijdens een missie."}), 409
+        return jsonify({"ok": False, "message": "Weather Planning is blocked during a mission."}), 409
     try:
         settings = weather_planning_core.set_config(payload)
         write_log(f"Minimale weather-elevatie gewijzigd naar {settings['minimum_elevation']} graden")
@@ -2658,7 +2658,7 @@ def api_weather_planning():
     except ValueError as error:
         return jsonify({"ok": False, "message": str(error)}), 400
     except OSError as error:
-        return jsonify({"ok": False, "message": f"Configuratie kon niet worden opgeslagen: {error}"}), 500
+        return jsonify({"ok": False, "message": f"Configuration could not be saved: {error}"}), 500
 
 
 
@@ -2694,7 +2694,7 @@ def api_weather_rf():
         "PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"
     }
     if blocked:
-        return jsonify({"ok": False, "message": "RF-instellingen zijn geblokkeerd tijdens een missie."}), 409
+        return jsonify({"ok": False, "message": "RF settings are blocked during a mission."}), 409
     try:
         settings = config_core.set_weather_rf_config(payload)
         write_log(f"Weather RF-instellingen gewijzigd: mode={settings['gain_mode']} gain={settings['gain_db']} dB")
@@ -2711,7 +2711,7 @@ def api_weather_spectrum():
     except (TypeError, ValueError):
         return jsonify({"ok": False, "message": "Ongeldige frequentie."}), 400
     if not 24000000 <= center_hz <= 1766000000:
-        return jsonify({"ok": False, "message": "Frequentie valt buiten het RTL-SDR-bereik."}), 400
+        return jsonify({"ok": False, "message": "Frequency valt buiten het RTL-SDR-bereik."}), 400
     mission = get_mission_data_for_status()
     scheduler = mission_scheduler_core.get_scheduler_status()
     mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
@@ -2766,7 +2766,7 @@ def api_action():
             mission = start_virtual_mission()
             return jsonify({
                 "ok": True,
-                "message": "Virtuele missie gestart. STOP MISSION is nu beschikbaar.",
+                "message": "Virtual mission started. STOP MISSION is nu beschikbaar.",
                 "mission": mission,
             })
 
@@ -2774,10 +2774,10 @@ def api_action():
             record_data = satdump_core.build_record_command()
 
             if record_data is None:
-                write_log("Record NOW geweigerd: geen geschikte passage gevonden")
+                write_log("Record NOW rejected: no suitable pass found")
                 return jsonify({
                     "ok": False,
-                    "message": "Geen geschikte satellietpassage gevonden.",
+                    "message": "No suitable satellite pass found.",
                 }), 400
 
             if not record_data["allowed"]:
@@ -2804,7 +2804,7 @@ def api_action():
             mission_engine_core.mission_set_state("LOCK RECEIVER")
             mission_engine_core.mission_set_state("RECORDING")
             write_log(
-                "Mission Engine: ontvangers voorbereiden voor SatDump"
+                "Mission Engine: preparing receivers for SatDump"
             )
 
             write_log(
@@ -2844,8 +2844,8 @@ def capture_file(relative_path):
 def run():
     event_bus.publish_system(
         "SYSTEM",
-        "Event Bus gestart",
-        "SDRCC operator-eventopslag en API zijn actief.",
+        "Event Bus started",
+        "SDRCC operator event storage and API are active.",
     )
     start_mission_autopilot()
     app.run(

@@ -10,7 +10,7 @@
 
     async function getStatus() {
         const response = await fetch("/api/status", {cache: "no-store"});
-        if (!response.ok) throw new Error("status api fout");
+        if (!response.ok) throw new Error("status API error");
         return await response.json();
     }
 
@@ -124,25 +124,25 @@
                     <span class="receiver-badge receiver-badge-${String(dev.status_label || "available").toLowerCase().replaceAll(" ", "-")}">${dev.status_label || "AVAILABLE"}</span>
                 </div>
                 <div class="receiver-detail-grid">
-                    <span>Naam<strong>${dev.name || dev.id || "-"}</strong></span>
-                    <span>Serienummer<strong>${dev.serial || "-"}</strong></span>
-                    <span>Standaardtaak<strong>${dev.default_task || "-"}</strong></span>
-                    <span>Huidige taak<strong>${dev.current_task || "-"}</strong></span>
-                    <span>Volgende taak<strong>${dev.next_task || "-"}</strong></span>
-                    <span>Bron / status<strong>${dev.active_detail || "-"}</strong></span>
+                    <span>Name<strong>${dev.name || dev.id || "-"}</strong></span>
+                    <span>Serial Number<strong>${dev.serial || "-"}</strong></span>
+                    <span>Default Task<strong>${dev.default_task || "-"}</strong></span>
+                    <span>Current Task<strong>${dev.current_task || "-"}</strong></span>
+                    <span>Next Task<strong>${dev.next_task || "-"}</strong></span>
+                    <span>Source / Status<strong>${dev.active_detail || "-"}</strong></span>
                 </div>
             `;
             container.appendChild(item);
         }
 
         if (!devices || devices.length === 0) {
-            container.textContent = "Geen SDR-apparaten gevonden.";
+            container.textContent = "No SDR devices found.";
         }
     }
 
     async function getLiveRf() {
         const response = await fetch("/api/live-rf", {cache: "no-store"});
-        if (!response.ok) throw new Error("live rf api fout");
+        if (!response.ok) throw new Error("Live RF API error");
         return await response.json();
     }
 
@@ -268,7 +268,7 @@
             const selected = form.querySelector('input[name="weather_receiver"]:checked');
             const result = document.getElementById("receiver-assignment-result");
             if (!selected) {
-                if (result) result.textContent = "Kies eerst SDR1 of SDR2.";
+                if (result) result.textContent = "Select SDR1 or SDR2 first.";
                 return;
             }
             try {
@@ -282,7 +282,7 @@
                 if (!response.ok) return;
                 await updateRadioPage();
             } catch (error) {
-                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+                if (result) result.textContent = `Save failed: ${error.message}`;
             }
         });
     }
@@ -300,11 +300,11 @@
             const result = document.getElementById("receiver-roles-result");
             const submitButton = receiverRolesForm.querySelector('button[type="submit"]');
             if (sdr1 === sdr2 && ["ais", "adsb"].includes(sdr1)) {
-                if (result) result.textContent = `${sdr1.toUpperCase()} kan niet tegelijk aan SDR1 en SDR2 worden toegewezen.`;
+                if (result) result.textContent = `${sdr1.toUpperCase()} cannot be assigned to SDR1 and SDR2 at the same time.`;
                 return;
             }
             if (submitButton) submitButton.disabled = true;
-            if (result) result.textContent = "Receiverrollen worden opgeslagen...";
+            if (result) result.textContent = "Receiver roles are being saved...";
             try {
                 const response = await fetch("/api/receiver-roles", {
                     method: "POST",
@@ -317,7 +317,7 @@
                 receiverRolesDirty = false;
                 await updateRadioPage();
             } catch (error) {
-                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+                if (result) result.textContent = `Save failed: ${error.message}`;
             } finally {
                 if (submitButton) submitButton.disabled = false;
             }
@@ -329,7 +329,7 @@
         applyReceiverRolesButton.addEventListener("click", async () => {
             const result = document.getElementById("receiver-roles-apply-result");
             if (receiverRolesDirty) {
-                if (result) result.textContent = "Bewaar eerst de gewijzigde rollen.";
+                if (result) result.textContent = "Save the changed roles first.";
                 return;
             }
             applyReceiverRolesButton.disabled = true;
@@ -340,7 +340,7 @@
                 if (result) result.textContent = data.message || (response.ok ? "Toegepast." : "Mislukt.");
                 if (response.ok) await updateRadioPage();
             } catch (error) {
-                if (result) result.textContent = `Toepassen mislukt: ${error.message}`;
+                if (result) result.textContent = `Apply mislukt: ${error.message}`;
             } finally {
                 applyReceiverRolesButton.disabled = false;
             }
@@ -388,7 +388,7 @@
                     rfFormDirty = false;
                 }
             } catch (error) {
-                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+                if (result) result.textContent = `Save failed: ${error.message}`;
             } finally {
                 rfFormSaving = false;
                 if (submitButton) submitButton.disabled = false;
@@ -462,7 +462,7 @@
         const metrics = receiver.metrics || {};
         const items = [];
         if (receiver.frequency_hz) {
-            items.push({label: "Frequentie", value: receiver.frequency_hz, format: "frequency_hz"});
+            items.push({label: "Frequency", value: receiver.frequency_hz, format: "frequency_hz"});
         }
         for (const [key, value] of Object.entries(metrics)) {
             if (["available", "service_active", "source", "detail", "message_rate_source"].includes(key)) continue;
@@ -498,8 +498,8 @@
             `;
             grid.appendChild(card);
         }
-        if (!receivers.length) grid.textContent = "Geen receiverstatus beschikbaar.";
-        setText("receiver-monitor-updated", data && data.generated_at ? `Bijgewerkt ${data.generated_at}` : "Niet beschikbaar");
+        if (!receivers.length) grid.textContent = "No receiver status available.";
+        setText("receiver-monitor-updated", data && data.generated_at ? `Updated ${data.generated_at}` : "Not Available");
     }
 
     async function updateReceiverMonitor() {
@@ -510,7 +510,7 @@
             renderReceiverMonitor(data);
         } catch (error) {
             const grid = document.getElementById("receiver-monitor-grid");
-            if (grid) grid.textContent = `Receiver Monitor niet beschikbaar: ${error.message}`;
+            if (grid) grid.textContent = `Receiver Monitor unavailable: ${error.message}`;
         }
     }
     updateRadioPage();

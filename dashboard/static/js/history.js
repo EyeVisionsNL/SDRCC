@@ -102,9 +102,9 @@ function missionCard(mission) {
     const metrics = document.createElement("div");
     metrics.className = "history-mission-metrics";
     metrics.append(
-        metric("Duur", duration(mission.duration_seconds)),
-        metric("Piek-SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
-        metric("Beelden", number(mission.image_count)),
+        metric("Duration", duration(mission.duration_seconds)),
+        metric("Peak SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
+        metric("Images", number(mission.image_count)),
         metric("Max elev.", mission.max_elevation == null ? "-" : `${mission.max_elevation}°`)
     );
 
@@ -136,9 +136,9 @@ function renderMissions(missions = []) {
         selectedMissionId = null;
         const empty = document.createElement("div");
         empty.className = "history-empty";
-        empty.textContent = "Geen missies gevonden voor deze selectie.";
+        empty.textContent = "No missions found for this selection.";
         list.appendChild(empty);
-        renderEmptyDetail("Selecteer een missie om de details te bekijken.");
+        renderEmptyDetail("Select a mission to view its details.");
         return;
     }
 
@@ -153,7 +153,7 @@ function renderMissions(missions = []) {
     }
 }
 
-function renderEmptyDetail(message = "Selecteer een missie om de details te bekijken.") {
+function renderEmptyDetail(message = "Select a mission to view its details.") {
     const panel = byId("mission-history-detail");
     if (!panel) return;
     panel.innerHTML = "";
@@ -187,7 +187,7 @@ function qualityItem(label, value, displayValue = null) {
     const name = document.createElement("span");
     name.textContent = label;
     const content = document.createElement("strong");
-    content.textContent = displayValue === null ? (value ? "OK" : "Niet bevestigd") : text(displayValue);
+    content.textContent = displayValue === null ? (value ? "OK" : "Not Confirmed") : text(displayValue);
     body.append(name, content);
     item.appendChild(body);
     return item;
@@ -216,7 +216,7 @@ function fileItem(icon, label, info = {}) {
     const meta = document.createElement("small");
     meta.textContent = info.available
         ? `${number(info.count, "0")} bestand(en) · ${formatBytes(info.bytes)}`
-        : "Niet beschikbaar";
+        : "Not Available";
     body.append(title, meta);
     item.append(symbol, body);
     return item;
@@ -293,9 +293,9 @@ function renderMissionDetail(payload) {
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.className = "history-delete-button";
-    deleteButton.title = "Complete missie verwijderen";
-    deleteButton.setAttribute("aria-label", `Missie ${text(mission.mission_id)} verwijderen`);
-    deleteButton.textContent = "🗑 Verwijderen";
+    deleteButton.title = "Delete complete mission";
+    deleteButton.setAttribute("aria-label", `Mission ${text(mission.mission_id)} delete`);
+    deleteButton.textContent = "🗑 Delete";
     deleteButton.addEventListener("click", () => deleteMission(mission, deleteButton));
 
     actions.append(result, deleteButton);
@@ -317,30 +317,30 @@ function renderMissionDetail(payload) {
         qualityItem("Receiver lock", quality.receiver_lock),
         qualityItem("Recording", quality.recording),
         qualityItem("Decoder", quality.decoder),
-        qualityItem("Beelden", Number(quality.images || 0) > 0, number(quality.images, "0")),
-        qualityItem("Piek-SNR", quality.peak_snr_db != null, quality.peak_snr_db == null ? "-" : `${quality.peak_snr_db} dB`)
+        qualityItem("Images", Number(quality.images || 0) > 0, number(quality.images, "0")),
+        qualityItem("Peak SNR", quality.peak_snr_db != null, quality.peak_snr_db == null ? "-" : `${quality.peak_snr_db} dB`)
     );
     qualityBlock.append(qualityHeading, qualityGrid);
 
     const overview = document.createElement("div");
     overview.className = "history-detail-overview";
     overview.append(
-        metric("Duur", duration(mission.duration_seconds)),
-        metric("Piek-SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
+        metric("Duration", duration(mission.duration_seconds)),
+        metric("Peak SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
         metric("Frames", number(mission.frames)),
         metric("CADU-bytes", number(mission.cadu_bytes)),
-        metric("Beelden", number(mission.image_count))
+        metric("Images", number(mission.image_count))
     );
 
     const summary = document.createElement("div");
     summary.className = "history-detail-grid";
     summary.append(
         detailItem("Receiver", mission.receiver),
-        detailItem("Frequentie", mission.frequency_mhz == null ? "-" : `${mission.frequency_mhz} MHz`),
+        detailItem("Frequency", mission.frequency_mhz == null ? "-" : `${mission.frequency_mhz} MHz`),
         detailItem("Mode", mission.mode),
         detailItem("Pipeline", mission.pipeline, {code: true}),
-        detailItem("Gestart", mission.started_at),
-        detailItem("Beëindigd", mission.ended_at),
+        detailItem("Started", mission.started_at),
+        detailItem("Ended", mission.ended_at),
         detailItem("Status", mission.status),
         detailItem("Progress", mission.progress == null ? "-" : `${mission.progress}%`),
         detailItem("Min. elevatie", mission.min_elevation == null ? "-" : `${mission.min_elevation}°`),
@@ -427,7 +427,7 @@ function renderMissionDetail(payload) {
     } else {
         const empty = document.createElement("div");
         empty.className = "history-preview-empty";
-        empty.textContent = "Geen afbeelding beschikbaar voor deze missie.";
+        empty.textContent = "No image available for this mission.";
         preview.appendChild(empty);
         gallery.appendChild(preview);
     }
@@ -439,7 +439,7 @@ function renderMissionDetail(payload) {
     } else {
         const empty = document.createElement("div");
         empty.className = "history-event-empty";
-        empty.textContent = "Geen bewaarde Event Bus-events voor deze missie.";
+        empty.textContent = "No saved Event Bus events for this mission.";
         eventList.appendChild(empty);
     }
 
@@ -447,9 +447,9 @@ function renderMissionDetail(payload) {
     technical.className = "history-detail-grid";
     technical.append(
         detailItem("Receiver-ID", mission.receiver_id),
-        detailItem("Serienummer", mission.receiver_serial),
+        detailItem("Serial Number", mission.receiver_serial),
         detailItem("Aangemaakt", mission.created_at),
-        detailItem("Diagnostiek", diagnostics.available ? diagnostics.directory : "Niet beschikbaar", {wide: true, code: true}),
+        detailItem("Diagnostics", diagnostics.available ? diagnostics.directory : "Not Available", {wide: true, code: true}),
         detailItem("Outputmap", mission.output_path, {wide: true, code: true}),
         detailItem("Detail", mission.detail, {wide: true}),
         detailItem("Fout", mission.error, {wide: true})
@@ -461,13 +461,13 @@ function renderMissionDetail(payload) {
         sectionTitle("Mission Summary"),
         overview,
         summary,
-        sectionTitle("Bestanden"),
+        sectionTitle("Files"),
         filesGrid,
         sectionTitle(`Mission Images (${imageFiles.length || files.images?.count || 0})`),
         gallery,
         sectionTitle("Mission Events"),
         eventList,
-        sectionTitle("Technische details"),
+        sectionTitle("Technical Details"),
         technical
     );
 }
@@ -477,17 +477,17 @@ async function deleteMission(mission, button) {
     const missionId = text(mission?.mission_id, "");
     if (!missionId) return;
 
-    const satellite = text(mission?.satellite, "Onbekende satelliet");
+    const satellite = text(mission?.satellite, "Unknown Satellite");
     const confirmed = window.confirm(
-        `Complete missie verwijderen?\n\n${satellite}\n${missionId}\n\n` +
-        "Alle opnames, beelden, telemetrie en historiegegevens van deze missie worden definitief verwijderd."
+        `Delete complete mission?\n\n${satellite}\n${missionId}\n\n` +
+        "All recordings, images, telemetry, and history data for this mission will be permanently deleted."
     );
     if (!confirmed) return;
 
-    const originalLabel = button?.textContent || "🗑 Verwijderen";
+    const originalLabel = button?.textContent || "🗑 Delete";
     if (button) {
         button.disabled = true;
-        button.textContent = "Verwijderen…";
+        button.textContent = "Deleting…";
     }
 
     try {
@@ -498,14 +498,14 @@ async function deleteMission(mission, button) {
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false) {
-            throw new Error(payload.error || "Missie verwijderen is mislukt");
+            throw new Error(payload.error || "Mission delete is mislukt");
         }
 
         selectedMissionId = null;
-        renderEmptyDetail("Missie verwijderd. Geschiedenis wordt bijgewerkt…");
+        renderEmptyDetail("Mission deleted. Updating history…");
         await refreshMissionHistory();
     } catch (error) {
-        window.alert(`Missie kon niet worden verwijderd: ${error.message}`);
+        window.alert(`Mission could not be deleted: ${error.message}`);
         if (button) {
             button.disabled = false;
             button.textContent = originalLabel;
@@ -524,11 +524,11 @@ async function loadMissionDetail(missionId) {
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false || !payload.mission) {
-            throw new Error(payload.error || "Mission Detail API fout");
+            throw new Error(payload.error || "Mission Detail API error");
         }
         renderMissionDetail(payload);
     } catch (error) {
-        renderEmptyDetail(`Mission Detail kon niet worden geladen: ${error.message}`);
+        renderEmptyDetail(`Mission Detail could not be loaded: ${error.message}`);
     } finally {
         panel.removeAttribute("aria-busy");
     }
@@ -568,18 +568,18 @@ export async function refreshMissionHistory() {
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false) {
-            throw new Error(payload.error || "Mission History API fout");
+            throw new Error(payload.error || "Mission History API error");
         }
         renderStatistics(payload.statistics || {});
         renderMissions(payload.missions || []);
-        setText("history-count", `${payload.count || 0} van ${payload.total || 0} missies`);
+        setText("history-count", `${payload.count || 0} of ${payload.total || 0} missions`);
     } catch (error) {
         list.innerHTML = "";
         const message = document.createElement("div");
         message.className = "history-empty";
-        message.textContent = `Mission History kon niet worden geladen: ${error.message}`;
+        message.textContent = `Mission History could not be loaded: ${error.message}`;
         list.appendChild(message);
-        renderEmptyDetail("Mission Detail is niet beschikbaar.");
+        renderEmptyDetail("Mission Detail is not available.");
     }
 }
 

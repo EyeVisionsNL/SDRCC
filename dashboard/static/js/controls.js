@@ -35,7 +35,7 @@ async function runMissionAction(missionAction, refreshCallback) {
     }
 
     if (resultBox) {
-        resultBox.textContent = "Mission Engine actie wordt uitgevoerd...";
+        resultBox.textContent = "Running Mission Engine action...";
         resultBox.className = "control-result warn";
     }
 
@@ -61,7 +61,7 @@ async function runMissionAction(missionAction, refreshCallback) {
         console.error(error);
 
         if (resultBox) {
-            resultBox.textContent = "Mission Engine fout: " + String(error);
+            resultBox.textContent = "Mission Engine error: " + String(error);
             resultBox.className = "control-result bad";
         }
     }
@@ -71,7 +71,7 @@ async function runAction(actionId, refreshCallback) {
     const resultBox = document.getElementById("control-result");
 
     if (resultBox) {
-        resultBox.textContent = "Actie wordt uitgevoerd...";
+        resultBox.textContent = "Running action...";
         resultBox.className = "control-result warn";
     }
 
@@ -79,7 +79,7 @@ async function runAction(actionId, refreshCallback) {
         const data = await runActionApi(actionId);
 
         if (resultBox) {
-            resultBox.textContent = data.message || "Actie uitgevoerd.";
+            resultBox.textContent = data.message || "Action completed.";
             resultBox.className = data.ok ? "control-result ok" : "control-result bad";
         }
 

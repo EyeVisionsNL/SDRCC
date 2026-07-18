@@ -34,7 +34,7 @@
         let settled = false;
         const timeout = window.setTimeout(() => {
             if (settled) return;
-            badge.textContent = "Geen reactie";
+            badge.textContent = "No Response";
             badge.classList.add("is-offline");
         }, 10000);
 
@@ -59,16 +59,16 @@
 
     function formatPass(passData) {
         if (!passData || typeof passData !== "object") {
-            return ["Geen volgende passage beschikbaar", "Ground Track-koppeling is voorbereid."];
+            return ["No next pass available", "Ground track integration is ready."];
         }
 
-        const name = passData.name || passData.satellite || "Volgende satelliet";
+        const name = passData.name || passData.satellite || "Next Satellite";
         const detail = [];
         if (passData.start_time) detail.push(passData.start_time);
         if (passData.max_elevation != null) detail.push(`max. ${passData.max_elevation}°`);
         if (passData.azimuth != null) detail.push(`azimut ${passData.azimuth}°`);
 
-        return [name, detail.join(" · ") || "Ground Track-koppeling is voorbereid."];
+        return [name, detail.join(" · ") || "Ground track integration is ready."];
     }
 
     async function fetchJson(url) {
@@ -105,8 +105,8 @@
                 liveWrap.classList.remove("hidden");
                 badge.textContent = phase;
                 badge.classList.add("is-online");
-                subtitle.textContent = "Live beeld van de actieve missie";
-                overallStatus.textContent = `Live missie · ${phase}`;
+                subtitle.textContent = "Live image from the active mission";
+                overallStatus.textContent = `Live Mission · ${phase}`;
                 overallStatus.classList.add("is-live");
 
                 const latest = capture.available ? capture.latest_capture : null;
@@ -129,7 +129,7 @@
             groundTrack.classList.remove("hidden");
             badge.textContent = "Ground Track";
             badge.classList.remove("is-online");
-            subtitle.textContent = "Volgende passage en toekomstige ground track";
+            subtitle.textContent = "Next pass and future ground track";
             overallStatus.textContent = "Stand-by";
             overallStatus.classList.remove("is-live");
 
@@ -138,9 +138,9 @@
             nextDetail.textContent = detail;
         } catch (error) {
             console.warn("Radio View update mislukt:", error);
-            badge.textContent = "Geen data";
+            badge.textContent = "No Data";
             badge.classList.add("is-offline");
-            overallStatus.textContent = "Verbinding controleren";
+            overallStatus.textContent = "Check Connection";
         }
     }
 

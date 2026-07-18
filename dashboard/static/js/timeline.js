@@ -19,7 +19,7 @@ const CATEGORY_ICONS = {
 };
 
 const FILTERS = [
-    ["ALL", "Alles"],
+    ["ALL", "All"],
     ["MISSION", "🛰 Mission"],
     ["SATDUMP", "📡 SatDump"],
     ["RECEIVER", "🎛 Receiver"],
@@ -33,7 +33,7 @@ export function updateLiveLog(lines) {
     if (!logElement) return;
 
     if (!lines || lines.length === 0) {
-        logElement.textContent = "Geen logregels.";
+        logElement.textContent = "No log entries.";
         return;
     }
 
@@ -134,7 +134,7 @@ function renderEvents(timeline, apiEvents, force = false) {
     timeline.replaceChildren();
 
     if (events.length === 0) {
-        timeline.appendChild(createEmptyState(activeFilter === "ALL" ? "Nog geen operator-events." : "Geen events binnen dit filter."));
+        timeline.appendChild(createEmptyState(activeFilter === "ALL" ? "No operator events yet." : "No events match this filter."));
         return;
     }
 
@@ -281,11 +281,11 @@ function createEventDetails(event) {
 
 function flattenEventData(data) {
     const preferred = [
-        ["mission_id", "Mission ID"], ["satellite", "Satelliet"], ["receiver", "Receiver"],
-        ["receiver_serial", "Serienummer"], ["frequency_mhz", "Frequentie MHz"], ["mode", "Mode"],
-        ["pipeline", "Pipeline"], ["progress", "Voortgang"], ["result", "Resultaat"],
-        ["success", "Succes"], ["peak_snr_db", "Piek-SNR dB"], ["frames", "Frames"],
-        ["cadu_bytes", "CADU bytes"], ["image_count", "Afbeeldingen"], ["output_path", "Outputpad"]
+        ["mission_id", "Mission ID"], ["satellite", "Satellite"], ["receiver", "Receiver"],
+        ["receiver_serial", "Serial Number"], ["frequency_mhz", "Frequency MHz"], ["mode", "Mode"],
+        ["pipeline", "Pipeline"], ["progress", "Progress"], ["result", "Result"],
+        ["success", "Success"], ["peak_snr_db", "Peak SNR dB"], ["frames", "Frames"],
+        ["cadu_bytes", "CADU bytes"], ["image_count", "Images"], ["output_path", "Output Path"]
     ];
 
     const rows = [];

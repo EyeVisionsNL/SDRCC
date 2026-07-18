@@ -3,7 +3,7 @@
 @media(max-width:1350px){.mission-layout-v3{grid-template-columns:220px minmax(390px,1fr);grid-template-areas:"operations overview" "capture capture" "pass timeline"}.mission-capture .capture-content img{height:440px}.radio-page{grid-template-columns:1fr 1fr}.receiver-overview-card{grid-column:1/-1}.spectrum-card{grid-column:1/-1}}
 @media(max-width:900px){.topbar{flex-direction:column;align-items:flex-start;gap:10px}.tabs{flex-wrap:wrap}.mission-layout-v3{grid-template-columns:1fr;grid-template-areas:"operations" "overview" "capture" "pass" "timeline"}.mission-status-grid{grid-template-columns:1fr}.radio-page{grid-template-columns:1fr}.receiver-overview-card,.spectrum-card{grid-column:auto}.image-main{grid-column:auto}.statusbar{flex-direction:column;gap:6px}.capture-meta-compact{grid-template-columns:1fr 1fr}}
 
-/* v0.14.0b - horizontale kaart Volgende passage */
+/* v0.14.0b - horizontale kaart Next Pass */
 .mission-layout-v3 {
     grid-template-areas:
         "operations overview capture"
@@ -143,7 +143,7 @@
     }
 }
 
-/* v0.14.0c - Laatste ontvangst even hoog als Missiestatus */
+/* v0.14.0c - Laatste ontvangst even hoog als Missionstatus */
 @media (min-width: 1351px) {
     .mission-overview,
     .mission-capture {
@@ -193,3 +193,12 @@
 .brand-title-row h1{margin:0}
 .version-badge{display:inline-flex;align-items:center;padding:3px 8px;border:1px solid #475569;border-radius:999px;background:#0f172a;color:#94a3b8;font-size:12px;font-weight:700;letter-spacing:.04em}
 @media(max-width:900px){.brand-logo{width:48px;height:48px}.brand-title-row h1{font-size:23px}}
+
+
+/* v0.27.0 - Ground Station branding and header actions */
+.topbar-actions{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.github-repository-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 13px;border:1px solid #475569;border-radius:8px;background:#0f172a;color:#cbd5e1;text-decoration:none;font-weight:700;font-size:.86rem;white-space:nowrap;transition:background .15s ease,border-color .15s ease,color .15s ease}
+.github-repository-link:hover,.github-repository-link:focus-visible{background:#1e3a5f;border-color:#38bdf8;color:#fff;outline:none}
+@media(max-width:900px){.topbar-actions{width:100%;justify-content:space-betwes}.github-repository-link{min-height:36px}}
+@media(max-width:520px){.topbar-actions{align-items:stretch;flex-direction:column}.topbar-status{align-self:flex-start}}
+.brand-byline{margin-left:.45rem;color:#7890ac;font-size:.82em}.brand-byline a{color:#66d9ff;text-decoration:none;font-weight:700}.brand-byline a:hover{text-decoration:underline}.mission-layout-v3{grid-template-areas:"operations overview capture" "operations timeline timeline"}.mission-timeline-panel{grid-area:timeline}.next-pass-vertical{margin-top:12px;padding:11px;border:1px solid rgba(56,189,248,.38);border-radius:10px;background:rgba(8,19,34,.72)}.next-pass-vertical-header{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#66d9ff;font-weight:700}.next-pass-vertical-header strong{color:#22c55e;font-size:1.05rem}.next-pass-vertical-name{margin:8px 0 7px;color:#fff;font-size:1rem;font-weight:800}.next-pass-vertical-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.next-pass-vertical-grid span{display:flex;flex-direction:column;gap:2px;padding:6px;background:#020712;border:1px solid #17263a;border-radius:7px;color:#8fa7c5;font-size:.7rem;min-width:0}.next-pass-vertical-grid strong{color:#fff;font-size:.78rem;overflow-wrap:anywhere}@media(max-width:900px){.mission-layout-v3{grid-template-areas:"operations" "overview" "capture" "timeline"}.next-pass-vertical-grid{grid-template-columns:1fr 1fr}}
