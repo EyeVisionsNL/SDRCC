@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import shlex
 import subprocess
 import threading
 import time
@@ -95,7 +96,7 @@ SCHEDULER_ACTIONS = {
 SDRCC_ACTIONS = {
     "next_pass": {"label": "Next Pass", "command": [sys.executable, str(SDRCC_SCRIPT), "next"], "mode": "run"},
     "schedule": {"label": "Show Schedule", "command": [sys.executable, str(SDRCC_SCRIPT), "schedule"], "mode": "run"},
-    "simulate_record": {"label": "Simulate Recording", "command": [sys.executable, str(SDRCC_SCRIPT), "simulate-record"], "mode": "run"},
+    "test_satdump_launch": {"label": "Test SatDump Launch", "mode": "diagnostic"},
     "record": {"label": "Record NOW", "command": [sys.executable, str(SDRCC_SCRIPT), "record"], "mode": "start"},
     "update_tle": {"label": "Update TLE", "command": [sys.executable, str(SDRCC_SCRIPT), "update-tle"], "mode": "run"},
 }
@@ -111,183 +112,6 @@ def write_log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with LOG_FILE.open("a", encoding="utf-8") as file:
         file.write(f"[{timestamp}] {message}\n")
-
-
-virtual_mission_runtime = {
-    "active": False,
-    "stop_event": None,
-    "thread": None,
-    "mission_id": None,
-}
-virtual_mission_lock = threading.RLock()
-
-
-def _virtual_mission_worker(stop_event, duration_seconds=300):
-    """Run a hardware-free mission that exercises Mission Engine and Live RF."""
-    try:
-        started = time.monotonic()
-        snr = 4.0
-        while not stop_event.wait(1):
-            elapsed = int(time.monotonic() - started)
-            snr = min(13.5, snr + 0.35)
-            live_rf.update_line(
-                f"SNR : {snr:.2f} dB, Peak SNR : {snr:.2f} dB"
-            )
-            if elapsed >= 6:
-                live_rf.update_line(
-                    "Viterbi : SYNCED BER : 0.012, Deframer : SYNCED"
-                )
-            if elapsed >= duration_seconds:
-                mission_engine_core.mission_set_state("DECODING")
-                time.sleep(0.5)
-                mission_engine_core.mission_set_state("PROCESSING")
-                time.sleep(0.5)
-                mission_engine_core.mission_set_state("ARCHIVING")
-                live_rf.finish({
-                    "result": "SUCCESS",
-                    "detail": "Virtual mission completed",
-                    "peak_snr_db": snr,
-                    "frames": max(1, elapsed // 2),
-                    "cadu_bytes": max(8192, (elapsed // 2) * 8192),
-                    "image_count": 1,
-                })
-                mission_engine_core.mission_finish_job(
-                    success=True,
-                    result="SUCCESS",
-                    detail="Virtual mission completed",
-                    metrics={
-                        "peak_snr_db": snr,
-                        "frames": max(1, elapsed // 2),
-                        "cadu_bytes": max(8192, (elapsed // 2) * 8192),
-                        "image_count": 1,
-                    },
-                )
-                break
-    except Exception as error:
-        write_log(f"Virtual Mission error: {error}")
-        try:
-            live_rf.fail(f"Virtual mission error: {error}")
-        except Exception:
-            pass
-        try:
-            mission_engine_core.mission_cancel(
-                detail=f"Virtual mission error: {error}"
-            )
-        except Exception:
-            pass
-    finally:
-        with virtual_mission_lock:
-            virtual_mission_runtime.update({
-                "active": False,
-                "stop_event": None,
-                "thread": None,
-                "mission_id": None,
-            })
-
-
-def start_virtual_mission():
-    with virtual_mission_lock:
-        mission = mission_engine_core.get_mission_status()
-        if mission.get("active_job") is not None or virtual_mission_runtime["active"]:
-            raise RuntimeError("A mission is already active.")
-
-        next_pass = mission_scheduler_core.get_scheduler_status().get("next_pass") or {}
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = PROJECT_ROOT / "data" / "recordings" / f"{timestamp}_VIRTUAL-MISSION"
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        mission_engine_core.mission_create_job(
-            satellite="VIRTUAL MISSION",
-            frequency=next_pass.get("frequency", 137_900_000),
-            mode="SIMULATION",
-            pipeline="virtual_mission",
-            output_path=str(output_path),
-            receiver="SIMULATOR",
-            receiver_id="virtual",
-            receiver_serial="VIRTUAL",
-            min_elevation=next_pass.get("min_elevation"),
-            max_elevation=next_pass.get("max_elevation"),
-            azimuth=next_pass.get("azimuth"),
-            sample_rate=next_pass.get("sample_rate", 1_000_000),
-            gain_mode="manual",
-            gain_db=42.1,
-            dc_block=False,
-            iq_swap=False,
-        )
-        mission_engine_core.mission_set_state("LOCK RECEIVER")
-        mission_engine_core.mission_set_state("RECORDING")
-        mission = mission_engine_core.get_mission_status()
-        job = mission.get("active_job") or {}
-
-        record_data = {
-            "pass": {
-                "name": "VIRTUAL MISSION",
-                "frequency": job.get("frequency"),
-                "sample_rate": job.get("sample_rate"),
-            },
-            "device": {
-                "number": "SIMULATOR",
-                "id": "virtual",
-                "serial": "VIRTUAL",
-            },
-            "rf": {
-                "gain_mode": "manual",
-                "gain_db": 42.1,
-                "dc_block": False,
-                "iq_swap": False,
-            },
-            "output_path": output_path,
-            "timeout_seconds": 300,
-        }
-        live_rf.start(record_data, pid=0)
-
-        stop_event = threading.Event()
-        worker = threading.Thread(
-            target=_virtual_mission_worker,
-            args=(stop_event,),
-            name="sdrcc-virtual-mission",
-            daemon=True,
-        )
-        virtual_mission_runtime.update({
-            "active": True,
-            "stop_event": stop_event,
-            "thread": worker,
-            "mission_id": job.get("mission_id"),
-        })
-        worker.start()
-
-        event_bus.publish_mission(
-            "INFO",
-            "Virtual mission started",
-            "Hardware-free simulation is active and can be stopped with STOP MISSION",
-            data={"mission_id": job.get("mission_id")},
-        )
-        write_log(f"Virtual Mission gestart: {job.get('mission_id')}")
-        return mission_engine_core.get_mission_status()
-
-
-def stop_virtual_mission():
-    with virtual_mission_lock:
-        if not virtual_mission_runtime.get("active"):
-            return False
-        stop_event = virtual_mission_runtime.get("stop_event")
-        if stop_event is not None:
-            stop_event.set()
-
-    live_rf.finish({
-        "result": "CANCELLED",
-        "detail": "Virtual mission stopped by operator",
-    })
-    mission_engine_core.mission_cancel(
-        detail="Virtual mission stopped by operator"
-    )
-    event_bus.publish_mission(
-        "WARNING",
-        "Virtual mission stopped",
-        "The hardware-free simulation was stopped by the operator",
-    )
-    write_log("Virtual Mission gestopt door operator")
-    return True
 
 
 def run_command(command, timeout=60):
@@ -958,6 +782,334 @@ def wait_for_service(service_name, expected_state, timeout=15):
     return False
 
 
+def probe_rtl_receiver(serial, timeout=5):
+    """Try to claim and immediately release one physical RTL-SDR receiver."""
+    try:
+        result = subprocess.run(
+            ["rtl_test", "-d", str(serial), "-t"],
+            cwd=str(PROJECT_ROOT),
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+        )
+    except FileNotFoundError:
+        return {
+            "available": False,
+            "detail": "rtl_test is niet geïnstalleerd",
+            "returncode": None,
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "available": False,
+            "detail": "rtl_test timeout tijdens receiver-probe",
+            "returncode": None,
+        }
+
+    output = "\n".join(
+        part.strip()
+        for part in (result.stdout, result.stderr)
+        if part and part.strip()
+    )
+    lowered = output.lower()
+    busy_markers = (
+        "usb_claim_interface error",
+        "could not open rtl-sdr device",
+        "device or resource busy",
+        "failed to open rtlsdr device",
+    )
+    available = result.returncode == 0 and not any(
+        marker in lowered for marker in busy_markers
+    )
+    detail = output.splitlines()[-1] if output else f"rtl_test returncode {result.returncode}"
+    return {
+        "available": available,
+        "detail": detail,
+        "returncode": result.returncode,
+    }
+
+
+def wait_for_rtl_receiver_available(serial, timeout=15, interval=0.5):
+    """Bounded release barrier used before SatDump may claim the receiver."""
+    deadline = time.monotonic() + timeout
+    last_probe = None
+
+    while time.monotonic() < deadline:
+        remaining = max(1, int(deadline - time.monotonic()))
+        last_probe = probe_rtl_receiver(serial, timeout=min(5, remaining))
+        if last_probe["available"]:
+            return {
+                **last_probe,
+                "serial": str(serial),
+                "waited_seconds": round(timeout - max(0, deadline - time.monotonic()), 2),
+                "finished_at": datetime.now().isoformat(timespec="milliseconds"),
+            }
+        time.sleep(interval)
+
+    return {
+        **(last_probe or {"available": False, "detail": "receiver-probe niet uitgevoerd"}),
+        "serial": str(serial),
+        "waited_seconds": timeout,
+        "finished_at": datetime.now().isoformat(timespec="milliseconds"),
+    }
+
+
+
+def _diag_compact(value, limit=1400):
+    """Return a single-line bounded representation for diagnostics."""
+    try:
+        text = repr(value)
+    except Exception as error:
+        text = f"<repr-error:{error}>"
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[:limit] + "...<truncated>"
+
+
+def _diag_run(command, timeout=3):
+    """Run a read-only diagnostic command without allowing it to block."""
+    try:
+        result = subprocess.run(
+            command,
+            cwd=str(PROJECT_ROOT),
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+        )
+        output = "\n".join(
+            part.strip() for part in (result.stdout, result.stderr) if part and part.strip()
+        )
+        return {
+            "returncode": result.returncode,
+            "output": " || ".join(output.splitlines()) if output else "-",
+        }
+    except FileNotFoundError:
+        return {"returncode": None, "output": f"missing:{command[0]}"}
+    except subprocess.TimeoutExpired:
+        return {"returncode": None, "output": f"timeout:{timeout}s"}
+    except Exception as error:
+        return {"returncode": None, "output": f"error:{error}"}
+
+
+def _find_usb_device_for_serial(serial):
+    """Resolve an RTL serial to its sysfs and /dev/bus/usb location."""
+    wanted = str(serial or "").strip()
+    if not wanted:
+        return None
+    usb_root = Path("/sys/bus/usb/devices")
+    try:
+        candidates = list(usb_root.glob("*/serial"))
+    except OSError:
+        return None
+    for serial_file in candidates:
+        try:
+            if serial_file.read_text(errors="replace").strip() != wanted:
+                continue
+            device_dir = serial_file.parent
+            busnum = (device_dir / "busnum").read_text().strip()
+            devnum = (device_dir / "devnum").read_text().strip()
+            device_node = Path("/dev/bus/usb") / f"{int(busnum):03d}" / f"{int(devnum):03d}"
+            return {
+                "sysfs": str(device_dir),
+                "busnum": int(busnum),
+                "devnum": int(devnum),
+                "device_node": str(device_node),
+                "exists": device_node.exists(),
+            }
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def _proc_children_and_fds(root_pid):
+    """Inspect SDRCC and its descendants using procfs only."""
+    try:
+        root_pid = int(root_pid)
+    except (TypeError, ValueError):
+        return {"pids": [], "usb_fds": []}
+
+    parent_map = {}
+    command_map = {}
+    for proc_dir in Path("/proc").iterdir():
+        if not proc_dir.name.isdigit():
+            continue
+        try:
+            status = (proc_dir / "status").read_text(errors="replace")
+            ppid_line = next(line for line in status.splitlines() if line.startswith("PPid:"))
+            ppid = int(ppid_line.split()[1])
+            cmdline = (proc_dir / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace").strip()
+            parent_map[int(proc_dir.name)] = ppid
+            command_map[int(proc_dir.name)] = cmdline or "[kernel/empty]"
+        except (OSError, StopIteration, ValueError):
+            continue
+
+    descendants = {root_pid}
+    changed = True
+    while changed:
+        changed = False
+        for pid, ppid in parent_map.items():
+            if ppid in descendants and pid not in descendants:
+                descendants.add(pid)
+                changed = True
+
+    usb_fds = []
+    for pid in sorted(descendants):
+        fd_dir = Path("/proc") / str(pid) / "fd"
+        try:
+            for fd in fd_dir.iterdir():
+                try:
+                    target = str(fd.resolve(strict=False))
+                except OSError:
+                    continue
+                if target.startswith("/dev/bus/usb/") or "rtl" in target.lower():
+                    usb_fds.append({"pid": pid, "fd": fd.name, "target": target})
+        except OSError:
+            continue
+
+    return {
+        "pids": [
+            {"pid": pid, "ppid": parent_map.get(pid), "cmd": command_map.get(pid, "-")}
+            for pid in sorted(descendants)
+        ],
+        "usb_fds": usb_fds,
+    }
+
+
+def log_engine_usb_ownership_diagnostics(stage, device=None, process=None):
+    """Capture engine consistency and USB ownership without changing runtime state."""
+    device = device or {}
+    serial = str(device.get("serial") or "-")
+    mission = mission_engine_core.get_mission_status()
+    receiver = receiver_manager.get_status()
+    try:
+        live_status = live_rf.get_status()
+    except Exception as error:
+        live_status = {"error": str(error)}
+    try:
+        runtime_snapshot = runtime_manager_core.get_snapshot()
+    except Exception as error:
+        runtime_snapshot = {"error": str(error)}
+
+    runtime_process = autopilot_runtime.get("process")
+    runtime_pid = getattr(runtime_process, "pid", None)
+    runtime_returncode = runtime_process.poll() if runtime_process is not None else None
+    active_job = mission.get("active_job") or {}
+    mission_phase = str(mission.get("phase") or mission.get("state") or "-").upper()
+    reservation = receiver.get("reservation") or {}
+
+    inconsistencies = []
+    if mission_phase == "READY" and active_job:
+        inconsistencies.append("READY_WITH_ACTIVE_JOB")
+    if mission_phase == "RECORDING" and runtime_process is None:
+        inconsistencies.append("RECORDING_WITHOUT_AUTOPILOT_PROCESS")
+    if runtime_process is not None and runtime_returncode is None and mission_phase == "READY":
+        inconsistencies.append("LIVE_PROCESS_WHILE_ENGINE_READY")
+    if autopilot_runtime.get("record_started") and runtime_process is None:
+        inconsistencies.append("RECORD_STARTED_WITHOUT_PROCESS")
+    if reservation and autopilot_runtime.get("pass_key") and (
+        reservation.get("mission_key") not in (None, autopilot_runtime.get("pass_key"))
+    ):
+        inconsistencies.append("RECEIVER_RESERVATION_KEY_MISMATCH")
+    if active_job and reservation and active_job.get("receiver_id") and (
+        reservation.get("receiver_id") not in (None, active_job.get("receiver_id"))
+    ):
+        inconsistencies.append("MISSION_RECEIVER_RESERVATION_MISMATCH")
+
+    sdrcc_pid = Path("/run/sdrcc.pid")
+    try:
+        root_pid = int(sdrcc_pid.read_text().strip()) if sdrcc_pid.exists() else None
+    except (OSError, ValueError):
+        root_pid = None
+    if root_pid is None:
+        root_pid = _diag_run(["systemctl", "show", "sdrcc.service", "-p", "MainPID", "--value"])
+        try:
+            root_pid = int(str(root_pid.get("output") or "0").strip())
+        except (TypeError, ValueError):
+            root_pid = None
+
+    proc_state = _proc_children_and_fds(root_pid)
+    usb = _find_usb_device_for_serial(serial)
+    ownership = {"usb": usb, "fuser": None, "lsof": None}
+    if usb and usb.get("device_node"):
+        node = usb["device_node"]
+        ownership["fuser"] = _diag_run(["fuser", "-v", node])
+        ownership["lsof"] = _diag_run(["lsof", "-nP", node])
+
+    ais_units = {}
+    for unit in ("ais-catcher.service", "ais-catcher-control.service"):
+        ais_units[unit] = _diag_run([
+            "systemctl", "show", unit,
+            "-p", "ActiveState", "-p", "SubState", "-p", "MainPID",
+            "-p", "ControlPID", "-p", "KillMode", "-p", "Restart",
+            "-p", "ExecMainStatus", "--no-pager",
+        ])
+
+    write_log(
+        "ENGINE USB DIAG: "
+        f"stage={stage} serial={serial} satdump_pid={getattr(process, 'pid', None)} "
+        f"satdump_returncode={getattr(process, 'returncode', None)} | "
+        f"mission={_diag_compact({'phase': mission_phase, 'active_job': active_job})} | "
+        f"autopilot={_diag_compact({key: (runtime_pid if key == 'process' else autopilot_runtime.get(key)) for key in ('pass_key','prepared','locked','record_started','stop_requested','restore_service','restore_service_was_active','process')})} | "
+        f"receiver={_diag_compact(receiver)} | live_rf={_diag_compact(live_status, 800)} | "
+        f"runtime_manager={_diag_compact(runtime_snapshot, 800)}"
+    )
+    write_log(
+        "ENGINE CONSISTENCY: "
+        f"stage={stage} result={'INCONSISTENT' if inconsistencies else 'CONSISTENT'} "
+        f"issues={','.join(inconsistencies) if inconsistencies else 'none'}"
+    )
+    write_log(
+        "ENGINE USB DIAG: "
+        f"stage={stage} sdrcc_proc={_diag_compact(proc_state)} | "
+        f"ownership={_diag_compact(ownership)} | ais_units={_diag_compact(ais_units)}"
+    )
+
+
+def log_receiver_launch_diagnostics(stage, device=None, process=None):
+    """Log a bounded snapshot around the SatDump receiver handover."""
+    device = device or {}
+    serial = str(device.get("serial") or "-")
+    service_names = (
+        "ais-catcher.service",
+        "ais-catcher-control.service",
+        "readsb.service",
+        "sdrcc.service",
+    )
+    service_summary = []
+    for service_name in service_names:
+        try:
+            service_summary.append(
+                f"{service_name}={service_state(service_name).get('state', 'unknown')}"
+            )
+        except Exception as error:
+            service_summary.append(f"{service_name}=error:{error}")
+
+    try:
+        ps_result = subprocess.run(
+            ["ps", "-eo", "pid=,user=,stat=,args="],
+            cwd=str(PROJECT_ROOT),
+            text=True,
+            capture_output=True,
+            timeout=3,
+        )
+        process_lines = []
+        for raw_line in ps_result.stdout.splitlines():
+            lowered = raw_line.lower()
+            if any(marker in lowered for marker in (
+                "ais-catcher", "readsb", "satdump", "rtl_", "rtl-", "sdrcc"
+            )):
+                process_lines.append(" ".join(raw_line.split()))
+        process_summary = " || ".join(process_lines) if process_lines else "none"
+    except Exception as error:
+        process_summary = f"snapshot-error:{error}"
+
+    pid = getattr(process, "pid", None)
+    returncode = getattr(process, "returncode", None)
+    write_log(
+        "AUTO DIAG: "
+        f"stage={stage} serial={serial} pid={pid} returncode={returncode} | "
+        f"services: {'; '.join(service_summary)} | processes: {process_summary}"
+    )
+
+
 def handle_scheduler_action(action):
     mode = action["mode"]
     label = action["label"]
@@ -1095,6 +1247,141 @@ def reset_autopilot_runtime(target_pass=None):
     })
 
 
+
+
+SATDUMP_LAUNCH_TEST_SECONDS = 12
+
+
+def _restore_after_launch_test_failure():
+    """Restore receiver ownership when a launch test fails before the watcher starts."""
+    restore_service = autopilot_runtime.get("restore_service")
+    if restore_service and autopilot_runtime.get("restore_service_was_active"):
+        result = run_systemctl("start", restore_service)
+        if result.returncode != 0:
+            write_log(
+                f"LAUNCH TEST ERROR: {restore_service} kon niet worden hersteld: "
+                + result.stderr.strip()
+            )
+    profiles.set_active_profile("adsb")
+    try:
+        receiver_manager.release(
+            mission_key=autopilot_runtime.get("pass_key"),
+            detail="Weather receiver released after failed SatDump launch test",
+        )
+    except Exception as release_error:
+        write_log(f"LAUNCH TEST ERROR: receiver vrijgeven mislukt: {release_error}")
+    cancel_active_mission("SatDump launch test failed before start")
+    reset_autopilot_runtime()
+
+
+def _stop_satdump_launch_test(process, seconds):
+    """Stop only the diagnostic process after its short launch window."""
+    time.sleep(seconds)
+    if process is None:
+        return
+    if autopilot_runtime.get("process") is not process or process.poll() is not None:
+        return
+    write_log(f"LAUNCH TEST: {seconds}s launch window completed; stopping pid={process.pid}")
+    autopilot_runtime["stop_requested"] = True
+    process.terminate()
+
+
+def start_satdump_launch_test():
+    """Exercise the production receiver handover and SatDump Popen path."""
+    mission = mission_engine_core.get_mission_status()
+    active_runtime = any((
+        autopilot_runtime.get("prepared"),
+        autopilot_runtime.get("locked"),
+        autopilot_runtime.get("record_started"),
+        autopilot_runtime.get("process") is not None,
+    ))
+    if mission.get("active_job") is not None or active_runtime:
+        raise RuntimeError("A mission is already active.")
+
+    mission_scheduler_core.set_scheduler_mode("MANUAL")
+    reset_autopilot_runtime()
+    log_engine_usb_ownership_diagnostics("launch-test-entry")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    autopilot_runtime["pass_key"] = f"satdump-launch-test:{timestamp}"
+
+    try:
+        autopilot_prepare_receiver()
+        autopilot_runtime["prepared"] = True
+
+        record_data = satdump_core.build_record_command()
+        if record_data is None:
+            raise RuntimeError("No satellite pass is available to supply a SatDump pipeline.")
+        if not record_data.get("allowed"):
+            raise RuntimeError(record_data.get("reason") or "SatDump launch test is not allowed.")
+
+        output_path = (
+            PROJECT_ROOT / "data" / "recordings" / f"{timestamp}_SATDUMP-LAUNCH-TEST"
+        )
+        output_path.mkdir(parents=True, exist_ok=True)
+        command = list(record_data["command"])
+        command[3] = str(output_path)
+        timeout_index = command.index("--timeout") + 1
+        command[timeout_index] = str(SATDUMP_LAUNCH_TEST_SECONDS + 18)
+
+        pass_data = dict(record_data["pass"])
+        pass_data["name"] = "SATDUMP LAUNCH TEST"
+        pass_data["mode"] = "DIAGNOSTIC"
+        record_data.update({
+            "pass": pass_data,
+            "output_path": output_path,
+            "timeout_seconds": SATDUMP_LAUNCH_TEST_SECONDS,
+            "command": command,
+            "diagnostic_launch_test": True,
+        })
+
+        device = record_data["device"]
+        rf = record_data.get("rf") or {}
+        mission_engine_core.mission_create_job(
+            satellite=pass_data["name"],
+            frequency=pass_data["frequency"],
+            mode=pass_data["mode"],
+            pipeline=pass_data["pipeline"],
+            output_path=str(output_path),
+            receiver=device["number"],
+            receiver_id=device["id"],
+            receiver_serial=device["serial"],
+            sample_rate=pass_data.get("sample_rate"),
+            gain_mode=rf.get("gain_mode"),
+            gain_db=rf.get("gain_db"),
+            dc_block=rf.get("dc_block"),
+            iq_swap=rf.get("iq_swap"),
+        )
+        mission_engine_core.mission_set_state("LOCK RECEIVER")
+        autopilot_runtime["record_data"] = record_data
+        autopilot_runtime["locked"] = True
+
+        write_log(
+            f"LAUNCH TEST: production SatDump start path wordt getest via {device['number']} "
+            f"({device['serial']}) gedurende {SATDUMP_LAUNCH_TEST_SECONDS}s"
+        )
+        log_engine_usb_ownership_diagnostics("launch-test-before-production-start", device)
+        autopilot_start_recording()
+        autopilot_runtime["record_started"] = True
+        process = autopilot_runtime.get("process")
+        timer = threading.Thread(
+            target=_stop_satdump_launch_test,
+            args=(process, SATDUMP_LAUNCH_TEST_SECONDS),
+            name="sdrcc-satdump-launch-test-stop",
+            daemon=True,
+        )
+        timer.start()
+        return {
+            "ok": True,
+            "message": (
+                f"SatDump launch test started for {SATDUMP_LAUNCH_TEST_SECONDS} seconds. "
+                "Receiver services will be restored automatically."
+            ),
+            "pid": process.pid if process is not None else None,
+            "mission": mission_engine_core.get_mission_status(),
+        }
+    except Exception:
+        _restore_after_launch_test_failure()
+        raise
 
 def _normalise_match_value(value):
     return str(value or "").strip().lower()
@@ -1274,6 +1561,18 @@ def autopilot_prepare_receiver():
         if not wait_for_service(conflict_service, "inactive"):
             raise RuntimeError(f"{conflict_service} stopte niet volledig")
 
+    release_check = wait_for_rtl_receiver_available(device["serial"], timeout=15)
+    if not release_check["available"]:
+        raise RuntimeError(
+            "RECEIVER_NOT_RELEASED: "
+            f"{device['number']} ({device['serial']}) bleef bezet na service-handover; "
+            f"{release_check['detail']}"
+        )
+    write_log(
+        "AUTO: receiver release barrier OK voor "
+        f"{device['number']} ({device['serial']})"
+    )
+
     profiles.set_active_profile("weather")
     write_log(
         f"AUTO: Weather actief op {device['number']} "
@@ -1390,6 +1689,26 @@ def monitor_auto_record_process(process):
 
         process.wait()
         autopilot_runtime["process"] = None
+
+        launch_busy_markers = (
+            "usb_claim_interface error",
+            "could not open rtl-sdr device",
+            "device or resource busy",
+            "failed to open rtlsdr device",
+        )
+        launch_output = "\n".join(output_lines).lower()
+        if any(marker in launch_output for marker in launch_busy_markers):
+            failed_device = (autopilot_runtime.get("record_data") or {}).get("device") or {}
+            log_receiver_launch_diagnostics(
+                "satdump-open-failed",
+                failed_device,
+                process,
+            )
+            log_engine_usb_ownership_diagnostics(
+                "satdump-open-failed",
+                failed_device,
+                process,
+            )
 
         if mission_stop_requested():
             write_log("AUTO: active mission was cancelled by operator")
@@ -1627,6 +1946,56 @@ def autopilot_start_recording():
             "No prepared SatDump command available"
         )
 
+    device = record_data.get("device") or {}
+    receiver_serial = device.get("serial")
+    release_check = wait_for_rtl_receiver_available(receiver_serial, timeout=8)
+    if not release_check["available"]:
+        detail = (
+            "RECEIVER_NOT_RELEASED: "
+            f"{device.get('number', 'receiver')} ({receiver_serial}) is niet vrij voor SatDump; "
+            f"{release_check['detail']}"
+        )
+        write_log(f"AUTO ERROR: {detail}")
+        event_bus.publish_receiver(
+            "ERROR",
+            "Receiver niet vrijgegeven",
+            detail,
+            data={
+                "device_id": device.get("id"),
+                "serial": receiver_serial,
+                "probe": release_check,
+            },
+        )
+        try:
+            mission_engine_core.mission_finish_job(
+                success=False,
+                error=detail,
+            )
+        except Exception as mission_error:
+            write_log(f"AUTO ERROR: missie-afhandeling na releasefout mislukte: {mission_error}")
+        raise RuntimeError(detail)
+
+    write_log(
+        "AUTO: final receiver release barrier OK voor "
+        f"{device.get('number', 'receiver')} ({receiver_serial}); "
+        f"probe_finished={release_check.get('finished_at')} "
+        f"waited={release_check.get('waited_seconds')}s"
+    )
+    log_receiver_launch_diagnostics("after-final-probe", device)
+    log_engine_usb_ownership_diagnostics("after-final-probe", device)
+
+    # rtl_test has just claimed and released the USB interface. Give librtlsdr
+    # a short deterministic settle window before SatDump claims the receiver.
+    settle_seconds = 1.0
+    write_log(f"AUTO: receiver settle window {settle_seconds:.1f}s voor SatDump")
+    time.sleep(settle_seconds)
+    log_receiver_launch_diagnostics("before-satdump-popen", device)
+    log_engine_usb_ownership_diagnostics("before-satdump-popen", device)
+    write_log(
+        "AUTO: SatDump command: "
+        + shlex.join(str(part) for part in record_data["command"])
+    )
+
     mission_status = mission_engine_core.get_mission_status()
     active_job = mission_status.get("active_job") or {}
     receiver_manager.activate(
@@ -1646,6 +2015,12 @@ def autopilot_start_recording():
     )
     autopilot_runtime["process"] = process
     autopilot_runtime["stop_requested"] = False
+    write_log(
+        f"AUTO: SatDump process gestart pid={process.pid} "
+        f"at={datetime.now().isoformat(timespec='milliseconds')}"
+    )
+    log_receiver_launch_diagnostics("after-satdump-popen", device, process)
+    log_engine_usb_ownership_diagnostics("after-satdump-popen", device, process)
     live_rf.start(record_data, process.pid)
 
     watcher = threading.Thread(
@@ -1845,8 +2220,8 @@ def mission_autopilot_worker():
                 and autopilot_runtime["locked"]
                 and not autopilot_runtime["record_started"]
             ):
-                autopilot_runtime["record_started"] = True
                 if dry_run:
+                    autopilot_runtime["record_started"] = True
                     autopilot_runtime["dry_run_completed"] = True
                     automation_controller.update_status(
                         "DRY RUN COMPLETE",
@@ -1862,6 +2237,7 @@ def mission_autopilot_worker():
                     )
                 else:
                     autopilot_start_recording()
+                    autopilot_runtime["record_started"] = True
 
             if now_epoch > end_epoch and not autopilot_runtime["record_started"]:
                 write_log("AUTO: pass missed without recording; restoring receivers")
@@ -2467,16 +2843,6 @@ def api_mission_engine_next():
 
 @app.route("/api/mission/stop", methods=["POST"])
 def api_stop_mission():
-    if virtual_mission_runtime.get("active"):
-        mission_scheduler_core.set_scheduler_mode("MANUAL")
-        stop_virtual_mission()
-        return jsonify({
-            "ok": True,
-            "message": "Virtual mission stopped. Scheduler staat op MANUAL.",
-            "process_stopped": False,
-            "mission": mission_engine_core.get_mission_status(),
-            "scheduler": mission_scheduler_core.get_scheduler_status(),
-        })
 
     mission_status = mission_engine_core.get_mission_status()
     active_job = mission_status.get("active_job")
@@ -2592,7 +2958,6 @@ def get_reconciled_receiver_manager_status():
     mission = mission_engine_core.get_mission_status()
     phase = str(mission.get("phase") or mission.get("state") or "").upper()
     runtime_active = any((
-        virtual_mission_runtime.get("active"),
         autopilot_runtime.get("prepared"),
         autopilot_runtime.get("locked"),
         autopilot_runtime.get("record_started"),
@@ -2913,13 +3278,8 @@ def api_action():
         if action_id in SCHEDULER_ACTIONS:
             return handle_scheduler_action(action)
 
-        if action_id == "simulate_record":
-            mission = start_virtual_mission()
-            return jsonify({
-                "ok": True,
-                "message": "Virtual mission started. STOP MISSION is now available.",
-                "mission": mission,
-            })
+        if action_id == "test_satdump_launch":
+            return jsonify(start_satdump_launch_test())
 
         if action_id == "record":
             record_data = satdump_core.build_record_command()

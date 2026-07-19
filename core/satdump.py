@@ -142,7 +142,7 @@ def build_record_command():
         str(output_path),
         "--source",
         "rtlsdr",
-        "--serial",
+        "--source_id",
         device["serial"],
         "--frequency",
         str(next_pass["frequency"]),
@@ -187,33 +187,6 @@ def print_record_preview():
         print()
         print(data["reason"])
         return
-
-    _print_record_data(data)
-
-
-def simulate_record():
-    data = build_record_command()
-
-    print("SatDump simulation")
-    print("-----------------------------")
-
-    if data is None:
-        print("Geen geschikte passage gevonden.")
-        return
-
-    if not data["allowed"]:
-        print("Simulatie niet toegestaan.")
-        print()
-        print(data["reason"])
-        return
-
-    data["output_path"].mkdir(parents=True, exist_ok=True)
-
-    print("Checks")
-    print("  Profile   : OK")
-    print("  SDR2      : OK")
-    print("  Output dir: OK")
-    print()
 
     _print_record_data(data)
 

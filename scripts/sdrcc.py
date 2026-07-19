@@ -60,7 +60,6 @@ def print_help():
     print("  sdrcc next")
     print("  sdrcc schedule")
     print("  sdrcc record-next")
-    print("  sdrcc simulate-record")
     print("  sdrcc record")
     print("  sdrcc help")
 
@@ -160,8 +159,6 @@ def main():
         print_header(); passes.print_schedule()
     elif command == "record-next":
         print_header(); satdump.print_record_preview()
-    elif command == "simulate-record":
-        print_header(); satdump.simulate_record()
     elif command == "record":
         print_header()
         success = satdump.record_now()
