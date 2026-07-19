@@ -420,3 +420,185 @@
         grid-template-columns: 1fr !important;
     }
 }
+
+/* v0.32.0e - Receiver-first Mission Control workspace */
+.mission-control-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-areas:
+        "receivers controls"
+        "timeline controls";
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+    align-items: start;
+    overflow-x: clip;
+}
+
+.mission-control-workspace > * {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.mission-control-workspace .mission-receiver-area {
+    grid-area: receivers;
+    width: 100%;
+    min-width: 0;
+}
+
+.mission-control-workspace .mission-receiver-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+.mission-control-workspace .mission-controls-panel {
+    grid-area: controls;
+    width: 220px;
+    min-width: 0;
+    padding: 12px;
+    align-self: stretch;
+}
+
+.mission-control-workspace .mission-timeline-panel {
+    grid-area: timeline;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+.mission-control-workspace .mission-controls-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.mission-control-workspace .mission-controls-heading .service-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    width: 100%;
+    font-size: .72rem;
+}
+
+.mission-control-workspace .mission-controls-heading .service-summary span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 5px 3px;
+    border: 1px solid #26364b;
+    border-radius: 7px;
+    background: #07111f;
+    text-align: center;
+}
+
+.mission-control-workspace .mission-control-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mission-control-workspace .mission-service-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin: 0 !important;
+}
+
+.mission-control-workspace .mission-action-controls,
+.mission-control-workspace .mission-advanced-actions {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    margin: 0 !important;
+}
+
+.mission-control-workspace .control-button {
+    min-height: 36px;
+    width: 100%;
+    padding: 7px 6px;
+    font-size: .78rem;
+    line-height: 1.15;
+    white-space: normal;
+}
+
+.mission-control-workspace .mission-advanced-controls {
+    margin-top: 9px;
+}
+
+.mission-control-workspace .mission-advanced-controls summary {
+    font-size: .82rem;
+}
+
+.mission-control-workspace .control-result {
+    margin: 9px 0 0;
+    font-size: .72rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 1100px) {
+    .mission-control-workspace {
+        grid-template-columns: minmax(0, 1fr) 210px;
+    }
+
+    .mission-control-workspace .mission-controls-panel {
+        width: 210px;
+    }
+}
+
+@media (max-width: 900px) {
+    .mission-control-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "receivers"
+            "controls"
+            "timeline";
+        overflow-x: hidden;
+    }
+
+    .mission-control-workspace .mission-receiver-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mission-control-workspace .mission-controls-panel {
+        width: 100%;
+        align-self: auto;
+    }
+
+    .mission-control-workspace .mission-controls-heading {
+        align-items: center;
+        flex-direction: row;
+    }
+
+    .mission-control-workspace .mission-control-groups {
+        display: grid;
+        grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+        gap: 8px;
+    }
+
+    .mission-control-workspace .mission-action-controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 560px) {
+    .mission-control-workspace .mission-controls-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .mission-control-workspace .mission-control-groups {
+        grid-template-columns: 1fr;
+    }
+
+    .mission-control-workspace .mission-service-controls,
+    .mission-control-workspace .mission-action-controls,
+    .mission-control-workspace .mission-advanced-actions {
+        grid-template-columns: 1fr !important;
+    }
+}
