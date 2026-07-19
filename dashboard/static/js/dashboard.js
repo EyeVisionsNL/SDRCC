@@ -4,6 +4,7 @@ import {setupControls} from "./controls.js";
 import {updateSystem} from "./system.js";
 import {updateServices, updateServiceButtons} from "./services.js";
 import {updateMissionEngine, updateNextPass, updateCountdown, updateServerOffset} from "./mission.js";
+import {updateMissionReceiverGrid} from "./mission_receivers.js";
 import {updateLatestCapture, updateRecentCaptures} from "./capture.js";
 import {updateLiveLog, updateMissionTimeline} from "./timeline.js";
 import {updateSdr} from "./sdr.js";
@@ -26,6 +27,7 @@ async function refreshDashboard() {
         updateServices(data);
         updateServiceButtons(data);
         updateMissionEngine(data.mission);
+        await updateMissionReceiverGrid();
         updateNextPass(data);
         updateSdr(data);
         updateStatusbar(data);

@@ -1,5 +1,5 @@
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#1e293b;border-bottom:1px solid #334155}.topbar h1{margin:0;color:#38bdf8;font-size:27px}.topbar p{margin:4px 0 0;color:#94a3b8}.topbar-status{display:flex;align-items:center;gap:10px;font-weight:700;color:#22c55e}.status-dot{width:12px;height:12px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e,0 0 16px #22c55e}.tabs{display:flex;gap:8px;padding:9px 14px;background:#111827;border-bottom:1px solid #334155}.tab-button{background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:600}.tab-button:hover{background:#334155}.tab-button.active{background:#0284c7;color:#fff;border-color:#38bdf8}.tab-page{display:none}.tab-page.active{display:block}
-.mission-layout-v3{display:grid;grid-template-columns:230px minmax(430px,620px) minmax(520px,1fr);grid-template-areas:"operations overview capture" "pass timeline timeline";gap:12px;padding:12px;align-items:start}.mission-operations{grid-area:operations;display:flex;flex-direction:column;gap:10px}.mission-overview{grid-area:overview}.mission-capture{grid-area:capture}.pass-panel{grid-area:pass}.mission-timeline-panel{grid-area:timeline}.mission-layout-v3 .card{margin:0}.compact-card{padding-bottom:12px}.control-pairs{display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important}.control-actions{display:grid!important;grid-template-columns:1fr!important;gap:7px!important;margin-top:8px}.mission-layout-v3 .control-button{width:100%;padding:9px 8px}.section-heading-row{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px}.section-heading-row h2{border:0!important;padding:0!important;margin:0!important}.service-summary{display:flex;gap:12px;flex-wrap:wrap;color:#94a3b8;font-size:.86rem}.mission-status-grid{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(250px,1.15fr);gap:12px}.mission-side-info{display:flex;flex-direction:column;gap:10px}.mission-capture{min-width:0}.mission-capture .capture-content img{width:100%;height:390px;max-height:390px;object-fit:contain}.capture-meta-compact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 12px;max-height:none!important}.capture-meta-compact p{margin:2px 0}.pass-header-row{display:flex;justify-content:space-between;align-items:center;gap:12px}.compact-countdown{min-width:150px;margin:0;padding:9px}.compact-countdown .countdown{font-size:25px}.pass-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px}.pass-grid p{min-width:0;margin:0;overflow-wrap:anywhere}.mission-timeline{max-height:300px;overflow-y:auto}.radio-page{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px}.receiver-overview-card{grid-column:1/-1}.spectrum-card{grid-column:span 2}.images-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;padding:16px}.image-main{grid-column:span 2}.log-panel-full{margin:16px}.statusbar{display:flex;justify-content:space-between;padding:12px 18px;color:#94a3b8;border-top:1px solid #334155;background:#111827}.muted{color:#94a3b8}
+.mission-layout-v3{display:grid;grid-template-columns:230px minmax(430px,620px) minmax(520px,1fr);grid-template-areas:"operations overview capture" "pass timeline timeline";gap:12px;padding:12px;align-items:start}.mission-operations{grid-area:operations;display:flex;flex-direction:column;gap:10px}.mission-overview,.mission-receiver-area{grid-area:overview}.mission-capture{grid-area:capture}.pass-panel{grid-area:pass}.mission-timeline-panel{grid-area:timeline}.mission-layout-v3 .card{margin:0}.compact-card{padding-bottom:12px}.control-pairs{display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important}.control-actions{display:grid!important;grid-template-columns:1fr!important;gap:7px!important;margin-top:8px}.mission-layout-v3 .control-button{width:100%;padding:9px 8px}.section-heading-row{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px}.section-heading-row h2{border:0!important;padding:0!important;margin:0!important}.service-summary{display:flex;gap:12px;flex-wrap:wrap;color:#94a3b8;font-size:.86rem}.mission-status-grid{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(250px,1.15fr);gap:12px}.mission-side-info{display:flex;flex-direction:column;gap:10px}.mission-capture{min-width:0}.mission-capture .capture-content img{width:100%;height:390px;max-height:390px;object-fit:contain}.capture-meta-compact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 12px;max-height:none!important}.capture-meta-compact p{margin:2px 0}.pass-header-row{display:flex;justify-content:space-between;align-items:center;gap:12px}.compact-countdown{min-width:150px;margin:0;padding:9px}.compact-countdown .countdown{font-size:25px}.pass-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px}.pass-grid p{min-width:0;margin:0;overflow-wrap:anywhere}.mission-timeline{max-height:300px;overflow-y:auto}.radio-page{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px}.receiver-overview-card{grid-column:1/-1}.spectrum-card{grid-column:span 2}.images-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;padding:16px}.image-main{grid-column:span 2}.log-panel-full{margin:16px}.statusbar{display:flex;justify-content:space-between;padding:12px 18px;color:#94a3b8;border-top:1px solid #334155;background:#111827}.muted{color:#94a3b8}
 @media(max-width:1350px){.mission-layout-v3{grid-template-columns:220px minmax(390px,1fr);grid-template-areas:"operations overview" "capture capture" "pass timeline"}.mission-capture .capture-content img{height:440px}.radio-page{grid-template-columns:1fr 1fr}.receiver-overview-card{grid-column:1/-1}.spectrum-card{grid-column:1/-1}}
 @media(max-width:900px){.topbar{flex-direction:column;align-items:flex-start;gap:10px}.tabs{flex-wrap:wrap}.mission-layout-v3{grid-template-columns:1fr;grid-template-areas:"operations" "overview" "capture" "pass" "timeline"}.mission-status-grid{grid-template-columns:1fr}.radio-page{grid-template-columns:1fr}.receiver-overview-card,.spectrum-card{grid-column:auto}.image-main{grid-column:auto}.statusbar{flex-direction:column;gap:6px}.capture-meta-compact{grid-template-columns:1fr 1fr}}
 
@@ -146,6 +146,7 @@
 /* v0.14.0c - Laatste ontvangst even hoog als Missionstatus */
 @media (min-width: 1351px) {
     .mission-overview,
+    .mission-receiver-area,
     .mission-capture {
         align-self: stretch;
     }
@@ -202,3 +203,220 @@
 @media(max-width:900px){.topbar-actions{width:100%;justify-content:space-betwes}.github-repository-link{min-height:36px}}
 @media(max-width:520px){.topbar-actions{align-items:stretch;flex-direction:column}.topbar-status{align-self:flex-start}}
 .brand-byline{margin-left:.45rem;color:#7890ac;font-size:.82em}.brand-byline a{color:#66d9ff;text-decoration:none;font-weight:700}.brand-byline a:hover{text-decoration:underline}.mission-layout-v3{grid-template-areas:"operations overview capture" "operations timeline timeline"}.mission-timeline-panel{grid-area:timeline}.next-pass-vertical{margin-top:12px;padding:11px;border:1px solid rgba(56,189,248,.38);border-radius:10px;background:rgba(8,19,34,.72)}.next-pass-vertical-header{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#66d9ff;font-weight:700}.next-pass-vertical-header strong{color:#22c55e;font-size:1.05rem}.next-pass-vertical-name{margin:8px 0 7px;color:#fff;font-size:1rem;font-weight:800}.next-pass-vertical-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.next-pass-vertical-grid span{display:flex;flex-direction:column;gap:2px;padding:6px;background:#020712;border:1px solid #17263a;border-radius:7px;color:#8fa7c5;font-size:.7rem;min-width:0}.next-pass-vertical-grid strong{color:#fff;font-size:.78rem;overflow-wrap:anywhere}@media(max-width:900px){.mission-layout-v3{grid-template-areas:"operations" "overview" "capture" "timeline"}.next-pass-vertical-grid{grid-template-columns:1fr 1fr}}
+
+
+/* v0.32.0b - Full-width receiver Mission Control; Latest Reception removed */
+.mission-layout-v3 {
+    grid-template-columns: 230px minmax(0, 1fr);
+    grid-template-areas:
+        "operations overview"
+        "operations timeline";
+}
+
+.mission-receiver-area {
+    grid-area: overview;
+    width: 100%;
+    min-width: 0;
+}
+
+.mission-timeline-panel {
+    grid-area: timeline;
+    min-width: 0;
+}
+
+@media (max-width: 1350px) {
+    .mission-layout-v3 {
+        grid-template-columns: 220px minmax(0, 1fr);
+        grid-template-areas:
+            "operations overview"
+            "operations timeline";
+    }
+}
+
+@media (max-width: 900px) {
+    .mission-layout-v3 {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "operations"
+            "overview"
+            "timeline";
+    }
+}
+
+
+/* v0.32.0d - Compact Controls sidebar beside receivers and timeline */
+.mission-layout-v3.mission-operations-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(210px, 14vw, 235px);
+    grid-template-areas:
+        "receivers controls"
+        "timeline  controls";
+    gap: 12px;
+    width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+    align-items: start;
+}
+
+.mission-layout-v3.mission-operations-layout > * {
+    min-width: 0;
+}
+
+.mission-receiver-area {
+    grid-area: receivers;
+    width: 100%;
+}
+
+.mission-controls-panel {
+    grid-area: controls;
+    width: 100%;
+    align-self: stretch;
+    padding: 12px;
+}
+
+.mission-timeline-panel {
+    grid-area: timeline;
+    width: 100%;
+}
+
+.mission-controls-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.mission-controls-heading .service-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    width: 100%;
+    font-size: .72rem;
+}
+
+.mission-controls-heading .service-summary span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 5px;
+    border: 1px solid #26364b;
+    border-radius: 7px;
+    background: #07111f;
+    text-align: center;
+}
+
+.mission-control-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mission-service-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin: 0 !important;
+}
+
+.mission-action-controls,
+.mission-advanced-actions {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    margin: 0 !important;
+}
+
+.mission-controls-panel .control-button {
+    min-height: 36px;
+    width: 100%;
+    padding: 7px 6px;
+    font-size: .78rem;
+    line-height: 1.15;
+    white-space: normal;
+}
+
+.mission-advanced-controls {
+    margin-top: 9px;
+}
+
+.mission-advanced-controls summary {
+    font-size: .82rem;
+}
+
+.mission-controls-panel .control-result {
+    margin: 9px 0 0;
+    font-size: .72rem;
+    line-height: 1.35;
+}
+
+.system-page {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 14px;
+    align-items: start;
+}
+.system-status-card { grid-column: 1 / -1; }
+.system-meters-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.system-meters-grid .system-meter { margin: 0; }
+.automation-system-card .automation-controller { margin: 0; }
+.alerts-audio-card { min-width: 0; }
+
+@media (max-width: 1100px) {
+    .mission-layout-v3.mission-operations-layout {
+        grid-template-columns: minmax(0, 1fr) 210px;
+    }
+
+    .mission-receiver-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .mission-layout-v3.mission-operations-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "receivers"
+            "controls"
+            "timeline";
+    }
+
+    .mission-controls-panel {
+        align-self: auto;
+    }
+
+    .mission-controls-heading {
+        align-items: center;
+        flex-direction: row;
+    }
+
+    .mission-control-groups {
+        display: grid;
+        grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+        gap: 8px;
+    }
+
+    .mission-action-controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .system-page { grid-template-columns: minmax(0, 1fr); }
+    .system-status-card { grid-column: auto; }
+    .system-meters-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+    .mission-controls-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .mission-control-groups {
+        grid-template-columns: 1fr;
+    }
+
+    .mission-service-controls,
+    .mission-action-controls,
+    .mission-advanced-actions {
+        grid-template-columns: 1fr !important;
+    }
+}

@@ -6,14 +6,14 @@
     <title>SDR Control Center</title>
     <link rel="icon" type="image/png" href="/static/assets/sdrcc.png">
     <link rel="stylesheet" href="/static/css/base.css?v=0.27.0">
-    <link rel="stylesheet" href="/static/css/layout.css?v=0.27.0">
+    <link rel="stylesheet" href="/static/css/layout.css?v=0.32.0d">
     <link rel="stylesheet" href="/static/css/cards.css?v=0.27.0">
     <link rel="stylesheet" href="/static/css/system.css?v=0.27.0">
     <link rel="stylesheet" href="/static/css/capture.css?v=0.27.0">
     <link rel="stylesheet" href="/static/css/log.css?v=0.27.0">
     <link rel="stylesheet" href="/static/css/controls.css?v=0.27.0">
     <link rel="stylesheet" href="/static/css/timeline.css?v=0.27.0">
-    <link rel="stylesheet" href="/static/css/mission.css?v=0.27.0">
+    <link rel="stylesheet" href="/static/css/mission.css?v=0.32.0d">
     <link rel="stylesheet" href="/static/css/theme.css?v=0.27.0">
     <link rel="stylesheet" href="/static/css/radio.css?v=0.27.0">
     <link rel="stylesheet" href="/static/css/mission_monitor.css?v=0.27.0">
@@ -55,39 +55,30 @@
     <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>
     <button class="tab-button" data-tab="history">🗂 Mission History</button>
     <button class="tab-button" data-tab="images">📸 Images</button>
+    <button class="tab-button" data-tab="system">⚙️ System</button>
     <button class="tab-button" data-tab="logs">📜 Logs</button>
 </nav>
 
 <main>
 <section class="tab-page active" id="tab-mission">
-    <div class="mission-layout-v3">
-        <aside class="mission-operations">
-            <section class="card system-panel compact-card">
-                <h2>🖥 System</h2>
-                <div class="system-meter">
-                    <div class="system-meter-top"><span>CPU</span><strong id="system-cpu">-</strong></div>
-                    <div class="bar"><div id="system-cpu-bar"></div></div>
-                </div>
-                <div class="system-meter">
-                    <div class="system-meter-top"><span>RAM</span><strong id="system-ram">-</strong></div>
-                    <div class="bar"><div id="system-ram-bar"></div></div>
-                </div>
-                <div class="system-meter">
-                    <div class="system-meter-top"><span>Disk</span><strong id="system-disk">-</strong></div>
-                    <div class="bar"><div id="system-disk-bar"></div></div>
-                </div>
-                <p class="uptime">⏱ Uptime: <strong id="system-uptime">-</strong></p>
-            </section>
-
-            <section class="card controls-panel">
+    <div class="mission-layout-v3 mission-operations-layout">
+        <section class="card controls-panel mission-controls-panel">
+            <div class="section-heading-row mission-controls-heading">
                 <h2>🎛 Controls</h2>
-                <div class="button-grid control-pairs">
+                <div class="service-summary">
+                    <span>AIS <strong id="ais-status" class="warn">-</strong></span>
+                    <span>ADS-B <strong id="adsb-status" class="warn">-</strong></span>
+                    <span>TLE <strong id="tle-status" class="warn">-</strong></span>
+                </div>
+            </div>
+            <div class="mission-control-groups">
+                <div class="button-grid control-pairs mission-service-controls">
                     <button class="control-button" data-action="start_ais">▶ Start AIS</button>
                     <button class="control-button danger" data-action="stop_ais">■ Stop AIS</button>
                     <button class="control-button" data-action="start_adsb">▶ Start ADS-B</button>
                     <button class="control-button danger" data-action="stop_adsb">■ Stop ADS-B</button>
                 </div>
-                <div class="button-grid control-actions">
+                <div class="button-grid control-actions mission-action-controls">
                     <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
                     <button class="control-button danger" data-action="record">📸 Record NOW</button>
                     <button class="control-button" id="stop-mission-button" type="button" disabled>■ STOP MISSION</button>
@@ -96,258 +87,23 @@
                     <button class="control-button" data-action="scheduler_paused">⏸ Scheduler PAUSED</button>
                     <button class="control-button mission-control-button" data-mission-action="next">⏭ Mission Next</button>
                 </div>
-                <details class="advanced-controls">
-                    <summary>⚙ Advanced</summary>
-                    <div class="button-grid control-actions">
-                        <button class="control-button" data-action="test_satdump_launch">🧪 Test SatDump Launch</button>
-                        <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Mission Reset</button>
-                    </div>
-                </details>
-                <p class="control-result" id="control-result">No action started.</p>
-
-                <div class="automation-operations">
-                    <div class="automation-controller" id="automation-controller">
-                        <div class="automation-controller-heading">
-                            <strong>🧠 Automation Controller</strong>
-                            <span class="automation-controller-state" id="automation-controller-state">LOADING</span>
-                        </div>
-                        <div class="automation-controller-grid">
-                            <span>Next Pass<strong id="automation-controller-pass">-</strong></span>
-                            <span>Countdown<strong id="automation-controller-countdown">T--:--:--</strong></span>
-                            <span>Next Action<strong id="automation-controller-next-action">-</strong></span>
-                            <span>Safe Mode<strong id="automation-controller-safety">Normal</strong></span>
-                        </div>
-                        <p class="automation-controller-detail" id="automation-controller-detail">Loading controller status...</p>
-                        <div class="automation-controller-actions">
-                            <button class="automation-controller-button" id="automation-dry-run" type="button">🧪 Dry Run OFF</button>
-                            <button class="automation-controller-button" id="automation-manual-override" type="button">✋ Override OFF</button>
-                            <button class="automation-controller-button danger" id="automation-skip-pass" type="button">⏭ Skip Next Pass</button>
-                        </div>
-                        <p class="automation-controller-status" id="automation-controller-message">Manual controls remain available.</p>
-                    </div>
-
-                </div>
-            </section>
-
-            <section class="card mission-sounds-panel compact-card" aria-labelledby="mission-sounds-title">
-                <div class="mission-sounds-heading">
-                    <h2 id="mission-sounds-title">🔊 Mission Event Center</h2>
-                    <label class="mission-sounds-toggle">
-                        <input id="mission-sounds-enabled" type="checkbox">
-                        <span>Sound On</span>
-                    </label>
-                </div>
-                <label class="mission-sounds-volume" for="mission-sounds-volume">
-                    <span>Volume</span>
-                    <input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35">
-                    <strong id="mission-sounds-volume-value">35%</strong>
-                </label>
-                <button class="control-button" id="mission-sounds-test" type="button">🚀 Test Start Sound</button>
-                <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
-            </section>
-        </aside>
-
-        <section class="card mission-overview">
-            <div class="section-heading-row">
-                <h2>🚦 Mission Status</h2>
-                <div class="service-summary">
-                    <span>AIS <strong id="ais-status" class="warn">-</strong></span>
-                    <span>ADS-B <strong id="adsb-status" class="warn">-</strong></span>
-                    <span>TLE <strong id="tle-status" class="warn">-</strong></span>
-                </div>
             </div>
-
-            <div class="mission-status-grid">
-                <div class="mission-engine">
-                    <div class="mission-phase" id="mission-phase">-</div>
-                    <div class="mission-detail" id="mission-detail">-</div>
-                    <div class="mission-progress"><div class="mission-progress-bar" id="mission-progress-bar"></div></div>
-
-                    <div class="scheduler-observer">
-                        <div class="scheduler-observer-row"><span>Scheduler</span><strong id="scheduler-mode">-</strong></div>
-                        <div class="scheduler-observer-row"><span>Phase</span><strong id="scheduler-observer-phase">-</strong></div>
-                        <div class="scheduler-observer-countdown" id="scheduler-countdown">T--:--:--</div>
-                        <div class="scheduler-observer-detail" id="scheduler-observer-detail">-</div>
-                        <div class="scheduler-observer-times">
-                            <div class="observer-time-row"><span>Preflight</span><strong id="scheduler-preflight-at">-</strong></div>
-                            <div class="observer-time-row"><span>Prepare</span><strong id="scheduler-prepare-at">-</strong></div>
-                            <div class="observer-time-row"><span>Lock</span><strong id="scheduler-lock-at">-</strong></div>
-                        </div>
-                    </div>
-
-                    <div class="next-pass-vertical">
-                        <div class="next-pass-vertical-header">
-                            <span>🛰 Next Pass</span>
-                            <strong id="next-countdown">-</strong>
-                        </div>
-                        <div class="next-pass-vertical-name" id="next-name">-</div>
-                        <div class="next-pass-vertical-grid">
-                            <span>Start<strong id="next-start">-</strong></span>
-                            <span>Maximum<strong id="next-maximum">-</strong></span>
-                            <span>End<strong id="next-end">-</strong></span>
-                            <span>Frequency<strong id="next-frequency">-</strong></span>
-                            <span>Max. Elevation<strong id="next-elevation">-</strong></span>
-                            <span>Azimuth<strong id="next-azimuth">-</strong></span>
-                            <span>Mode<strong id="next-mode">-</strong></span>
-                            <span>Pipeline<strong id="next-pipeline">-</strong></span>
-                        </div>
-                    </div>
-
-                    <div class="mission-queue mission-queue-in-status" id="mission-queue">
-                        <div class="mission-queue-heading">
-                            <div><strong>📋 Mission Queue</strong><span>Upcoming passes and operator planning</span></div>
-                            <span id="mission-queue-summary">LOADING</span>
-                        </div>
-                        <div class="mission-queue-list" id="mission-queue-list">
-                            <div class="mission-queue-empty">Loading Mission Queue...</div>
-                        </div>
-                        <p class="mission-queue-message" id="mission-queue-message">Up to 10 upcoming passes.</p>
-                    </div>
+            <details class="advanced-controls mission-advanced-controls">
+                <summary>⚙ Advanced</summary>
+                <div class="button-grid control-actions mission-advanced-actions">
+                    <button class="control-button" data-action="test_satdump_launch">🧪 Test SatDump Launch</button>
+                    <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Mission Reset</button>
                 </div>
-
-                <div class="mission-side-info">
-                    <div class="last-mission-card">
-                        <div class="mini-card-title">📋 Last Mission</div>
-                        <div class="last-mission-result" id="last-mission-result">-</div>
-                        <div class="last-mission-grid">
-                            <span>Satellite<strong id="last-mission-satellite">-</strong></span>
-                            <span>Peak SNR<strong id="last-mission-snr">-</strong></span>
-                            <span>Frames<strong id="last-mission-frames">-</strong></span>
-                            <span>Images<strong id="last-mission-images">-</strong></span>
-                            <span>Duration<strong id="last-mission-duration">-</strong></span>
-                            <span>Ended<strong id="last-mission-ended">-</strong></span>
-                        </div>
-                        <p id="last-mission-detail" class="last-mission-detail">No mission result available yet.</p>
-                    </div>
-
-                    <div class="mission-briefing live-mission-dashboard" id="mission-briefing">
-                        <div class="live-mission-header">
-                            <div>
-                                <div class="mission-briefing-title">🛰 Live Mission Dashboard</div>
-                                <strong class="live-mission-name" id="briefing-name">No Active Mission</strong>
-                            </div>
-                            <span class="live-mission-state" id="briefing-state">STANDBY</span>
-                        </div>
-
-                        <div class="live-mission-context">
-                            <span>Mode<strong id="briefing-mode">-</strong></span>
-                            <span>Receiver<strong id="briefing-receiver">-</strong></span>
-                            <span>Frequency<strong id="briefing-frequency">-</strong></span>
-                        </div>
-
-                        <div class="live-mission-progress-row">
-                            <div class="live-mission-time"><span>Elapsed</span><strong id="briefing-elapsed">00:00</strong></div>
-                            <strong class="live-mission-percent" id="briefing-progress-text">0%</strong>
-                            <div class="live-mission-time align-right"><span>Remaining</span><strong id="briefing-remaining">--:--</strong></div>
-                        </div>
-                        <div class="live-mission-progress"><span id="briefing-progress-bar"></span></div>
-
-                        <div class="live-mission-pipeline" id="briefing-live-pipeline" aria-label="Live Mission Pipeline">
-                            <div class="pipeline-step is-waiting" data-pipeline-step="receiver">
-                                <span class="pipeline-step-index">1</span>
-                                <span class="pipeline-step-copy"><strong>Receiver</strong><small>WAITING</small></span>
-                            </div>
-                            <div class="pipeline-step is-waiting" data-pipeline-step="recording">
-                                <span class="pipeline-step-index">2</span>
-                                <span class="pipeline-step-copy"><strong>Recording</strong><small>WAITING</small></span>
-                            </div>
-                            <div class="pipeline-step is-waiting" data-pipeline-step="decoder">
-                                <span class="pipeline-step-index">3</span>
-                                <span class="pipeline-step-copy"><strong>Decoder</strong><small>WAITING</small></span>
-                            </div>
-                            <div class="pipeline-step is-waiting" data-pipeline-step="processing">
-                                <span class="pipeline-step-index">4</span>
-                                <span class="pipeline-step-copy"><strong>Processing</strong><small>WAITING</small></span>
-                            </div>
-                            <div class="pipeline-step is-waiting" data-pipeline-step="images">
-                                <span class="pipeline-step-index">5</span>
-                                <span class="pipeline-step-copy"><strong>Images</strong><small>WAITING</small></span>
-                            </div>
-                            <div class="pipeline-step is-waiting" data-pipeline-step="archive">
-                                <span class="pipeline-step-index">6</span>
-                                <span class="pipeline-step-copy"><strong>Archive</strong><small>WAITING</small></span>
-                            </div>
-                        </div>
-                        <div class="live-mission-stage-line">
-                            <span>Current Stage</span>
-                            <strong id="briefing-current-stage">Waiting for AOS</strong>
-                        </div>
-
-                        <div class="live-image-processing" id="briefing-image-processing">
-                            <div class="live-image-preview-wrap">
-                                <div class="live-image-preview-empty" id="briefing-image-empty">No live product yet</div>
-                                <img id="briefing-image-preview" class="live-image-preview hidden" src="" alt="Latest live satellite product">
-                            </div>
-                            <div class="live-image-processing-info">
-                                <div class="live-image-processing-header">
-                                    <strong>🖼 Image Processing</strong>
-                                    <span class="live-image-status is-waiting" id="briefing-image-status">WAITING</span>
-                                </div>
-                                <div class="live-image-processing-grid">
-                                    <span>Producten<strong id="briefing-image-products">0</strong></span>
-                                    <span>Latest Product<strong id="briefing-image-product">-</strong></span>
-                                    <span>Resolutie<strong id="briefing-image-resolution">-</strong></span>
-                                    <span>Bijgewerkt<strong id="briefing-image-updated">-</strong></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="live-mission-telemetry">
-                            <span>Frames<strong id="briefing-frames">0</strong></span>
-                            <span>CADU<strong id="briefing-cadu">0 B</strong></span>
-                            <span>Peak SNR<strong id="briefing-peak-snr">--.-- dB</strong></span>
-                            <span>Images<strong id="briefing-images">0</strong></span>
-                        </div>
-
-                        <div class="live-mission-decoder" aria-label="Decodertelemetrie">
-                            <span>SNR<strong id="briefing-snr">-</strong></span>
-                            <span>BER<strong id="briefing-ber">-</strong></span>
-                            <span>Viterbi<strong id="briefing-viterbi">UNKNOWN</strong></span>
-                            <span>Deframer<strong id="briefing-deframer">UNKNOWN</strong></span>
-                        </div>
-
-                        <div class="mission-operation-summary" id="briefing-operation-summary">
-                            <div>
-                                <span>Mission Result</span>
-                                <strong id="briefing-result">WAITING</strong>
-                            </div>
-                            <div>
-                                <span>Receiver status</span>
-                                <strong id="briefing-receiver-status">AVAILABLE</strong>
-                            </div>
-                            <p id="briefing-result-detail">No completed mission yet.</p>
-                        </div>
-
-                        <div class="mission-briefing-grid live-mission-pass">
-                            <p>AOS<br><strong id="briefing-start">-</strong></p>
-                            <p>Maximum<br><strong id="briefing-maximum">-</strong></p>
-                            <p>LOS<br><strong id="briefing-end">-</strong></p>
-                            <p>Elevatie<br><strong id="briefing-elevation">-</strong></p>
-                            <p>Azimuth<br><strong id="briefing-azimuth">-</strong></p>
-                            <p>Sample rate<br><strong id="briefing-samplerate">-</strong></p>
-                            <p>Gain<br><strong id="briefing-gain">-</strong></p>
-                            <p>Lock<br><strong id="briefing-lock">-</strong></p>
-                        </div>
-                        <div class="mission-briefing-pipeline">Pipeline<br><strong id="briefing-pipeline">-</strong></div>
-                    </div>
-                </div>
-            </div>
-            <div class="mission-steps" id="mission-steps"></div>
+            </details>
+            <p class="control-result" id="control-result">No action started.</p>
         </section>
 
-        <section class="card capture-panel mission-capture">
-            <h2>📸 Latest Reception</h2>
-            <div id="capture-empty" class="capture-empty">No image found yet.</div>
-            <div id="capture-content" class="capture-content hidden">
-                <img id="capture-image" src="" alt="Latest Capture">
-                <div class="capture-meta capture-meta-compact">
-                    <p><strong id="capture-name">-</strong></p>
-                    <p>Satellite: <span id="capture-satellite">-</span></p>
-                    <p>Product: <span id="capture-product">-</span></p>
-                    <p>Resolution: <span id="capture-resolution">-</span></p>
-                    <p>Modified: <span id="capture-modified">-</span></p>
-                    <p>Size: <span id="capture-size">-</span> KB</p>
-                </div>
+        <section class="mission-receiver-area" aria-label="Receiver Mission Status">
+            <div id="mission-receiver-grid" class="mission-receiver-grid" aria-live="polite">
+                <section class="card receiver-mission-card receiver-mission-loading">
+                    <h2>Receiver Mission Status</h2>
+                    <p>Runtime receivers laden...</p>
+                </section>
             </div>
         </section>
 
@@ -945,6 +701,72 @@
     </div>
 </section>
 
+
+<section class="tab-page" id="tab-system">
+    <div class="system-page">
+        <section class="card system-panel system-status-card">
+            <div class="section-heading-row">
+                <h2>🖥 System</h2>
+                <span class="muted">Ground station host health</span>
+            </div>
+            <div class="system-meters-grid">
+                <div class="system-meter">
+                    <div class="system-meter-top"><span>CPU</span><strong id="system-cpu">-</strong></div>
+                    <div class="bar"><div id="system-cpu-bar"></div></div>
+                </div>
+                <div class="system-meter">
+                    <div class="system-meter-top"><span>RAM</span><strong id="system-ram">-</strong></div>
+                    <div class="bar"><div id="system-ram-bar"></div></div>
+                </div>
+                <div class="system-meter">
+                    <div class="system-meter-top"><span>Disk</span><strong id="system-disk">-</strong></div>
+                    <div class="bar"><div id="system-disk-bar"></div></div>
+                </div>
+            </div>
+            <p class="uptime">⏱ Uptime: <strong id="system-uptime">-</strong></p>
+        </section>
+
+        <section class="card automation-system-card">
+            <div class="automation-controller" id="automation-controller">
+                <div class="automation-controller-heading">
+                    <strong>🧠 Automation Controller</strong>
+                    <span class="automation-controller-state" id="automation-controller-state">LOADING</span>
+                </div>
+                <div class="automation-controller-grid">
+                    <span>Next Pass<strong id="automation-controller-pass">-</strong></span>
+                    <span>Countdown<strong id="automation-controller-countdown">T--:--:--</strong></span>
+                    <span>Next Action<strong id="automation-controller-next-action">-</strong></span>
+                    <span>Safe Mode<strong id="automation-controller-safety">Normal</strong></span>
+                </div>
+                <p class="automation-controller-detail" id="automation-controller-detail">Loading controller status...</p>
+                <div class="automation-controller-actions">
+                    <button class="automation-controller-button" id="automation-dry-run" type="button">🧪 Dry Run OFF</button>
+                    <button class="automation-controller-button" id="automation-manual-override" type="button">✋ Override OFF</button>
+                    <button class="automation-controller-button danger" id="automation-skip-pass" type="button">⏭ Skip Next Pass</button>
+                </div>
+                <p class="automation-controller-status" id="automation-controller-message">Manual controls remain available.</p>
+            </div>
+        </section>
+
+        <section class="card mission-sounds-panel alerts-audio-card" aria-labelledby="mission-sounds-title">
+            <div class="mission-sounds-heading">
+                <h2 id="mission-sounds-title">🔊 Alerts &amp; Audio</h2>
+                <label class="mission-sounds-toggle">
+                    <input id="mission-sounds-enabled" type="checkbox">
+                    <span>Sound On</span>
+                </label>
+            </div>
+            <label class="mission-sounds-volume" for="mission-sounds-volume">
+                <span>Volume</span>
+                <input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35">
+                <strong id="mission-sounds-volume-value">35%</strong>
+            </label>
+            <button class="control-button" id="mission-sounds-test" type="button">🚀 Test Start Sound</button>
+            <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
+        </section>
+    </div>
+</section>
+
 <section class="tab-page" id="tab-logs">
     <section class="card log-panel-full">
         <h2>📜 Live Log</h2>
@@ -958,7 +780,7 @@
     <span id="statusbar-right">Live update every 5 seconds</span>
 </footer>
 
-<script src="/static/dashboard.js?v=0.28.0c"></script>
+<script src="/static/dashboard.js?v=0.32.0c"></script>
 <script src="/static/js/capture_live.js?v=0.27.0"></script>
 <script src="/static/js/radio.js?v=0.27.0"></script>
 <script src="/static/js/mission_monitor.js?v=0.27.0"></script>

@@ -11,3 +11,27 @@
 
 /* v0.20.0e Mission Operations UI */
 .live-mission-decoder{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.live-mission-decoder span{display:flex;flex-direction:column;gap:2px;padding:6px;background:#020712;border:1px solid #17263a;border-radius:8px;color:#8fa7c5;font-size:.7rem;min-width:0}.live-mission-decoder strong{overflow:hidden;color:#fff;font-size:.82rem;text-overflow:ellipsis;white-space:nowrap}.mission-operation-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;padding:8px;border:1px solid #24364d;border-radius:9px;background:#07111f}.mission-operation-summary>div{display:flex;flex-direction:column;gap:2px}.mission-operation-summary span{color:#8fa7c5;font-size:.68rem}.mission-operation-summary strong{font-size:.82rem;color:#cbd5e1}.mission-operation-summary p{grid-column:1/-1;margin:0;padding-top:6px;border-top:1px solid #17263a;color:#9fb1c7;font-size:.73rem;line-height:1.35}.operation-result.is-success{color:#22c55e}.operation-result.is-no-images,.operation-result.is-no-sync,.operation-result.is-no-signal{color:#f59e0b}.operation-result.is-failed,.operation-result.is-error,.operation-result.is-cancelled{color:#ef4444}.operation-result.is-active,.operation-result.is-recording{color:#38bdf8}.receiver-operation-status.is-reserved,.receiver-operation-status.is-active{color:#22c55e}.receiver-operation-status.is-released,.receiver-operation-status.is-available{color:#94a3b8}@media(max-width:900px){.live-mission-decoder{grid-template-columns:1fr 1fr}}
+
+/* v0.32.0a - Dynamic per-receiver Mission Status foundation */
+.mission-receiver-area{grid-area:overview;min-width:0}.mission-receiver-heading{padding:12px 14px;margin:0 0 10px;border:1px solid #334155;border-radius:10px;background:#111827}.mission-receiver-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}.receiver-mission-card{display:flex;flex-direction:column;gap:12px;min-width:0}.receiver-mission-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.receiver-mission-header h2{margin:0!important;padding:0!important;border:0!important}.receiver-mission-header p{margin:4px 0 0;color:#8fa7c5;font-size:.75rem}.receiver-mission-badges{display:flex;flex-direction:column;align-items:flex-end;gap:5px}.receiver-health,.receiver-state{padding:4px 8px;border:1px solid #334155;border-radius:999px;background:#0f172a;color:#94a3b8;font-size:.66rem;font-weight:800;letter-spacing:.05em}.receiver-health.state-online,.receiver-state.state-running,.receiver-state.state-active{border-color:#22c55e;color:#22c55e;background:rgba(34,197,94,.08)}.receiver-state.state-reserved{border-color:#38bdf8;color:#38bdf8;background:rgba(56,189,248,.08)}.receiver-health.state-degraded,.receiver-state.state-restoring{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.08)}.receiver-health.state-offline,.receiver-health.state-error,.receiver-state.state-error,.receiver-state.state-offline{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.08)}.receiver-mission-primary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.receiver-mission-primary span,.receiver-mission-grid span{display:flex;flex-direction:column;gap:3px;padding:8px;border:1px solid #17263a;border-radius:8px;background:#020712;color:#8fa7c5;font-size:.69rem;min-width:0}.receiver-mission-primary strong,.receiver-mission-grid strong{overflow:hidden;color:#fff;font-size:.84rem;text-overflow:ellipsis;white-space:nowrap}.receiver-mission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.receiver-mission-detail{margin:0;padding-top:9px;border-top:1px solid #17263a;color:#9fb1c7;font-size:.74rem;line-height:1.4}.receiver-mission-loading,.receiver-mission-empty,.receiver-mission-error{grid-column:1/-1}.receiver-mission-error{border-color:#7f1d1d}@media(max-width:560px){.mission-receiver-grid,.receiver-mission-primary,.receiver-mission-grid{grid-template-columns:1fr}.receiver-mission-header{align-items:center}}
+
+
+/* v0.32.0b - Receiver cards use the full Mission Control workspace */
+.mission-receiver-grid {
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+}
+
+.receiver-mission-card {
+    min-height: 0;
+}
+
+@media (max-width: 560px) {
+    .mission-receiver-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* v0.32.0c - receiver cards follow content height */
+.mission-receiver-grid { align-items: start; }
+.receiver-mission-card { min-height: 0; height: auto; }
