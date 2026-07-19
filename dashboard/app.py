@@ -23,6 +23,7 @@ from core import passes
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_monitor
+from core import receiver_operations
 from core.runtime import runtime_manager as runtime_manager_core
 from core import state
 from core import tle
@@ -2310,6 +2311,20 @@ def api_mission_operations():
             "error": str(error),
         }), 500
 
+
+
+@app.route("/api/receiver-operations")
+def api_receiver_operations():
+    """Return read-only operation capability and ownership per receiver."""
+    try:
+        return jsonify(receiver_operations.get_snapshot())
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "version": "v0.33.0a",
+            "error": str(error),
+            "receivers": {},
+        }), 500
 
 
 
