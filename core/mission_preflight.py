@@ -44,9 +44,14 @@ def run_preflight():
 
     device = get_dynamic_device()
     receiver_status = receiver_manager.get_status()
-    reservation = receiver_status.get("reservation")
-    receiver_available = bool(device) and (
-        reservation is None or reservation.get("receiver_id") == device.get("id")
+    receiver_id = device.get("id") if device else None
+    reservation = (
+        receiver_status.get("reservations", {}).get(receiver_id)
+        if receiver_id
+        else None
+    )
+    receiver_available = bool(
+        receiver_id and receiver_manager.is_available(receiver_id)
     )
 
     checks.append(

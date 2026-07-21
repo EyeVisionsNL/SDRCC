@@ -12,7 +12,7 @@ from typing import Any
 import json
 
 from core import event_bus
-from core.device_manager import get_device, get_weather_device
+from core.device_manager import get_device, get_devices, get_weather_device
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -20,8 +20,8 @@ STATE_FILE = STATE_DIR / "receiver_manager.json"
 _LOCK = RLock()
 
 DEFAULT_STATE: dict[str, Any] = {
-    "reservation": None,
-    "last_release": None,
+    "reservations": {},
+    "last_releases": {},
 }
 
 
@@ -29,23 +29,60 @@ def _now() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
+def _normalise_state(data: Any) -> dict[str, Any]:
+    """Return the v0.31 multi-reservation state, migrating legacy data."""
+    state = deepcopy(DEFAULT_STATE)
+    if not isinstance(data, dict):
+        return state
+
+    reservations = data.get("reservations")
+    if isinstance(reservations, dict):
+        for receiver_id, reservation in reservations.items():
+            if isinstance(receiver_id, str) and isinstance(reservation, dict):
+                item = deepcopy(reservation)
+                item.setdefault("receiver_id", receiver_id)
+                state["reservations"][receiver_id] = item
+    else:
+        legacy = data.get("reservation")
+        if isinstance(legacy, dict) and legacy.get("receiver_id"):
+            receiver_id = str(legacy["receiver_id"])
+            state["reservations"][receiver_id] = deepcopy(legacy)
+
+    last_releases = data.get("last_releases")
+    if isinstance(last_releases, dict):
+        for receiver_id, released in last_releases.items():
+            if isinstance(receiver_id, str) and isinstance(released, dict):
+                item = deepcopy(released)
+                item.setdefault("receiver_id", receiver_id)
+                item["status"] = "RELEASED"
+                state["last_releases"][receiver_id] = item
+    else:
+        legacy = data.get("last_release")
+        if isinstance(legacy, dict) and legacy.get("receiver_id"):
+            receiver_id = str(legacy["receiver_id"])
+            item = deepcopy(legacy)
+            item["status"] = "RELEASED"
+            state["last_releases"][receiver_id] = item
+
+    return state
+
+
 def _load_state() -> dict[str, Any]:
     if not STATE_FILE.exists():
         return deepcopy(DEFAULT_STATE)
     try:
-        data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            return deepcopy(DEFAULT_STATE)
-        state = deepcopy(DEFAULT_STATE)
-        state.update(data)
-        return state
+        return _normalise_state(json.loads(STATE_FILE.read_text(encoding="utf-8")))
     except Exception:
         return deepcopy(DEFAULT_STATE)
 
 
 def _save_state(state: dict[str, Any]) -> None:
+    normalised = _normalise_state(state)
     temp = STATE_FILE.with_suffix(".json.tmp")
-    temp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    temp.write_text(
+        json.dumps(normalised, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     temp.replace(STATE_FILE)
 
 
@@ -63,38 +100,75 @@ def _device_summary(device_id: str | None) -> dict[str, Any] | None:
     }
 
 
+def _decorate_reservation(reservation: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(reservation, dict):
+        return None
+    item = deepcopy(reservation)
+    item["device"] = _device_summary(item.get("receiver_id"))
+    return item
+
+
 def get_status() -> dict[str, Any]:
     configured = get_weather_device()
+    configured_id = configured.get("id") if configured else None
     with _LOCK:
         state = _load_state()
-    reservation = deepcopy(state.get("reservation"))
-    if reservation:
-        reservation["device"] = _device_summary(reservation.get("receiver_id"))
-    last_release = deepcopy(state.get("last_release"))
-    if isinstance(last_release, dict) and last_release.get("released_at"):
-        # Older state files may still contain ACTIVE from the former reservation.
-        # A released record is historical and must never look active.
-        last_release["status"] = "RELEASED"
+
+    raw_reservations = state.get("reservations", {})
+    raw_releases = state.get("last_releases", {})
+    reservations = {
+        receiver_id: _decorate_reservation(reservation)
+        for receiver_id, reservation in raw_reservations.items()
+        if isinstance(reservation, dict)
+    }
+    last_releases = {}
+    for receiver_id, released in raw_releases.items():
+        if not isinstance(released, dict):
+            continue
+        item = deepcopy(released)
+        item["status"] = "RELEASED"
+        item["device"] = _device_summary(item.get("receiver_id") or receiver_id)
+        last_releases[receiver_id] = item
+
+    device_ids = [device["id"] for device in get_devices()]
+    receivers = {}
+    for receiver_id in device_ids:
+        reservation = reservations.get(receiver_id)
+        receivers[receiver_id] = {
+            "device": _device_summary(receiver_id),
+            "reservation": reservation,
+            "last_release": last_releases.get(receiver_id),
+            "available": reservation is None,
+        }
+
+    configured_reservation = reservations.get(configured_id) if configured_id else None
+    configured_last_release = last_releases.get(configured_id) if configured_id else None
 
     return {
         "ok": True,
-        "configured_receiver": _device_summary(configured.get("id") if configured else None),
-        "reservation": reservation,
-        "last_release": last_release,
-        "available": reservation is None,
+        "configured_receiver": _device_summary(configured_id),
+        # Compatibility fields for existing single-runtime consumers.
+        "reservation": configured_reservation,
+        "last_release": configured_last_release,
+        "available": configured_reservation is None,
+        # Multi-receiver foundation fields.
+        "receivers": receivers,
+        "reservations": reservations,
+        "last_releases": last_releases,
+        "available_receivers": [
+            receiver_id for receiver_id in device_ids
+            if receiver_id not in reservations
+        ],
     }
 
 
 def is_available(receiver_id: str, *, mission_key: str | None = None) -> bool:
+    receiver_id = str(receiver_id or "").strip()
     with _LOCK:
-        reservation = _load_state().get("reservation")
+        reservation = _load_state().get("reservations", {}).get(receiver_id)
     if reservation is None:
         return True
-    return bool(
-        reservation.get("receiver_id") == receiver_id
-        and mission_key
-        and reservation.get("mission_key") == mission_key
-    )
+    return bool(mission_key and reservation.get("mission_key") == mission_key)
 
 
 def reserve(
@@ -113,14 +187,18 @@ def reserve(
 
     with _LOCK:
         state = _load_state()
-        current = state.get("reservation")
+        reservations = state["reservations"]
+        current = reservations.get(receiver_id)
+
+        for other_receiver, other in reservations.items():
+            if other_receiver != receiver_id and other.get("mission_key") == key:
+                raise RuntimeError("De missie is al aan een andere receiver gekoppeld")
+
         if current and current.get("mission_key") != key:
             raise RuntimeError(
-                f"{current.get('receiver_id', '-').upper()} is al gereserveerd "
+                f"{receiver_id.upper()} is al gereserveerd "
                 f"voor {current.get('mission_key', '-')}"
             )
-        if current and current.get("receiver_id") != receiver_id:
-            raise RuntimeError("De missie is al aan een andere receiver gekoppeld")
 
         reservation = current or {
             "receiver_id": receiver_id,
@@ -131,7 +209,7 @@ def reserve(
         }
         if mission_id:
             reservation["mission_id"] = str(mission_id)
-        state["reservation"] = reservation
+        reservations[receiver_id] = reservation
         _save_state(state)
 
     event_bus.publish_receiver(
@@ -143,18 +221,31 @@ def reserve(
     return get_status()
 
 
+def _find_reservation_by_mission(
+    reservations: dict[str, dict[str, Any]], mission_key: str
+) -> tuple[str, dict[str, Any]] | tuple[None, None]:
+    for receiver_id, reservation in reservations.items():
+        if reservation.get("mission_key") == mission_key:
+            return receiver_id, reservation
+    return None, None
+
+
 def activate(*, mission_key: str, mission_id: str | None = None) -> dict[str, Any]:
     key = str(mission_key or "").strip()
+    if not key:
+        raise ValueError("mission_key ontbreekt")
     with _LOCK:
         state = _load_state()
-        reservation = state.get("reservation")
-        if reservation is None or reservation.get("mission_key") != key:
+        receiver_id, reservation = _find_reservation_by_mission(
+            state["reservations"], key
+        )
+        if reservation is None or receiver_id is None:
             raise RuntimeError("Geen passende receiver-reservering gevonden")
         reservation["status"] = "ACTIVE"
         reservation["activated_at"] = _now()
         if mission_id:
             reservation["mission_id"] = str(mission_id)
-        state["reservation"] = reservation
+        state["reservations"][receiver_id] = reservation
         _save_state(state)
     return get_status()
 
@@ -162,17 +253,29 @@ def activate(*, mission_key: str, mission_id: str | None = None) -> dict[str, An
 def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") -> dict[str, Any]:
     with _LOCK:
         state = _load_state()
-        reservation = state.get("reservation")
-        if reservation is None:
+        reservations = state["reservations"]
+        if not reservations:
             return get_status()
-        if mission_key and reservation.get("mission_key") != mission_key:
-            raise RuntimeError("Receiver-reservering hoort bij een andere missie")
+
+        if mission_key:
+            receiver_id, reservation = _find_reservation_by_mission(
+                reservations, str(mission_key)
+            )
+            if reservation is None or receiver_id is None:
+                raise RuntimeError("Geen receiver-reservering voor deze missie gevonden")
+        elif len(reservations) == 1:
+            receiver_id, reservation = next(iter(reservations.items()))
+        else:
+            raise RuntimeError(
+                "Meerdere receiver-reserveringen actief; mission_key is verplicht"
+            )
+
         released = deepcopy(reservation)
         released["released_at"] = _now()
         released["release_detail"] = str(detail)
         released["status"] = "RELEASED"
-        state["last_release"] = released
-        state["reservation"] = None
+        state["last_releases"][receiver_id] = released
+        reservations.pop(receiver_id, None)
         _save_state(state)
 
     event_bus.publish_receiver(

@@ -1234,8 +1234,7 @@ def monitor_auto_record_process(process):
         final_returncode = process.returncode
 
         if (
-            process.returncode == 0
-            and initial.get("cadu_bytes", 0) > 0
+            initial.get("cadu_bytes", 0) > 0
             and initial.get("image_count", 0) == 0
             and output_path
             and pipeline
@@ -2290,6 +2289,7 @@ def get_reconciled_receiver_manager_status():
     ):
         stale = status.get("reservation") or {}
         receiver_manager.release(
+            mission_key=stale.get("mission_key"),
             detail="Automatisch vrijgegeven: geen actieve missie",
         )
         write_log(
@@ -2317,7 +2317,10 @@ def api_receiver_assignment():
         or autopilot_runtime.get("prepared")
         or autopilot_runtime.get("locked")
         or autopilot_runtime.get("record_started")
-        or receiver_runtime.get("reservation") is not None
+        or (
+            device_id
+            and receiver_runtime.get("reservations", {}).get(device_id) is not None
+        )
     ):
         return jsonify({
             "ok": False,

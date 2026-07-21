@@ -140,7 +140,8 @@ def get_queue(
     satellites = get_enabled_satellites()
     receiver = get_receiver_assignments().get("weather", "-").upper()
     receiver_status = receiver_manager.get_status()
-    reservation = receiver_status.get("reservation") or {}
+    receiver_id = str(get_receiver_assignments().get("weather", "")).lower()
+    reservation = receiver_status.get("reservations", {}).get(receiver_id) or {}
     with _LOCK:
         state = _load_state()
         overrides = state["overrides"]
