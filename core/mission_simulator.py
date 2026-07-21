@@ -30,6 +30,12 @@ SCENARIOS = {
     "satdump_returncode_1",
     "receiver_lock_fail",
     "cancel",
+    "receiver_disconnect",
+    "satdump_process_crash",
+    "decoder_timeout",
+    "disk_full",
+    "output_not_writable",
+    "api_timeout",
 }
 
 _RUNTIME: dict[str, Any] = {
@@ -44,6 +50,7 @@ _RUNTIME: dict[str, Any] = {
     "thread": None,
     "last_result": None,
     "last_error": None,
+    "last_fault_stage": None,
 }
 _LOCK = RLock()
 
@@ -110,6 +117,29 @@ def _release(mission_key: str, detail: str):
         receiver_manager.release(mission_key=mission_key, detail=detail)
 
 
+def _record_fault_stage(stage: str | None) -> None:
+    with _LOCK:
+        _RUNTIME["last_fault_stage"] = stage
+
+
+def _fail_scenario(*, detail: str, error: str, stage: str, elapsed: int, peak_snr: float):
+    _record_fault_stage(stage)
+    return _finish_mission(
+        success=False,
+        result="FAILED",
+        detail=detail,
+        error=error,
+        metrics={
+            "duration_seconds": elapsed,
+            "peak_snr_db": peak_snr,
+            "frames": 0,
+            "cadu_bytes": 0,
+            "image_count": 0,
+            "fault_stage": stage,
+        },
+    )
+
+
 def _worker(stop_event: Event, *, scenario: str, duration_seconds: int, mission_key: str):
     result = None
     error_text = None
@@ -142,32 +172,84 @@ def _worker(stop_event: Event, *, scenario: str, duration_seconds: int, mission_
                 result = "CANCELLED"
                 return
 
+            recording_faults = {
+                "receiver_disconnect": (
+                    "Gesimuleerde receiver disconnect tijdens opname",
+                    "receiver disconnected during recording",
+                    "RECORDING",
+                ),
+                "output_not_writable": (
+                    "Gesimuleerde outputmap is niet schrijfbaar",
+                    "output directory not writable",
+                    "RECORDING",
+                ),
+                "api_timeout": (
+                    "Gesimuleerde timeout in interne control API",
+                    "control api timeout",
+                    "RECORDING",
+                ),
+            }
+            if scenario in recording_faults and elapsed >= max(2, duration_seconds // 2):
+                detail, error, stage = recording_faults[scenario]
+                error_text = error
+                _fail_scenario(
+                    detail=detail,
+                    error=error,
+                    stage=stage,
+                    elapsed=elapsed,
+                    peak_snr=peak_snr,
+                )
+                result = "FAILED"
+                return
+
             if elapsed < duration_seconds:
                 continue
 
             mission_engine.mission_set_state("DECODING")
             time.sleep(0.3)
 
-            if scenario == "satdump_returncode_1":
-                detail = "Gesimuleerde SatDump-fout: returncode 1"
-                _finish_mission(
-                    success=False,
-                    result="FAILED",
+            decoding_faults = {
+                "satdump_returncode_1": (
+                    "Gesimuleerde SatDump-fout: returncode 1",
+                    "satdump returncode 1",
+                ),
+                "satdump_process_crash": (
+                    "Gesimuleerd SatDump-proces is onverwacht gestopt",
+                    "satdump process crashed",
+                ),
+                "decoder_timeout": (
+                    "Gesimuleerde decoder-timeout",
+                    "decoder timeout",
+                ),
+            }
+            if scenario in decoding_faults:
+                detail, error = decoding_faults[scenario]
+                error_text = error
+                _fail_scenario(
                     detail=detail,
-                    error="satdump returncode 1",
-                    metrics={
-                        "duration_seconds": elapsed,
-                        "peak_snr_db": peak_snr,
-                        "frames": 0,
-                        "cadu_bytes": 0,
-                        "image_count": 0,
-                    },
+                    error=error,
+                    stage="DECODING",
+                    elapsed=elapsed,
+                    peak_snr=peak_snr,
                 )
                 result = "FAILED"
                 return
 
             mission_engine.mission_set_state("PROCESSING")
             time.sleep(0.3)
+
+            if scenario == "disk_full":
+                error_text = "disk full"
+                _fail_scenario(
+                    detail="Gesimuleerde opslagfout: disk full",
+                    error="disk full",
+                    stage="PROCESSING",
+                    elapsed=elapsed,
+                    peak_snr=peak_snr,
+                )
+                result = "FAILED"
+                return
+
             mission_engine.mission_set_state("ARCHIVING")
 
             if scenario == "no_sync":
@@ -305,6 +387,7 @@ def start(*, scenario: str = "success", receiver_id: str = "sdr2", duration_seco
                     "duration_seconds": 0,
                     "last_result": "FAILED",
                     "last_error": "receiver lock failed",
+                    "last_fault_stage": "LOCK RECEIVER",
                 })
                 return get_status()
 
@@ -356,6 +439,7 @@ def start(*, scenario: str = "success", receiver_id: str = "sdr2", duration_seco
                 "thread": worker,
                 "last_result": None,
                 "last_error": None,
+                "last_fault_stage": None,
             })
             worker.start()
         except Exception:

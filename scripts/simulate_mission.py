@@ -28,7 +28,9 @@ def request_json(path: str, payload=None):
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a deterministic SDRCC mission simulation")
     parser.add_argument("--scenario", default="success", choices=[
-        "success", "no_sync", "satdump_returncode_1", "receiver_lock_fail", "cancel"
+        "success", "no_sync", "satdump_returncode_1", "receiver_lock_fail", "cancel",
+        "receiver_disconnect", "satdump_process_crash", "decoder_timeout", "disk_full",
+        "output_not_writable", "api_timeout"
     ])
     parser.add_argument("--receiver", default="sdr2", choices=["sdr1", "sdr2"])
     parser.add_argument("--duration", type=int, default=15)

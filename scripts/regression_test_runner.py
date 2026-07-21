@@ -49,6 +49,12 @@ SCENARIOS = (
     Scenario("satdump_returncode_1", "FAILED", "satdump returncode 1"),
     Scenario("receiver_lock_fail", "FAILED", "receiver lock failed"),
     Scenario("cancel", "CANCELLED"),
+    Scenario("receiver_disconnect", "FAILED", "receiver disconnected during recording"),
+    Scenario("satdump_process_crash", "FAILED", "satdump process crashed"),
+    Scenario("decoder_timeout", "FAILED", "decoder timeout"),
+    Scenario("disk_full", "FAILED", "disk full"),
+    Scenario("output_not_writable", "FAILED", "output directory not writable"),
+    Scenario("api_timeout", "FAILED", "control api timeout"),
 )
 
 
@@ -224,6 +230,12 @@ def run_scenario(
                 last_error == scenario.expected_error,
                 f"expected={scenario.expected_error}, actual={last_error}",
             )
+            add_check(
+                result,
+                "fault_stage_recorded",
+                bool(simulator.get("last_fault_stage")),
+                f"last_fault_stage={simulator.get('last_fault_stage')}",
+            )
         else:
             add_check(
                 result,
@@ -271,7 +283,7 @@ def main() -> int:
     selected = [item for item in SCENARIOS if not args.scenario or item.name == args.scenario]
 
     print("=" * 62)
-    print("SDRCC Regression Test Runner v0.31.2a")
+    print("SDRCC Regression Test Runner v0.32.0a")
     print("=" * 62)
     print(f"API       : {args.base_url}")
     print(f"Receiver  : {args.receiver}")
