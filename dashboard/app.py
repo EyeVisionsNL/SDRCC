@@ -12,7 +12,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from flask import Flask, jsonify, render_template, request, send_file, abort
 
-from core import automation_controller
 from core import device_manager
 from core import weather_planning as weather_planning_core
 from core import event_bus
@@ -870,7 +869,6 @@ autopilot_runtime = {
     "record_data": None,
     "restore_service": None,
     "restore_service_was_active": False,
-    "dry_run_completed": False,
     "process": None,
     "stop_requested": False,
 }
@@ -892,8 +890,7 @@ def reset_autopilot_runtime(target_pass=None):
         "record_data": None,
         "restore_service": None,
         "restore_service_was_active": False,
-        "dry_run_completed": False,
-        "process": None,
+            "process": None,
         "stop_requested": False,
     })
 
@@ -1326,55 +1323,19 @@ def autopilot_start_recording():
 
 
 def mission_autopilot_worker():
-    write_log("AUTO-controller gestart")
+    write_log("Mission autopilot gestart")
 
     while True:
         try:
             scheduler = mission_scheduler_core.get_scheduler_status()
             mode = str(scheduler.get("mode") or "MANUAL").upper()
             next_pass = scheduler.get("next_pass")
-            controller = automation_controller.get_status(
-                mode=mode,
-                next_pass=next_pass,
-            )
 
-            if mode == "MANUAL":
-                automation_controller.update_status(
-                    "MANUAL",
-                    "Automation Controller staat in handmatige modus",
-                    next_action="Wachten op AUTO-modus",
-                )
+            if mode in {"MANUAL", "PAUSED"}:
                 time.sleep(AUTOPILOT_POLL_SECONDS)
                 continue
 
-            if mode == "PAUSED":
-                automation_controller.update_status(
-                    "PAUSED",
-                    "Nieuwe automatische missies zijn gepauzeerd",
-                    next_action="Lopende missie veilig laten afronden",
-                    target_pass=autopilot_runtime.get("target_pass"),
-                )
-                time.sleep(AUTOPILOT_POLL_SECONDS)
-                continue
-
-            if controller.get("manual_override") and not autopilot_runtime.get("record_started"):
-                automation_controller.update_status(
-                    "MANUAL OVERRIDE",
-                    "Automatische voorbereiding is tijdelijk geblokkeerd",
-                    next_action="Manual Override opheffen",
-                    target_pass=autopilot_runtime.get("target_pass") or next_pass,
-                )
-                time.sleep(AUTOPILOT_POLL_SECONDS)
-                continue
-
-
-            if automation_controller.is_pass_skipped(next_pass):
-                automation_controller.update_status(
-                    "SKIPPED",
-                    f"{next_pass.get('name', 'Passage')} wordt overgeslagen",
-                    next_action="Wachten op volgende passage",
-                    target_pass=next_pass,
-                )
+            if mission_queue_core.is_pass_skipped(next_pass):
                 if autopilot_runtime.get("target_pass") and not autopilot_runtime.get("record_started"):
                     reset_autopilot_runtime()
                 time.sleep(AUTOPILOT_POLL_SECONDS)
@@ -1396,11 +1357,13 @@ def mission_autopilot_worker():
             target = autopilot_runtime["target_pass"]
 
             if target is None:
-                automation_controller.update_status(
-                    "WAITING",
-                    "Geen geschikte passage gepland",
-                    next_action="Wachten op passageplanning",
-                )
+                time.sleep(AUTOPILOT_POLL_SECONDS)
+                continue
+
+            # A queue override can be changed while a target is already prepared.
+            if mission_queue_core.is_pass_skipped(target) and not autopilot_runtime.get("record_started"):
+                write_log(f"AUTO: passage overgeslagen via Mission Queue: {target.get('name', '-')}")
+                reset_autopilot_runtime()
                 time.sleep(AUTOPILOT_POLL_SECONDS)
                 continue
 
@@ -1413,38 +1376,6 @@ def mission_autopilot_worker():
             preflight_seconds = int(config["preflight_seconds"])
             prepare_seconds = int(config["prepare_seconds"])
             lock_seconds = int(config["lock_seconds"])
-            dry_run = bool(controller.get("dry_run"))
-
-            status = "WAITING"
-            detail = f"Wachten op {target['name']}"
-            next_action = "Preflight uitvoeren"
-            if 0 < seconds_until_start <= preflight_seconds:
-                status = "PREFLIGHT"
-                detail = "Preflightvenster is actief"
-                next_action = "Receiver voorbereiden"
-            if 0 < seconds_until_start <= prepare_seconds:
-                status = "PREPARING"
-                detail = "Receiver voorbereiden"
-                next_action = "Receiver locken"
-            if 0 < seconds_until_start <= lock_seconds:
-                status = "LOCKING"
-                detail = "Receiver locken en laatste controles"
-                next_action = "Opname starten bij AOS"
-            if autopilot_runtime.get("dry_run_completed"):
-                status = "DRY RUN COMPLETE"
-                detail = f"Volledige beslisketen voor {target['name']} doorlopen"
-                next_action = "Wachten tot passage is beëindigd"
-            elif autopilot_runtime.get("record_started"):
-                status = "RECORDING"
-                detail = "Automatische opname is actief"
-                next_action = "Opname afhandelen"
-
-            automation_controller.update_status(
-                status,
-                detail + (" (DRY RUN)" if dry_run else ""),
-                next_action=next_action,
-                target_pass=target,
-            )
 
             if (
                 0 < seconds_until_start <= preflight_seconds
@@ -1464,34 +1395,16 @@ def mission_autopilot_worker():
                 and autopilot_runtime["preflight_ok"]
                 and not autopilot_runtime["prepared"]
             ):
-                if dry_run:
-                    autopilot_runtime["prepared"] = True
-                    event_bus.publish_automation(
-                        "INFO",
-                        "Dry Run: receiver voorbereiden",
-                        f"Receiver voor {target['name']} zou nu worden voorbereid",
-                        data={"pass": target, "dry_run": True},
-                    )
-                else:
-                    autopilot_prepare_receiver()
-                    autopilot_runtime["prepared"] = True
+                autopilot_prepare_receiver()
+                autopilot_runtime["prepared"] = True
 
             if (
                 0 < seconds_until_start <= lock_seconds
                 and autopilot_runtime["prepared"]
                 and not autopilot_runtime["locked"]
             ):
-                if dry_run:
-                    autopilot_runtime["locked"] = True
-                    event_bus.publish_automation(
-                        "INFO",
-                        "Dry Run: receiver lock",
-                        f"Receiver voor {target['name']} zou nu worden gelockt",
-                        data={"pass": target, "dry_run": True},
-                    )
-                else:
-                    autopilot_lock_receiver()
-                    autopilot_runtime["locked"] = True
+                autopilot_lock_receiver()
+                autopilot_runtime["locked"] = True
 
             if (
                 -2 <= seconds_until_start <= 1
@@ -1499,44 +1412,19 @@ def mission_autopilot_worker():
                 and not autopilot_runtime["record_started"]
             ):
                 autopilot_runtime["record_started"] = True
-                if dry_run:
-                    autopilot_runtime["dry_run_completed"] = True
-                    automation_controller.update_status(
-                        "DRY RUN COMPLETE",
-                        f"Volledige beslisketen voor {target['name']} doorlopen",
-                        next_action="Wachten tot passage is beëindigd",
-                        target_pass=target,
-                    )
-                    event_bus.publish_automation(
-                        "SUCCESS",
-                        "Dry Run voltooid",
-                        f"Geen receiver of SatDump gestart voor {target['name']}",
-                        data={"pass": target, "dry_run": True},
-                    )
-                else:
-                    autopilot_start_recording()
+                autopilot_start_recording()
 
             if now_epoch > end_epoch and not autopilot_runtime["record_started"]:
                 write_log("AUTO: passage gemist zonder opname; ontvangers herstellen")
                 restore_service = autopilot_runtime.get("restore_service")
-                if (
-                    restore_service
-                    and autopilot_runtime.get("restore_service_was_active")
-                ):
+                if restore_service and autopilot_runtime.get("restore_service_was_active"):
                     run_systemctl("start", restore_service)
                 profiles.set_active_profile("adsb")
                 mission_engine_core.mission_reset()
                 reset_autopilot_runtime()
 
             if (
-                autopilot_runtime.get("dry_run_completed")
-                and now_epoch > end_epoch
-            ):
-                reset_autopilot_runtime()
-
-            if (
                 autopilot_runtime["record_started"]
-                and not dry_run
                 and mission_engine_core.get_mission_status()["active_job"] is None
                 and mission_engine_core.get_mission_status()["phase"] == "READY"
                 and not autopilot_runtime.get("stop_requested")
@@ -1544,17 +1432,16 @@ def mission_autopilot_worker():
                 reset_autopilot_runtime()
 
         except Exception as error:
-            write_log(f"AUTO-controller fout: {error}")
-            automation_controller.update_status(
+            write_log(f"Mission autopilot fout: {error}")
+            event_bus.publish_automation(
                 "ERROR",
+                "Mission autopilot fout",
                 str(error),
-                next_action="Controleer Event Timeline en logs",
-                target_pass=autopilot_runtime.get("target_pass"),
+                data={"pass": autopilot_runtime.get("target_pass")},
             )
             time.sleep(2)
 
         time.sleep(AUTOPILOT_POLL_SECONDS)
-
 
 def start_mission_autopilot():
     worker = threading.Thread(
@@ -1660,43 +1547,6 @@ def api_mission_scheduler():
 
 
 
-@app.route("/api/automation-controller", methods=["GET", "PUT"])
-def api_automation_controller():
-    try:
-        scheduler = mission_scheduler_core.get_scheduler_status()
-        next_pass = scheduler.get("next_pass")
-
-        if request.method == "PUT":
-            payload = request.get_json(silent=True) or {}
-            action = str(payload.get("action") or "").strip().lower()
-
-            if action == "dry_run":
-                automation_controller.set_dry_run(payload.get("enabled", False))
-            elif action == "manual_override":
-                automation_controller.set_manual_override(payload.get("enabled", False))
-            elif action == "skip_next_pass":
-                automation_controller.skip_pass(next_pass)
-                if (
-                    autopilot_runtime.get("target_pass")
-                    and not autopilot_runtime.get("record_started")
-                ):
-                    reset_autopilot_runtime()
-            else:
-                raise ValueError("Onbekende Automation Controller-actie")
-
-        return jsonify({
-            "ok": True,
-            **automation_controller.get_status(
-                mode=scheduler.get("mode", "MANUAL"),
-                next_pass=next_pass,
-            ),
-        })
-    except ValueError as error:
-        return jsonify({"ok": False, "error": str(error)}), 400
-    except Exception as error:
-        return jsonify({"ok": False, "error": str(error)}), 500
-
-
 @app.route("/api/mission-queue", methods=["GET", "PUT"])
 def api_mission_queue():
     try:
@@ -1716,16 +1566,18 @@ def api_mission_queue():
             if autopilot_runtime.get("record_started"):
                 active_key = target_key
 
-        controller = automation_controller.get_status(
-            mode=mission_scheduler_core.get_scheduler_status().get("mode", "MANUAL"),
-            next_pass=mission_scheduler_core.get_scheduler_status().get("next_pass"),
-        )
+        mission_status = mission_engine_core.get_mission_status()
+        live_status = str(
+            mission_status.get("phase")
+            or mission_status.get("state")
+            or "WAITING"
+        ).upper()
         return jsonify(mission_queue_core.get_payload(
             limit=limit,
             hours_ahead=hours,
             active_pass_key=active_key,
             target_pass_key=target_key,
-            controller_status=controller.get("status"),
+            controller_status=live_status,
         ))
     except ValueError as error:
         return jsonify({"ok": False, "error": str(error)}), 400

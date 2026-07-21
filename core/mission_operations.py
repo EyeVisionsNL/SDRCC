@@ -1,7 +1,7 @@
 """Unified operational snapshot for the SDRCC mission dashboard.
 
 This module is intentionally read-only. It combines state owned by the
-Mission Engine, Live RF, Receiver Manager, Automation Controller and Scheduler
+Mission Engine, Live RF, Receiver Manager and Scheduler
 without moving ownership away from those modules.
 """
 
@@ -11,7 +11,6 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Any
 
-from core import automation_controller
 from core import live_rf
 from core import mission_engine
 from core import mission_result
@@ -133,7 +132,6 @@ def get_snapshot() -> dict[str, Any]:
     mission = _normalise_mission_snapshot(mission_engine.get_mission_status())
     rf = live_rf.get_status()
     receiver = receiver_manager.get_status()
-    controller = automation_controller.get_status()
     scheduler = mission_scheduler.get_scheduler_status()
 
     return {
@@ -142,7 +140,6 @@ def get_snapshot() -> dict[str, Any]:
         "mission": mission,
         "live_rf": rf,
         "receiver_manager": receiver,
-        "automation_controller": controller,
         "scheduler": scheduler,
         "summary": _mission_summary(mission, rf, receiver),
     }

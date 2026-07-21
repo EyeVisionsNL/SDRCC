@@ -221,6 +221,17 @@ def get_payload(
     }
 
 
+
+def is_pass_skipped(pass_data: dict[str, Any] | None) -> bool:
+    """Return whether the matching planned pass is skipped by Mission Queue."""
+    if not pass_data:
+        return False
+    key = _key(pass_data)
+    with _LOCK:
+        state = _load_state()
+        override = state.get("overrides", {}).get(key, {})
+    return bool(override.get("skipped", False))
+
 def update_item(queue_key: str, *, action: str) -> dict[str, Any]:
     key = str(queue_key or "").strip()
     action = str(action or "").strip().lower()
