@@ -83,7 +83,7 @@
             try {
                 subscriber(snapshot);
             } catch (error) {
-                console.error("MissionState subscriber mislukt:", error);
+                console.error("MissionState subscriber failed:", error);
             }
         }
         window.dispatchEvent(new CustomEvent("sdrcc:mission-state", {

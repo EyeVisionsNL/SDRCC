@@ -116,7 +116,7 @@ async function refreshAutomationController() {
     try {
         const response = await fetch("/api/automation-controller", {cache: "no-store"});
         const payload = await response.json();
-        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Controllerstatus niet beschikbaar");
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || window.SDRCC_UI_TEXT.t("controller_unavailable"));
         updateAutomationController(payload);
     } catch (error) {
         setText("automation-controller-state", "ERROR");
@@ -138,9 +138,9 @@ async function sendControllerAction(action, enabled) {
             body: JSON.stringify(body),
         });
         const payload = await response.json();
-        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Controlleractie mislukt");
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Controller action failed");
         updateAutomationController(payload);
-        setControllerMessage("Controllerinstelling opgeslagen.", "ok");
+        setControllerMessage("Controller setting saved.", "ok");
     } catch (error) {
         setControllerMessage(String(error), "bad");
     } finally {
@@ -205,7 +205,7 @@ async function refreshMissionQueue() {
     try {
         const response = await fetch("/api/mission-queue?limit=10&hours=48", {cache: "no-store"});
         const payload = await response.json();
-        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Mission Queue niet beschikbaar");
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || window.SDRCC_UI_TEXT.t("mission_queue_unavailable"));
         renderMissionQueue(payload);
     } catch (error) {
         setQueueMessage(String(error), "bad");
@@ -218,7 +218,7 @@ function renderMissionQueue(payload) {
     const queue = Array.isArray(payload.queue) ? payload.queue : [];
     setText("mission-queue-summary", `${queue.length} PASSAGES`);
     if (!queue.length) {
-        list.innerHTML = '<div class="mission-queue-empty">Geen geschikte passages gepland.</div>';
+        list.innerHTML = '<div class="mission-queue-empty">No suitable passes scheduled.</div>';
         return;
     }
     list.innerHTML = queue.map(item => {
@@ -278,9 +278,9 @@ async function updateMissionQueueItem(queueKey, action) {
             body: JSON.stringify({queue_key: queueKey, action}),
         });
         const payload = await response.json();
-        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Queuewijziging mislukt");
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Queue change failed");
         renderMissionQueue(payload);
-        setQueueMessage("Mission Queue opgeslagen.", "ok");
+        setQueueMessage("Mission Queue saved.", "ok");
     } catch (error) {
         setQueueMessage(String(error), "bad");
     } finally {

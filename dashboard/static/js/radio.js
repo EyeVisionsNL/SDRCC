@@ -10,7 +10,7 @@
 
     async function getStatus() {
         const response = await fetch("/api/status", {cache: "no-store"});
-        if (!response.ok) throw new Error("status api fout");
+        if (!response.ok) throw new Error("status API error");
         return await response.json();
     }
 
@@ -124,25 +124,25 @@
                     <span class="receiver-badge receiver-badge-${String(dev.status_label || "available").toLowerCase().replaceAll(" ", "-")}">${dev.status_label || "AVAILABLE"}</span>
                 </div>
                 <div class="receiver-detail-grid">
-                    <span>Naam<strong>${dev.name || dev.id || "-"}</strong></span>
-                    <span>Serienummer<strong>${dev.serial || "-"}</strong></span>
-                    <span>Standaardtaak<strong>${dev.default_task || "-"}</strong></span>
-                    <span>Huidige taak<strong>${dev.current_task || "-"}</strong></span>
-                    <span>Volgende taak<strong>${dev.next_task || "-"}</strong></span>
-                    <span>Bron / status<strong>${dev.active_detail || "-"}</strong></span>
+                    <span>Name<strong>${dev.name || dev.id || "-"}</strong></span>
+                    <span>Serial Number<strong>${dev.serial || "-"}</strong></span>
+                    <span>Default Role<strong>${dev.default_task || "-"}</strong></span>
+                    <span>Current Task<strong>${dev.current_task || "-"}</strong></span>
+                    <span>${window.SDRCC_UI_TEXT.t("next_task")}<strong>${dev.next_task || "-"}</strong></span>
+                    <span>Source / Status<strong>${dev.active_detail || "-"}</strong></span>
                 </div>
             `;
             container.appendChild(item);
         }
 
         if (!devices || devices.length === 0) {
-            container.textContent = "Geen SDR-apparaten gevonden.";
+            container.textContent = "No SDR devices found.";
         }
     }
 
     async function getLiveRf() {
         const response = await fetch("/api/live-rf", {cache: "no-store"});
-        if (!response.ok) throw new Error("live rf api fout");
+        if (!response.ok) throw new Error("live RF API error");
         return await response.json();
     }
 
@@ -231,7 +231,7 @@
         try {
             renderLiveRf(await getLiveRf());
         } catch (error) {
-            console.log("Live RF update mislukt:", error.message);
+            console.log("Live RF update failed:", error.message);
         }
     }
 
@@ -257,7 +257,7 @@
             const weatherDevice = (data.devices || []).find(item => item.weather_selected);
             setText("spectrum-device", weatherDevice ? `${weatherDevice.number} · ${weatherDevice.serial}` : "-");
         } catch (error) {
-            console.log("Radio update mislukt:", error.message);
+            console.log("Radio update failed:", error.message);
         }
     }
 
@@ -278,11 +278,11 @@
                     body: JSON.stringify({weather: selected.value}),
                 });
                 const data = await response.json();
-                if (result) result.textContent = data.message || (response.ok ? "Opgeslagen." : "Mislukt.");
+                if (result) result.textContent = window.SDRCC_UI_TEXT.runtime(data.message) || (response.ok ? window.SDRCC_UI_TEXT.t("saved") : window.SDRCC_UI_TEXT.t("failed"));
                 if (!response.ok) return;
                 await updateRadioPage();
             } catch (error) {
-                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+                if (result) result.textContent = window.SDRCC_UI_TEXT.tf("save_failed_error", {error: error.message});
             }
         });
     }
@@ -300,11 +300,11 @@
             const result = document.getElementById("receiver-roles-result");
             const submitButton = receiverRolesForm.querySelector('button[type="submit"]');
             if (sdr1 === sdr2 && ["ais", "adsb"].includes(sdr1)) {
-                if (result) result.textContent = `${sdr1.toUpperCase()} kan niet tegelijk aan SDR1 en SDR2 worden toegewezen.`;
+                if (result) result.textContent = `${sdr1.toUpperCase()} cannot be assigned to SDR1 and SDR2 at the same time.`;
                 return;
             }
             if (submitButton) submitButton.disabled = true;
-            if (result) result.textContent = "Receiverrollen worden opgeslagen...";
+            if (result) result.textContent = "Saving receiver roles...";
             try {
                 const response = await fetch("/api/receiver-roles", {
                     method: "POST",
@@ -312,12 +312,12 @@
                     body: JSON.stringify({sdr1, sdr2}),
                 });
                 const data = await response.json();
-                if (result) result.textContent = data.message || (response.ok ? "Opgeslagen." : "Mislukt.");
+                if (result) result.textContent = window.SDRCC_UI_TEXT.runtime(data.message) || (response.ok ? window.SDRCC_UI_TEXT.t("saved") : window.SDRCC_UI_TEXT.t("failed"));
                 if (!response.ok) return;
                 receiverRolesDirty = false;
                 await updateRadioPage();
             } catch (error) {
-                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+                if (result) result.textContent = window.SDRCC_UI_TEXT.tf("save_failed_error", {error: error.message});
             } finally {
                 if (submitButton) submitButton.disabled = false;
             }
@@ -329,18 +329,18 @@
         applyReceiverRolesButton.addEventListener("click", async () => {
             const result = document.getElementById("receiver-roles-apply-result");
             if (receiverRolesDirty) {
-                if (result) result.textContent = "Bewaar eerst de gewijzigde rollen.";
+                if (result) result.textContent = window.SDRCC_UI_TEXT.t("save_roles_first");
                 return;
             }
             applyReceiverRolesButton.disabled = true;
-            if (result) result.textContent = "Services worden netjes gestopt, omgezet en opnieuw gestart...";
+            if (result) result.textContent = "Stopping, reconfiguring, and restarting services safely...";
             try {
                 const response = await fetch("/api/receiver-roles/apply", {method: "POST"});
                 const data = await response.json();
-                if (result) result.textContent = data.message || (response.ok ? "Toegepast." : "Mislukt.");
+                if (result) result.textContent = window.SDRCC_UI_TEXT.runtime(data.message) || (response.ok ? window.SDRCC_UI_TEXT.t("applied") : window.SDRCC_UI_TEXT.t("failed"));
                 if (response.ok) await updateRadioPage();
             } catch (error) {
-                if (result) result.textContent = `Toepassen mislukt: ${error.message}`;
+                if (result) result.textContent = window.SDRCC_UI_TEXT.tf("apply_failed_error", {error: error.message});
             } finally {
                 applyReceiverRolesButton.disabled = false;
             }
@@ -382,13 +382,13 @@
                     body: JSON.stringify(payload),
                 });
                 const data = await response.json();
-                if (result) result.textContent = data.message || "-";
+                if (result) result.textContent = window.SDRCC_UI_TEXT.runtime(data.message) || "-";
                 if (response.ok) {
                     populateRf(data.settings);
                     rfFormDirty = false;
                 }
             } catch (error) {
-                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+                if (result) result.textContent = window.SDRCC_UI_TEXT.tf("save_failed_error", {error: error.message});
             } finally {
                 rfFormSaving = false;
                 if (submitButton) submitButton.disabled = false;
@@ -405,7 +405,7 @@
             const frequency = Number(document.getElementById("spectrum-frequency").value);
             const response = await fetch("/api/weather-spectrum", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({frequency_hz:frequency})});
             const data = await response.json();
-            if (!response.ok) throw new Error(data.message || "Meting mislukt");
+            if (!response.ok) throw new Error(data.message || "Measurement failed");
             const spectrum = data.spectrum;
             drawSpectrum(spectrum.points);
             setText("spectrum-peak-frequency", `${(spectrum.peak.frequency_hz / 1e6).toFixed(4)} MHz`);
@@ -462,7 +462,7 @@
         const metrics = receiver.metrics || {};
         const items = [];
         if (receiver.frequency_hz) {
-            items.push({label: "Frequentie", value: receiver.frequency_hz, format: "frequency_hz"});
+            items.push({label: "Frequency", value: receiver.frequency_hz, format: "frequency_hz"});
         }
         for (const [key, value] of Object.entries(metrics)) {
             if (["available", "service_active", "source", "detail", "message_rate_source"].includes(key)) continue;
@@ -498,8 +498,8 @@
             `;
             grid.appendChild(card);
         }
-        if (!receivers.length) grid.textContent = "Geen receiverstatus beschikbaar.";
-        setText("receiver-monitor-updated", data && data.generated_at ? `Bijgewerkt ${data.generated_at}` : "Niet beschikbaar");
+        if (!receivers.length) grid.textContent = window.SDRCC_UI_TEXT.t("no_receiver_status");
+        setText("receiver-monitor-updated", data && data.generated_at ? window.SDRCC_UI_TEXT.tf("updated_at", {time: data.generated_at}) : window.SDRCC_UI_TEXT.t("not_available"));
     }
 
     async function updateReceiverMonitor() {
@@ -510,7 +510,7 @@
             renderReceiverMonitor(data);
         } catch (error) {
             const grid = document.getElementById("receiver-monitor-grid");
-            if (grid) grid.textContent = `Receiver Monitor niet beschikbaar: ${error.message}`;
+            if (grid) grid.textContent = window.SDRCC_UI_TEXT.tf("receiver_monitor_unavailable", {error: error.message});
         }
     }
     updateRadioPage();

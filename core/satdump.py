@@ -142,7 +142,7 @@ def build_record_command():
         str(output_path),
         "--source",
         "rtlsdr",
-        "--serial",
+        "--source_id",
         device["serial"],
         "--frequency",
         str(next_pass["frequency"]),

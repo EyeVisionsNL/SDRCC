@@ -45,7 +45,7 @@ export function formatUptime(seconds) {
 
 export function formatCountdown(seconds) {
     if (seconds == null) return "-";
-    if (seconds <= 0) return "NU / ACTIEF";
+    if (seconds <= 0) return window.SDRCC_UI_TEXT.t("active_now");
 
     const hours = Math.floor(seconds / 3600);
     seconds %= 3600;

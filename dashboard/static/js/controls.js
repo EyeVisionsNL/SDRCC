@@ -47,7 +47,7 @@ async function runMissionAction(missionAction, refreshCallback) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || "Mission Engine actie mislukt");
+            throw new Error(data.error || "Mission Engine action failed");
         }
 
         if (resultBox) {
@@ -61,7 +61,7 @@ async function runMissionAction(missionAction, refreshCallback) {
         console.error(error);
 
         if (resultBox) {
-            resultBox.textContent = "Mission Engine fout: " + String(error);
+            resultBox.textContent = "Mission Engine error: " + String(error);
             resultBox.className = "control-result bad";
         }
     }
@@ -89,7 +89,7 @@ async function runAction(actionId, refreshCallback) {
         console.error(error);
 
         if (resultBox) {
-            resultBox.textContent = "Actie mislukt: " + String(error);
+            resultBox.textContent = "Action failed: " + String(error);
             resultBox.className = "control-result bad";
         }
     }

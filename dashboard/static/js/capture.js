@@ -16,7 +16,7 @@ export function updateRecentCaptures(captures) {
     if (!box) return;
 
     if (!captures || captures.length === 0) {
-        box.textContent = "Nog geen opnames gevonden.";
+        box.textContent = window.SDRCC_UI_TEXT.t("no_captures");
         return;
     }
 
@@ -56,7 +56,7 @@ function updateCaptureBlock(capture, suffix = "") {
 
     if (!capture) {
         empty.style.display = "block";
-        empty.textContent = "Nog geen afbeelding gevonden.";
+        empty.textContent = window.SDRCC_UI_TEXT.t("no_image");
         content.classList.add("hidden");
         image.removeAttribute("src");
         return;

@@ -29,7 +29,7 @@ function updateLastMission(mission) {
         setText("last-mission-images", "-");
         setText("last-mission-duration", "-");
         setText("last-mission-ended", "-");
-        setText("last-mission-detail", "Nog geen missie-uitkomst beschikbaar.");
+        setText("last-mission-detail", window.SDRCC_UI_TEXT.t("no_mission_result"));
         if (resultElement) resultElement.className = "last-mission-result";
         return;
     }
@@ -88,7 +88,7 @@ export function updateNextPass(data) {
         setText("next-pipeline", data.next_pass.pipeline);
     } else {
         nextPassEpoch = null;
-        ["next-name","next-start","next-maximum","next-end","next-elevation","next-azimuth","next-frequency","next-mode","next-pipeline"].forEach(id => setText(id, id === "next-name" ? "Geen passage" : "-"));
+        ["next-name","next-start","next-maximum","next-end","next-elevation","next-azimuth","next-frequency","next-mode","next-pipeline"].forEach(id => setText(id, id === "next-name" ? "No pass" : "-"));
     }
     updateCountdown();
 }

@@ -168,7 +168,7 @@
             if (test) setStatus("Startgeluid wordt afgespeeld.", "is-ready");
         } catch (error) {
             console.error(`Mission sound '${name}' mislukt:`, error);
-            setStatus("Mission-geluid kon niet worden afgespeeld.", "is-error");
+            setStatus("Mission sound could not be played.", "is-error");
         }
     }
 
@@ -231,7 +231,7 @@
             setResultTitle("✅", "SUCCESS");
         } else if (raw === "NO SYNC" || raw === "NO_SYNC") {
             playSound("noSync");
-            showNotification({ icon: "⚠️", title: "Geen synchronisatie", message: satellite, tone: "warning", duration: 8000 });
+            showNotification({ icon: "⚠️", title: window.SDRCC_UI_TEXT.t("no_sync"), message: satellite, tone: "warning", duration: 8000 });
             setResultTitle("⚠️", "NO SYNC");
         } else if (raw === "FAILED" || raw === "NO SIGNAL" || raw === "NO IMAGES") {
             playSound("failed");

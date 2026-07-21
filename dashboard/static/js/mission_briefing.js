@@ -2,13 +2,13 @@
     const CAPTURE_POLL_MS = 2000;
     const PIPELINE_STEPS = ["receiver", "recording", "decoder", "processing", "images", "archive"];
     const PIPELINE_LABELS = {
-        waiting: "WACHTEN",
+        waiting: "WAITING",
         active: "ACTIEF",
         complete: "GEREED",
         error: "FOUT",
     };
     const IMAGE_STATUS_LABELS = {
-        waiting: "WACHTEN",
+        waiting: "WAITING",
         decoding: "DECODER ACTIEF",
         building: "AFBEELDING OPBOUWEN",
         writing: "AFBEELDING OPSLAAN",
@@ -118,7 +118,7 @@
             || Number((job && job.cadu_bytes) || 0) > 0;
 
         const statuses = Object.fromEntries(PIPELINE_STEPS.map((name) => [name, "waiting"]));
-        let currentStage = "Wachten op AOS";
+        let currentStage = window.SDRCC_UI_TEXT.t("waiting_aos");
 
         if (!hasLiveMission) return { statuses, currentStage };
 
@@ -126,7 +126,7 @@
         case "WAIT FOR PASS":
         case "READY":
         case "STANDBY":
-            currentStage = "Wachten op AOS";
+            currentStage = window.SDRCC_UI_TEXT.t("waiting_aos");
             break;
         case "LOCK RECEIVER":
             statuses.receiver = "active";
@@ -136,13 +136,13 @@
             statuses.receiver = "complete";
             statuses.recording = "active";
             if (decoderSeen) statuses.decoder = "active";
-            currentStage = decoderSeen ? "Opnemen en live decoderen" : "Satellietsignaal opnemen";
+            currentStage = decoderSeen ? "Recording and live decoding" : "Recording satellite signal";
             break;
         case "DECODING":
             statuses.receiver = "complete";
             statuses.recording = "complete";
             statuses.decoder = "active";
-            currentStage = "Opname decoderen";
+            currentStage = "Decoding recording";
             break;
         case "PROCESSING":
             statuses.receiver = "complete";
@@ -159,7 +159,7 @@
             statuses.processing = "complete";
             statuses.images = images > 0 ? "complete" : "waiting";
             statuses.archive = "active";
-            currentStage = "Missie-output archiveren";
+            currentStage = window.SDRCC_UI_TEXT.t("archiving_output");
             break;
         default:
             currentStage = String(state).toLowerCase().replaceAll("_", " ");
@@ -172,7 +172,7 @@
             else if (!decoderSeen && images === 0) statuses.decoder = "error";
             else if (images === 0) statuses.images = "error";
             else statuses.archive = "error";
-            currentStage = result ? `Missie gestopt: ${result}` : "Pipelinefout";
+            currentStage = result ? window.SDRCC_UI_TEXT.tf("mission_stopped", {result}) : window.SDRCC_UI_TEXT.t("pipeline_error");
         }
 
         return { statuses, currentStage };
@@ -201,7 +201,7 @@
             image.classList.add("hidden");
             image.removeAttribute("src");
             empty.classList.remove("hidden");
-            empty.textContent = "Nog geen live product";
+            empty.textContent = window.SDRCC_UI_TEXT.t("no_live_product");
             lastImageKey = "";
             return;
         }
@@ -249,8 +249,8 @@
 
     function updateOperationSummary(summary, receiverManager) {
         const data = summary || {};
-        const result = String(data.result || data.status || (data.active ? "ACTIVE" : "WACHTEN")).toUpperCase();
-        const detail = data.detail || (data.active ? "Missie is actief." : "Nog geen afgeronde missie.");
+        const result = String(data.result || data.status || (data.active ? "ACTIVE" : "WAITING")).toUpperCase();
+        const detail = window.SDRCC_UI_TEXT.runtime(data.detail) || (data.active ? window.SDRCC_UI_TEXT.t("mission_active") : window.SDRCC_UI_TEXT.t("no_completed_mission"));
         const reservation = receiverManager && receiverManager.reservation;
         const receiverStatus = String(
             data.receiver_status
@@ -259,8 +259,8 @@
             || "AVAILABLE"
         ).toUpperCase();
 
-        setText("briefing-result", result);
-        setText("briefing-receiver-status", receiverStatus);
+        setText("briefing-result", window.SDRCC_UI_TEXT.runtime(result));
+        setText("briefing-receiver-status", window.SDRCC_UI_TEXT.runtime(receiverStatus));
         setText("briefing-result-detail", detail);
 
         const resultElement = document.getElementById("briefing-result");
@@ -282,17 +282,17 @@
             ? "control-button danger"
             : "control-button stop-mission-inactive";
         button.title = active
-            ? "Actieve missie gecontroleerd stoppen"
-            : "Er is geen actieve missie";
+            ? "Stop active mission safely"
+            : "There is no active mission";
     }
 
     async function stopMission() {
         const button = document.getElementById("stop-mission-button");
         if (!button || button.disabled) return;
-        if (!window.confirm("Stop de huidige missie? De Scheduler wordt op MANUAL gezet.")) return;
+        if (!window.confirm("Stop the current mission? The Scheduler will be set to MANUAL.")) return;
 
         button.disabled = true;
-        button.textContent = "■ STOPPEN...";
+        button.textContent = "■ STOPPING...";
         try {
             const response = await fetch("/api/mission/stop", {
                 method: "POST",
@@ -304,10 +304,10 @@
                 throw new Error(data.message || data.error || `HTTP ${response.status}`);
             }
             const result = document.getElementById("control-result");
-            if (result) result.textContent = data.message || "Missie gestopt.";
+            if (result) result.textContent = window.SDRCC_UI_TEXT.runtime(data.message) || window.SDRCC_UI_TEXT.t("mission_stopped_plain");
         } catch (error) {
             const result = document.getElementById("control-result");
-            if (result) result.textContent = `Stop Mission mislukt: ${error.message}`;
+            if (result) result.textContent = `Stop Mission failed: ${error.message}`;
         } finally {
             button.textContent = "■ STOP MISSION";
             await window.MissionState.refresh({ force: true });
@@ -325,7 +325,7 @@
             : normalizeState(mission, activeRf);
         const progress = isActive ? calculateProgress(mission, activeRf) : 0;
 
-        const satellite = (job && job.satellite) || activeRf.satellite || (pass && pass.name) || "Geen actieve missie";
+        const satellite = (job && job.satellite) || activeRf.satellite || (pass && pass.name) || "No active mission";
         const mode = (job && job.mode) || (pass && pass.mode) || "-";
         const receiver = (job && job.receiver) || activeRf.receiver || "-";
         const frequencyMhz = (job && job.frequency_mhz)
@@ -373,7 +373,7 @@
         setText("briefing-gain", gain);
 
         const locked = isActive && (state === "LOCK RECEIVER" || state === "RECORDING" || Boolean(activeRf.active));
-        setText("briefing-lock", locked ? "LOCKED" : "VRIJ");
+        setText("briefing-lock", locked ? "LOCKED" : "FREE");
         const lockElement = document.getElementById("briefing-lock");
         if (lockElement) lockElement.className = locked ? "live-lock locked" : "live-lock";
 
@@ -386,9 +386,9 @@
 
         if (!snapshot || snapshot.loading) return;
         if (snapshot.error) {
-            console.log("Live Mission Dashboard update mislukt:", snapshot.error);
+            console.log("Live Mission Dashboard update failed:", snapshot.error);
             updateStateBadge("ERROR");
-            setText("briefing-current-stage", "Telemetrie niet beschikbaar");
+            setText("briefing-current-stage", window.SDRCC_UI_TEXT.t("telemetry_unavailable"));
             setImageStatus("error");
             updateStopMissionButton(snapshot);
             return;
@@ -432,7 +432,7 @@
     if (!window.MissionState) {
         console.error("MissionState is niet geladen vóór mission_briefing.js");
         updateStateBadge("ERROR");
-        setText("briefing-current-stage", "MissionState niet beschikbaar");
+        setText("briefing-current-stage", window.SDRCC_UI_TEXT.t("mission_state_unavailable"));
         updateStopMissionButton({ active: false });
         return;
     }

@@ -19,7 +19,7 @@ const CATEGORY_ICONS = {
 };
 
 const FILTERS = [
-    ["ALL", "Alles"],
+    ["ALL", "All"],
     ["MISSION", "🛰 Mission"],
     ["SATDUMP", "📡 SatDump"],
     ["RECEIVER", "🎛 Receiver"],
@@ -33,7 +33,7 @@ export function updateLiveLog(lines) {
     if (!logElement) return;
 
     if (!lines || lines.length === 0) {
-        logElement.textContent = "Geen logregels.";
+        logElement.textContent = "No log lines.";
         return;
     }
 
@@ -101,13 +101,13 @@ async function refreshEventTimeline() {
 
     try {
         const response = await fetch(`${EVENT_API_URL}?limit=${MAX_EVENTS}`, {cache: "no-store"});
-        if (!response.ok) throw new Error(`Event API gaf HTTP ${response.status}`);
+        if (!response.ok) throw new Error(`Event API returned HTTP ${response.status}`);
 
         const payload = await response.json();
         latestEvents = Array.isArray(payload.events) ? payload.events : [];
         renderEvents(timeline, latestEvents);
     } catch (error) {
-        console.error("Event Timeline update mislukt:", error);
+        console.error("Event Timeline update failed:", error);
         showTimelineError(timeline);
     }
 }
@@ -134,7 +134,7 @@ function renderEvents(timeline, apiEvents, force = false) {
     timeline.replaceChildren();
 
     if (events.length === 0) {
-        timeline.appendChild(createEmptyState(activeFilter === "ALL" ? "Nog geen operator-events." : "Geen events binnen dit filter."));
+        timeline.appendChild(createEmptyState(activeFilter === "ALL" ? window.SDRCC_UI_TEXT.t("all_events") : window.SDRCC_UI_TEXT.t("filtered_events")));
         return;
     }
 
@@ -190,7 +190,7 @@ function createEventItem(event) {
 
     const title = document.createElement("strong");
     title.className = "timeline-title";
-    title.textContent = event.title || category;
+    title.textContent = window.SDRCC_UI_TEXT.runtime(event.title || category);
 
     const headerRight = document.createElement("div");
     headerRight.className = "timeline-header-right";
@@ -204,12 +204,12 @@ function createEventItem(event) {
     expand.type = "button";
     expand.className = "timeline-expand";
     expand.textContent = "⌄";
-    expand.title = "Details tonen";
+    expand.title = "Show details";
     expand.setAttribute("aria-expanded", "false");
     expand.addEventListener("click", () => {
         const expanded = item.classList.toggle("is-expanded");
         expand.setAttribute("aria-expanded", expanded ? "true" : "false");
-        expand.title = expanded ? "Details verbergen" : "Details tonen";
+        expand.title = expanded ? "Hide details" : "Show details";
     });
 
     headerRight.append(time, expand);
@@ -219,7 +219,7 @@ function createEventItem(event) {
     if (event.detail) {
         const detail = document.createElement("div");
         detail.className = "timeline-detail";
-        detail.textContent = String(event.detail);
+        detail.textContent = window.SDRCC_UI_TEXT.runtime(event.detail);
         content.appendChild(detail);
     }
 
@@ -281,11 +281,11 @@ function createEventDetails(event) {
 
 function flattenEventData(data) {
     const preferred = [
-        ["mission_id", "Mission ID"], ["satellite", "Satelliet"], ["receiver", "Receiver"],
-        ["receiver_serial", "Serienummer"], ["frequency_mhz", "Frequentie MHz"], ["mode", "Mode"],
-        ["pipeline", "Pipeline"], ["progress", "Voortgang"], ["result", "Resultaat"],
-        ["success", "Succes"], ["peak_snr_db", "Piek-SNR dB"], ["frames", "Frames"],
-        ["cadu_bytes", "CADU bytes"], ["image_count", "Afbeeldingen"], ["output_path", "Outputpad"]
+        ["mission_id", "Mission ID"], ["satellite", "Satellite"], ["receiver", "Receiver"],
+        ["receiver_serial", "Serial Number"], ["frequency_mhz", "Frequency MHz"], ["mode", "Mode"],
+        ["pipeline", "Pipeline"], ["progress", window.SDRCC_UI_TEXT.t("progress")], ["result", window.SDRCC_UI_TEXT.t("result")],
+        ["success", "Success"], ["peak_snr_db", "Peak SNR dB"], ["frames", "Frames"],
+        ["cadu_bytes", "CADU bytes"], ["image_count", "Images"], ["output_path", "Output path"]
     ];
 
     const rows = [];
@@ -307,7 +307,7 @@ function flattenEventData(data) {
 }
 
 function formatDetailValue(value, key) {
-    if (typeof value === "boolean") return value ? "Ja" : "Nee";
+    if (typeof value === "boolean") return value ? "Yes" : "No";
     if (key === "progress" && Number.isFinite(Number(value))) return `${value}%`;
     return String(value);
 }
@@ -339,7 +339,7 @@ function formatEventTime(value) {
         const match = String(value).match(/(\d{2}:\d{2}:\d{2})/);
         return match ? match[1] : String(value);
     }
-    return new Intl.DateTimeFormat("nl-NL", {
+    return new Intl.DateTimeFormat("en-GB", {
         hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
     }).format(date);
 }
@@ -362,5 +362,5 @@ function createEmptyState(text) {
 
 function showTimelineError(timeline) {
     if (timeline.querySelector(".timeline-list")) return;
-    timeline.replaceChildren(createEmptyState("Event Timeline tijdelijk niet bereikbaar."));
+    timeline.replaceChildren(createEmptyState("Event Timeline is temporarily unavailable."));
 }

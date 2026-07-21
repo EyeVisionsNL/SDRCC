@@ -20,7 +20,7 @@
         try {
             const response = await fetch("/api/weather-planning", {cache: "no-store"});
             const data = await response.json();
-            if (!response.ok) throw new Error(data.message || "Instelling kon niet worden geladen.");
+            if (!response.ok) throw new Error(data.message || "Setting could not be loaded.");
             populate(data.settings);
         } catch (error) {
             setResult(`Laden mislukt: ${error.message}`, true);
@@ -36,7 +36,7 @@
             const button = form.querySelector('button[type="submit"]');
             saving = true;
             if (button) button.disabled = true;
-            setResult("Minimale elevatie opslaan...");
+            setResult("Saving minimum elevation...");
             try {
                 const response = await fetch("/api/weather-planning", {
                     method: "POST",
@@ -44,12 +44,12 @@
                     body: JSON.stringify({minimum_elevation: Number(input.value)}),
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.message || "Opslaan mislukt.");
+                if (!response.ok) throw new Error(data.message || window.SDRCC_UI_TEXT.t("save_failed"));
                 populate(data.settings);
-                setResult(data.message || "Minimale elevatie opgeslagen.");
+                setResult(data.message || "Minimum elevation saved.");
                 window.dispatchEvent(new CustomEvent("sdrcc:weather-planning-changed", {detail: data.settings}));
             } catch (error) {
-                setResult(`Opslaan mislukt: ${error.message}`, true);
+                setResult(window.SDRCC_UI_TEXT.tf("save_failed_error", {error: error.message}), true);
             } finally {
                 saving = false;
                 if (button) button.disabled = false;

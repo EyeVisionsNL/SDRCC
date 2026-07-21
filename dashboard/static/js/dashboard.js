@@ -40,17 +40,17 @@ async function refreshDashboard() {
         const tleStatus = document.getElementById("tle-status");
         if (tleStatus) {
             if (data.tle_present) {
-                tleStatus.innerText = "aanwezig";
+                tleStatus.innerText = window.SDRCC_UI_TEXT.t("present");
                 tleStatus.className = "ok";
             } else {
-                tleStatus.innerText = "ontbreekt";
+                tleStatus.innerText = window.SDRCC_UI_TEXT.t("missing");
                 tleStatus.className = "bad";
             }
         }
 
     } catch (error) {
         console.error(error);
-        updateLiveLog(["Dashboard update mislukt:", String(error)]);
+        updateLiveLog([window.SDRCC_UI_TEXT.t("dashboard_update_failed"), String(error)]);
     }
 }
 

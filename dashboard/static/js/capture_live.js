@@ -6,7 +6,7 @@ async function fetchCaptureStatus() {
     });
 
     if (!response.ok) {
-        throw new Error("Capture status API fout");
+        throw new Error("Capture status API error");
     }
 
     return await response.json();
@@ -82,7 +82,7 @@ async function updateLiveCapture() {
         updateImageBlock("", capture);
         updateImageBlock("images", capture);
     } catch (error) {
-        console.log("Live capture update mislukt:", error.message);
+        console.log("Live capture update failed:", error.message);
     }
 }
 

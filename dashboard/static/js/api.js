@@ -1,7 +1,7 @@
 export async function getStatus() {
     const response = await fetch("/api/status");
     if (!response.ok) {
-        throw new Error("Status API fout");
+        throw new Error("Status API error");
     }
     return await response.json();
 }
