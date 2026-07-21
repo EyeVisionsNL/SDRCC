@@ -31,6 +31,7 @@ from core import mission_diagnostics
 from core import mission_operations
 from core import mission_result
 from core import mission_preflight
+from core import mission_simulator
 from core import mission_scheduler as mission_scheduler_core
 from core import mission_queue as mission_queue_core
 from core import process_manager
@@ -109,182 +110,19 @@ def write_log(message):
         file.write(f"[{timestamp}] {message}\n")
 
 
-virtual_mission_runtime = {
-    "active": False,
-    "stop_event": None,
-    "thread": None,
-    "mission_id": None,
-}
-virtual_mission_lock = threading.RLock()
-
-
-def _virtual_mission_worker(stop_event, duration_seconds=300):
-    """Run a hardware-free mission that exercises Mission Engine and Live RF."""
-    try:
-        started = time.monotonic()
-        snr = 4.0
-        while not stop_event.wait(1):
-            elapsed = int(time.monotonic() - started)
-            snr = min(13.5, snr + 0.35)
-            live_rf.update_line(
-                f"SNR : {snr:.2f} dB, Peak SNR : {snr:.2f} dB"
-            )
-            if elapsed >= 6:
-                live_rf.update_line(
-                    "Viterbi : SYNCED BER : 0.012, Deframer : SYNCED"
-                )
-            if elapsed >= duration_seconds:
-                mission_engine_core.mission_set_state("DECODING")
-                time.sleep(0.5)
-                mission_engine_core.mission_set_state("PROCESSING")
-                time.sleep(0.5)
-                mission_engine_core.mission_set_state("ARCHIVING")
-                live_rf.finish({
-                    "result": "SUCCESS",
-                    "detail": "Virtuele missie voltooid",
-                    "peak_snr_db": snr,
-                    "frames": max(1, elapsed // 2),
-                    "cadu_bytes": max(8192, (elapsed // 2) * 8192),
-                    "image_count": 1,
-                })
-                mission_engine_core.mission_finish_job(
-                    success=True,
-                    result="SUCCESS",
-                    detail="Virtuele missie voltooid",
-                    metrics={
-                        "peak_snr_db": snr,
-                        "frames": max(1, elapsed // 2),
-                        "cadu_bytes": max(8192, (elapsed // 2) * 8192),
-                        "image_count": 1,
-                    },
-                )
-                break
-    except Exception as error:
-        write_log(f"Virtual Mission fout: {error}")
-        try:
-            live_rf.fail(f"Virtuele missie fout: {error}")
-        except Exception:
-            pass
-        try:
-            mission_engine_core.mission_cancel(
-                detail=f"Virtuele missie fout: {error}"
-            )
-        except Exception:
-            pass
-    finally:
-        with virtual_mission_lock:
-            virtual_mission_runtime.update({
-                "active": False,
-                "stop_event": None,
-                "thread": None,
-                "mission_id": None,
-            })
-
-
 def start_virtual_mission():
-    with virtual_mission_lock:
-        mission = mission_engine_core.get_mission_status()
-        if mission.get("active_job") is not None or virtual_mission_runtime["active"]:
-            raise RuntimeError("Er is al een actieve missie.")
-
-        next_pass = mission_scheduler_core.get_scheduler_status().get("next_pass") or {}
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = PROJECT_ROOT / "data" / "recordings" / f"{timestamp}_VIRTUAL-MISSION"
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        mission_engine_core.mission_create_job(
-            satellite="VIRTUAL MISSION",
-            frequency=next_pass.get("frequency", 137_900_000),
-            mode="SIMULATION",
-            pipeline="virtual_mission",
-            output_path=str(output_path),
-            receiver="SIMULATOR",
-            receiver_id="virtual",
-            receiver_serial="VIRTUAL",
-            min_elevation=next_pass.get("min_elevation"),
-            max_elevation=next_pass.get("max_elevation"),
-            azimuth=next_pass.get("azimuth"),
-            sample_rate=next_pass.get("sample_rate", 1_000_000),
-            gain_mode="manual",
-            gain_db=42.1,
-            dc_block=False,
-            iq_swap=False,
-        )
-        mission_engine_core.mission_set_state("LOCK RECEIVER")
-        mission_engine_core.mission_set_state("RECORDING")
-        mission = mission_engine_core.get_mission_status()
-        job = mission.get("active_job") or {}
-
-        record_data = {
-            "pass": {
-                "name": "VIRTUAL MISSION",
-                "frequency": job.get("frequency"),
-                "sample_rate": job.get("sample_rate"),
-            },
-            "device": {
-                "number": "SIMULATOR",
-                "id": "virtual",
-                "serial": "VIRTUAL",
-            },
-            "rf": {
-                "gain_mode": "manual",
-                "gain_db": 42.1,
-                "dc_block": False,
-                "iq_swap": False,
-            },
-            "output_path": output_path,
-            "timeout_seconds": 300,
-        }
-        live_rf.start(record_data, pid=0)
-
-        stop_event = threading.Event()
-        worker = threading.Thread(
-            target=_virtual_mission_worker,
-            args=(stop_event,),
-            name="sdrcc-virtual-mission",
-            daemon=True,
-        )
-        virtual_mission_runtime.update({
-            "active": True,
-            "stop_event": stop_event,
-            "thread": worker,
-            "mission_id": job.get("mission_id"),
-        })
-        worker.start()
-
-        event_bus.publish_mission(
-            "INFO",
-            "Virtuele missie gestart",
-            "Hardwarevrije simulatie is actief en kan met STOP MISSION worden beëindigd",
-            data={"mission_id": job.get("mission_id")},
-        )
-        write_log(f"Virtual Mission gestart: {job.get('mission_id')}")
-        return mission_engine_core.get_mission_status()
+    """Compatibility wrapper for the existing dashboard action."""
+    return mission_simulator.start(
+        scenario="success",
+        receiver_id="sdr2",
+        duration_seconds=15,
+    )["mission"]
 
 
 def stop_virtual_mission():
-    with virtual_mission_lock:
-        if not virtual_mission_runtime.get("active"):
-            return False
-        stop_event = virtual_mission_runtime.get("stop_event")
-        if stop_event is not None:
-            stop_event.set()
-
-    live_rf.finish({
-        "result": "CANCELLED",
-        "detail": "Virtuele missie gestopt door operator",
-    })
-    mission_engine_core.mission_cancel(
-        detail="Virtuele missie gestopt door operator"
-    )
-    event_bus.publish_mission(
-        "WARNING",
-        "Virtuele missie gestopt",
-        "De hardwarevrije simulatie is door de operator beëindigd",
-    )
-    write_log("Virtual Mission gestopt door operator")
-    return True
-
+    """Compatibility wrapper used by STOP MISSION."""
+    status = mission_simulator.stop()
+    return bool(status.get("ok"))
 
 def run_command(command, timeout=60):
     return subprocess.run(
@@ -2120,6 +1958,34 @@ def active_mission_preview(relative_path):
     return send_file(requested)
 
 
+@app.route("/api/mission-simulator")
+def api_mission_simulator_status():
+    return jsonify(mission_simulator.get_status())
+
+
+@app.route("/api/mission-simulator/start", methods=["POST"])
+def api_mission_simulator_start():
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = mission_simulator.start(
+            scenario=payload.get("scenario", "success"),
+            receiver_id=payload.get("receiver_id", "sdr2"),
+            duration_seconds=payload.get("duration_seconds", 15),
+        )
+        return jsonify(result)
+    except (ValueError, RuntimeError) as error:
+        return jsonify({"ok": False, "message": str(error)}), 409
+    except Exception as error:
+        write_log(f"Mission Simulator startfout: {error}")
+        return jsonify({"ok": False, "message": str(error)}), 500
+
+
+@app.route("/api/mission-simulator/stop", methods=["POST"])
+def api_mission_simulator_stop():
+    result = mission_simulator.stop()
+    return jsonify(result), (200 if result.get("ok") else 409)
+
+
 @app.route("/api/mission-engine")
 def api_mission_engine():
     try:
@@ -2273,7 +2139,7 @@ def get_reconciled_receiver_manager_status():
     mission = mission_engine_core.get_mission_status()
     phase = str(mission.get("phase") or mission.get("state") or "").upper()
     runtime_active = any((
-        virtual_mission_runtime.get("active"),
+        mission_simulator.get_status().get("simulator", {}).get("active"),
         autopilot_runtime.get("prepared"),
         autopilot_runtime.get("locked"),
         autopilot_runtime.get("record_started"),
