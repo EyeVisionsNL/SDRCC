@@ -212,11 +212,22 @@ def reserve(
         reservations[receiver_id] = reservation
         _save_state(state)
 
+    event_data = deepcopy(reservation)
+    event_data.update({
+        "receiver_number": device["number"],
+        "receiver_name": device["name"],
+        "receiver_serial": device["serial"],
+        "previous_status": "AVAILABLE",
+        "current_status": "RESERVED",
+    })
     event_bus.publish_receiver(
         "INFO",
         "Receiver gereserveerd",
-        f"{device['number']} is gereserveerd voor {key}",
-        data=deepcopy(reservation),
+        (
+            f"{device['number']}: AVAILABLE → RESERVED · "
+            f"owner {key} · {reservation.get('reason', '-')}"
+        ),
+        data=event_data,
     )
     return get_status()
 
@@ -247,6 +258,25 @@ def activate(*, mission_key: str, mission_id: str | None = None) -> dict[str, An
             reservation["mission_id"] = str(mission_id)
         state["reservations"][receiver_id] = reservation
         _save_state(state)
+
+    device = get_device(receiver_id)
+    event_data = deepcopy(reservation)
+    event_data.update({
+        "receiver_number": device["number"] if device else receiver_id.upper(),
+        "receiver_name": device["name"] if device else receiver_id,
+        "receiver_serial": device["serial"] if device else None,
+        "previous_status": "RESERVED",
+        "current_status": "ACTIVE",
+    })
+    event_bus.publish_receiver(
+        "INFO",
+        "Receiver missie actief",
+        (
+            f"{event_data['receiver_number']}: RESERVED → ACTIVE · "
+            f"owner {key}"
+        ),
+        data=event_data,
+    )
     return get_status()
 
 
@@ -278,10 +308,23 @@ def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") 
         reservations.pop(receiver_id, None)
         _save_state(state)
 
+    device = get_device(receiver_id)
+    event_data = deepcopy(released)
+    event_data.update({
+        "receiver_number": device["number"] if device else receiver_id.upper(),
+        "receiver_name": device["name"] if device else receiver_id,
+        "receiver_serial": device["serial"] if device else None,
+        "previous_status": str(reservation.get("status") or "RESERVED").upper(),
+        "current_status": "RELEASED",
+    })
     event_bus.publish_receiver(
         "INFO",
         "Receiver vrijgegeven",
-        str(detail),
-        data=released,
+        (
+            f"{event_data['receiver_number']}: "
+            f"{event_data['previous_status']} → RELEASED · "
+            f"owner {released.get('mission_key', '-')} · {detail}"
+        ),
+        data=event_data,
     )
     return get_status()
