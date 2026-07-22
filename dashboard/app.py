@@ -20,6 +20,7 @@ from core import config as config_core
 from core import passes
 from core import rf_diagnostics
 from core import receiver_manager
+from core import receiver_runtime as receiver_runtime_core
 from core import receiver_monitor
 from core import state
 from core import tle
@@ -1474,6 +1475,21 @@ def api_mission_operations():
             "error": str(error),
         }), 500
 
+
+
+@app.route("/api/receiver-runtime", methods=["GET"])
+def api_receiver_runtime():
+    """Expose the read-only Receiver Runtime observation snapshot."""
+    try:
+        return jsonify(receiver_runtime_core.get_snapshot())
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "read_only": True,
+            "authority": "receiver_manager",
+            "error": str(error),
+            "receivers": {},
+        }), 500
 
 
 @app.route("/api/receiver-monitor")
