@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from core import plugin_registry
 from core.config import get_assignment, get_receiver_assignments, load_station
 
 
@@ -14,7 +15,12 @@ def get_devices():
         item = cfg[device_id]
         roles = [role for role, assigned in assignments.items() if assigned == device_id]
         fixed_role = next(
-            (role for role in ("ais", "adsb") if assignments.get(role) == device_id),
+            (
+                role
+                for role in plugin_registry.get_plugin_roles()
+                if plugin_registry.get_plugin_executor(role) == "service"
+                and assignments.get(role) == device_id
+            ),
             "manual",
         )
         devices.append({
@@ -33,8 +39,11 @@ def get_devices():
 def get_receiver_role(device_id):
     """Return the fixed receiver role from assignments only."""
     assignments = get_receiver_assignments()
-    for role in ("ais", "adsb"):
-        if assignments.get(role) == device_id:
+    for role in plugin_registry.get_plugin_roles():
+        if (
+            plugin_registry.get_plugin_executor(role) == "service"
+            and assignments.get(role) == device_id
+        ):
             return role
     return "manual"
 
@@ -56,15 +65,6 @@ def get_dynamic_device():
     return get_weather_device()
 
 
-ROLE_SERVICES = {
-    "ais": ("ais-catcher.service",),
-    "adsb": ("readsb.service",),
-    "weather": (),
-    "iss_voice": (),
-    "meshcore": (),
-}
-
-
 def get_assigned_roles(device_id):
     """Return all configured roles assigned to one receiver."""
     assignments = get_receiver_assignments()
@@ -76,8 +76,8 @@ def get_assigned_roles(device_id):
 
 
 def get_role_services(role):
-    """Return services owned by a role; future plugins extend this mapping."""
-    return list(ROLE_SERVICES.get(str(role or "").strip().lower(), ()))
+    """Return services owned by a plugin role from the central registry."""
+    return plugin_registry.get_plugin_services(role)
 
 
 def get_conflicting_services(device_id, *, exclude_role=None):

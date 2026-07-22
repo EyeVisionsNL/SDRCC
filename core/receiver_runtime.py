@@ -22,16 +22,11 @@ from typing import Any, Callable
 
 from core import config
 from core import mission_engine
+from core import plugin_registry
 from core import receiver_manager
 
 
 ServiceReader = Callable[[str], dict[str, Any]]
-
-
-SERVICE_BY_ROLE: dict[str, str] = {
-    "ais": "ais-catcher.service",
-    "adsb": "readsb.service",
-}
 
 
 def _now() -> str:
@@ -89,7 +84,7 @@ def _normalise_assignments(raw: Any) -> dict[str, str | None]:
     """Return only supported assignment fields as normalized receiver ids."""
     data = raw if isinstance(raw, dict) else {}
     assignments: dict[str, str | None] = {}
-    for role in ("weather", "ais", "adsb"):
+    for role in plugin_registry.get_plugin_roles():
         value = data.get(role)
         assignments[role] = str(value).strip() if value else None
     return assignments
@@ -102,7 +97,7 @@ def _roles_for_receiver(
     """Return configured roles for one receiver."""
     return [
         role
-        for role in ("weather", "ais", "adsb")
+        for role in plugin_registry.get_plugin_roles()
         if assignments.get(role) == receiver_id
     ]
 
@@ -114,12 +109,13 @@ def _service_observations(
 ) -> list[dict[str, Any]]:
     """Observe services assigned to a receiver."""
     observations: list[dict[str, Any]] = []
-    for role, service_name in SERVICE_BY_ROLE.items():
+    for role in plugin_registry.get_plugin_roles():
         if assignments.get(role) != receiver_id:
             continue
-        item = deepcopy(service_reader(service_name))
-        item["role"] = role
-        observations.append(item)
+        for service_name in plugin_registry.get_plugin_services(role):
+            item = deepcopy(service_reader(service_name))
+            item["role"] = role
+            observations.append(item)
     return observations
 
 
