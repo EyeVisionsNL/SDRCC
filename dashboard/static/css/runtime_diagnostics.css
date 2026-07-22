@@ -1,0 +1,153 @@
+.runtime-diagnostics-card {
+    grid-column: 1 / -1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.runtime-diagnostics-heading-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.runtime-diagnostics-heading-copy h2 {
+    margin-bottom: 0;
+}
+
+.runtime-diagnostics-heading-copy small {
+    color: #7dd3fc;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.runtime-diagnostics-grid {
+    min-width: 0;
+}
+
+.runtime-diagnostics-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #24364d;
+    border-radius: 9px;
+    background: #020b18;
+}
+
+.runtime-diagnostics-table {
+    width: 100%;
+    min-width: 1040px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.runtime-diagnostics-table th,
+.runtime-diagnostics-table td {
+    padding: 9px 10px;
+    border-right: 1px solid #1e293b;
+    border-bottom: 1px solid #1e293b;
+    vertical-align: middle;
+    text-align: left;
+}
+
+.runtime-diagnostics-table th:last-child,
+.runtime-diagnostics-table td:last-child {
+    border-right: 0;
+}
+
+.runtime-diagnostics-table tbody tr:last-child th,
+.runtime-diagnostics-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.runtime-diagnostics-table thead th {
+    background: #071222;
+    color: #9fb5d1;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.runtime-diagnostics-table tbody th {
+    width: 9%;
+    background: #030d1b;
+}
+
+.runtime-diagnostics-table tbody th strong,
+.runtime-diagnostics-table td strong {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #e2e8f0;
+    font-size: 0.71rem;
+    line-height: 1.3;
+}
+
+.runtime-diagnostics-table tbody th small,
+.runtime-diagnostics-table td small {
+    display: block;
+    margin-top: 2px;
+    color: #6f89aa;
+    font-size: 0.58rem;
+    line-height: 1.25;
+}
+
+.runtime-diagnostics-table th:nth-child(1) { width: 9%; }
+.runtime-diagnostics-table th:nth-child(2) { width: 13%; }
+.runtime-diagnostics-table th:nth-child(3) { width: 12%; }
+.runtime-diagnostics-table th:nth-child(4) { width: 13%; }
+.runtime-diagnostics-table th:nth-child(5) { width: 13%; }
+.runtime-diagnostics-table th:nth-child(6) { width: 13%; }
+.runtime-diagnostics-table th:nth-child(7) { width: 27%; }
+
+.runtime-state-badge {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 3px 7px;
+    border: 1px solid #475569;
+    border-radius: 999px;
+    background: #0f172a;
+    color: #cbd5e1;
+    font-size: 0.56rem;
+    font-weight: 900;
+    letter-spacing: 0.035em;
+    white-space: nowrap;
+}
+
+.runtime-state-badge.is-service {
+    border-color: rgba(34, 197, 94, 0.55);
+    color: #86efac;
+}
+
+.runtime-state-badge.is-mission {
+    border-color: rgba(248, 113, 113, 0.65);
+    color: #fca5a5;
+}
+
+.runtime-state-badge.is-reserved {
+    border-color: rgba(245, 158, 11, 0.65);
+    color: #fcd34d;
+}
+
+.runtime-state-badge.is-idle {
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #7dd3fc;
+}
+
+.runtime-diagnostics-empty {
+    padding: 14px;
+    border: 1px dashed #334155;
+    border-radius: 8px;
+    color: #94a3b8;
+    text-align: center;
+}
+
+.runtime-diagnostics-error {
+    color: #fca5a5 !important;
+}
+
+@media (max-width: 900px) {
+    .runtime-diagnostics-table {
+        min-width: 920px;
+    }
+}

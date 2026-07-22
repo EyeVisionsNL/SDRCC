@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/static/css/mission.css">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="/static/css/radio.css?v=0.24.1">
+    <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.35.4">
     <link rel="stylesheet" href="/static/css/mission_monitor.css?v=0.24.1">
     <link rel="stylesheet" href="/static/css/history.css">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
@@ -231,6 +232,19 @@
                 <span id="receiver-monitor-updated" class="muted">Status laden...</span>
             </div>
             <div id="receiver-monitor-grid" class="receiver-monitor-grid">Laden...</div>
+        </section>
+
+        <section class="card runtime-diagnostics-card" aria-labelledby="receiver-runtime-title">
+            <div class="section-heading-row">
+                <div class="runtime-diagnostics-heading-copy">
+                    <h2 id="receiver-runtime-title">🧭 Receiver Runtime Diagnostics</h2>
+                    <small id="receiver-runtime-authority">Read-only observatie</small>
+                </div>
+                <span id="receiver-runtime-updated" class="muted">Status laden...</span>
+            </div>
+            <div id="receiver-runtime-grid" class="runtime-diagnostics-grid" aria-live="polite">
+                Runtime status laden...
+            </div>
         </section>
 
         <section class="card radio-card assignment-preview-card">
@@ -747,6 +761,7 @@
 <script src="/static/dashboard.js"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/radio.js?v=0.24.1"></script>
+<script src="/static/js/runtime_diagnostics.js?v=0.35.4"></script>
 <script src="/static/js/mission_monitor.js?v=0.24.1"></script>
 <script src="/static/js/weather_planning.js"></script>
 <script src="/static/js/mission_state.js"></script>
