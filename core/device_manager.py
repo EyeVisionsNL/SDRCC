@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from core.config import get_receiver_assignments, load_station
+from core.config import get_assignment, get_receiver_assignments, load_station
 
 
 def get_devices():
@@ -25,7 +25,7 @@ def get_devices():
             "role": fixed_role,
             "roles": roles,
             "locked": item.get("locked", False),
-            "weather_selected": assignments["weather"] == device_id,
+            "weather_selected": assignments.get("weather") == device_id,
         })
     return devices
 
@@ -44,8 +44,7 @@ def get_device(device_id):
 
 
 def get_assigned_device(role):
-    assignments = get_receiver_assignments()
-    device_id = assignments.get(role)
+    device_id = get_assignment(role)
     return get_device(device_id) if device_id else None
 
 
@@ -57,13 +56,46 @@ def get_dynamic_device():
     return get_weather_device()
 
 
-def get_conflicting_service(device_id):
+ROLE_SERVICES = {
+    "ais": ("ais-catcher.service",),
+    "adsb": ("readsb.service",),
+    "weather": (),
+    "iss_voice": (),
+    "meshcore": (),
+}
+
+
+def get_assigned_roles(device_id):
+    """Return all configured roles assigned to one receiver."""
     assignments = get_receiver_assignments()
-    if assignments.get("ais") == device_id:
-        return "ais-catcher.service"
-    if assignments.get("adsb") == device_id:
-        return "readsb.service"
-    return None
+    return [
+        role
+        for role, assigned_device in assignments.items()
+        if assigned_device == device_id
+    ]
+
+
+def get_role_services(role):
+    """Return services owned by a role; future plugins extend this mapping."""
+    return list(ROLE_SERVICES.get(str(role or "").strip().lower(), ()))
+
+
+def get_conflicting_services(device_id, *, exclude_role=None):
+    """Return unique services that currently occupy a receiver."""
+    services = []
+    for role in get_assigned_roles(device_id):
+        if exclude_role and role == exclude_role:
+            continue
+        for service in get_role_services(role):
+            if service not in services:
+                services.append(service)
+    return services
+
+
+def get_conflicting_service(device_id):
+    """Backward-compatible wrapper returning the first conflicting service."""
+    services = get_conflicting_services(device_id)
+    return services[0] if services else None
 
 
 def print_devices():

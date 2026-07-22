@@ -83,32 +83,100 @@ def save_station(data):
     temp_path.replace(STATION_CONFIG)
 
 
-def get_receiver_assignments():
-    """Geef receiver-toewijzingen met veilige defaults."""
-    data = load_station()
-    assignments = data.get("assignments", {})
+def get_assignment_roles():
+    """Return the supported receiver-assignment roles in stable UI order."""
+    return ("weather", "ais", "adsb", "iss_voice", "meshcore")
+
+
+def get_assignment_defaults():
+    """Return backwards-compatible defaults for roles already in production."""
     return {
-        "weather": assignments.get("weather", "sdr1"),
-        "ais": assignments.get("ais", "sdr1"),
-        "adsb": assignments.get("adsb", "sdr2"),
+        "weather": "sdr1",
+        "ais": "sdr1",
+        "adsb": "sdr2",
+        "iss_voice": None,
+        "meshcore": None,
     }
 
 
-def set_weather_receiver(device_id):
-    """Sla de gekozen Weather-ontvanger persistent op."""
-    if device_id not in {"sdr1", "sdr2"}:
-        raise ValueError("Weather-ontvanger moet sdr1 of sdr2 zijn")
+def _validate_assignment_role(role):
+    normalized = str(role or "").strip().lower()
+    if normalized not in get_assignment_roles():
+        raise ValueError(f"Onbekende receiverrol: {role}")
+    return normalized
+
+
+def _validate_assignment_device(device_id, *, allow_none=False):
+    if device_id is None and allow_none:
+        return None
+    normalized = str(device_id or "").strip().lower()
+    if normalized not in {"sdr1", "sdr2"}:
+        raise ValueError("Receiver moet sdr1 of sdr2 zijn")
+    return normalized
+
+
+def get_receiver_assignments():
+    """Return all known role assignments with safe, backwards-compatible defaults."""
+    data = load_station()
+    configured = data.get("assignments", {}) or {}
+    defaults = get_assignment_defaults()
+    assignments = {}
+
+    for role in get_assignment_roles():
+        raw_value = configured.get(role, defaults.get(role))
+        if raw_value in (None, "", "none", "null"):
+            assignments[role] = None
+            continue
+        value = str(raw_value).strip().lower()
+        assignments[role] = value if value in {"sdr1", "sdr2"} else defaults.get(role)
+
+    return assignments
+
+
+def get_assignment(role):
+    """Return the receiver assigned to one role, or None when unassigned."""
+    role = _validate_assignment_role(role)
+    return get_receiver_assignments().get(role)
+
+
+def set_assignment(role, device_id):
+    """Persist one role assignment without touching services or runtime state."""
+    role = _validate_assignment_role(role)
+    device_id = _validate_assignment_device(device_id, allow_none=True)
+
     data = load_station()
     assignments = data.setdefault("assignments", {})
-    assignments.setdefault("ais", "sdr1")
-    assignments.setdefault("adsb", "sdr2")
-    assignments["weather"] = device_id
+    assignments[role] = device_id
     save_station(data)
     return get_receiver_assignments()
 
 
+def set_plugin_assignments(changes):
+    """Persist a validated set of role assignments atomically."""
+    if not isinstance(changes, dict):
+        raise ValueError("Toewijzingen moeten als mapping worden aangeleverd")
+
+    normalized = {}
+    for role, device_id in changes.items():
+        normalized[_validate_assignment_role(role)] = _validate_assignment_device(
+            device_id,
+            allow_none=True,
+        )
+
+    data = load_station()
+    assignments = data.setdefault("assignments", {})
+    assignments.update(normalized)
+    save_station(data)
+    return get_receiver_assignments()
+
+
+def set_weather_receiver(device_id):
+    """Backward-compatible wrapper for the generic assignment API."""
+    return set_assignment("weather", device_id)
+
+
 def set_receiver_roles(roles):
-    """Sla vaste receiverrollen op zonder services te wijzigen."""
+    """Backward-compatible fixed AIS/ADS-B assignment editor."""
     allowed = {"ais", "adsb", "manual"}
     normalized = {}
     for receiver_id in ("sdr1", "sdr2"):
@@ -128,20 +196,17 @@ def set_receiver_roles(roles):
                 f"{exclusive_role.upper()} kan maar aan één receiver worden toegewezen"
             )
 
-    data = load_station()
-    assignments = data.setdefault("assignments", {})
-    assignments.setdefault("weather", "sdr1")
-    assignments["ais"] = next(
-        (receiver_id for receiver_id, role in normalized.items() if role == "ais"),
-        None,
-    )
-    assignments["adsb"] = next(
-        (receiver_id for receiver_id, role in normalized.items() if role == "adsb"),
-        None,
-    )
-    save_station(data)
-    return get_receiver_assignments()
-
+    changes = {
+        "ais": next(
+            (receiver_id for receiver_id, role in normalized.items() if role == "ais"),
+            None,
+        ),
+        "adsb": next(
+            (receiver_id for receiver_id, role in normalized.items() if role == "adsb"),
+            None,
+        ),
+    }
+    return set_plugin_assignments(changes)
 
 def get_weather_rf_config():
     """Geef Weather RF-instellingen met veilige standaardwaarden."""
