@@ -19,6 +19,7 @@ from core import live_rf
 from core import config as config_core
 from core import passes
 from core import plugin_registry
+from core import plugin_runtime as plugin_runtime_core
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
@@ -1504,6 +1505,31 @@ def api_plugins():
     )
     payload["validation"] = validation
     return jsonify(payload)
+
+
+@app.route("/api/plugin-runtime", methods=["GET"])
+def api_plugin_runtime():
+    """Expose the read-only plugin runtime observation snapshot."""
+    include_planned = request.args.get(
+        "include_planned",
+        default="true",
+        type=str,
+    ).strip().lower() not in {"0", "false", "no", "off"}
+
+    try:
+        return jsonify(plugin_runtime_core.get_snapshot(
+            include_planned=include_planned,
+        ))
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "read_only": True,
+            "metadata_authority": "plugin_registry",
+            "receiver_authority": "receiver_manager",
+            "source": "plugin_runtime",
+            "error": str(error),
+            "plugins": [],
+        }), 500
 
 
 @app.route("/api/receiver-runtime", methods=["GET"])
