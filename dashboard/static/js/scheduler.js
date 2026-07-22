@@ -98,7 +98,7 @@ async function refreshMissionQueue() {
     try {
         const response = await fetch("/api/mission-queue?limit=10&hours=48", {cache: "no-store"});
         const payload = await response.json();
-        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Mission Queue niet beschikbaar");
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Mission Queue unavailable");
         renderMissionQueue(payload);
     } catch (error) {
         setQueueMessage(String(error), "bad");
@@ -111,7 +111,7 @@ function renderMissionQueue(payload) {
     const queue = Array.isArray(payload.queue) ? payload.queue : [];
     setText("mission-queue-summary", `${queue.length} PASSAGES`);
     if (!queue.length) {
-        list.innerHTML = '<div class="mission-queue-empty">Geen geschikte passages gepland.</div>';
+        list.innerHTML = '<div class="mission-queue-empty">No eligible passes scheduled.</div>';
         return;
     }
     list.innerHTML = queue.map(item => {
@@ -120,7 +120,7 @@ function renderMissionQueue(payload) {
         const skipLabel = item.skipped ? "↩" : "⏭";
         const rawStatus = String(item.status || "QUEUED").toUpperCase();
         const classes = rawStatus.toLowerCase().replaceAll(" ", "-");
-        const satellite = item.name || "Onbekende satelliet";
+        const satellite = item.name || "Unknown satellite";
         const receiver = item.active_receiver || item.reserved_receiver || item.configured_receiver || item.receiver || "-";
         const frequency = Number(item.frequency_mhz);
         const frequencyLabel = Number.isFinite(frequency) ? frequency.toFixed(3) : "-";
@@ -148,16 +148,16 @@ function renderMissionQueue(payload) {
                 <span class="mission-queue-frequency">${escapeQueue(frequencyLabel)} MHz</span>
             </div>
             <div class="mission-queue-actions">
-                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_down" title="Prioriteit lager">−</button>
-                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_up" title="Prioriteit hoger">+</button>
-                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="${skipAction}" title="${item.skipped ? "Activeren" : "Overslaan"}">${skipLabel}</button>
+                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_down" title="Lower priority">−</button>
+                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_up" title="Raise priority">+</button>
+                <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="${skipAction}" title="${item.skipped ? "Activate" : "Skip"}">${skipLabel}</button>
             </div>
         </div>`;
     }).join("");
     list.querySelectorAll("[data-queue-action]").forEach(button => {
         button.addEventListener("click", () => updateMissionQueueItem(button.dataset.queueKey, button.dataset.queueAction));
     });
-    setQueueMessage(`${payload.conflicts || 0} conflict(en), ${payload.skipped || 0} overgeslagen.`, "");
+    setQueueMessage(`${payload.conflicts || 0} conflict(s), ${payload.skipped || 0} skipped.`, "");
 }
 
 async function updateMissionQueueItem(queueKey, action) {
@@ -171,9 +171,9 @@ async function updateMissionQueueItem(queueKey, action) {
             body: JSON.stringify({queue_key: queueKey, action}),
         });
         const payload = await response.json();
-        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Queuewijziging mislukt");
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || "Queue update failed");
         renderMissionQueue(payload);
-        setQueueMessage("Mission Queue opgeslagen.", "ok");
+        setQueueMessage("Mission Queue saved.", "ok");
     } catch (error) {
         setQueueMessage(String(error), "bad");
     } finally {

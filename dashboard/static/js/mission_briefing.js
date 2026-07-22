@@ -270,46 +270,96 @@
     }
 
 
-    function updateStopMissionButton(snapshot) {
-        const button = document.getElementById("stop-mission-button");
+    function activeMissionReceiver(snapshot) {
+        const mission = snapshot && snapshot.mission ? snapshot.mission : {};
+        const activeJob = mission.active_job;
+        if (!activeJob || typeof activeJob !== "object") return "";
+
+        const receiverManager = snapshot.receiver_manager || {};
+        const reservations = receiverManager.reservations || {};
+        const reservationDevice = receiverManager.reservation && receiverManager.reservation.device;
+        const missionId = activeJob.mission_id;
+
+        const receiver = activeJob.receiver
+            || activeJob.receiver_id
+            || activeJob.receiver_name
+            || activeJob.device
+            || (reservationDevice && (reservationDevice.number || reservationDevice.id || reservationDevice.name))
+            || (reservations.sdr1 && reservations.sdr1.mission_id === missionId ? "SDR1" : "")
+            || (reservations.sdr2 && reservations.sdr2.mission_id === missionId ? "SDR2" : "");
+
+        return String(receiver || "").toUpperCase();
+    }
+
+    function updateStopMissionButton(buttonId, snapshot, receiverId) {
+        const button = document.getElementById(buttonId);
         if (!button) return;
 
-        const active = Boolean(snapshot && snapshot.active === true);
-        const shouldDisable = !active;
+        const missionActive = Boolean(snapshot && snapshot.active === true);
+        const receiver = activeMissionReceiver(snapshot);
+        const target = String(receiverId || "").toUpperCase();
 
-        button.disabled = shouldDisable;
+        // Older mission payloads did not always identify the receiver. Preserve the
+        // proven SDR1 behaviour in that fallback, while SDR2 requires an explicit match.
+        const active = missionActive && (
+            receiver.includes(target)
+            || (!receiver && target === "SDR1")
+        );
+
+        button.disabled = !active;
         button.className = active
             ? "control-button danger"
             : "control-button stop-mission-inactive";
         button.title = active
-            ? "Actieve missie gecontroleerd stoppen"
-            : "Er is geen actieve missie";
+            ? `Stop the active mission on ${target}`
+            : `No active mission on ${target}`;
     }
 
-    async function stopMission() {
-        const button = document.getElementById("stop-mission-button");
-        if (!button || button.disabled) return;
-        if (!window.confirm("Stop de huidige missie? De Scheduler wordt op MANUAL gezet.")) return;
+    function updateStopMissionButtons(snapshot) {
+        updateStopMissionButton("stop-mission-button", snapshot, "SDR1");
+        updateStopMissionButton("stop-mission-sdr2-button", snapshot, "SDR2");
+    }
 
+    async function stopMission(buttonId, receiverId) {
+        const button = document.getElementById(buttonId);
+        if (!button || button.disabled) return;
+        if (!window.confirm(`Stop the active mission on ${receiverId}?`)) return;
+
+        const originalText = button.textContent;
         button.disabled = true;
-        button.textContent = "■ STOPPEN...";
+        button.textContent = "■ STOPPING...";
         try {
-            const response = await fetch("/api/mission/stop", {
+            const response = await fetch("/api/mission-operations/stop", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: "{}",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ receiver_id: String(receiverId).toLowerCase() }),
             });
-            const data = await response.json();
+            const responseText = await response.text();
+            let data = {};
+            try {
+                data = responseText ? JSON.parse(responseText) : {};
+            } catch (parseError) {
+                throw new Error(`Server returned no valid JSON (HTTP ${response.status})`);
+            }
             if (!response.ok || data.ok === false) {
                 throw new Error(data.message || data.error || `HTTP ${response.status}`);
             }
             const result = document.getElementById("control-result");
-            if (result) result.textContent = data.message || "Missie gestopt.";
+            if (result) {
+                result.textContent = data.message || `Mission on ${receiverId} stopped.`;
+                result.className = "control-result ok";
+            }
         } catch (error) {
             const result = document.getElementById("control-result");
-            if (result) result.textContent = `Stop Mission mislukt: ${error.message}`;
+            if (result) {
+                result.textContent = `Stop Mission failed: ${error.message}`;
+                result.className = "control-result bad";
+            }
         } finally {
-            button.textContent = "■ STOP MISSION";
+            button.textContent = originalText;
             await window.MissionState.refresh({ force: true });
         }
     }
@@ -355,7 +405,7 @@
         setText("briefing-viterbi", String(isActive ? (activeRf.viterbi ?? "UNKNOWN") : "UNKNOWN").toUpperCase());
         setText("briefing-deframer", String(isActive ? (activeRf.deframer ?? "UNKNOWN") : "UNKNOWN").toUpperCase());
         updateOperationSummary(summary, receiverManager);
-        updateStopMissionButton(snapshot);
+        updateStopMissionButtons(snapshot);
 
         setText("briefing-start", pass ? onlyTime(pass.start) : "-");
         setText("briefing-maximum", pass ? onlyTime(pass.maximum) : "-");
@@ -390,7 +440,7 @@
             updateStateBadge("ERROR");
             setText("briefing-current-stage", "Telemetrie niet beschikbaar");
             setImageStatus("error");
-            updateStopMissionButton(snapshot);
+            updateStopMissionButtons(snapshot);
             return;
         }
 
@@ -427,13 +477,16 @@
     }
 
     const stopButton = document.getElementById("stop-mission-button");
-    if (stopButton) stopButton.addEventListener("click", stopMission);
+    if (stopButton) stopButton.addEventListener("click", () => stopMission("stop-mission-button", "SDR1"));
+
+    const stopSdr2Button = document.getElementById("stop-mission-sdr2-button");
+    if (stopSdr2Button) stopSdr2Button.addEventListener("click", () => stopMission("stop-mission-sdr2-button", "SDR2"));
 
     if (!window.MissionState) {
         console.error("MissionState is niet geladen vóór mission_briefing.js");
         updateStateBadge("ERROR");
         setText("briefing-current-stage", "MissionState niet beschikbaar");
-        updateStopMissionButton({ active: false });
+        updateStopMissionButtons({ active: false, mission: {}, receiver_manager: {} });
         return;
     }
 

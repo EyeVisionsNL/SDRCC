@@ -1864,18 +1864,77 @@ def api_mission_engine_next():
         }), 500
 
 
-@app.route("/api/mission/stop", methods=["POST"])
-def api_stop_mission():
-    if virtual_mission_runtime.get("active"):
-        mission_scheduler_core.set_scheduler_mode("MANUAL")
-        stop_virtual_mission()
-        return jsonify({
-            "ok": True,
-            "message": "Virtuele missie gestopt. Scheduler staat op MANUAL.",
-            "process_stopped": False,
-            "mission": mission_engine_core.get_mission_status(),
+def _normalise_receiver_id(value):
+    text = str(value or "").strip().lower()
+    aliases = {
+        "1": "sdr1",
+        "sdr 1": "sdr1",
+        "sdr1": "sdr1",
+        "2": "sdr2",
+        "sdr 2": "sdr2",
+        "sdr2": "sdr2",
+    }
+    return aliases.get(text)
+
+
+def _active_mission_receiver(mission_status=None):
+    mission_status = mission_status or mission_engine_core.get_mission_status()
+    active_job = mission_status.get("active_job") or {}
+
+    for key in ("receiver_id", "receiver", "receiver_name", "device"):
+        receiver_id = _normalise_receiver_id(active_job.get(key))
+        if receiver_id:
+            return receiver_id
+
+    reservation = receiver_manager.get_status().get("reservation") or {}
+    device = reservation.get("device") or {}
+    for value in (device.get("id"), device.get("number"), device.get("name")):
+        receiver_id = _normalise_receiver_id(value)
+        if receiver_id:
+            return receiver_id
+
+    return None
+
+
+def _stop_active_mission(receiver_id=None):
+    """Stop the active task for one receiver while preserving legacy behaviour.
+
+    The simulator is stopped without changing Scheduler mode. A production
+    mission retains the proven safety behaviour and switches the Scheduler to
+    MANUAL before cancellation. The optional receiver_id prevents one receiver
+    button from stopping work owned by the other receiver.
+    """
+    requested_receiver = _normalise_receiver_id(receiver_id)
+    if receiver_id is not None and requested_receiver is None:
+        return {
+            "ok": False,
+            "message": f"Onbekende receiver: {receiver_id}",
+        }, 400
+
+    simulator_status = mission_simulator.get_status().get("simulator", {})
+    if simulator_status.get("active"):
+        simulator_receiver = _normalise_receiver_id(simulator_status.get("receiver_id"))
+        if requested_receiver and simulator_receiver != requested_receiver:
+            return {
+                "ok": False,
+                "message": (
+                    f"De actieve simulatiemissie draait op "
+                    f"{str(simulator_receiver or 'onbekend').upper()}, niet op "
+                    f"{requested_receiver.upper()}."
+                ),
+                "receiver_id": requested_receiver,
+                "active_receiver_id": simulator_receiver,
+            }, 409
+
+        result = mission_simulator.stop()
+        result.update({
+            "operation": "stop",
+            "runtime_type": "simulator",
+            "receiver_id": simulator_receiver,
+            "scheduler_changed": False,
             "scheduler": mission_scheduler_core.get_scheduler_status(),
         })
+        return result, (200 if result.get("ok") else 409)
 
     mission_status = mission_engine_core.get_mission_status()
     active_job = mission_status.get("active_job")
@@ -1887,11 +1946,24 @@ def api_stop_mission():
     ))
 
     if active_job is None and not active_runtime:
-        return jsonify({
+        return {
             "ok": False,
             "message": "Er is geen actieve missie om te stoppen.",
             "mission": mission_status,
-        }), 409
+        }, 409
+
+    active_receiver = _active_mission_receiver(mission_status)
+    if requested_receiver and active_receiver and requested_receiver != active_receiver:
+        return {
+            "ok": False,
+            "message": (
+                f"De actieve missie draait op {active_receiver.upper()}, niet op "
+                f"{requested_receiver.upper()}."
+            ),
+            "receiver_id": requested_receiver,
+            "active_receiver_id": active_receiver,
+            "mission": mission_status,
+        }, 409
 
     mission_scheduler_core.set_scheduler_mode("MANUAL")
     autopilot_runtime["stop_requested"] = True
@@ -1936,19 +2008,38 @@ def api_stop_mission():
         "Actieve missie is gecontroleerd geannuleerd; Scheduler staat op MANUAL",
         data={
             "mission_id": (active_job or {}).get("mission_id"),
+            "receiver_id": active_receiver or requested_receiver,
             "process_stopped": process_stopped,
             "scheduler_mode": "MANUAL",
         },
     )
     write_log("STOP MISSION: annulering aangevraagd; Scheduler MANUAL")
 
-    return jsonify({
+    return {
         "ok": True,
-        "message": "Missie gestopt. Scheduler staat op MANUAL.",
+        "message": "Missie gestopt. Mission Scheduler staat op MANUAL.",
+        "operation": "stop",
+        "runtime_type": "mission_engine",
+        "receiver_id": active_receiver or requested_receiver,
         "process_stopped": process_stopped,
+        "scheduler_changed": True,
         "mission": mission_engine_core.get_mission_status(),
         "scheduler": mission_scheduler_core.get_scheduler_status(),
-    })
+    }, 200
+
+
+@app.route("/api/mission-operations/stop", methods=["POST"])
+def api_mission_operations_stop():
+    payload = request.get_json(silent=True) or {}
+    result, status_code = _stop_active_mission(payload.get("receiver_id"))
+    return jsonify(result), status_code
+
+
+@app.route("/api/mission/stop", methods=["POST"])
+def api_stop_mission():
+    """Backward-compatible global stop endpoint."""
+    result, status_code = _stop_active_mission()
+    return jsonify(result), status_code
 
 
 @app.route("/api/mission-engine/reset", methods=["POST"])

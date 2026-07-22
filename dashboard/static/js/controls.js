@@ -17,7 +17,7 @@ export function setupControls(refreshCallback) {
             if (!actionId) return;
 
             if (button.classList.contains("danger") && actionId === "record") {
-                const confirmed = confirm("Weet je zeker dat je Record NOW wilt starten?");
+                const confirmed = confirm("Are you sure you want to start Record Now?");
                 if (!confirmed) return;
             }
 
@@ -30,12 +30,12 @@ async function runMissionAction(missionAction, refreshCallback) {
     const resultBox = document.getElementById("control-result");
 
     if (missionAction === "reset") {
-        const confirmed = confirm("Mission Engine terugzetten naar READY?");
+        const confirmed = confirm("Reset Mission Engine to READY?");
         if (!confirmed) return;
     }
 
     if (resultBox) {
-        resultBox.textContent = "Mission Engine actie wordt uitgevoerd...";
+        resultBox.textContent = "Running Mission Engine action...";
         resultBox.className = "control-result warn";
     }
 
@@ -47,7 +47,7 @@ async function runMissionAction(missionAction, refreshCallback) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || "Mission Engine actie mislukt");
+            throw new Error(data.error || "Mission Engine action failed");
         }
 
         if (resultBox) {
@@ -61,7 +61,7 @@ async function runMissionAction(missionAction, refreshCallback) {
         console.error(error);
 
         if (resultBox) {
-            resultBox.textContent = "Mission Engine fout: " + String(error);
+            resultBox.textContent = "Mission Engine error: " + String(error);
             resultBox.className = "control-result bad";
         }
     }
@@ -71,7 +71,7 @@ async function runAction(actionId, refreshCallback) {
     const resultBox = document.getElementById("control-result");
 
     if (resultBox) {
-        resultBox.textContent = "Actie wordt uitgevoerd...";
+        resultBox.textContent = "Running action...";
         resultBox.className = "control-result warn";
     }
 
@@ -79,7 +79,7 @@ async function runAction(actionId, refreshCallback) {
         const data = await runActionApi(actionId);
 
         if (resultBox) {
-            resultBox.textContent = data.message || "Actie uitgevoerd.";
+            resultBox.textContent = data.message || "Action completed.";
             resultBox.className = data.ok ? "control-result ok" : "control-result bad";
         }
 
@@ -89,7 +89,7 @@ async function runAction(actionId, refreshCallback) {
         console.error(error);
 
         if (resultBox) {
-            resultBox.textContent = "Actie mislukt: " + String(error);
+            resultBox.textContent = "Action failed: " + String(error);
             resultBox.className = "control-result bad";
         }
     }
