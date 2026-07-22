@@ -18,6 +18,7 @@ from core import event_bus
 from core import live_rf
 from core import config as config_core
 from core import passes
+from core import plugin_registry
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
@@ -1475,6 +1476,34 @@ def api_mission_operations():
             "error": str(error),
         }), 500
 
+
+
+@app.route("/api/plugins", methods=["GET"])
+def api_plugins():
+    """Expose the central read-only plugin registry."""
+    include_planned = request.args.get(
+        "include_planned",
+        default="true",
+        type=str,
+    ).strip().lower() not in {"0", "false", "no", "off"}
+
+    validation = plugin_registry.validate_registry(
+        assignment_roles=config_core.get_assignment_roles(),
+    )
+    if not validation["ok"]:
+        return jsonify({
+            "ok": False,
+            "read_only": True,
+            "source": "plugin_registry",
+            "validation": validation,
+            "plugins": [],
+        }), 500
+
+    payload = plugin_registry.get_registry_snapshot(
+        include_planned=include_planned,
+    )
+    payload["validation"] = validation
+    return jsonify(payload)
 
 
 @app.route("/api/receiver-runtime", methods=["GET"])
