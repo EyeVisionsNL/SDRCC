@@ -44,3 +44,6 @@ backups/
 
 # Lokale SDRCC installatieback-ups
 .sdrcc-backups/
+
+# Local SDRCC installation backups
+.install-backups/
