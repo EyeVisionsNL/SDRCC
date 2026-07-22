@@ -12,7 +12,7 @@ from core import passes
 from core import config as config_core
 from core import process_manager
 from core import state
-from core.device_manager import get_conflicting_service, get_weather_device
+from core.device_manager import get_assigned_device, get_conflicting_service
 
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "recordings"
@@ -83,7 +83,7 @@ def build_event_context(record_data=None):
 
 def check_recording_allowed():
     current_state = state.get_sdr2_state()
-    device = get_weather_device()
+    device = get_assigned_device("weather")
 
     if current_state["profile"] not in {"weather", "adsb"}:
         return False, (
@@ -125,7 +125,7 @@ def build_record_command():
     if next_pass is None:
         return None
 
-    device = get_weather_device()
+    device = get_assigned_device("weather")
 
     start_local = next_pass["start"].astimezone(LOCAL_TZ)
     safe_name = next_pass["name"].replace(" ", "_").replace("/", "_")

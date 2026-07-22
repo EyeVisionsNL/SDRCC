@@ -12,7 +12,7 @@ from typing import Any
 import json
 
 from core import event_bus
-from core.device_manager import get_device, get_devices, get_weather_device
+from core.device_manager import get_assigned_device, get_device, get_devices
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -109,7 +109,7 @@ def _decorate_reservation(reservation: dict[str, Any] | None) -> dict[str, Any] 
 
 
 def get_status() -> dict[str, Any]:
-    configured = get_weather_device()
+    configured = get_assigned_device("weather")
     configured_id = configured.get("id") if configured else None
     with _LOCK:
         state = _load_state()

@@ -12,7 +12,7 @@ from typing import Any
 import json
 
 from core import event_bus, passes, receiver_manager, weather_planning
-from core.config import get_enabled_satellites, get_receiver_assignments, get_scheduler_config
+from core.config import get_assignment, get_enabled_satellites, get_scheduler_config
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -138,9 +138,9 @@ def get_queue(
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 50))
     satellites = get_enabled_satellites()
-    receiver = get_receiver_assignments().get("weather", "-").upper()
+    receiver = str(get_assignment("weather") or "-").upper()
     receiver_status = receiver_manager.get_status()
-    receiver_id = str(get_receiver_assignments().get("weather", "")).lower()
+    receiver_id = str(get_assignment("weather") or "").lower()
     reservation = receiver_status.get("reservations", {}).get(receiver_id) or {}
     with _LOCK:
         state = _load_state()

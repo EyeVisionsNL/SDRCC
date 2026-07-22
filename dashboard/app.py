@@ -898,7 +898,7 @@ def reset_autopilot_runtime(target_pass=None):
 
 def autopilot_prepare_receiver():
     write_log("AUTO: T-90 ontvanger voorbereiden")
-    device = device_manager.get_weather_device()
+    device = device_manager.get_assigned_device("weather")
     if device is None:
         raise RuntimeError("Geen Weather-ontvanger toegewezen")
 
@@ -2155,7 +2155,7 @@ def api_receiver_assignment():
         device = device_manager.get_device(device_id)
         if device is None:
             raise ValueError("Onbekende SDR-keuze")
-        assignments = config_core.set_weather_receiver(device_id)
+        assignments = config_core.set_assignment("weather", device_id)
         write_log(
             f"Weather-ontvanger gewijzigd naar {device['number']} "
             f"({device['serial']})"
