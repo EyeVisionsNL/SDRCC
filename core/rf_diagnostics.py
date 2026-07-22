@@ -7,9 +7,12 @@ import time
 from threading import Lock
 
 from core import config as config_core
-from core.device_manager import get_conflicting_service, get_weather_device
+from core import plugin_registry
+from core.device_manager import get_assigned_device, get_conflicting_service
 
 _SCAN_LOCK = Lock()
+_SCAN_PLUGIN_ID = "weather"
+
 
 
 def _service_is_active(service):
@@ -62,10 +65,18 @@ def scan_spectrum(center_hz, mission_busy=False):
         raise RuntimeError("Spectrumscan is geblokkeerd tijdens voorbereiding of opname")
     if not _SCAN_LOCK.acquire(blocking=False):
         raise RuntimeError("Er draait al een spectrumscan")
-    device = get_weather_device()
+    plugin = plugin_registry.get_plugin(_SCAN_PLUGIN_ID)
+    if not plugin or not plugin_registry.plugin_has_capability(
+        _SCAN_PLUGIN_ID,
+        "rf_diagnostics",
+    ):
+        _SCAN_LOCK.release()
+        raise RuntimeError("RF Diagnostics-plugin is niet beschikbaar")
+
+    device = get_assigned_device(plugin["assignment_role"])
     if not device:
         _SCAN_LOCK.release()
-        raise RuntimeError("Geen Weather-ontvanger toegewezen")
+        raise RuntimeError(f"Geen {plugin['label']}-ontvanger toegewezen")
     rf = config_core.get_weather_rf_config()
     span = max(200000, min(int(rf["spectrum_span_hz"]), 2400000))
     bin_hz = max(1000, min(int(rf["spectrum_bin_hz"]), 100000))
@@ -92,6 +103,11 @@ def scan_spectrum(center_hz, mission_busy=False):
             raise RuntimeError(result.stderr.strip() or "rtl_power is mislukt")
         points, peak, noise = _parse_rtl_power(result.stdout)
         return {
+            "plugin": {
+                "id": plugin["id"],
+                "label": plugin["label"],
+                "capability": "rf_diagnostics",
+            },
             "device": device, "center_hz": int(center_hz), "span_hz": span,
             "bin_hz": bin_hz, "gain_mode": rf["gain_mode"],
             "gain_db": rf["gain_db"] if rf["gain_mode"] == "manual" else None,

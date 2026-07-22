@@ -3,7 +3,7 @@
 from pathlib import Path
 import yaml
 
-from core import state
+from core import plugin_registry, state
 from core.config import get_receiver_assignments
 
 CONFIG_FILE = Path(__file__).resolve().parent.parent / "config" / "profiles.yaml"
@@ -16,7 +16,22 @@ def load_profiles():
     with open(CONFIG_FILE, "r", encoding="utf-8") as file:
         data = yaml.safe_load(file)
 
-    return data.get("profiles", {})
+    configured = data.get("profiles", {})
+    profiles = {}
+
+    for key, profile in configured.items():
+        item = dict(profile or {})
+        plugin = plugin_registry.get_plugin(key)
+        if plugin:
+            item["plugin_id"] = plugin["id"]
+            item["assignment_role"] = plugin["assignment_role"]
+            item["plugin_status"] = plugin["status"]
+            item["executor"] = plugin["executor"]
+            item["services"] = list(plugin["services"])
+            item["capabilities"] = list(plugin["capabilities"])
+        profiles[key] = item
+
+    return profiles
 
 
 def list_profiles():
@@ -60,7 +75,8 @@ def print_profiles():
         print(f"{marker} {profile['name']}")
         print(f"    Key        : {key}")
         assignments = get_receiver_assignments()
-        assigned = assignments.get(key) if key in {"ais", "adsb", "weather"} else None
+        assignment_role = profile.get("assignment_role")
+        assigned = assignments.get(assignment_role) if assignment_role else None
         print(f"    Receiver   : {assigned.upper() if assigned else 'via runtime'}")
         print(f"    Managed by : {profile['managed_by']}")
         print(f"    Description: {profile['description']}")

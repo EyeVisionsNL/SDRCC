@@ -168,6 +168,22 @@ def plugin_has_capability(plugin_id: str, capability: str) -> bool:
     return normalized in get_plugin_capabilities(plugin_id)
 
 
+def get_plugins_with_capability(
+    capability: str,
+    *,
+    include_planned: bool = True,
+) -> list[dict]:
+    """Return plugins that declare one capability in stable registry order."""
+    normalized = str(capability or "").strip().lower()
+    if not normalized:
+        return []
+    return [
+        plugin
+        for plugin in get_plugins(include_planned=include_planned)
+        if normalized in plugin.get("capabilities", [])
+    ]
+
+
 def get_plugin_executor(plugin_id: str) -> str | None:
     """Return the configured executor type for a plugin."""
     plugin = get_plugin(plugin_id)
