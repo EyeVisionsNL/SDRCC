@@ -20,6 +20,7 @@ from core import config as config_core
 from core import passes
 from core import plugin_registry
 from core import plugin_runtime as plugin_runtime_core
+from core import plugin_health as plugin_health_core
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
@@ -1527,6 +1528,32 @@ def api_plugin_runtime():
             "metadata_authority": "plugin_registry",
             "receiver_authority": "receiver_manager",
             "source": "plugin_runtime",
+            "error": str(error),
+            "plugins": [],
+        }), 500
+
+
+@app.route("/api/plugin-health", methods=["GET"])
+def api_plugin_health():
+    """Expose the read-only plugin health and validation snapshot."""
+    include_planned = request.args.get(
+        "include_planned",
+        default="true",
+        type=str,
+    ).strip().lower() not in {"0", "false", "no", "off"}
+
+    try:
+        return jsonify(plugin_health_core.get_snapshot(
+            include_planned=include_planned,
+        ))
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "read_only": True,
+            "metadata_authority": "plugin_registry",
+            "receiver_authority": "receiver_manager",
+            "runtime_source": "plugin_runtime",
+            "source": "plugin_health",
             "error": str(error),
             "plugins": [],
         }), 500
