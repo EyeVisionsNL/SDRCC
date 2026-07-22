@@ -14,7 +14,7 @@ sdr2:
   name: Dynamic Receiver
   locked: false
 assignments:
-  weather: sdr1
+  weather: sdr2
   ais: sdr1
   adsb: sdr2
 weather_rf:
