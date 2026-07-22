@@ -21,6 +21,7 @@ from core import passes
 from core import plugin_registry
 from core import plugin_runtime as plugin_runtime_core
 from core import plugin_health as plugin_health_core
+from core import plugin_manager as plugin_manager_core
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
@@ -1554,6 +1555,33 @@ def api_plugin_health():
             "receiver_authority": "receiver_manager",
             "runtime_source": "plugin_runtime",
             "source": "plugin_health",
+            "error": str(error),
+            "plugins": [],
+        }), 500
+
+
+@app.route("/api/plugin-manager", methods=["GET"])
+def api_plugin_manager():
+    """Expose the central read-only Plugin Manager facade."""
+    include_planned = request.args.get(
+        "include_planned",
+        default="true",
+        type=str,
+    ).strip().lower() not in {"0", "false", "no", "off"}
+
+    try:
+        return jsonify(plugin_manager_core.get_snapshot(
+            include_planned=include_planned,
+        ))
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "read_only": True,
+            "source": "plugin_manager",
+            "metadata_authority": "plugin_registry",
+            "receiver_authority": "receiver_manager",
+            "runtime_source": "plugin_runtime",
+            "health_source": "plugin_health",
             "error": str(error),
             "plugins": [],
         }), 500
