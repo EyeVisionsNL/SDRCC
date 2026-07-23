@@ -7,11 +7,12 @@ from datetime import datetime
 from typing import Any, Type
 
 from core import plugin_registry
+from core import execution_journal
 from core.execution_adapter import ExecutionAdapter, ExecutionAdapterError
 from core.execution_adapters import NullAdapter, SatDumpAdapter, ServiceAdapter
 
 
-_FACTORY_VERSION = "0.42.0c"
+_FACTORY_VERSION = "0.43.0c1"
 
 _ADAPTERS: dict[str | None, Type[ExecutionAdapter]] = {
     None: NullAdapter,
@@ -62,8 +63,14 @@ def build_plan(
     plugin_id: str,
     request: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build one read-only execution plan without performing execution."""
-    return get_adapter(plugin_id).build_plan(request).as_dict()
+    """Build and journal one read-only execution plan.
+
+    Journaling is observer-only: it records a defensive plan snapshot and never
+    performs execution, changes receiver state or assumes lifecycle authority.
+    """
+    plan = get_adapter(plugin_id).build_plan(request).as_dict()
+    execution_journal.create_entry(plan, request=request)
+    return plan
 
 
 def get_plan_catalog(*, include_planned: bool = True) -> dict[str, Any]:

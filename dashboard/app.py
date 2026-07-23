@@ -24,6 +24,7 @@ from core import plugin_health as plugin_health_core
 from core import plugin_manager as plugin_manager_core
 from core import plugin_capabilities as plugin_capabilities_core
 from core import execution_plan_consumer as execution_plan_consumer_core
+from core import execution_journal as execution_journal_core
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
@@ -1617,6 +1618,19 @@ def api_plugin_health():
 @app.route("/api/execution-plan-consumers", methods=["GET"])
 def api_execution_plan_consumers():
     return jsonify(execution_plan_consumer_core.get_snapshot())
+
+
+@app.route("/api/execution-journal", methods=["GET"])
+def api_execution_journal():
+    """Expose observer-only Execution Plan journal entries."""
+    limit = request.args.get("limit", default=100, type=int)
+    plugin_id = request.args.get("plugin", default=None, type=str)
+    status = request.args.get("status", default=None, type=str)
+    return jsonify(execution_journal_core.get_snapshot(
+        limit=limit,
+        plugin_id=plugin_id,
+        status=status,
+    ))
 
 
 @app.route("/api/plugin-manager", methods=["GET"])
