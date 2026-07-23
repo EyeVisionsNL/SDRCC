@@ -13,9 +13,10 @@ from threading import Lock
 from typing import Any, Mapping
 
 from core import execution_factory
+from core import execution_journal
 
 
-_CONSUMER_VERSION = "0.43.0b2"
+_CONSUMER_VERSION = "0.43.0c2"
 _HISTORY_LIMIT = 100
 _lock = Lock()
 _history: list[dict[str, Any]] = []
@@ -69,12 +70,24 @@ def consume_plan(
 ) -> dict[str, Any]:
     """Build, validate and record a read-only plan-consumption event."""
     normalized_context = _normalize_context(context)
-    plan = execution_factory.build_plan(plugin_id, normalized_context)
+    observed = execution_factory.build_plan_with_journal(
+        plugin_id, normalized_context
+    )
+    plan = observed["plan"]
+    execution_id = observed["execution_id"]
     errors = _validate_plan(plan)
+
+    execution_journal.append_event(
+        execution_id,
+        "VALIDATED",
+        source="execution_plan_consumer",
+        details={"ok": not errors, "errors": errors},
+    )
 
     record = {
         "ok": not errors,
         "consumer_version": _CONSUMER_VERSION,
+        "execution_id": execution_id,
         "consumer": str(consumer),
         "purpose": str(purpose),
         "plugin_id": str(plugin_id),
@@ -86,6 +99,16 @@ def consume_plan(
         "context": normalized_context,
         "plan": deepcopy(plan),
     }
+
+    execution_journal.append_event(
+        execution_id,
+        "CONSUMED",
+        source=str(consumer),
+        details={
+            "purpose": str(purpose),
+            "ok": not errors,
+        },
+    )
 
     with _lock:
         _history.insert(0, deepcopy(record))
@@ -128,6 +151,17 @@ def delegate_service_action(
     targets = tuple(str(item).strip() for item in (
         record["plan"].get("targets") or ()
     ) if str(item).strip())
+
+    execution_journal.append_event(
+        record["execution_id"],
+        "DELEGATED",
+        source="dashboard_service_action",
+        details={
+            "action": normalized_action,
+            "targets": list(targets),
+            "scope": "service_target_only",
+        },
+    )
 
     record.update({
         "delegation_active": True,

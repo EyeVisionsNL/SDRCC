@@ -12,7 +12,7 @@ from core.execution_adapter import ExecutionAdapter, ExecutionAdapterError
 from core.execution_adapters import NullAdapter, SatDumpAdapter, ServiceAdapter
 
 
-_FACTORY_VERSION = "0.43.0c1"
+_FACTORY_VERSION = "0.43.0c2"
 
 _ADAPTERS: dict[str | None, Type[ExecutionAdapter]] = {
     None: NullAdapter,
@@ -68,9 +68,22 @@ def build_plan(
     Journaling is observer-only: it records a defensive plan snapshot and never
     performs execution, changes receiver state or assumes lifecycle authority.
     """
+    observed = build_plan_with_journal(plugin_id, request)
+    return observed["plan"]
+
+
+def build_plan_with_journal(
+    plugin_id: str,
+    request: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a plan and return its observer-only journal correlation."""
     plan = get_adapter(plugin_id).build_plan(request).as_dict()
-    execution_journal.create_entry(plan, request=request)
-    return plan
+    entry = execution_journal.create_entry(plan, request=request)
+    return {
+        "plan": plan,
+        "execution_id": entry["execution_id"],
+        "journal_entry": entry,
+    }
 
 
 def get_plan_catalog(*, include_planned: bool = True) -> dict[str, Any]:

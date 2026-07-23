@@ -14,7 +14,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 
-_JOURNAL_VERSION = "0.43.0c1"
+_JOURNAL_VERSION = "0.43.0c2"
 _SCHEMA_VERSION = 1
 _HISTORY_LIMIT = 250
 _lock = Lock()
@@ -61,6 +61,14 @@ def create_entry(
         "schema_version": _SCHEMA_VERSION,
         "created_at": _now(),
         "status": "PLAN_CREATED",
+        "updated_at": None,
+        "duration_ms": 0,
+        "events": [{
+            "event": "PLAN_CREATED",
+            "timestamp": _now(),
+            "source": str(source),
+            "details": {},
+        }],
         "source": str(source),
         "authority": "observer_only",
         "read_only": True,
@@ -77,6 +85,61 @@ def create_entry(
         del _entries[_HISTORY_LIMIT:]
 
     return deepcopy(entry)
+
+
+
+_ALLOWED_EVENTS = {
+    "PLAN_CREATED",
+    "VALIDATED",
+    "CONSUMED",
+    "DELEGATED",
+    "ACCEPTED",
+    "STARTED",
+    "FINISHED",
+    "FAILED",
+    "CANCELLED",
+}
+
+
+def append_event(
+    execution_id: str,
+    event: str,
+    *,
+    source: str,
+    details: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Append one observer event without controlling operational lifecycle."""
+    wanted = str(execution_id).strip()
+    normalized_event = str(event).strip().upper()
+    if normalized_event not in _ALLOWED_EVENTS:
+        raise ExecutionJournalError(f"onbekend journal-event: {event!r}")
+
+    timestamp = _now()
+    detail_snapshot = _normalize_mapping(details)
+
+    with _lock:
+        for index, current in enumerate(_entries):
+            if current["execution_id"] != wanted:
+                continue
+
+            updated = deepcopy(current)
+            updated["status"] = normalized_event
+            updated["updated_at"] = timestamp
+            updated.setdefault("events", []).append({
+                "event": normalized_event,
+                "timestamp": timestamp,
+                "source": str(source),
+                "details": detail_snapshot,
+            })
+            created = datetime.fromisoformat(updated["created_at"])
+            changed = datetime.fromisoformat(timestamp)
+            updated["duration_ms"] = max(
+                0, int((changed - created).total_seconds() * 1000)
+            )
+            _entries[index] = updated
+            return deepcopy(updated)
+
+    return None
 
 
 def get_entry(execution_id: str) -> dict[str, Any] | None:
