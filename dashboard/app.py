@@ -1664,6 +1664,39 @@ def api_plugin_manager():
         }), 500
 
 
+@app.route("/api/plugin-manager/<plugin_id>/action", methods=["POST"])
+def api_plugin_manager_action(plugin_id):
+    """Execute one explicitly enabled plugin through existing authority.
+
+    v0.44.0a enables AIS only. The route deliberately reuses
+    handle_service_action(); it does not contain its own systemctl logic.
+    """
+    normalized_plugin = str(plugin_id or "").strip().lower()
+    payload = request.get_json(silent=True) or {}
+    normalized_action = str(payload.get("action") or "").strip().lower()
+
+    if normalized_plugin != "ais":
+        return jsonify({
+            "ok": False,
+            "message": f"Plugin execution is nog niet ingeschakeld voor {normalized_plugin or '<leeg>'}.",
+            "plugin_id": normalized_plugin,
+            "execution_enabled": False,
+            "authority": "existing_dashboard_systemctl_path",
+        }), 409
+
+    action_id = f"{normalized_action}_ais"
+    action = SERVICE_ACTIONS.get(action_id)
+    if action is None:
+        return jsonify({
+            "ok": False,
+            "message": f"Niet-ondersteunde AIS-actie: {normalized_action!r}",
+            "plugin_id": "ais",
+            "supported_actions": ["start", "stop", "restart"],
+        }), 400
+
+    return handle_service_action(action_id, action)
+
+
 @app.route("/api/plugin-capabilities", methods=["GET"])
 def api_plugin_capabilities():
     """Expose the central read-only Plugin Capability Layer."""

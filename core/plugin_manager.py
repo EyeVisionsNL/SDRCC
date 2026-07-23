@@ -39,7 +39,7 @@ HealthReader = Callable[..., dict[str, Any]]
 ExecutionReader = Callable[..., dict[str, Any]]
 PlanningReader = Callable[..., dict[str, Any]]
 
-_MANAGER_VERSION = "0.42.0c"
+_MANAGER_VERSION = "0.44.0b"
 
 
 def _now() -> str:
@@ -94,13 +94,59 @@ def _merge_plugins(
         if not plugin_id:
             continue
 
+        execution_enabled = plugin_id == "ais"
+        execution_item = deepcopy(execution_by_id.get(plugin_id))
+        plan_item = deepcopy(planning_by_id.get(plugin_id))
+
+        if isinstance(execution_item, dict):
+            execution_item["execution_enabled"] = execution_enabled
+            execution_item["execution_mode"] = (
+                "delegated_service_control"
+                if execution_enabled else "foundation_only"
+            )
+            execution_item["execution_authority"] = (
+                "existing_dashboard_systemctl_path"
+                if execution_enabled else "none"
+            )
+            if execution_enabled:
+                execution_item["executable"] = True
+                execution_item["foundation_only"] = False
+
+        if isinstance(plan_item, dict):
+            plan_item["execution_enabled"] = execution_enabled
+            plan_item["execution_mode"] = (
+                "delegated_service_control"
+                if execution_enabled else "planning_only"
+            )
+            plan_item["execution_authority"] = (
+                "existing_dashboard_systemctl_path"
+                if execution_enabled else "none"
+            )
+            if execution_enabled:
+                plan_item["executable"] = True
+                plan_item["foundation_only"] = False
+                plan_item["planning_only"] = False
+
         result.append({
             "plugin_id": plugin_id,
             "metadata": deepcopy(metadata),
             "runtime": deepcopy(runtime_by_id.get(plugin_id)),
             "health": deepcopy(health_by_id.get(plugin_id)),
-            "execution": deepcopy(execution_by_id.get(plugin_id)),
-            "execution_plan": deepcopy(planning_by_id.get(plugin_id)),
+            "execution": execution_item,
+            "execution_plan": plan_item,
+            "control": {
+                "enabled": execution_enabled,
+                "actions": ["start", "stop", "restart"] if execution_enabled else [],
+                "endpoint": (
+                    "/api/plugin-manager/ais/action"
+                    if execution_enabled else None
+                ),
+                "authority": (
+                    "existing_dashboard_systemctl_path"
+                    if execution_enabled else "not_enabled"
+                ),
+                "delegation_only": True,
+            },
         })
 
     return result
@@ -209,18 +255,26 @@ class PluginManager:
         if not isinstance(ready, dict):
             ready = {}
 
+        execution_enabled_plugins = [
+            str(item.get("plugin_id"))
+            for item in plugins
+            if isinstance(item.get("control"), dict)
+            and item["control"].get("enabled") is True
+        ]
+
         summary = {
             "overall_health": health.get("overall_health", "UNKNOWN"),
             "operational_plugins": deepcopy(ready.get("operational", [])),
             "mission_ready_plugins": deepcopy(ready.get("mission", [])),
             "service_ready_plugins": deepcopy(ready.get("service", [])),
             "execution_adapters_valid": bool(execution.get("ok", True)),
-            "execution_foundation_only": bool(
-                execution.get("foundation_only", False)
+            "execution_foundation_only": not bool(
+                execution_enabled_plugins
             ),
+            "execution_enabled_plugins": execution_enabled_plugins,
             "execution_plans_valid": bool(planning.get("ok", True)),
-            "execution_planning_only": bool(
-                planning.get("planning_only", False)
+            "execution_planning_only": not bool(
+                execution_enabled_plugins
             ),
             "sources_ok": all(source_status.values()),
         }
@@ -238,6 +292,15 @@ class PluginManager:
             "health_source": "plugin_health",
             "execution_source": "execution_factory",
             "execution_authority": "delegation_only",
+            "execution_enablement": {
+                "version": "0.44.0b",
+                "enabled_plugins": ["ais"],
+                "authority": "existing_dashboard_systemctl_path",
+                "new_service_controller": False,
+                "model_aligned": True,
+                "source_catalog_role": "foundation_metadata",
+                "effective_model_authority": "plugin_manager",
+            },
             "planning_source": "execution_factory",
             "planning_authority": "description_only",
             "source_status": source_status,
