@@ -14,7 +14,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 
-_JOURNAL_VERSION = "0.43.0c2"
+_JOURNAL_VERSION = "0.43.0c3"
 _SCHEMA_VERSION = 1
 _HISTORY_LIMIT = 250
 _lock = Lock()
@@ -141,6 +141,38 @@ def append_event(
 
     return None
 
+
+
+def append_event_once(
+    execution_id: str,
+    event: str,
+    *,
+    source: str,
+    details: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Append an observer event only when it is not already present."""
+    wanted = str(execution_id).strip()
+    normalized_event = str(event).strip().upper()
+    if normalized_event not in _ALLOWED_EVENTS:
+        raise ExecutionJournalError(f"onbekend journal-event: {event!r}")
+
+    with _lock:
+        for current in _entries:
+            if current["execution_id"] != wanted:
+                continue
+            if any(
+                str(item.get("event") or "").upper() == normalized_event
+                for item in current.get("events", [])
+            ):
+                return deepcopy(current)
+            break
+
+    return append_event(
+        wanted,
+        normalized_event,
+        source=source,
+        details=details,
+    )
 
 def get_entry(execution_id: str) -> dict[str, Any] | None:
     """Return one defensive entry copy by execution ID."""

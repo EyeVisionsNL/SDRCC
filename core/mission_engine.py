@@ -8,6 +8,7 @@ import json
 
 from core import event_bus
 from core import execution_plan_consumer
+from core import execution_journal
 
 
 class MissionState(str, Enum):
@@ -155,6 +156,29 @@ class MissionEngine:
     def _generate_mission_id(self):
         return self._now().strftime("%Y%m%d-%H%M%S-%f")
 
+    @staticmethod
+    def _execution_id_from_job(job):
+        if job is None or not isinstance(job.execution_plan, dict):
+            return None
+        value = job.execution_plan.get("execution_id")
+        return str(value).strip() if value else None
+
+    def _observe_execution(self, job, event, details=None):
+        """Fail-open observer hook; never owns or blocks mission lifecycle."""
+        execution_id = self._execution_id_from_job(job)
+        if not execution_id:
+            return None
+        try:
+            return execution_journal.append_event_once(
+                execution_id,
+                event,
+                source="mission_engine",
+                details=details or {},
+            )
+        except Exception as exc:
+            self._log(f"Execution Journal observer warning: {exc}")
+            return None
+
     def create_job(
         self,
         satellite="-",
@@ -226,7 +250,18 @@ class MissionEngine:
                 f"{plan_consumption['plan']['launch_type']} / "
                 f"valid={plan_consumption['ok']}"
             )
-            job = self.active_job.to_dict()
+            job_object = self.active_job
+            job = job_object.to_dict()
+
+        self._observe_execution(
+            job_object,
+            "ACCEPTED",
+            {
+                "mission_id": job["mission_id"],
+                "satellite": job["satellite"],
+                "state": self.state.value,
+            },
+        )
 
         event_bus.publish_mission(
             "INFO",
@@ -258,6 +293,16 @@ class MissionEngine:
             job = self.active_job.to_dict() if self.active_job else None
 
         if old_state != new_state:
+            if new_state == MissionState.LOCK_RECEIVER and self.active_job is not None:
+                self._observe_execution(
+                    self.active_job,
+                    "STARTED",
+                    {
+                        "mission_id": self.active_job.mission_id,
+                        "from": old_state.value,
+                        "to": new_state.value,
+                    },
+                )
             event_bus.publish_mission(
                 "SYSTEM",
                 "Mission-status gewijzigd",
@@ -357,7 +402,25 @@ class MissionEngine:
             self._log(
                 f"Mission Job {self.active_job.mission_id} afgerond: {result}"
             )
+            completed_job_object = self.active_job
             self.active_job = None
+
+        terminal_event = (
+            "FINISHED"
+            if str(completed_job.get("result")) == MissionResult.SUCCESS.value
+            else "FAILED"
+        )
+        self._observe_execution(
+            completed_job_object,
+            terminal_event,
+            {
+                "mission_id": completed_job["mission_id"],
+                "result": completed_job.get("result"),
+                "success": completed_job.get("success"),
+                "error": completed_job.get("error"),
+                "detail": completed_job.get("detail"),
+            },
+        )
 
         event_bus.publish_mission(
             "SUCCESS" if success else "WARNING",
@@ -373,6 +436,7 @@ class MissionEngine:
         event_title="Mission Engine gereset",
     ):
         cancelled_job = None
+        cancelled_job_object = None
         with self._lock:
             old_state = self.state
             if self.active_job is not None:
@@ -384,7 +448,8 @@ class MissionEngine:
                 self.active_job.error = None
                 self.active_job.status = MissionResult.CANCELLED.value
                 self.active_job.progress = 100
-                cancelled_job = self.active_job.to_dict()
+                cancelled_job_object = self.active_job
+                cancelled_job = cancelled_job_object.to_dict()
                 self.history.insert(0, cancelled_job)
                 self.history = self.history[:HISTORY_LIMIT]
                 _save_history(self.history)
@@ -394,6 +459,19 @@ class MissionEngine:
             self.started_at = self._now()
             self.updated_at = self.started_at
             self._log("Mission reset to READY")
+
+        if cancelled_job_object is not None:
+            self._observe_execution(
+                cancelled_job_object,
+                "CANCELLED",
+                {
+                    "mission_id": cancelled_job["mission_id"],
+                    "result": cancelled_job.get("result"),
+                    "detail": cancelled_job.get("detail"),
+                    "from": old_state.value,
+                    "to": MissionState.READY.value,
+                },
+            )
 
         event_bus.publish_mission(
             "WARNING" if cancelled_job else "SYSTEM",
