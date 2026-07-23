@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Central read-only Plugin Manager facade for SDRCC.
 
-The Plugin Manager combines existing Plugin Registry, Plugin Runtime and
-Plugin Health snapshots behind one stable interface.
+The Plugin Manager combines existing Plugin Registry, Plugin Runtime,
+Plugin Health and Execution Adapter discovery snapshots behind one stable
+interface.
 
 It deliberately does not:
 - load or unload plugin code;
@@ -17,6 +18,7 @@ Plugin Registry remains metadata authority.
 Receiver Manager remains receiver authority.
 Plugin Runtime remains runtime observation source.
 Plugin Health remains validation and readiness source.
+Execution Factory remains read-only adapter discovery source.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Any, Callable
 
+from core import execution_factory
 from core import plugin_health
 from core import plugin_registry
 from core import plugin_runtime
@@ -33,8 +36,9 @@ from core import plugin_runtime
 RegistryReader = Callable[..., dict[str, Any]]
 RuntimeReader = Callable[..., dict[str, Any]]
 HealthReader = Callable[..., dict[str, Any]]
+ExecutionReader = Callable[..., dict[str, Any]]
 
-_MANAGER_VERSION = "0.39.0a"
+_MANAGER_VERSION = "0.42.0b"
 
 
 def _now() -> str:
@@ -64,9 +68,11 @@ def _merge_plugins(
     registry: dict[str, Any],
     runtime: dict[str, Any],
     health: dict[str, Any],
+    execution: dict[str, Any],
 ) -> list[dict[str, Any]]:
     runtime_by_id = _plugin_map(runtime)
     health_by_id = _plugin_map(health)
+    execution_by_id = _plugin_map(execution)
     result: list[dict[str, Any]] = []
 
     registry_plugins = registry.get("plugins")
@@ -86,6 +92,7 @@ def _merge_plugins(
             "metadata": deepcopy(metadata),
             "runtime": deepcopy(runtime_by_id.get(plugin_id)),
             "health": deepcopy(health_by_id.get(plugin_id)),
+            "execution": deepcopy(execution_by_id.get(plugin_id)),
         })
 
     return result
@@ -148,12 +155,16 @@ class PluginManager:
         registry_reader: RegistryReader | None = None,
         runtime_reader: RuntimeReader | None = None,
         health_reader: HealthReader | None = None,
+        execution_reader: ExecutionReader | None = None,
     ) -> None:
         self._registry_reader = (
             registry_reader or plugin_registry.get_registry_snapshot
         )
         self._runtime_reader = runtime_reader or plugin_runtime.get_snapshot
         self._health_reader = health_reader or plugin_health.get_snapshot
+        self._execution_reader = (
+            execution_reader or execution_factory.get_catalog_snapshot
+        )
 
     def get_snapshot(self, *, include_planned: bool = True) -> dict[str, Any]:
         """Return one combined immutable plugin information snapshot."""
@@ -162,14 +173,18 @@ class PluginManager:
         registry = self._registry_reader(include_planned=include_planned)
         runtime = self._runtime_reader(include_planned=include_planned)
         health = self._health_reader(include_planned=include_planned)
+        execution = self._execution_reader(
+            include_planned=include_planned,
+        )
 
-        plugins = _merge_plugins(registry, runtime, health)
+        plugins = _merge_plugins(registry, runtime, health, execution)
         statistics = _statistics(plugins, runtime, health)
 
         source_status = {
             "registry": bool(registry.get("ok", True)),
             "runtime": bool(runtime.get("ok", True)),
             "health": bool(health.get("ok", True)),
+            "execution": bool(execution.get("ok", True)),
         }
 
         ready = health.get("ready")
@@ -181,6 +196,10 @@ class PluginManager:
             "operational_plugins": deepcopy(ready.get("operational", [])),
             "mission_ready_plugins": deepcopy(ready.get("mission", [])),
             "service_ready_plugins": deepcopy(ready.get("service", [])),
+            "execution_adapters_valid": bool(execution.get("ok", True)),
+            "execution_foundation_only": bool(
+                execution.get("foundation_only", False)
+            ),
             "sources_ok": all(source_status.values()),
         }
 
@@ -195,6 +214,8 @@ class PluginManager:
             "receiver_authority": "receiver_manager",
             "runtime_source": "plugin_runtime",
             "health_source": "plugin_health",
+            "execution_source": "execution_factory",
+            "execution_authority": "delegation_only",
             "source_status": source_status,
             "summary": summary,
             "statistics": statistics,
@@ -202,6 +223,7 @@ class PluginManager:
             "registry": deepcopy(registry),
             "runtime": deepcopy(runtime),
             "health": deepcopy(health),
+            "execution": deepcopy(execution),
             "generated_at": generated_at,
         }
 
