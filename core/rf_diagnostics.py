@@ -7,7 +7,7 @@ import time
 from threading import Lock
 
 from core import config as config_core
-from core import plugin_registry
+from core import plugin_capabilities, plugin_registry
 from core.device_manager import get_assigned_device, get_conflicting_service
 
 _SCAN_LOCK = Lock()
@@ -66,7 +66,7 @@ def scan_spectrum(center_hz, mission_busy=False):
     if not _SCAN_LOCK.acquire(blocking=False):
         raise RuntimeError("Er draait al een spectrumscan")
     plugin = plugin_registry.get_plugin(_SCAN_PLUGIN_ID)
-    if not plugin or not plugin_registry.plugin_has_capability(
+    if not plugin or not plugin_capabilities.has_capability(
         _SCAN_PLUGIN_ID,
         "rf_diagnostics",
     ):
