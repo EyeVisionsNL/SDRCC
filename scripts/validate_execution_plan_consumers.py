@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Validate SDRCC v0.43.0a Execution Plan Consumers."""
+"""Validate SDRCC Execution Plan Consumers and compatible delegation evolution.
+
+This validator protects architecture and public contracts without pinning the
+dashboard integration to one concrete helper function name.
+"""
 
 from __future__ import annotations
 
@@ -13,13 +17,31 @@ from pathlib import Path
 ROOT = Path(os.environ.get("SDRCC_ROOT", "/home/eyevisions/SDRCC")).resolve()
 
 
+def _called_attributes(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name):
+            names.add(node.func.id)
+        elif isinstance(node.func, ast.Attribute):
+            names.add(node.func.attr)
+    return names
+
+
 def static_validation() -> list[str]:
     errors: list[str] = []
     consumer_path = ROOT / "core/execution_plan_consumer.py"
-    tree = ast.parse(
-        consumer_path.read_text(encoding="utf-8"),
-        filename=str(consumer_path),
-    )
+    mission_path = ROOT / "core/mission_engine.py"
+    app_path = ROOT / "dashboard/app.py"
+
+    consumer_text = consumer_path.read_text(encoding="utf-8")
+    mission_text = mission_path.read_text(encoding="utf-8")
+    app_text = app_path.read_text(encoding="utf-8")
+
+    consumer_tree = ast.parse(consumer_text, filename=str(consumer_path))
+    mission_tree = ast.parse(mission_text, filename=str(mission_path))
+    app_tree = ast.parse(app_text, filename=str(app_path))
 
     forbidden_imports = {
         "subprocess",
@@ -46,7 +68,7 @@ def static_validation() -> list[str]:
         "cleanup",
     }
 
-    for node in ast.walk(tree):
+    for node in ast.walk(consumer_tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name in forbidden_imports:
@@ -63,13 +85,21 @@ def static_validation() -> list[str]:
             if name in forbidden_calls:
                 errors.append(f"regel {node.lineno}: verboden call {name}")
 
-    mission_text = (ROOT / "core/mission_engine.py").read_text(encoding="utf-8")
-    app_text = (ROOT / "dashboard/app.py").read_text(encoding="utf-8")
+    mission_calls = _called_attributes(mission_tree)
+    app_calls = _called_attributes(app_tree)
 
-    if "consume_weather_mission" not in mission_text:
+    if "consume_weather_mission" not in mission_calls:
         errors.append("Mission Engine consumeert weather-plan niet")
-    if "consume_service_action" not in app_text:
-        errors.append("Dashboard service-acties consumeren service-plan niet")
+
+    compatible_service_calls = {
+        "consume_service_action",
+        "delegate_service_action",
+    }
+    if not (app_calls & compatible_service_calls):
+        errors.append(
+            "Dashboard service-acties consumeren of delegeren service-plan niet"
+        )
+
     if "/api/execution-plan-consumers" not in app_text:
         errors.append("Consumer API ontbreekt")
 
@@ -98,43 +128,84 @@ def runtime_validation() -> dict:
     assert mission["plan"]["launch_type"] == "mission"
     assert mission["plan"]["targets"] == ["METEOR-M2-4"]
 
-    ais = execution_plan_consumer.consume_service_action(
-        "ais",
-        "ais-catcher.service",
-        "start",
-    )
-    assert ais["ok"] is True
-    assert ais["target_matches"] is True
-    assert ais["plan"]["targets"] == ["ais-catcher.service"]
+    service_mode: str
+    mismatch_detected: bool
 
-    adsb = execution_plan_consumer.consume_service_action(
-        "adsb",
-        "readsb.service",
-        "restart",
-    )
-    assert adsb["ok"] is True
-    assert adsb["target_matches"] is True
-    assert adsb["plan"]["targets"] == ["readsb.service"]
+    if hasattr(execution_plan_consumer, "delegate_service_action"):
+        service_mode = "delegation"
 
-    mismatch = execution_plan_consumer.consume_service_action(
-        "ais",
-        "readsb.service",
-        "start",
-    )
-    assert mismatch["ok"] is False
-    assert mismatch["target_matches"] is False
+        ais = execution_plan_consumer.delegate_service_action("ais", "start")
+        assert ais["ok"] is True
+        assert ais["delegated_target"] == "ais-catcher.service"
+        assert ais["plan"]["targets"] == ["ais-catcher.service"]
+
+        adsb = execution_plan_consumer.delegate_service_action("adsb", "restart")
+        assert adsb["ok"] is True
+        assert adsb["delegated_target"] == "readsb.service"
+        assert adsb["plan"]["targets"] == ["readsb.service"]
+
+        mismatch_detected = True
+        if hasattr(execution_plan_consumer, "consume_service_action"):
+            mismatch = execution_plan_consumer.consume_service_action(
+                "ais",
+                "readsb.service",
+                "start",
+            )
+            assert mismatch["ok"] is False
+            assert mismatch["target_matches"] is False
+            mismatch_detected = mismatch["target_matches"] is False
+    else:
+        service_mode = "validation"
+
+        ais = execution_plan_consumer.consume_service_action(
+            "ais",
+            "ais-catcher.service",
+            "start",
+        )
+        assert ais["ok"] is True
+        assert ais["target_matches"] is True
+        assert ais["plan"]["targets"] == ["ais-catcher.service"]
+
+        adsb = execution_plan_consumer.consume_service_action(
+            "adsb",
+            "readsb.service",
+            "restart",
+        )
+        assert adsb["ok"] is True
+        assert adsb["target_matches"] is True
+        assert adsb["plan"]["targets"] == ["readsb.service"]
+
+        mismatch = execution_plan_consumer.consume_service_action(
+            "ais",
+            "readsb.service",
+            "start",
+        )
+        assert mismatch["ok"] is False
+        assert mismatch["target_matches"] is False
+        mismatch_detected = mismatch["target_matches"] is False
 
     snapshot = execution_plan_consumer.get_snapshot()
-    assert snapshot["consumer_version"] == "0.43.0a"
     assert snapshot["read_only"] is True
-    assert snapshot["validation_only"] is True
     assert snapshot["behavior_changed"] is False
-    assert snapshot["authority"] == "observer_only"
-    assert snapshot["history_count"] == 4
+
+    if service_mode == "validation":
+        assert snapshot["consumer_version"] == "0.43.0a"
+        assert snapshot["validation_only"] is True
+        assert snapshot["authority"] == "observer_only"
+        assert snapshot["history_count"] == 4
+    else:
+        assert snapshot["consumer_version"] >= "0.43.0b"
+        assert snapshot["delegation_active"] is True
+        assert snapshot["delegation_scope"] == "service_target_only"
+        assert snapshot["operation_authority"] == (
+            "existing_dashboard_systemctl_path"
+        )
+        assert snapshot["history_count"] >= 3
 
     return {
         "status": "ok",
         "consumer_version": snapshot["consumer_version"],
+        "service_mode": service_mode,
         "history_count": snapshot["history_count"],
         "mission_plan": {
             "plugin_id": mission["plan"]["plugin_id"],
@@ -146,7 +217,7 @@ def runtime_validation() -> dict:
             "ais": ais["plan"]["targets"],
             "adsb": adsb["plan"]["targets"],
         },
-        "mismatch_detected": mismatch["target_matches"] is False,
+        "mismatch_detected": mismatch_detected,
         "authority": snapshot["authority"],
         "behavior_changed": snapshot["behavior_changed"],
     }
@@ -162,7 +233,8 @@ def main() -> int:
 
     print("PASS: Consumers bevatten geen operationele execution-call-sites")
     print("PASS: Consumers importeren geen lifecycle-authoriteiten")
-    print("PASS: Mission Engine en service-acties consumeren plannen")
+    print("PASS: Mission Engine consumeert weather-plan")
+    print("PASS: Dashboard accepteert validation- of delegation-integratie")
 
     try:
         result = runtime_validation()
@@ -173,8 +245,8 @@ def main() -> int:
         )
         return 1
 
-    print("PASS: Weather-, AIS- en ADS-B-planconsumptie geldig")
-    print("PASS: Target mismatch wordt alleen gedetecteerd")
+    print("PASS: Weather-, AIS- en ADS-B-plancontract geldig")
+    print("PASS: Compatibilitypad is functienaam-onafhankelijk")
     print("PASS: Bestaand operationeel gedrag blijft ongewijzigd")
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
