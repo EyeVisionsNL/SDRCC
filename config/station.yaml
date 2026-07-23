@@ -25,4 +25,4 @@ weather_rf:
   spectrum_span_hz: 1000000
   spectrum_bin_hz: 10000
 weather_planning:
-  minimum_elevation: 54.0
+  minimum_elevation: 50.0
