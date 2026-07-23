@@ -15,7 +15,7 @@ from core import plugin_registry
 
 
 CAPABILITY_SCHEMA_VERSION = 1
-CAPABILITY_LAYER_VERSION = "0.39.0b"
+CAPABILITY_LAYER_VERSION = "0.40.0"
 
 
 def _normalize(value: object) -> str:
