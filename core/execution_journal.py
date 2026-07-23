@@ -14,7 +14,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 
-_JOURNAL_VERSION = "0.43.0c3"
+_JOURNAL_VERSION = "0.43.0c4"
 _SCHEMA_VERSION = 1
 _HISTORY_LIMIT = 250
 _lock = Lock()
@@ -187,17 +187,26 @@ def get_entry(execution_id: str) -> dict[str, Any] | None:
 def get_snapshot(
     *,
     limit: int = 100,
+    offset: int = 0,
     plugin_id: str | None = None,
     status: str | None = None,
+    execution_id: str | None = None,
 ) -> dict[str, Any]:
-    """Return a filtered API-safe journal snapshot."""
+    """Return a filtered, paginated and API-safe journal snapshot."""
     safe_limit = max(1, min(int(limit), _HISTORY_LIMIT))
+    safe_offset = max(0, int(offset))
     plugin_filter = str(plugin_id).strip().lower() if plugin_id else None
     status_filter = str(status).strip().upper() if status else None
+    execution_filter = str(execution_id).strip() if execution_id else None
 
     with _lock:
         entries = deepcopy(_entries)
 
+    if execution_filter:
+        entries = [
+            item for item in entries
+            if str(item.get("execution_id") or "") == execution_filter
+        ]
     if plugin_filter:
         entries = [
             item for item in entries
@@ -209,7 +218,34 @@ def get_snapshot(
             if str(item.get("status") or "").upper() == status_filter
         ]
 
-    entries = entries[:safe_limit]
+    terminal_statuses = {"FINISHED", "FAILED", "CANCELLED"}
+    active_statuses = {"ACCEPTED", "STARTED"}
+    filtered_count = len(entries)
+    summary = {
+        "total": filtered_count,
+        "active": sum(
+            1 for item in entries
+            if str(item.get("status") or "").upper() in active_statuses
+        ),
+        "finished": sum(
+            1 for item in entries
+            if str(item.get("status") or "").upper() == "FINISHED"
+        ),
+        "failed": sum(
+            1 for item in entries
+            if str(item.get("status") or "").upper() == "FAILED"
+        ),
+        "cancelled": sum(
+            1 for item in entries
+            if str(item.get("status") or "").upper() == "CANCELLED"
+        ),
+        "pending": sum(
+            1 for item in entries
+            if str(item.get("status") or "").upper() not in terminal_statuses | active_statuses
+        ),
+    }
+
+    page_entries = entries[safe_offset:safe_offset + safe_limit]
     return {
         "ok": True,
         "journal_version": _JOURNAL_VERSION,
@@ -219,9 +255,19 @@ def get_snapshot(
         "behavior_changed": False,
         "persistence": "memory_only",
         "history_limit": _HISTORY_LIMIT,
-        "count": len(entries),
-        "latest": entries[0] if entries else None,
-        "entries": entries,
+        "count": len(page_entries),
+        "filtered_count": filtered_count,
+        "limit": safe_limit,
+        "offset": safe_offset,
+        "has_more": safe_offset + len(page_entries) < filtered_count,
+        "filters": {
+            "execution_id": execution_filter,
+            "plugin": plugin_filter,
+            "status": status_filter,
+        },
+        "summary": summary,
+        "latest": page_entries[0] if page_entries else None,
+        "entries": page_entries,
         "generated_at": _now(),
     }
 

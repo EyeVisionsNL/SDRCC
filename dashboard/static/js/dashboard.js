@@ -6,6 +6,7 @@ import {updateServices, updateServiceButtons} from "./services.js";
 import {updateMissionEngine, updateNextPass, updateCountdown, updateServerOffset} from "./mission.js";
 import {updateLatestCapture, updateRecentCaptures} from "./capture.js";
 import {updateLiveLog, updateMissionTimeline} from "./timeline.js";
+import {updateExecutionJournal} from "./execution_journal.js";
 import {updateSdr} from "./sdr.js";
 import {updateStatusbar} from "./statusbar.js";
 import {setupMissionHistory} from "./history.js";
@@ -33,6 +34,7 @@ async function refreshDashboard() {
 
         updateLiveLog(data.logs);
         updateMissionTimeline(data.logs);
+        await updateExecutionJournal();
 
         updateLatestCapture(data.latest_capture);
         updateRecentCaptures(data.recent_captures);

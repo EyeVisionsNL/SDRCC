@@ -23,7 +23,8 @@
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.24.0">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.25.2">
-    <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.35.0a">
+    <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.43.0c4">
+    <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
 </head>
 <body>
 <header class="topbar">
@@ -181,6 +182,26 @@
             <h2>🧭 Live Event Timeline</h2>
             <div id="timeline-filters" class="timeline-toolbar" aria-label="Event filters"></div>
             <div id="mission-timeline" class="mission-timeline" aria-live="polite"><div class="timeline-empty">Loading Event Timeline...</div></div>
+        </section>
+
+        <section class="card execution-journal-panel-v043" aria-labelledby="execution-journal-title">
+            <div class="execution-journal-heading-v043">
+                <div>
+                    <h2 id="execution-journal-title">📓 Execution Journal</h2>
+                    <p>Read-only execution lifecycle observations</p>
+                </div>
+                <span class="execution-journal-authority-v043">OBSERVER ONLY</span>
+            </div>
+            <div class="execution-journal-summary-v043" id="execution-journal-summary" aria-label="Execution Journal summary">
+                <div><span>Total</span><strong id="execution-journal-total">0</strong></div>
+                <div><span>Active</span><strong id="execution-journal-active">0</strong></div>
+                <div><span>Finished</span><strong id="execution-journal-finished">0</strong></div>
+                <div><span>Failed</span><strong id="execution-journal-failed">0</strong></div>
+                <div><span>Cancelled</span><strong id="execution-journal-cancelled">0</strong></div>
+            </div>
+            <div class="execution-journal-list-v043" id="execution-journal-list" aria-live="polite">
+                <div class="execution-journal-empty-v043">No journal entries in memory.</div>
+            </div>
         </section>
 
         <div class="mission-legacy-hooks-v034" hidden>

@@ -1624,12 +1624,16 @@ def api_execution_plan_consumers():
 def api_execution_journal():
     """Expose observer-only Execution Plan journal entries."""
     limit = request.args.get("limit", default=100, type=int)
+    offset = request.args.get("offset", default=0, type=int)
     plugin_id = request.args.get("plugin", default=None, type=str)
     status = request.args.get("status", default=None, type=str)
+    execution_id = request.args.get("execution_id", default=None, type=str)
     return jsonify(execution_journal_core.get_snapshot(
         limit=limit,
+        offset=offset,
         plugin_id=plugin_id,
         status=status,
+        execution_id=execution_id,
     ))
 
 
