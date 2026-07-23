@@ -100,6 +100,46 @@ def static_validation() -> list[str]:
             "Dashboard service-acties consumeren of delegeren service-plan niet"
         )
 
+    if "delegate_service_action" in app_calls:
+        service_actions = None
+        for node in app_tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            if not any(
+                isinstance(target, ast.Name)
+                and target.id == "SERVICE_ACTIONS"
+                for target in node.targets
+            ):
+                continue
+            try:
+                service_actions = ast.literal_eval(node.value)
+            except (TypeError, ValueError):
+                errors.append("SERVICE_ACTIONS is niet statisch valideerbaar")
+            break
+
+        if not isinstance(service_actions, dict):
+            errors.append("SERVICE_ACTIONS ontbreekt of is ongeldig")
+        else:
+            for action_id, action in service_actions.items():
+                if not isinstance(action, dict):
+                    errors.append(
+                        f"SERVICE_ACTIONS[{action_id!r}] is geen mapping"
+                    )
+                    continue
+                if not action.get("plugin_id"):
+                    errors.append(
+                        f"SERVICE_ACTIONS[{action_id!r}] mist plugin_id"
+                    )
+                if "service" in action:
+                    errors.append(
+                        f"SERVICE_ACTIONS[{action_id!r}] bevat hardcoded service"
+                    )
+
+        if "SERVICE_PLUGIN_BY_NAME" in app_text:
+            errors.append(
+                "Dashboard bevat verouderde SERVICE_PLUGIN_BY_NAME mapping"
+            )
+
     if "/api/execution-plan-consumers" not in app_text:
         errors.append("Consumer API ontbreekt")
 
@@ -137,12 +177,25 @@ def runtime_validation() -> dict:
         ais = execution_plan_consumer.delegate_service_action("ais", "start")
         assert ais["ok"] is True
         assert ais["delegated_target"] == "ais-catcher.service"
+        assert ais["delegated_action"] == "start"
+        assert ais["delegation_scope"] == "service_target_only"
+        assert ais["operation_authority"] == (
+            "existing_dashboard_systemctl_path"
+        )
         assert ais["plan"]["targets"] == ["ais-catcher.service"]
 
         adsb = execution_plan_consumer.delegate_service_action("adsb", "restart")
         assert adsb["ok"] is True
         assert adsb["delegated_target"] == "readsb.service"
+        assert adsb["delegated_action"] == "restart"
         assert adsb["plan"]["targets"] == ["readsb.service"]
+
+        invalid_action = execution_plan_consumer.delegate_service_action(
+            "ais",
+            "enable",
+        )
+        assert invalid_action["ok"] is False
+        assert invalid_action["delegated_target"] == "ais-catcher.service"
 
         mismatch_detected = True
         if hasattr(execution_plan_consumer, "consume_service_action"):

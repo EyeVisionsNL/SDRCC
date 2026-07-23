@@ -55,18 +55,36 @@ IMAGE_DIRS = [
 ]
 
 SERVICE_ACTIONS = {
-    "start_ais": {"label": "AIS starten", "service": "ais-catcher.service", "systemctl": "start"},
-    "stop_ais": {"label": "AIS stoppen", "service": "ais-catcher.service", "systemctl": "stop"},
-    "restart_ais": {"label": "AIS herstarten", "service": "ais-catcher.service", "systemctl": "restart"},
-    "start_adsb": {"label": "ADS-B starten", "service": "readsb.service", "systemctl": "start"},
-    "stop_adsb": {"label": "ADS-B stoppen", "service": "readsb.service", "systemctl": "stop"},
-    "restart_adsb": {"label": "ADS-B herstarten", "service": "readsb.service", "systemctl": "restart"},
-}
-
-
-SERVICE_PLUGIN_BY_NAME = {
-    "ais-catcher.service": "ais",
-    "readsb.service": "adsb",
+    "start_ais": {
+        "label": "AIS starten",
+        "plugin_id": "ais",
+        "systemctl": "start",
+    },
+    "stop_ais": {
+        "label": "AIS stoppen",
+        "plugin_id": "ais",
+        "systemctl": "stop",
+    },
+    "restart_ais": {
+        "label": "AIS herstarten",
+        "plugin_id": "ais",
+        "systemctl": "restart",
+    },
+    "start_adsb": {
+        "label": "ADS-B starten",
+        "plugin_id": "adsb",
+        "systemctl": "start",
+    },
+    "stop_adsb": {
+        "label": "ADS-B stoppen",
+        "plugin_id": "adsb",
+        "systemctl": "stop",
+    },
+    "restart_adsb": {
+        "label": "ADS-B herstarten",
+        "plugin_id": "adsb",
+        "systemctl": "restart",
+    },
 }
 
 SCHEDULER_ACTIONS = {
@@ -655,23 +673,33 @@ def get_dashboard_data():
 
 
 def handle_service_action(action_id, action):
-    service = action["service"]
-    systemctl_action = action["systemctl"]
+    plugin_id = str(action["plugin_id"]).strip().lower()
+    systemctl_action = str(action["systemctl"]).strip().lower()
     label = action["label"]
-    plugin_id = SERVICE_PLUGIN_BY_NAME.get(service)
 
-    plan_consumption = None
-    if plugin_id:
-        plan_consumption = execution_plan_consumer_core.consume_service_action(
-            plugin_id,
-            service,
-            systemctl_action,
-        )
-        write_log(
-            f"{label}: Execution Plan geconsumeerd "
-            f"({plugin_id}, valid={plan_consumption['ok']}, "
-            f"target_match={plan_consumption['target_matches']})"
-        )
+    delegation = execution_plan_consumer_core.delegate_service_action(
+        plugin_id,
+        systemctl_action,
+    )
+    service = delegation.get("delegated_target")
+
+    write_log(
+        f"{label}: Execution Plan-delegatie "
+        f"({plugin_id}, valid={delegation['ok']}, "
+        f"target={service!r}, action={systemctl_action})"
+    )
+
+    if not delegation["ok"] or not service:
+        errors = delegation.get("errors") or [
+            "Execution Plan leverde geen geldig servicetarget."
+        ]
+        message = "; ".join(str(error) for error in errors)
+        write_log(f"{label}: delegatie geweigerd - {message}")
+        return jsonify({
+            "ok": False,
+            "message": f"{label} geweigerd: {message}",
+            "execution_plan_delegation": delegation,
+        }), 409
 
     before = service_state(service)
     write_log(f"{label}: service was {before['state']}")
@@ -695,7 +723,8 @@ def handle_service_action(action_id, action):
             "message": f"{label} uitgevoerd. Status: {after['state']}",
             "before": before,
             "after": after,
-            "execution_plan_consumption": plan_consumption,
+            "execution_plan_delegation": delegation,
+            "execution_plan_consumption": delegation,
         })
 
     write_log(f"{label}: mislukt met returncode {result.returncode}")
@@ -706,7 +735,8 @@ def handle_service_action(action_id, action):
         "after": after,
         "stdout": result.stdout,
         "stderr": result.stderr,
-        "execution_plan_consumption": plan_consumption,
+        "execution_plan_delegation": delegation,
+        "execution_plan_consumption": delegation,
     }), 500
 
 

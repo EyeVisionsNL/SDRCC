@@ -15,7 +15,7 @@ from typing import Any, Mapping
 from core import execution_factory
 
 
-_CONSUMER_VERSION = "0.43.0a"
+_CONSUMER_VERSION = "0.43.0b2"
 _HISTORY_LIMIT = 100
 _lock = Lock()
 _history: list[dict[str, Any]] = []
@@ -105,6 +105,58 @@ def consume_weather_mission(
     )
 
 
+
+def delegate_service_action(
+    plugin_id: str,
+    action: str,
+) -> dict[str, Any]:
+    """Resolve one service target from a read-only Execution Plan.
+
+    This function delegates target selection only. It never invokes systemctl,
+    changes service state or assumes lifecycle authority.
+    """
+    normalized_action = str(action).strip().lower()
+    record = consume_plan(
+        plugin_id,
+        {
+            "action": normalized_action,
+        },
+        consumer="dashboard_service_action",
+        purpose="service_target_delegation",
+    )
+
+    targets = tuple(str(item).strip() for item in (
+        record["plan"].get("targets") or ()
+    ) if str(item).strip())
+
+    record.update({
+        "delegation_active": True,
+        "delegation_scope": "service_target_only",
+        "operation_authority": "existing_dashboard_systemctl_path",
+        "delegated_target": targets[0] if len(targets) == 1 else None,
+        "delegated_action": normalized_action,
+        "target_count": len(targets),
+    })
+
+    if normalized_action not in {"start", "stop", "restart"}:
+        record["ok"] = False
+        record["errors"].append(
+            f"niet-ondersteunde serviceactie: {normalized_action!r}"
+        )
+
+    if len(targets) != 1:
+        record["ok"] = False
+        record["errors"].append(
+            "serviceplan moet exact één target bevatten; "
+            f"ontvangen: {list(targets)!r}"
+        )
+
+    with _lock:
+        if _history:
+            _history[0] = deepcopy(record)
+
+    return record
+
 def consume_service_action(
     plugin_id: str,
     service_name: str,
@@ -148,6 +200,9 @@ def get_snapshot() -> dict[str, Any]:
         "validation_only": True,
         "behavior_changed": False,
         "authority": "observer_only",
+        "delegation_active": True,
+        "delegation_scope": "service_target_only",
+        "operation_authority": "existing_dashboard_systemctl_path",
         "history_count": len(history),
         "latest": history[0] if history else None,
         "history": history,
