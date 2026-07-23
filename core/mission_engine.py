@@ -7,6 +7,7 @@ from typing import Optional
 import json
 
 from core import event_bus
+from core import execution_plan_consumer
 
 
 class MissionState(str, Enum):
@@ -111,6 +112,7 @@ class MissionJob:
     quality_score: Optional[int] = None
     quality_grade: Optional[str] = None
     diagnostics_path: Optional[str] = None
+    execution_plan: Optional[dict] = None
 
     def to_dict(self):
         data = asdict(self)
@@ -179,6 +181,17 @@ class MissionEngine:
                 )
 
             now = self._now()
+            plan_consumption = execution_plan_consumer.consume_weather_mission({
+                "target": satellite,
+                "satellite": satellite,
+                "receiver_role": "weather",
+                "receiver": receiver,
+                "receiver_id": receiver_id,
+                "receiver_serial": receiver_serial,
+                "frequency": frequency,
+                "pipeline": pipeline,
+                "output_path": output_path,
+            })
             self.active_job = MissionJob(
                 mission_id=self._generate_mission_id(),
                 satellite=str(satellite or "-"),
@@ -199,6 +212,7 @@ class MissionEngine:
                 gain_db=(float(gain_db) if gain_db is not None else None),
                 dc_block=(bool(dc_block) if dc_block is not None else None),
                 iq_swap=(bool(iq_swap) if iq_swap is not None else None),
+                execution_plan=plan_consumption,
                 status=self.state.value,
                 progress=calculate_progress(self.state),
                 created_at=now,
@@ -206,6 +220,11 @@ class MissionEngine:
             self._log(
                 f"Mission Job aangemaakt: {self.active_job.mission_id} "
                 f"({self.active_job.satellite})"
+            )
+            self._log(
+                "Execution Plan geconsumeerd: weather / "
+                f"{plan_consumption['plan']['launch_type']} / "
+                f"valid={plan_consumption['ok']}"
             )
             job = self.active_job.to_dict()
 

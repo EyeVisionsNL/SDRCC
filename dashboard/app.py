@@ -23,6 +23,7 @@ from core import plugin_runtime as plugin_runtime_core
 from core import plugin_health as plugin_health_core
 from core import plugin_manager as plugin_manager_core
 from core import plugin_capabilities as plugin_capabilities_core
+from core import execution_plan_consumer as execution_plan_consumer_core
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
@@ -60,6 +61,12 @@ SERVICE_ACTIONS = {
     "start_adsb": {"label": "ADS-B starten", "service": "readsb.service", "systemctl": "start"},
     "stop_adsb": {"label": "ADS-B stoppen", "service": "readsb.service", "systemctl": "stop"},
     "restart_adsb": {"label": "ADS-B herstarten", "service": "readsb.service", "systemctl": "restart"},
+}
+
+
+SERVICE_PLUGIN_BY_NAME = {
+    "ais-catcher.service": "ais",
+    "readsb.service": "adsb",
 }
 
 SCHEDULER_ACTIONS = {
@@ -651,6 +658,20 @@ def handle_service_action(action_id, action):
     service = action["service"]
     systemctl_action = action["systemctl"]
     label = action["label"]
+    plugin_id = SERVICE_PLUGIN_BY_NAME.get(service)
+
+    plan_consumption = None
+    if plugin_id:
+        plan_consumption = execution_plan_consumer_core.consume_service_action(
+            plugin_id,
+            service,
+            systemctl_action,
+        )
+        write_log(
+            f"{label}: Execution Plan geconsumeerd "
+            f"({plugin_id}, valid={plan_consumption['ok']}, "
+            f"target_match={plan_consumption['target_matches']})"
+        )
 
     before = service_state(service)
     write_log(f"{label}: service was {before['state']}")
@@ -674,6 +695,7 @@ def handle_service_action(action_id, action):
             "message": f"{label} uitgevoerd. Status: {after['state']}",
             "before": before,
             "after": after,
+            "execution_plan_consumption": plan_consumption,
         })
 
     write_log(f"{label}: mislukt met returncode {result.returncode}")
@@ -684,6 +706,7 @@ def handle_service_action(action_id, action):
         "after": after,
         "stdout": result.stdout,
         "stderr": result.stderr,
+        "execution_plan_consumption": plan_consumption,
     }), 500
 
 
@@ -1559,6 +1582,11 @@ def api_plugin_health():
             "error": str(error),
             "plugins": [],
         }), 500
+
+
+@app.route("/api/execution-plan-consumers", methods=["GET"])
+def api_execution_plan_consumers():
+    return jsonify(execution_plan_consumer_core.get_snapshot())
 
 
 @app.route("/api/plugin-manager", methods=["GET"])
