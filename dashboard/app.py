@@ -1666,16 +1666,30 @@ def api_plugin_manager():
 
 @app.route("/api/plugin-manager/<plugin_id>/action", methods=["POST"])
 def api_plugin_manager_action(plugin_id):
-    """Execute one explicitly enabled plugin through existing authority.
+    """Execute an enabled service plugin through existing authority.
 
-    v0.44.0a enables AIS only. The route deliberately reuses
+    v0.44.1 enables AIS and ADS-B. The route deliberately reuses
     handle_service_action(); it does not contain its own systemctl logic.
     """
     normalized_plugin = str(plugin_id or "").strip().lower()
     payload = request.get_json(silent=True) or {}
     normalized_action = str(payload.get("action") or "").strip().lower()
 
-    if normalized_plugin != "ais":
+    service_actions = {
+        "ais": {
+            "start": "start_ais",
+            "stop": "stop_ais",
+            "restart": "restart_ais",
+        },
+        "adsb": {
+            "start": "start_adsb",
+            "stop": "stop_adsb",
+            "restart": "restart_adsb",
+        },
+    }
+
+    plugin_actions = service_actions.get(normalized_plugin)
+    if plugin_actions is None:
         return jsonify({
             "ok": False,
             "message": f"Plugin execution is nog niet ingeschakeld voor {normalized_plugin or '<leeg>'}.",
@@ -1684,13 +1698,13 @@ def api_plugin_manager_action(plugin_id):
             "authority": "existing_dashboard_systemctl_path",
         }), 409
 
-    action_id = f"{normalized_action}_ais"
-    action = SERVICE_ACTIONS.get(action_id)
+    action_id = plugin_actions.get(normalized_action)
+    action = SERVICE_ACTIONS.get(action_id) if action_id else None
     if action is None:
         return jsonify({
             "ok": False,
-            "message": f"Niet-ondersteunde AIS-actie: {normalized_action!r}",
-            "plugin_id": "ais",
+            "message": f"Niet-ondersteunde {normalized_plugin.upper()}-actie: {normalized_action!r}",
+            "plugin_id": normalized_plugin,
             "supported_actions": ["start", "stop", "restart"],
         }), 400
 

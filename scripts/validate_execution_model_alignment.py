@@ -25,9 +25,9 @@ ais = plugins["ais"]
 adsb = plugins["adsb"]
 weather = plugins["weather"]
 
-require(snapshot["manager_version"] == "0.44.0b", "Plugin Manager-versie is v0.44.0b")
+require(snapshot["manager_version"] == "0.44.1", "Plugin Manager-versie is v0.44.1")
 require(snapshot["execution_enablement"]["model_aligned"] is True, "effective execution-model is aligned")
-require(snapshot["summary"]["execution_enabled_plugins"] == ["ais"], "alleen AIS is effectief execution-enabled")
+require(snapshot["summary"]["execution_enabled_plugins"] == ["ais", "adsb"], "AIS en ADS-B zijn effectief execution-enabled")
 require(snapshot["summary"]["execution_foundation_only"] is False, "manager rapporteert niet langer foundation-only")
 require(snapshot["summary"]["execution_planning_only"] is False, "manager rapporteert niet langer planning-only")
 require(ais["execution"]["executable"] is True, "AIS execution is executable")
@@ -36,8 +36,8 @@ require(ais["execution"]["execution_mode"] == "delegated_service_control", "AIS 
 require(ais["execution_plan"]["executable"] is True, "AIS-plan is uitvoerbaar")
 require(ais["execution_plan"]["planning_only"] is False, "AIS-plan is niet planning-only")
 require(ais["control"]["authority"] == "existing_dashboard_systemctl_path", "AIS behoudt bestaande service-authority")
-require(adsb["control"]["enabled"] is False, "ADS-B blijft uitgeschakeld")
-require(adsb["execution"]["executable"] is False, "ADS-B blijft fail-closed")
+require(adsb["control"]["enabled"] is True, "ADS-B is execution-enabled")
+require(adsb["execution"]["executable"] is True, "ADS-B execution is executable")
 require(weather["execution"]["executable"] is False, "Weather-uitvoering blijft ongewijzigd")
 
 source = inspect.getsource(plugin_manager)

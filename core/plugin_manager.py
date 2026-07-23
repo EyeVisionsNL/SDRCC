@@ -39,7 +39,7 @@ HealthReader = Callable[..., dict[str, Any]]
 ExecutionReader = Callable[..., dict[str, Any]]
 PlanningReader = Callable[..., dict[str, Any]]
 
-_MANAGER_VERSION = "0.44.0b"
+_MANAGER_VERSION = "0.44.1"
 
 
 def _now() -> str:
@@ -94,7 +94,7 @@ def _merge_plugins(
         if not plugin_id:
             continue
 
-        execution_enabled = plugin_id == "ais"
+        execution_enabled = plugin_id in {"ais", "adsb"}
         execution_item = deepcopy(execution_by_id.get(plugin_id))
         plan_item = deepcopy(planning_by_id.get(plugin_id))
 
@@ -138,7 +138,7 @@ def _merge_plugins(
                 "enabled": execution_enabled,
                 "actions": ["start", "stop", "restart"] if execution_enabled else [],
                 "endpoint": (
-                    "/api/plugin-manager/ais/action"
+                    f"/api/plugin-manager/{plugin_id}/action"
                     if execution_enabled else None
                 ),
                 "authority": (
@@ -293,8 +293,8 @@ class PluginManager:
             "execution_source": "execution_factory",
             "execution_authority": "delegation_only",
             "execution_enablement": {
-                "version": "0.44.0b",
-                "enabled_plugins": ["ais"],
+                "version": "0.44.1",
+                "enabled_plugins": ["ais", "adsb"],
                 "authority": "existing_dashboard_systemctl_path",
                 "new_service_controller": False,
                 "model_aligned": True,
