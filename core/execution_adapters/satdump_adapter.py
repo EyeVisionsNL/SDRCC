@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+from typing import Any, Mapping
+
 from core.execution_adapter import ExecutionAdapter
+from core.execution_plan import ExecutionPlan, normalize_request
 
 
 class SatDumpAdapter(ExecutionAdapter):
@@ -38,3 +41,50 @@ class SatDumpAdapter(ExecutionAdapter):
             errors.append("satdump-adapter mag geen systemd-services declareren")
 
         return tuple(errors)
+
+
+    def build_plan(
+        self,
+        request: Mapping[str, Any] | None = None,
+    ) -> ExecutionPlan:
+        """Describe delegation to existing mission and SatDump authorities."""
+        normalized_request = normalize_request(request)
+        descriptor = self.describe()
+        receiver_role = str(
+            normalized_request.get("receiver_role")
+            or self.metadata.get("assignment_role")
+            or ""
+        ).strip() or None
+        receiver_type = str(
+            self.metadata.get("receiver_type") or ""
+        ).strip() or None
+        target = str(
+            normalized_request.get("target")
+            or normalized_request.get("satellite")
+            or ""
+        ).strip()
+
+        targets = (target,) if target else ()
+
+        return ExecutionPlan(
+            plugin_id=self.plugin_id,
+            adapter_type=self.adapter_type,
+            executor_type=self.supported_executor,
+            launch_type="mission",
+            target_type="satdump_pipeline",
+            targets=targets,
+            receiver_role=receiver_role,
+            receiver_type=receiver_type,
+            requirements=(
+                "mission_authority",
+                "receiver_assignment_resolved",
+                "receiver_locked",
+                "satdump_pipeline_resolved",
+            ),
+            delegates_to=self.delegates_to,
+            executable=False,
+            read_only=True,
+            foundation_only=True,
+            metadata_valid=descriptor.metadata_valid,
+            validation_errors=descriptor.validation_errors,
+        )

@@ -2,8 +2,8 @@
 """Central read-only Plugin Manager facade for SDRCC.
 
 The Plugin Manager combines existing Plugin Registry, Plugin Runtime,
-Plugin Health and Execution Adapter discovery snapshots behind one stable
-interface.
+Plugin Health, Execution Adapter discovery and read-only execution planning
+snapshots behind one stable interface.
 
 It deliberately does not:
 - load or unload plugin code;
@@ -18,7 +18,7 @@ Plugin Registry remains metadata authority.
 Receiver Manager remains receiver authority.
 Plugin Runtime remains runtime observation source.
 Plugin Health remains validation and readiness source.
-Execution Factory remains read-only adapter discovery source.
+Execution Factory remains read-only adapter discovery and planning source.
 """
 
 from __future__ import annotations
@@ -37,8 +37,9 @@ RegistryReader = Callable[..., dict[str, Any]]
 RuntimeReader = Callable[..., dict[str, Any]]
 HealthReader = Callable[..., dict[str, Any]]
 ExecutionReader = Callable[..., dict[str, Any]]
+PlanningReader = Callable[..., dict[str, Any]]
 
-_MANAGER_VERSION = "0.42.0b"
+_MANAGER_VERSION = "0.42.0c"
 
 
 def _now() -> str:
@@ -69,10 +70,16 @@ def _merge_plugins(
     runtime: dict[str, Any],
     health: dict[str, Any],
     execution: dict[str, Any],
+    planning: dict[str, Any],
 ) -> list[dict[str, Any]]:
     runtime_by_id = _plugin_map(runtime)
     health_by_id = _plugin_map(health)
     execution_by_id = _plugin_map(execution)
+    planning_by_id = {
+        str(item.get("plugin_id") or "").strip().lower(): item
+        for item in planning.get("plans", [])
+        if isinstance(item, dict) and item.get("plugin_id")
+    }
     result: list[dict[str, Any]] = []
 
     registry_plugins = registry.get("plugins")
@@ -93,6 +100,7 @@ def _merge_plugins(
             "runtime": deepcopy(runtime_by_id.get(plugin_id)),
             "health": deepcopy(health_by_id.get(plugin_id)),
             "execution": deepcopy(execution_by_id.get(plugin_id)),
+            "execution_plan": deepcopy(planning_by_id.get(plugin_id)),
         })
 
     return result
@@ -156,6 +164,7 @@ class PluginManager:
         runtime_reader: RuntimeReader | None = None,
         health_reader: HealthReader | None = None,
         execution_reader: ExecutionReader | None = None,
+        planning_reader: PlanningReader | None = None,
     ) -> None:
         self._registry_reader = (
             registry_reader or plugin_registry.get_registry_snapshot
@@ -164,6 +173,9 @@ class PluginManager:
         self._health_reader = health_reader or plugin_health.get_snapshot
         self._execution_reader = (
             execution_reader or execution_factory.get_catalog_snapshot
+        )
+        self._planning_reader = (
+            planning_reader or execution_factory.get_plan_catalog
         )
 
     def get_snapshot(self, *, include_planned: bool = True) -> dict[str, Any]:
@@ -176,8 +188,13 @@ class PluginManager:
         execution = self._execution_reader(
             include_planned=include_planned,
         )
+        planning = self._planning_reader(
+            include_planned=include_planned,
+        )
 
-        plugins = _merge_plugins(registry, runtime, health, execution)
+        plugins = _merge_plugins(
+            registry, runtime, health, execution, planning
+        )
         statistics = _statistics(plugins, runtime, health)
 
         source_status = {
@@ -185,6 +202,7 @@ class PluginManager:
             "runtime": bool(runtime.get("ok", True)),
             "health": bool(health.get("ok", True)),
             "execution": bool(execution.get("ok", True)),
+            "planning": bool(planning.get("ok", True)),
         }
 
         ready = health.get("ready")
@@ -199,6 +217,10 @@ class PluginManager:
             "execution_adapters_valid": bool(execution.get("ok", True)),
             "execution_foundation_only": bool(
                 execution.get("foundation_only", False)
+            ),
+            "execution_plans_valid": bool(planning.get("ok", True)),
+            "execution_planning_only": bool(
+                planning.get("planning_only", False)
             ),
             "sources_ok": all(source_status.values()),
         }
@@ -216,6 +238,8 @@ class PluginManager:
             "health_source": "plugin_health",
             "execution_source": "execution_factory",
             "execution_authority": "delegation_only",
+            "planning_source": "execution_factory",
+            "planning_authority": "description_only",
             "source_status": source_status,
             "summary": summary,
             "statistics": statistics,
@@ -224,6 +248,7 @@ class PluginManager:
             "runtime": deepcopy(runtime),
             "health": deepcopy(health),
             "execution": deepcopy(execution),
+            "planning": deepcopy(planning),
             "generated_at": generated_at,
         }
 

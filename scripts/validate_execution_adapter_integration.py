@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate SDRCC v0.42.0b Execution Adapter discovery integration."""
+"""Validate SDRCC Execution Adapter discovery integration."""
 
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def validate_runtime_contract() -> dict[str, Any]:
             f"Plugin Manager-bronnen ongeldig: {manager.get('source_status')}"
         )
 
-    if manager.get("manager_version") != "0.42.0b":
+    if manager.get("manager_version") not in {"0.42.0b", "0.42.0c"}:
         raise RuntimeError(
             f"Onverwachte manager_version: {manager.get('manager_version')!r}"
         )

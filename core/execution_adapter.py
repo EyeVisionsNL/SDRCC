@@ -13,6 +13,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from core.execution_plan import ExecutionPlan, normalize_request
+
 
 class ExecutionAdapterError(RuntimeError):
     """Base exception for execution adapter contract failures."""
@@ -125,6 +127,40 @@ class ExecutionAdapter(ABC):
             validation_errors=errors,
             delegates_to=self.delegates_to,
             services=tuple(str(item) for item in services),
+        )
+
+    def build_plan(
+        self,
+        request: Mapping[str, Any] | None = None,
+    ) -> ExecutionPlan:
+        """Build a read-only delegation plan without performing execution."""
+        normalized_request = normalize_request(request)
+        descriptor = self.describe()
+        receiver_role = str(
+            normalized_request.get("receiver_role")
+            or self._plugin.get("assignment_role")
+            or ""
+        ).strip() or None
+        receiver_type = str(
+            self._plugin.get("receiver_type") or ""
+        ).strip() or None
+
+        return ExecutionPlan(
+            plugin_id=self.plugin_id,
+            adapter_type=self.adapter_type,
+            executor_type=self._plugin.get("executor"),
+            launch_type="none",
+            target_type="none",
+            targets=(),
+            receiver_role=receiver_role,
+            receiver_type=receiver_type,
+            requirements=(),
+            delegates_to=self.delegates_to,
+            executable=False,
+            read_only=True,
+            foundation_only=True,
+            metadata_valid=descriptor.metadata_valid,
+            validation_errors=descriptor.validation_errors,
         )
 
     def prepare(self, request: Mapping[str, Any] | None = None) -> None:

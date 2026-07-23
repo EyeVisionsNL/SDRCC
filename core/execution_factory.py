@@ -11,7 +11,7 @@ from core.execution_adapter import ExecutionAdapter, ExecutionAdapterError
 from core.execution_adapters import NullAdapter, SatDumpAdapter, ServiceAdapter
 
 
-_FACTORY_VERSION = "0.42.0a"
+_FACTORY_VERSION = "0.42.0c"
 
 _ADAPTERS: dict[str | None, Type[ExecutionAdapter]] = {
     None: NullAdapter,
@@ -56,6 +56,49 @@ def get_adapter(plugin_id: str) -> ExecutionAdapter:
 
     adapter_class = get_adapter_class(plugin.get("executor"))
     return adapter_class(plugin)
+
+
+def build_plan(
+    plugin_id: str,
+    request: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build one read-only execution plan without performing execution."""
+    return get_adapter(plugin_id).build_plan(request).as_dict()
+
+
+def get_plan_catalog(*, include_planned: bool = True) -> dict[str, Any]:
+    """Return read-only execution plans for all registered plugins."""
+    plugins = plugin_registry.get_plugins(include_planned=include_planned)
+    plans: list[dict[str, Any]] = []
+    errors: list[str] = []
+
+    for plugin in plugins:
+        plugin_id = str(plugin.get("id") or "").strip().lower()
+        try:
+            plan = build_plan(plugin_id)
+        except ExecutionAdapterError as error:
+            errors.append(f"{plugin_id or '<unknown>'}: {error}")
+            continue
+
+        plans.append(plan)
+        for validation_error in plan["validation_errors"]:
+            errors.append(f"{plugin_id}: {validation_error}")
+
+    return {
+        "ok": not errors,
+        "read_only": True,
+        "planning_only": True,
+        "foundation_only": True,
+        "source": "execution_factory",
+        "factory_version": _FACTORY_VERSION,
+        "schema_version": 1,
+        "plugin_count": len(plans),
+        "plans": plans,
+        "errors": errors,
+        "generated_at": datetime.now().astimezone().isoformat(
+            timespec="seconds"
+        ),
+    }
 
 
 def describe_plugin(plugin_id: str) -> dict[str, Any]:
