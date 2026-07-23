@@ -22,6 +22,7 @@ from core import plugin_registry
 from core import plugin_runtime as plugin_runtime_core
 from core import plugin_health as plugin_health_core
 from core import plugin_manager as plugin_manager_core
+from core import plugin_capabilities as plugin_capabilities_core
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
@@ -1584,6 +1585,31 @@ def api_plugin_manager():
             "health_source": "plugin_health",
             "error": str(error),
             "plugins": [],
+        }), 500
+
+
+@app.route("/api/plugin-capabilities", methods=["GET"])
+def api_plugin_capabilities():
+    """Expose the central read-only Plugin Capability Layer."""
+    include_planned = request.args.get(
+        "include_planned",
+        default="true",
+        type=str,
+    ).strip().lower() not in {"0", "false", "no", "off"}
+
+    try:
+        return jsonify(plugin_capabilities_core.get_snapshot(
+            include_planned=include_planned,
+        ))
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "read_only": True,
+            "source": "plugin_capabilities",
+            "metadata_authority": "plugin_registry",
+            "error": str(error),
+            "plugins": {},
+            "capabilities": {},
         }), 500
 
 
