@@ -39,7 +39,7 @@ HealthReader = Callable[..., dict[str, Any]]
 ExecutionReader = Callable[..., dict[str, Any]]
 PlanningReader = Callable[..., dict[str, Any]]
 
-_MANAGER_VERSION = "0.44.1"
+_MANAGER_VERSION = "0.45.0"
 
 
 def _now() -> str:
@@ -94,19 +94,25 @@ def _merge_plugins(
         if not plugin_id:
             continue
 
-        execution_enabled = plugin_id in {"ais", "adsb"}
+        execution_enabled = plugin_id in {"weather", "ais", "adsb"}
         execution_item = deepcopy(execution_by_id.get(plugin_id))
         plan_item = deepcopy(planning_by_id.get(plugin_id))
 
         if isinstance(execution_item, dict):
             execution_item["execution_enabled"] = execution_enabled
             execution_item["execution_mode"] = (
-                "delegated_service_control"
-                if execution_enabled else "foundation_only"
+                "delegated_mission_scheduler_autopilot"
+                if plugin_id == "weather" and execution_enabled
+                else "delegated_service_control"
+                if execution_enabled
+                else "foundation_only"
             )
             execution_item["execution_authority"] = (
-                "existing_dashboard_systemctl_path"
-                if execution_enabled else "none"
+                "existing_mission_scheduler_autopilot_path"
+                if plugin_id == "weather" and execution_enabled
+                else "existing_dashboard_systemctl_path"
+                if execution_enabled
+                else "none"
             )
             if execution_enabled:
                 execution_item["executable"] = True
@@ -115,12 +121,18 @@ def _merge_plugins(
         if isinstance(plan_item, dict):
             plan_item["execution_enabled"] = execution_enabled
             plan_item["execution_mode"] = (
-                "delegated_service_control"
-                if execution_enabled else "planning_only"
+                "delegated_mission_scheduler_autopilot"
+                if plugin_id == "weather" and execution_enabled
+                else "delegated_service_control"
+                if execution_enabled
+                else "planning_only"
             )
             plan_item["execution_authority"] = (
-                "existing_dashboard_systemctl_path"
-                if execution_enabled else "none"
+                "existing_mission_scheduler_autopilot_path"
+                if plugin_id == "weather" and execution_enabled
+                else "existing_dashboard_systemctl_path"
+                if execution_enabled
+                else "none"
             )
             if execution_enabled:
                 plan_item["executable"] = True
@@ -136,14 +148,23 @@ def _merge_plugins(
             "execution_plan": plan_item,
             "control": {
                 "enabled": execution_enabled,
-                "actions": ["start", "stop", "restart"] if execution_enabled else [],
+                "actions": (
+                    ["start", "stop"]
+                    if plugin_id == "weather" and execution_enabled
+                    else ["start", "stop", "restart"]
+                    if execution_enabled
+                    else []
+                ),
                 "endpoint": (
                     f"/api/plugin-manager/{plugin_id}/action"
                     if execution_enabled else None
                 ),
                 "authority": (
-                    "existing_dashboard_systemctl_path"
-                    if execution_enabled else "not_enabled"
+                    "existing_mission_scheduler_autopilot_path"
+                    if plugin_id == "weather" and execution_enabled
+                    else "existing_dashboard_systemctl_path"
+                    if execution_enabled
+                    else "not_enabled"
                 ),
                 "delegation_only": True,
             },
@@ -293,9 +314,14 @@ class PluginManager:
             "execution_source": "execution_factory",
             "execution_authority": "delegation_only",
             "execution_enablement": {
-                "version": "0.44.1",
-                "enabled_plugins": ["ais", "adsb"],
-                "authority": "existing_dashboard_systemctl_path",
+                "version": "0.45.0",
+                "enabled_plugins": ["weather", "ais", "adsb"],
+                "authority": "delegated_existing_authority_paths",
+                "authority_by_plugin": {
+                    "weather": "existing_mission_scheduler_autopilot_path",
+                    "ais": "existing_dashboard_systemctl_path",
+                    "adsb": "existing_dashboard_systemctl_path",
+                },
                 "new_service_controller": False,
                 "model_aligned": True,
                 "source_catalog_role": "foundation_metadata",

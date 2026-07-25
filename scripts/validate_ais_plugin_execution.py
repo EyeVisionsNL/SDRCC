@@ -22,8 +22,8 @@ def check(ok: bool, message: str) -> None:
 snapshot = plugin_manager.get_snapshot(include_planned=True)
 ais = next(item for item in snapshot["plugins"] if item["plugin_id"] == "ais")
 adsb = next(item for item in snapshot["plugins"] if item["plugin_id"] == "adsb")
-check(snapshot["manager_version"] == "0.44.1", "Plugin Manager-versie is v0.44.1")
-check(snapshot["execution_enablement"]["enabled_plugins"] == ["ais", "adsb"], "AIS en ADS-B zijn execution-enabled")
+check(snapshot["manager_version"] == "0.45.0", "Plugin Manager-versie is v0.45.0")
+check(snapshot["execution_enablement"]["enabled_plugins"] == ["weather", "ais", "adsb"], "Weather, AIS en ADS-B zijn execution-enabled")
 check(ais["control"]["enabled"] is True, "AIS-control is ingeschakeld")
 check(ais["control"]["actions"] == ["start", "stop", "restart"], "AIS-acties zijn begrensd")
 check(adsb["control"]["enabled"] is True, "ADS-B is nu eveneens ingeschakeld")
@@ -50,7 +50,7 @@ try:
     check(calls == [("restart", "ais-catcher.service")], "AIS-plan delegeert exact naar ais-catcher.service")
 
     response = client.post('/api/plugin-manager/weather/action', json={'action': 'restart'})
-    check(response.status_code == 409, "Weather faalt gesloten")
+    check(response.status_code == 400, "niet-ondersteunde Weather-actie faalt gesloten")
 
     response = client.post('/api/plugin-manager/ais/action', json={'action': 'delete'})
     check(response.status_code == 400, "onbekende AIS-actie faalt gesloten")
@@ -65,8 +65,8 @@ check('handle_service_action(' in route_block, "Plugin Manager-route hergebruikt
 
 print({
     "status": "ok",
-    "version": "0.44.1",
-    "enabled_plugins": ["ais", "adsb"],
+    "version": "0.45.0",
+    "enabled_plugins": ["weather", "ais", "adsb"],
     "authority": "existing_dashboard_systemctl_path",
     "delegated_service": "ais-catcher.service",
 })

@@ -173,10 +173,7 @@ export function updateNextPass(data) {
     RECEIVERS.forEach(clearNextPass);
     const pass = data?.next_pass;
     if (pass) {
-        const receiver = passReceiver(pass)
-            || normalizeReceiver(data?.assignments?.weather)
-            || missionReceiver(data?.mission)
-            || "SDR1";
+        const receiver = passReceiver(pass) || "SDR1";
         renderNextPass(receiver, pass);
     }
     updateCountdown();

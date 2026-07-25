@@ -1668,12 +1668,102 @@ def api_plugin_manager():
 def api_plugin_manager_action(plugin_id):
     """Execute an enabled service plugin through existing authority.
 
-    v0.44.1 enables AIS and ADS-B. The route deliberately reuses
-    handle_service_action(); it does not contain its own systemctl logic.
+    v0.45.0 enables Weather through the existing Mission Scheduler/autopilot
+    and keeps AIS/ADS-B on handle_service_action(). No direct SatDump or new
+    service-control authority is introduced.
     """
     normalized_plugin = str(plugin_id or "").strip().lower()
     payload = request.get_json(silent=True) or {}
     normalized_action = str(payload.get("action") or "").strip().lower()
+
+    if normalized_plugin == "weather":
+        if normalized_action == "start":
+            mission_status = mission_engine_core.get_mission_status()
+            active_job = mission_status.get("active_job")
+            active_runtime = any((
+                autopilot_runtime.get("prepared"),
+                autopilot_runtime.get("locked"),
+                autopilot_runtime.get("record_started"),
+                autopilot_runtime.get("process") is not None,
+            ))
+            if active_job is not None or active_runtime:
+                return jsonify({
+                    "ok": False,
+                    "message": "Er is al een Weather-missie actief of in voorbereiding.",
+                    "plugin_id": "weather",
+                    "execution_enabled": True,
+                    "authority": "existing_mission_scheduler_autopilot_path",
+                }), 409
+
+            scheduler_before = mission_scheduler_core.get_scheduler_status()
+            next_pass = scheduler_before.get("next_pass")
+            if not isinstance(next_pass, dict) or not next_pass.get("name"):
+                return jsonify({
+                    "ok": False,
+                    "message": "Geen geldige eerstvolgende Weather-passage beschikbaar.",
+                    "plugin_id": "weather",
+                    "execution_enabled": True,
+                    "authority": "existing_mission_scheduler_autopilot_path",
+                }), 409
+
+            scheduler_after = mission_scheduler_core.set_scheduler_mode("AUTO")
+            return jsonify({
+                "ok": True,
+                "message": "Weather is ingeschakeld voor de eerstvolgende geldige passage.",
+                "plugin_id": "weather",
+                "action": "start",
+                "execution_enabled": True,
+                "execution_mode": "delegated_mission_scheduler_autopilot",
+                "operation_authority": "existing_mission_scheduler_autopilot_path",
+                "behavior_changed": False,
+                "immediate_recording": False,
+                "selected_pass": next_pass,
+                "scheduler_before": scheduler_before,
+                "scheduler": scheduler_after,
+            })
+
+        if normalized_action == "stop":
+            mission_status = mission_engine_core.get_mission_status()
+            active_job = mission_status.get("active_job")
+            active_runtime = any((
+                autopilot_runtime.get("prepared"),
+                autopilot_runtime.get("locked"),
+                autopilot_runtime.get("record_started"),
+                autopilot_runtime.get("process") is not None,
+            ))
+            if active_job is not None or active_runtime:
+                result, status_code = _stop_active_mission()
+                result.update({
+                    "plugin_id": "weather",
+                    "execution_enabled": True,
+                    "execution_mode": "delegated_mission_scheduler_autopilot",
+                    "operation_authority": "existing_mission_scheduler_autopilot_path",
+                    "behavior_changed": False,
+                })
+                return jsonify(result), status_code
+
+            scheduler_before = mission_scheduler_core.get_scheduler_status()
+            scheduler_after = mission_scheduler_core.set_scheduler_mode("MANUAL")
+            return jsonify({
+                "ok": True,
+                "message": "Weather is uitgeschakeld; de Scheduler staat op MANUAL.",
+                "plugin_id": "weather",
+                "action": "stop",
+                "execution_enabled": True,
+                "execution_mode": "delegated_mission_scheduler_autopilot",
+                "operation_authority": "existing_mission_scheduler_autopilot_path",
+                "behavior_changed": False,
+                "active_mission_stopped": False,
+                "scheduler_before": scheduler_before,
+                "scheduler": scheduler_after,
+            })
+
+        return jsonify({
+            "ok": False,
+            "message": f"Niet-ondersteunde WEATHER-actie: {normalized_action!r}",
+            "plugin_id": "weather",
+            "supported_actions": ["start", "stop"],
+        }), 400
 
     service_actions = {
         "ais": {

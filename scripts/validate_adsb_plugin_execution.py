@@ -25,15 +25,14 @@ ais = plugins["ais"]
 adsb = plugins["adsb"]
 weather = plugins["weather"]
 
-check(snapshot["manager_version"] == "0.44.1", "Plugin Manager-versie is v0.44.1")
-check(snapshot["execution_enablement"]["enabled_plugins"] == ["ais", "adsb"], "AIS en ADS-B zijn execution-enabled")
+check(snapshot["manager_version"] == "0.45.0", "Plugin Manager-versie is v0.45.0")
+check(snapshot["execution_enablement"]["enabled_plugins"] == ["weather", "ais", "adsb"], "Weather, AIS en ADS-B zijn execution-enabled")
 check(ais["control"]["enabled"] is True, "AIS blijft ingeschakeld")
 check(adsb["control"]["enabled"] is True, "ADS-B-control is ingeschakeld")
 check(adsb["control"]["actions"] == ["start", "stop", "restart"], "ADS-B-acties zijn begrensd")
 check(adsb["control"]["endpoint"] == "/api/plugin-manager/adsb/action", "ADS-B endpoint is correct")
 check(adsb["execution"]["executable"] is True, "ADS-B execution is uitvoerbaar")
 check(adsb["execution"]["execution_mode"] == "delegated_service_control", "ADS-B gebruikt delegated service control")
-check(weather["control"]["enabled"] is False, "Weather blijft uitgeschakeld")
 check(snapshot["execution_enablement"]["new_service_controller"] is False, "geen nieuwe servicecontroller toegevoegd")
 
 calls: list[tuple[str, str]] = []
@@ -57,7 +56,7 @@ try:
     check(calls == [("restart", "readsb.service")], "ADS-B delegeert exact naar readsb.service")
 
     response = client.post('/api/plugin-manager/weather/action', json={'action': 'restart'})
-    check(response.status_code == 409, "Weather faalt gesloten")
+    check(response.status_code == 400, "niet-ondersteunde Weather-actie faalt gesloten")
 
     response = client.post('/api/plugin-manager/adsb/action', json={'action': 'delete'})
     check(response.status_code == 400, "onbekende ADS-B-actie faalt gesloten")
@@ -72,8 +71,8 @@ check('handle_service_action(' in route_block, "Plugin Manager-route hergebruikt
 
 print({
     "status": "ok",
-    "version": "0.44.1",
-    "enabled_plugins": ["ais", "adsb"],
+    "version": "0.45.0",
+    "enabled_plugins": ["weather", "ais", "adsb"],
     "authority": "existing_dashboard_systemctl_path",
     "delegated_service": "readsb.service",
 })
