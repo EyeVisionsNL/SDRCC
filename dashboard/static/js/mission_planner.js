@@ -22,17 +22,11 @@
         return `${date} ${time.slice(0, 5)}`.trim();
     }
 
-    function eligibility(item, minimumElevation) {
-        if (item.skipped) return {label: "SKIPPED", reason: "Manually skipped by the operator.", cls: "skipped"};
-        if ((item.conflict_with || []).length) return {label: "CONFLICT", reason: `Receiver conflict with ${(item.conflict_with || []).join(", ")}.`, cls: "conflict"};
-        const elevation = Number(item.max_elevation);
-        if (Number.isFinite(elevation) && elevation < minimumElevation) {
-            return {label: "BELOW LIMIT", reason: `Maximum elevation ${elevation.toFixed(1)}° is below the ${minimumElevation.toFixed(1)}° limit.`, cls: "blocked"};
-        }
-        const status = String(item.status || "QUEUED").toUpperCase();
-        if (["TARGET", "NEXT"].includes(status)) return {label: "TARGET", reason: "Selected as the next automated mission.", cls: "target"};
-        if (["ACTIVE", "IN PROGRESS", "RECORDING"].includes(status)) return {label: "ACTIVE", reason: "Mission is currently active.", cls: "active"};
-        return {label: "ELIGIBLE", reason: "Pass meets the current planning rules.", cls: "eligible"};
+    function eligibility(item) {
+        const label = String(item.decision || "ELIGIBLE").toUpperCase();
+        const reason = String(item.decision_reason || "Pass meets the current station planning policy.");
+        const cls = String(item.decision_class || "eligible").toLowerCase();
+        return {label, reason, cls};
     }
 
     function render(payload) {
@@ -52,7 +46,7 @@
         }
 
         body.innerHTML = queue.map((item) => {
-            const result = eligibility(item, minimumElevation);
+            const result = eligibility(item);
             const receiver = item.active_receiver || item.reserved_receiver || item.configured_receiver || item.receiver || "-";
             const elevation = Number(item.max_elevation);
             const frequency = Number(item.frequency_mhz);

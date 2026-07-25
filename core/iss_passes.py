@@ -95,13 +95,15 @@ def get_passes(hours_ahead: int = 48) -> list[dict[str, Any]]:
     station = _station_location()
     now = datetime.now(timezone.utc)
     future = now + timedelta(hours=max(1, min(int(hours_ahead), 168)))
-    minimum_elevation = float(config.get("minimum_elevation", 20.0))
+    # Detect complete above-horizon passes. Eligibility is decided centrally
+    # by core.mission_planner from the single station planning policy.
+    event_horizon_elevation = 0.0
 
     times, events = satellite.find_events(
         station,
         ts.from_datetime(now),
         ts.from_datetime(future),
-        altitude_degrees=minimum_elevation,
+        altitude_degrees=event_horizon_elevation,
     )
 
     candidates: list[dict[str, Any]] = []
@@ -124,7 +126,7 @@ def get_passes(hours_ahead: int = 48) -> list[dict[str, Any]]:
                 "pipeline": str(config.get("capture_strategy", "wideband_iq")),
                 "mode": str(config.get("modulation", "NFM")),
                 "decoder": "offline_fm",
-                "min_elevation": minimum_elevation,
+                "provider_event_horizon": event_horizon_elevation,
                 "norad_id": int(config.get("norad_id", 25544)),
             }
         )

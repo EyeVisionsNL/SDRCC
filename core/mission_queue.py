@@ -11,7 +11,7 @@ from threading import RLock
 from typing import Any
 import json
 
-from core import event_bus, mission_planner, receiver_manager, weather_planning
+from core import event_bus, mission_planner, receiver_manager
 from core.config import get_assignment, get_scheduler_config
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
@@ -186,6 +186,31 @@ def get_queue(
         else:
             item["status"] = "QUEUED"
         item.setdefault("live_mission_status", None)
+        if item["skipped"]:
+            item["decision"] = "SKIPPED"
+            item["decision_reason"] = "Manually skipped by the operator."
+            item["decision_class"] = "skipped"
+        elif item["conflict_with"]:
+            item["decision"] = "CONFLICT"
+            item["decision_reason"] = (
+                "Receiver conflict with " + ", ".join(item["conflict_with"]) + "."
+            )
+            item["decision_class"] = "conflict"
+        elif item["status"] in {"IN PROGRESS"}:
+            item["decision"] = "ACTIVE"
+            item["decision_reason"] = "Mission is currently active."
+            item["decision_class"] = "active"
+        elif item["status"] in {"TARGET", "NEXT"}:
+            item["decision"] = "TARGET"
+            item["decision_reason"] = "Selected as the next automated mission."
+            item["decision_class"] = "target"
+        else:
+            item["decision"] = str(item.get("planning_decision") or "ELIGIBLE")
+            item["decision_reason"] = str(
+                item.get("planning_reason")
+                or "Pass meets the current station planning policy."
+            )
+            item["decision_class"] = "eligible"
     # Remove stale operator overrides after passages disappear from planning horizon.
     with _LOCK:
         stale = [key for key in overrides if key not in live_keys]
@@ -216,14 +241,15 @@ def get_payload(
         "generated_at": generated_at.isoformat(timespec="seconds"),
         "generated_epoch": int(generated_at.timestamp()),
         "source": "multi-mission-planner",
-        "planner_version": "0.46.0f",
+        "planner_version": "0.47.0a",
         "planner_authority": "planning_only",
         "sources": mission_planner.get_sources(hours_ahead),
         "ok": True,
         "count": len(queue),
         "limit": limit,
         "hours_ahead": hours_ahead,
-        "minimum_elevation": weather_planning.get_config()["minimum_elevation"],
+        "minimum_elevation": mission_planner.get_policy()["minimum_elevation"],
+        "planning_policy": mission_planner.get_policy(),
         "conflicts": sum(1 for item in queue if item["status"] == "CONFLICT"),
         "skipped": sum(1 for item in queue if item["status"] == "SKIPPED"),
         "queue": queue,
