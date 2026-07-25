@@ -11,8 +11,8 @@ from threading import RLock
 from typing import Any
 import json
 
-from core import event_bus, passes, receiver_manager, weather_planning
-from core.config import get_assignment, get_enabled_satellites, get_scheduler_config
+from core import event_bus, mission_planner, receiver_manager, weather_planning
+from core.config import get_assignment, get_scheduler_config
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,7 +46,7 @@ def _key(item: dict[str, Any]) -> str:
         epoch = int(start.timestamp())
     else:
         epoch = int(item.get("start_epoch") or 0)
-    return f"{item.get('name', '-')}:" + str(epoch)
+    return f"{item.get('plugin_id', 'weather')}:{item.get('name', '-')}:" + str(epoch)
 
 
 def _quality(elevation: float, duration_seconds: int) -> dict[str, Any]:
@@ -84,6 +84,12 @@ def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: in
     lock_epoch = start_epoch - int(scheduler["lock_seconds"])
     return {
         "queue_key": _key(item),
+        "plugin_id": item.get("plugin_id", "weather"),
+        "mission_type": item.get("mission_type", item.get("plugin_id", "weather")),
+        "receiver_role": item.get("receiver_role", "weather"),
+        "planner_source": item.get("planner_source", "weather_passes"),
+        "automation_eligible": bool(item.get("automation_eligible", True)),
+        "execution_enabled": bool(item.get("execution_enabled", True)),
         "name": item.get("name"),
         "start": start.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
         "maximum": maximum.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
@@ -123,7 +129,9 @@ def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: in
 def _apply_conflicts(queue: list[dict[str, Any]]) -> None:
     for index, item in enumerate(queue):
         for other in queue[index + 1:]:
-            if item["start_epoch"] < other["end_epoch"] and other["start_epoch"] < item["end_epoch"]:
+            overlaps = item["start_epoch"] < other["end_epoch"] and other["start_epoch"] < item["end_epoch"]
+            same_receiver = bool(item.get("receiver")) and item.get("receiver") == other.get("receiver")
+            if overlaps and same_receiver:
                 item["conflict_with"].append(other["queue_key"])
                 other["conflict_with"].append(item["queue_key"])
 
@@ -137,34 +145,32 @@ def get_queue(
     controller_status: str | None = None,
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 50))
-    satellites = get_enabled_satellites()
-    receiver = str(get_assignment("weather") or "-").upper()
     receiver_status = receiver_manager.get_status()
-    receiver_id = str(get_assignment("weather") or "").lower()
-    reservation = receiver_status.get("reservations", {}).get(receiver_id) or {}
     with _LOCK:
         state = _load_state()
         overrides = state["overrides"]
-    planning = weather_planning.get_config()
-    minimum_elevation = float(planning["minimum_elevation"])
-    raw = passes.get_passes(hours_ahead)
+    raw = mission_planner.get_candidates(hours_ahead)
     queue = []
     live_keys = set()
     for item in raw[:safe_limit]:
         key = _key(item)
         live_keys.add(key)
-        sat_cfg = satellites.get(item.get("name"), {})
-        base_priority = int(sat_cfg.get("priority", 5))
-        queue.append(_serialize(item, overrides.get(key, {}), base_priority, receiver))
+        receiver_role = str(item.get("receiver_role") or item.get("plugin_id") or "weather")
+        receiver_id = str(get_assignment(receiver_role) or "").lower()
+        receiver = receiver_id.upper() if receiver_id else "-"
+        base_priority = int(item.get("priority", 5))
+        serialized = _serialize(item, overrides.get(key, {}), base_priority, receiver)
+        reservation = receiver_status.get("reservations", {}).get(receiver_id) or {}
+        reservation_matches = reservation.get("mission_key") == serialized["queue_key"]
+        serialized["configured_receiver"] = receiver
+        serialized["reserved_receiver"] = (reservation.get("receiver_id") or "").upper() if reservation_matches else None
+        serialized["active_receiver"] = serialized["reserved_receiver"] if reservation_matches and reservation.get("status") == "ACTIVE" else None
+        serialized["receiver_status"] = reservation.get("status") if reservation_matches else "CONFIGURED"
+        queue.append(serialized)
     _apply_conflicts(queue)
     eligible = [item for item in queue if not item["skipped"]]
     next_key = eligible[0]["queue_key"] if eligible else None
     for item in queue:
-        reservation_matches = reservation.get("mission_key") == item["queue_key"]
-        item["configured_receiver"] = receiver
-        item["reserved_receiver"] = (reservation.get("receiver_id") or "").upper() if reservation_matches else None
-        item["active_receiver"] = item["reserved_receiver"] if reservation_matches and reservation.get("status") == "ACTIVE" else None
-        item["receiver_status"] = reservation.get("status") if reservation_matches else "CONFIGURED"
         if item["queue_key"] == active_pass_key:
             item["status"] = "IN PROGRESS"
             item["live_mission_status"] = str(controller_status or "RECORDING").upper()
@@ -209,7 +215,10 @@ def get_payload(
     return {
         "generated_at": generated_at.isoformat(timespec="seconds"),
         "generated_epoch": int(generated_at.timestamp()),
-        "source": "live-pass-planning",
+        "source": "multi-mission-planner",
+        "planner_version": "0.46.0e",
+        "planner_authority": "planning_only",
+        "sources": mission_planner.get_sources(hours_ahead),
         "ok": True,
         "count": len(queue),
         "limit": limit,

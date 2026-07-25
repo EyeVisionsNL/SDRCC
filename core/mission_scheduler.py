@@ -8,7 +8,7 @@ import json
 
 from core import event_bus
 from core import mission_preflight
-from core import passes
+from core import mission_planner
 from core.config import get_scheduler_config
 
 
@@ -81,6 +81,11 @@ def _serialize_pass(pass_data):
     frequency = pass_data.get("frequency")
 
     return {
+        "plugin_id": pass_data.get("plugin_id", "weather"),
+        "mission_type": pass_data.get("mission_type", "weather"),
+        "receiver_role": pass_data.get("receiver_role", "weather"),
+        "planner_source": pass_data.get("planner_source", "weather_passes"),
+        "automation_eligible": bool(pass_data.get("automation_eligible", True)),
         "name": pass_data.get("name"),
         "start": _format_local(start),
         "maximum": _format_local(maximum),
@@ -244,7 +249,10 @@ class MissionScheduler:
         with self._lock:
             state = _load_state()
 
-        upcoming = passes.get_passes(hours_ahead)
+        upcoming = [
+            item for item in mission_planner.get_candidates(hours_ahead)
+            if item.get("automation_eligible", False)
+        ]
         queue = [
             _serialize_pass(item)
             for item in upcoming[:queue_limit]
