@@ -13,8 +13,12 @@ iss_voice:
   channel_bandwidth_hz: 25000
   audio_sample_rate_hz: 48000
   audio_channels: 1
+  iq_sample_format: cu8
+  iq_filename: recording.iq
+  metadata_filename: capture.json
   output_format: wav
   minimum_elevation: 20.0
+  execution_backend_enabled: true
   execution_enabled: false
   receiver_claim_enabled: false
   planner_enabled: false

@@ -9,3 +9,5 @@ __all__ = [
     "SatDumpAdapter",
     "ServiceAdapter",
 ]
+
+from core.execution_adapters.wideband_iq_adapter import WidebandIQAdapter

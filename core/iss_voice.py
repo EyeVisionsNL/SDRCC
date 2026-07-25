@@ -17,7 +17,8 @@ _REQUIRED = {
     "downlink_frequency_hz", "modulation", "doppler_tracking",
     "capture_strategy", "rf_sample_rate_hz", "doppler_guard_hz",
     "channel_bandwidth_hz", "audio_sample_rate_hz", "audio_channels",
-    "output_format", "minimum_elevation", "execution_enabled",
+    "iq_sample_format", "iq_filename", "metadata_filename",
+    "output_format", "minimum_elevation", "execution_backend_enabled", "execution_enabled",
     "receiver_claim_enabled", "planner_enabled",
 }
 
@@ -48,6 +49,8 @@ def validate_config() -> dict[str, Any]:
         errors.append("capture_strategy moet wideband_iq zijn")
     if not bool(config.get("doppler_tracking")):
         errors.append("doppler_tracking moet actief zijn")
+    if not bool(config.get("execution_backend_enabled")):
+        errors.append("execution_backend_enabled moet actief zijn")
     if bool(config.get("execution_enabled")):
         errors.append("execution_enabled moet in foundation false zijn")
     if bool(config.get("receiver_claim_enabled")):
@@ -66,8 +69,9 @@ def get_status() -> dict[str, Any]:
     validation = validate_config()
     return {
         "ok": validation["ok"],
-        "version": "0.46.0a",
-        "foundation_only": True,
+        "version": "0.46.0b",
+        "foundation_only": False,
+        "backend_only": True,
         "read_only": True,
         "planner_enabled": False,
         "execution_enabled": False,

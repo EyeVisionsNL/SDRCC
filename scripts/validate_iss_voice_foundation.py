@@ -27,20 +27,20 @@ def main() -> int:
 
     check(plugin.get("status") == "active", "ISS Voice plugin is active", errors)
     check(plugin.get("assignment_role") == "iss_voice", "assignment role is iss_voice", errors)
-    check(plugin.get("executor") is None, "executor remains fail-closed", errors)
+    check(plugin.get("executor") == "wideband_iq", "wideband IQ executor metadata enabled", errors)
     check(plugin.get("dashboard", {}).get("assignment") is True, "dashboard assignment metadata enabled", errors)
     check(station.get("assignments", {}).get("iss_voice") in {"sdr1", "sdr2"}, "ISS Voice assigned to SDR1 or SDR2", errors)
     check("iss_voice" in profiles.get("profiles", {}), "ISS Voice profile exists", errors)
     check(validation.get("ok") is True, "ISS Voice config validates", errors)
     check("ISS (ZARYA)" not in satellites.get("satellites", {}), "ISS not injected into Weather/SatDump satellite list", errors)
-    check(iss_voice.get_status().get("receiver_claim_enabled") is False, "no receiver claim in foundation", errors)
+    check(iss_voice.get_status().get("receiver_claim_enabled") is False, "automatic receiver claim remains disabled", errors)
     check(iss_voice.get_status().get("planner_enabled") is False, "no Mission Queue mutation in foundation", errors)
 
     print()
     if errors:
         print(f"ISS Voice foundation validation FAILED ({len(errors)} errors)")
         return 1
-    print("ISS Voice foundation validation PASS")
+    print("ISS Voice backend foundation validation PASS")
     return 0
 
 

@@ -9,15 +9,18 @@ from typing import Any, Type
 from core import plugin_registry
 from core import execution_journal
 from core.execution_adapter import ExecutionAdapter, ExecutionAdapterError
-from core.execution_adapters import NullAdapter, SatDumpAdapter, ServiceAdapter
+from core.execution_adapters import (
+    NullAdapter, SatDumpAdapter, ServiceAdapter, WidebandIQAdapter,
+)
 
 
-_FACTORY_VERSION = "0.43.0c2"
+_FACTORY_VERSION = "0.46.0b"
 
 _ADAPTERS: dict[str | None, Type[ExecutionAdapter]] = {
     None: NullAdapter,
     "service": ServiceAdapter,
     "satdump": SatDumpAdapter,
+    "wideband_iq": WidebandIQAdapter,
 }
 
 

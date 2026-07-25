@@ -86,11 +86,12 @@ _REGISTRY = {
         "category": "satellite",
         "status": "active",
         "receiver_type": "rtl_sdr",
-        "executor": None,
+        "executor": "wideband_iq",
         "services": [],
         "capabilities": [
             "mission_planning",
             "pass_planning",
+            "wideband_iq",
             "audio_receive",
             "recording",
             "live_rf",
