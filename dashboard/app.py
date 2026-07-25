@@ -17,6 +17,9 @@ from core import weather_planning as weather_planning_core
 from core import event_bus
 from core import live_rf
 from core import config as config_core
+from core import controlled_iq_capture
+from core import iss_voice
+from core import iss_voice_audio
 from core import passes
 from core import plugin_registry
 from core import plugin_runtime as plugin_runtime_core
@@ -2473,6 +2476,55 @@ def get_reconciled_receiver_manager_status():
         status = receiver_manager.get_status()
 
     return status
+
+
+@app.route("/api/iss-voice/controlled-capture", methods=["POST"])
+def api_iss_voice_controlled_capture():
+    """Run one explicit bounded IQ capture; never schedule automatically."""
+    payload = request.get_json(silent=True) or {}
+    try:
+        duration = int(payload.get("duration_seconds", 5))
+        result = controlled_iq_capture.execute_controlled_capture(
+            duration_seconds=duration,
+            mission_id=payload.get("mission_id"),
+            service_state=service_state,
+            service_action=run_systemctl,
+            wait_for_service=wait_for_service,
+        )
+        write_log(
+            "ISS CONTROLLED CAPTURE: "
+            f"{result['mission_id']} via {result['receiver']['number']} PASS"
+        )
+        return jsonify(result)
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    except Exception as error:
+        write_log(f"ISS CONTROLLED CAPTURE FAILED: {error}")
+        return jsonify({"ok": False, "error": str(error)}), 409
+
+
+@app.route("/api/iss-voice/demodulate", methods=["POST"])
+def api_iss_voice_demodulate():
+    """Demodulate one existing ISS Voice IQ capture without receiver access."""
+    payload = request.get_json(silent=True) or {}
+    try:
+        validation = iss_voice.validate_config()
+        if not validation["ok"]:
+            raise RuntimeError("ISS Voice-config ongeldig: " + "; ".join(validation["errors"]))
+        config = validation["config"]
+        if not bool(config.get("offline_demodulation_enabled")):
+            raise RuntimeError("Offline demodulatie is uitgeschakeld")
+        result = iss_voice_audio.demodulate_mission(payload.get("mission_id"), config)
+        write_log(
+            "ISS OFFLINE DEMODULATION: "
+            f"{payload.get('mission_id')} -> {result['wav_path']} PASS"
+        )
+        return jsonify(result)
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    except Exception as error:
+        write_log(f"ISS OFFLINE DEMODULATION FAILED: {error}")
+        return jsonify({"ok": False, "error": str(error)}), 409
 
 
 @app.route("/api/receiver-manager", methods=["GET"])

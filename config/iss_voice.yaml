@@ -22,3 +22,8 @@ iss_voice:
   execution_enabled: false
   receiver_claim_enabled: false
   planner_enabled: false
+  controlled_capture_enabled: true
+  controlled_capture_max_seconds: 30
+  offline_demodulation_enabled: true
+  audio_filename: audio.wav
+  audio_deemphasis_us: 75.0

@@ -93,7 +93,7 @@ def build_command(spec: CaptureSpec) -> list[str]:
 def describe_capture(spec: CaptureSpec) -> dict[str, Any]:
     expected_bytes = spec.sample_count * 2  # rtl_sdr CU8: unsigned I + Q bytes
     return {
-        "version": "0.46.0b",
+        "version": "0.46.0c",
         "mission_id": spec.mission_id,
         "receiver_serial": spec.receiver_serial,
         "center_frequency_hz": spec.frequency_hz,
@@ -109,6 +109,7 @@ def describe_capture(spec: CaptureSpec) -> dict[str, Any]:
         "metadata_path": str(spec.metadata_path),
         "command": build_command(spec),
         "mission_integration_enabled": False,
+        "controlled_capture_enabled": True,
         "doppler_processing_enabled": False,
         "audio_demodulation_enabled": False,
     }
@@ -118,11 +119,12 @@ def validate_runtime() -> dict[str, Any]:
     executable = shutil.which("rtl_sdr")
     return {
         "ok": executable is not None,
-        "version": "0.46.0b",
+        "version": "0.46.0c",
         "backend": "rtl_sdr",
         "executable": executable,
         "bounded": True,
         "mission_integration_enabled": False,
+        "controlled_capture_enabled": True,
     }
 
 
