@@ -47,3 +47,6 @@ backups/
 
 # Local SDRCC installation backups
 .install-backups/
+
+# Local installer rollback backups
+.rollback/
