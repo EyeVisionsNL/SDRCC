@@ -216,7 +216,7 @@ def get_payload(
         "generated_at": generated_at.isoformat(timespec="seconds"),
         "generated_epoch": int(generated_at.timestamp()),
         "source": "multi-mission-planner",
-        "planner_version": "0.46.0e",
+        "planner_version": "0.46.0f",
         "planner_authority": "planning_only",
         "sources": mission_planner.get_sources(hours_ahead),
         "ok": True,

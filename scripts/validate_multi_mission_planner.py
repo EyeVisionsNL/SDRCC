@@ -16,21 +16,26 @@ def check(condition, message):
     print(f"PASS: {message}")
 
 
-plan = mission_planner.get_plan(1)
-check(plan["version"] == "0.46.0e", "planner version")
+HOURS_AHEAD = 48
+QUEUE_LIMIT = 50
+
+plan = mission_planner.get_plan(HOURS_AHEAD)
+check(plan["version"] == "0.46.0f", "planner version")
 check(plan["authority"] == "planning_only", "planner remains planning-only")
 source_ids = {item["plugin_id"] for item in plan["sources"]}
 check({"weather", "iss_voice"}.issubset(source_ids), "Weather and ISS Voice sources registered")
 iss = next(item for item in plan["sources"] if item["plugin_id"] == "iss_voice")
-check(iss["state"] == "foundation_only", "ISS Voice provider remains foundation-only")
-check(iss["candidate_count"] == 0, "ISS Voice does not inject unvalidated passes")
-check(all(item.get("plugin_id") == "weather" for item in plan["candidates"]), "existing candidates retain Weather identity")
-check(all(item.get("automation_eligible") is True for item in plan["candidates"]), "Weather automation eligibility preserved")
-queue = mission_queue.get_payload(limit=5, hours_ahead=1)
+check(iss["state"] == "active", "ISS Voice pass provider active")
+check(iss["candidate_count"] > 0, "ISS Voice injects predicted planning-only passes")
+check(any(item.get("plugin_id") == "weather" for item in plan["candidates"]), "Weather candidates retain identity")
+check(any(item.get("plugin_id") == "iss_voice" for item in plan["candidates"]), "ISS Voice candidates enter planner")
+check(all(item.get("automation_eligible") is True for item in plan["candidates"] if item.get("plugin_id") == "weather"), "Weather automation eligibility preserved")
+check(all(item.get("automation_eligible") is False for item in plan["candidates"] if item.get("plugin_id") == "iss_voice"), "ISS Voice automation remains disabled")
+queue = mission_queue.get_payload(limit=QUEUE_LIMIT, hours_ahead=HOURS_AHEAD)
 check(queue["source"] == "multi-mission-planner", "Mission Queue uses generic planner")
 check(queue["planner_authority"] == "planning_only", "Mission Queue reports planner authority")
 check("sources" in queue, "Mission Queue exposes source status")
-status = mission_scheduler.get_scheduler_status(queue_limit=2, hours_ahead=1)
+status = mission_scheduler.get_scheduler_status(queue_limit=QUEUE_LIMIT, hours_ahead=HOURS_AHEAD)
 check(all(item.get("plugin_id") == "weather" for item in status["queue"]), "scheduler still selects only eligible Weather missions")
 planner_source = inspect.getsource(mission_planner)
 check("systemctl" not in planner_source, "planner contains no service-control authority")
