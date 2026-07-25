@@ -1,0 +1,20 @@
+iss_voice:
+  enabled: true
+  profile: iss_fm_repeater
+  mission_type: iss_voice
+  satellite_name: ISS (ZARYA)
+  norad_id: 25544
+  downlink_frequency_hz: 437800000
+  modulation: NFM
+  doppler_tracking: true
+  capture_strategy: wideband_iq
+  rf_sample_rate_hz: 240000
+  doppler_guard_hz: 15000
+  channel_bandwidth_hz: 25000
+  audio_sample_rate_hz: 48000
+  audio_channels: 1
+  output_format: wav
+  minimum_elevation: 20.0
+  execution_enabled: false
+  receiver_claim_enabled: false
+  planner_enabled: false

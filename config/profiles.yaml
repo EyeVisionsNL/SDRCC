@@ -45,3 +45,10 @@ profiles:
     start: []
     stop: []
     description: Handmatig gebruik van SDR2
+  iss_voice:
+    name: ISS Voice / FM Repeater
+    managed_by: sdrcc
+    service: null
+    start: []
+    stop: []
+    description: ISS FM voice foundation; execution remains disabled until the audio executor release
