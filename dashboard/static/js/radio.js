@@ -101,34 +101,6 @@
     }
 
 
-    function drawSpectrum(points) {
-        const canvas = document.getElementById("weather-spectrum-canvas");
-        if (!canvas || !points || points.length < 2) return;
-        const ctx = canvas.getContext("2d");
-        const width = canvas.width;
-        const height = canvas.height;
-        ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = "#020712";
-        ctx.fillRect(0, 0, width, height);
-        const values = points.map(p => Number(p.dbm));
-        const min = Math.min(...values) - 3;
-        const max = Math.max(...values) + 3;
-        ctx.strokeStyle = "#1e3652";
-        ctx.lineWidth = 1;
-        for (let i = 1; i < 5; i++) {
-            const y = (height * i) / 5;
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
-        }
-        ctx.strokeStyle = "#21d4ff";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        points.forEach((point, index) => {
-            const x = (index / (points.length - 1)) * width;
-            const y = height - ((Number(point.dbm) - min) / Math.max(1, max - min)) * height;
-            if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-    }
 
     function populateRf(settings) {
         if (!settings) return;
@@ -150,8 +122,15 @@
         }
         const dc = document.getElementById("weather-dc-block");
         const iq = document.getElementById("weather-iq-swap");
+        const lna = document.getElementById("weather-lna-agc");
+        const fill = document.getElementById("weather-fill-missing");
+        const rs = document.getElementById("weather-rs-usecheck");
         if (dc) dc.checked = Boolean(settings.dc_block);
         if (iq) iq.checked = Boolean(settings.iq_swap);
+        if (lna) lna.checked = Boolean(settings.lna_agc);
+        if (fill) fill.checked = Boolean(settings.fill_missing);
+        if (rs) rs.checked = Boolean(settings.rs_usecheck);
+        if (gain) gain.disabled = Boolean(settings.lna_agc) || (settings.gain_mode || "auto") !== "manual";
     }
 
     function receiverNumber(dev, index) {
@@ -167,6 +146,22 @@
         return "";
     }
 
+    function updateAssignmentReceiverOptions(devices) {
+        const byId = {};
+        for (const [index, dev] of (devices || []).entries()) {
+            const id = String(dev.id || `sdr${index + 1}`).toLowerCase();
+            const number = receiverNumber(dev, index);
+            byId[id] = `${number} · ${dev.name || "Receiver"}`;
+        }
+        for (const selectId of ["mission-assignment-weather", "mission-assignment-iss-voice"]) {
+            const select = document.getElementById(selectId);
+            if (!select) continue;
+            const selected = select.value;
+            for (const option of select.options) option.textContent = byId[option.value] || option.value.toUpperCase();
+            select.value = selected;
+        }
+    }
+
     function missionQueueTask(item) {
         if (!item) return "";
         const name = item.name || item.satellite || "Mission";
@@ -178,6 +173,7 @@
 
     function renderDevices(devices) {
         lastDevices = Array.isArray(devices) ? devices : [];
+        updateAssignmentReceiverOptions(lastDevices);
         const container = document.getElementById("radio-devices");
         if (!container) return;
         container.innerHTML = "";
@@ -342,7 +338,6 @@
                 populateRf(data.weather_rf || {});
             }
             const weatherDevice = (data.devices || []).find(item => item.weather_selected);
-            setText("spectrum-device", weatherDevice ? `${weatherDevice.number} · ${weatherDevice.serial}` : "-");
         } catch (error) {
             console.log("Radio update mislukt:", error.message);
         }
@@ -405,7 +400,14 @@
     if (gainMode) gainMode.addEventListener("change", () => {
         rfFormDirty = true;
         const gain = document.getElementById("weather-gain-db");
-        if (gain) gain.disabled = gainMode.value !== "manual";
+        if (gain) gain.disabled = document.getElementById("weather-lna-agc")?.checked || gainMode.value !== "manual";
+    });
+
+    const lnaAgc = document.getElementById("weather-lna-agc");
+    if (lnaAgc) lnaAgc.addEventListener("change", () => {
+        rfFormDirty = true;
+        const gain = document.getElementById("weather-gain-db");
+        if (gain) gain.disabled = lnaAgc.checked || document.getElementById("weather-gain-mode")?.value !== "manual";
     });
 
     const rfForm = document.getElementById("weather-rf-form");
@@ -426,6 +428,9 @@
                 gain_db: Number(document.getElementById("weather-gain-db").value),
                 dc_block: document.getElementById("weather-dc-block").checked,
                 iq_swap: document.getElementById("weather-iq-swap").checked,
+                lna_agc: document.getElementById("weather-lna-agc").checked,
+                fill_missing: document.getElementById("weather-fill-missing").checked,
+                rs_usecheck: document.getElementById("weather-rs-usecheck").checked,
             };
             rfFormSaving = true;
             if (submitButton) submitButton.disabled = true;
@@ -450,27 +455,6 @@
         });
     }
 
-    const scanButton = document.getElementById("start-spectrum-scan");
-    if (scanButton) scanButton.addEventListener("click", async () => {
-        const result = document.getElementById("spectrum-result");
-        scanButton.disabled = true;
-        if (result) result.textContent = "Spectrum scan in progress; the receiver service is temporarily paused...";
-        try {
-            const frequency = Number(document.getElementById("spectrum-frequency").value);
-            const response = await fetch("/api/weather-spectrum", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({frequency_hz:frequency})});
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || "Meting mislukt");
-            const spectrum = data.spectrum;
-            drawSpectrum(spectrum.points);
-            setText("spectrum-peak-frequency", `${(spectrum.peak.frequency_hz / 1e6).toFixed(4)} MHz`);
-            setText("spectrum-peak-db", `${spectrum.peak.dbm.toFixed(1)} dB`);
-            setText("spectrum-noise-db", `${spectrum.noise_floor_dbm.toFixed(1)} dB`);
-            setText("spectrum-snr-db", `${spectrum.signal_above_noise_db.toFixed(1)} dB`);
-            if (result) result.textContent = `Meting voltooid met ${spectrum.device.number}; service is hersteld.`;
-            await updateRadioPage();
-        } catch (error) { if (result) result.textContent = error.message; }
-        finally { scanButton.disabled = false; }
-    });
 
 
 

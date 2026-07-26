@@ -92,3 +92,6 @@
 .mission-assignment-card{grid-column:span 2}
 @media(max-width:1350px){.mission-assignment-card{grid-column:1/-1}}
 @media(max-width:900px){.mission-assignment-card{grid-column:auto}}
+
+/* v0.49.0a Receiver & Weather configuration */
+.runtime-diagnostics-card{padding-top:14px;padding-bottom:14px}.runtime-diagnostics-grid{gap:7px}.mission-assignment-card{grid-column:span 1}.mission-assignment-card .section-heading-row p{margin:3px 0 0}.assignment-policy-form{margin-top:8px}.assignment-policy-form fieldset{padding:9px;gap:8px}.assignment-policy-runtime{gap:6px;margin-top:8px}.assignment-policy-runtime div{padding:7px}.rf-settings-card{grid-column:span 1}.rf-settings-form{display:grid;grid-template-columns:1fr;gap:9px}.rf-settings-form fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0;padding:10px;border:1px solid #24364d;border-radius:10px;background:#07111f}.rf-settings-form legend{padding:0 7px;font-weight:700}.rf-settings-form .rf-settings-help{grid-column:1/-1;margin:2px 0 0;color:#8fa7c5;font-size:.78rem;line-height:1.4}.rf-settings-form>button{grid-column:auto}.spectrum-card{display:none!important}@media(max-width:1100px){.mission-assignment-card,.rf-settings-card{grid-column:1/-1}}@media(max-width:650px){.rf-settings-form fieldset{grid-template-columns:1fr}}

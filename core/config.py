@@ -233,8 +233,9 @@ def get_weather_rf_config():
         "gain_db": gain,
         "dc_block": bool(rf.get("dc_block", True)),
         "iq_swap": bool(rf.get("iq_swap", False)),
-        "spectrum_span_hz": int(rf.get("spectrum_span_hz", 1000000)),
-        "spectrum_bin_hz": int(rf.get("spectrum_bin_hz", 10000)),
+        "lna_agc": bool(rf.get("lna_agc", mode == "auto")),
+        "fill_missing": bool(rf.get("fill_missing", True)),
+        "rs_usecheck": bool(rf.get("rs_usecheck", True)),
         "valid_gains": valid_gains,
     }
 
@@ -257,8 +258,9 @@ def set_weather_rf_config(settings):
     rf["gain_db"] = gain
     rf["dc_block"] = bool(settings.get("dc_block", current["dc_block"]))
     rf["iq_swap"] = bool(settings.get("iq_swap", current["iq_swap"]))
-    rf.setdefault("spectrum_span_hz", current["spectrum_span_hz"])
-    rf.setdefault("spectrum_bin_hz", current["spectrum_bin_hz"])
+    rf["lna_agc"] = bool(settings.get("lna_agc", current["lna_agc"]))
+    rf["fill_missing"] = bool(settings.get("fill_missing", current["fill_missing"]))
+    rf["rs_usecheck"] = bool(settings.get("rs_usecheck", current["rs_usecheck"]))
     save_station(data)
     return get_weather_rf_config()
 

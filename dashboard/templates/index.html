@@ -314,14 +314,14 @@
                     <legend>Mission Assignments</legend>
                     <label>Weather / METEOR
                         <select id="mission-assignment-weather">
-                            <option value="sdr1">SDR1 · 05419737</option>
-                            <option value="sdr2">SDR2 · 24006572</option>
+                            <option value="sdr1">SDR1</option>
+                            <option value="sdr2">SDR2</option>
                         </select>
                     </label>
                     <label>ISS Voice
                         <select id="mission-assignment-iss-voice">
-                            <option value="sdr1">SDR1 · 05419737</option>
-                            <option value="sdr2">SDR2 · 24006572</option>
+                            <option value="sdr1">SDR1</option>
+                            <option value="sdr2">SDR2</option>
                         </select>
                     </label>
                     <button type="submit" class="control-button">Mission assignments bewaren</button>
@@ -353,23 +353,34 @@
 
 
         <section class="card radio-card rf-settings-card">
-            <h2>🎚 RF-instellingen</h2>
+            <div class="section-heading-row">
+                <div><h2>🎚 Weather / METEOR Settings</h2><p class="muted">RF- en SatDump-opties voor de volgende METEOR-missie.</p></div>
+            </div>
             <form id="weather-rf-form" class="rf-settings-form">
-                <label>Gain-modus
-                    <select id="weather-gain-mode">
-                        <option value="auto">Automatisch (tuner AGC)</option>
-                        <option value="manual">Handmatig</option>
-                    </select>
-                </label>
-                <label>Tuner gain
-                    <select id="weather-gain-db"></select>
-                </label>
-                <label class="rf-check"><input id="weather-dc-block" type="checkbox"> DC block</label>
-                <label class="rf-check"><input id="weather-iq-swap" type="checkbox"> IQ swap</label>
-                <button type="submit" class="control-button">RF-instellingen opslaan</button>
+                <fieldset>
+                    <legend>Receiver</legend>
+                    <label>Gain-modus
+                        <select id="weather-gain-mode">
+                            <option value="auto">Automatisch</option>
+                            <option value="manual">Handmatig</option>
+                        </select>
+                    </label>
+                    <label>Tuner gain
+                        <select id="weather-gain-db"></select>
+                    </label>
+                    <label class="rf-check"><input id="weather-lna-agc" type="checkbox"> LNA AGC</label>
+                    <label class="rf-check"><input id="weather-dc-block" type="checkbox"> DC block</label>
+                    <label class="rf-check"><input id="weather-iq-swap" type="checkbox"> IQ swap</label>
+                </fieldset>
+                <fieldset>
+                    <legend>METEOR decoder</legend>
+                    <label class="rf-check"><input id="weather-fill-missing" type="checkbox"> Fill missing data</label>
+                    <label class="rf-check"><input id="weather-rs-usecheck" type="checkbox"> Use RS check</label>
+                    <p class="rf-settings-help">Fill missing data herstelt zwarte lijnen bij korte signaaluitval. Use RS check verwerpt data die de Reed-Solomon-controle niet doorstaat.</p>
+                </fieldset>
+                <button type="submit" class="control-button">Weather / METEOR-instellingen opslaan</button>
             </form>
             <p id="weather-rf-result" class="muted">Instellingen worden bij de volgende Weather-opname gebruikt.</p>
-
         </section>
 
         <section class="card mission-monitor-card">
@@ -445,29 +456,7 @@
             </div>
         </section>
 
-        <section class="card radio-card spectrum-card">
-            <div class="section-heading-row">
-                <h2>🌊 Spectrum Scan</h2>
-                <span id="spectrum-device" class="muted">-</span>
-            </div>
-            <div class="spectrum-controls">
-                <label>Center frequency
-                    <select id="spectrum-frequency">
-                        <option value="137100000">137.100 MHz · METEOR-M2 3</option>
-                        <option value="137900000">137.900 MHz · METEOR-M2 4</option>
-                    </select>
-                </label>
-                <button id="start-spectrum-scan" type="button" class="control-button spectrum-action-button">Run Spectrum Scan</button>
-            </div>
-            <canvas id="weather-spectrum-canvas" width="1000" height="260"></canvas>
-            <div class="spectrum-metrics">
-                <span>Peak<strong id="spectrum-peak-frequency">-</strong></span>
-                <span>Peak level<strong id="spectrum-peak-db">-</strong></span>
-                <span>Noise floor<strong id="spectrum-noise-db">-</strong></span>
-                <span>Above noise<strong id="spectrum-snr-db">-</strong></span>
-            </div>
-            <p id="spectrum-result" class="muted">A scan temporarily pauses only the service using the selected weather receiver and restores it afterwards.</p>
-        </section>
+
 
         <div class="radio-legacy-state" hidden>
             <span id="radio-sdr2-status"></span><span id="radio-sdr2-locked"></span><span id="radio-sdr2-profile"></span><span id="radio-sdr2-process"></span><span id="radio-sdr2-updated"></span>

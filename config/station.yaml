@@ -23,8 +23,9 @@ weather_rf:
   gain_db: 40.2
   dc_block: true
   iq_swap: false
-  spectrum_span_hz: 1000000
-  spectrum_bin_hz: 10000
+  lna_agc: true
+  fill_missing: true
+  rs_usecheck: true
 weather_planning:
   minimum_elevation: 50.0
 mission_assignments:

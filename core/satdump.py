@@ -153,12 +153,18 @@ def build_record_command():
     ]
 
     rf = config_core.get_weather_rf_config()
-    if rf["gain_mode"] == "manual":
+    if rf["lna_agc"]:
+        command.extend(["--lna_agc", "true"])
+    elif rf["gain_mode"] == "manual":
         command.extend(["--gain", str(rf["gain_db"])])
     if rf["dc_block"]:
         command.append("--dc_block")
     if rf["iq_swap"]:
         command.append("--iq_swap")
+    if rf["fill_missing"]:
+        command.extend(["--fill_missing", "true"])
+    if rf["rs_usecheck"]:
+        command.extend(["--rs_usecheck", "true"])
 
     return {
         "allowed": True,

@@ -31,7 +31,6 @@ from core import plugin_manager as plugin_manager_core
 from core import plugin_capabilities as plugin_capabilities_core
 from core import execution_plan_consumer as execution_plan_consumer_core
 from core import execution_journal as execution_journal_core
-from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
 from core import receiver_contexts as receiver_contexts_core
@@ -3042,35 +3041,11 @@ def api_weather_rf():
         return jsonify({"ok": False, "message": "RF-instellingen zijn geblokkeerd tijdens een missie."}), 409
     try:
         settings = config_core.set_weather_rf_config(payload)
-        write_log(f"Weather RF-instellingen gewijzigd: mode={settings['gain_mode']} gain={settings['gain_db']} dB")
-        return jsonify({"ok": True, "settings": settings, "message": "RF-instellingen opgeslagen."})
+        write_log(f"Weather/METEOR-instellingen gewijzigd: mode={settings['gain_mode']} gain={settings['gain_db']} dB lna_agc={settings['lna_agc']} fill_missing={settings['fill_missing']} rs_usecheck={settings['rs_usecheck']}")
+        return jsonify({"ok": True, "settings": settings, "message": "Weather / METEOR-instellingen opgeslagen."})
     except ValueError as error:
         return jsonify({"ok": False, "message": str(error)}), 400
 
-
-@app.route("/api/weather-spectrum", methods=["POST"])
-def api_weather_spectrum():
-    payload = request.get_json(silent=True) or {}
-    try:
-        center_hz = int(payload.get("frequency_hz") or 137100000)
-    except (TypeError, ValueError):
-        return jsonify({"ok": False, "message": "Ongeldige frequentie."}), 400
-    if not 24000000 <= center_hz <= 1766000000:
-        return jsonify({"ok": False, "message": "Frequentie valt buiten het RTL-SDR-bereik."}), 400
-    mission = get_mission_data_for_status()
-    scheduler = mission_scheduler_core.get_scheduler_status()
-    mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
-    observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
-    busy = mission_phase not in {"", "READY", "WAIT FOR PASS"} or observer_phase in {
-        "PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"
-    }
-    try:
-        result = rf_diagnostics.scan_spectrum(center_hz, mission_busy=busy)
-        write_log(f"Spectrumscan uitgevoerd op {center_hz / 1e6:.3f} MHz met {result['device']['number']}")
-        return jsonify({"ok": True, "spectrum": result})
-    except RuntimeError as error:
-        write_log(f"Spectrumscan mislukt: {error}")
-        return jsonify({"ok": False, "message": str(error)}), 409
 
 @app.route("/api/capture-status")
 def api_capture_status():
