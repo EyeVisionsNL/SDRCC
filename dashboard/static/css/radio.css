@@ -83,3 +83,12 @@
 .error-text {
     color: #ff8c8c !important;
 }
+
+
+/* v0.47.1a Mission Assignment & Restore Policy Foundation */
+.assignment-policy-form{margin-top:12px}.assignment-policy-form fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0;padding:12px;border:1px solid #24364d;border-radius:10px;background:#07111f}.assignment-policy-form legend{padding:0 8px;font-weight:700}.assignment-policy-form label{display:flex;flex-direction:column;gap:6px}.assignment-policy-form select{width:100%;padding:9px;border:1px solid #2b405c;border-radius:7px;background:#0a1728;color:inherit}.assignment-policy-form button{grid-column:1/-1}.assignment-policy-runtime{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.assignment-policy-runtime div{display:flex;flex-direction:column;gap:4px;padding:9px;border:1px solid #24364d;border-radius:8px;background:#07111f}.assignment-policy-runtime span{color:#8fa7c5;font-size:.82rem}.assignment-policy-runtime strong{font-size:.9rem}@media(max-width:700px){.assignment-policy-form fieldset,.assignment-policy-runtime{grid-template-columns:1fr}}
+
+/* v0.47.1c Radio Control Cleanup */
+.mission-assignment-card{grid-column:span 2}
+@media(max-width:1350px){.mission-assignment-card{grid-column:1/-1}}
+@media(max-width:900px){.mission-assignment-card{grid-column:auto}}

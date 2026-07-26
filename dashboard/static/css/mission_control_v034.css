@@ -30,3 +30,48 @@
 .system-controls-v035{
     margin-top:10px;
 }
+
+/* v0.47.2c - Mission Operations cleanup */
+.control-mode-grid-v034 .control-button{
+    padding-left:5px;
+    padding-right:5px;
+    font-size:.68rem;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:clip;
+}
+.system-mission-tools-card{
+    min-width:0;
+}
+.system-mission-tools-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px;
+    margin-top:12px;
+}
+.system-mission-tools-grid .control-button{
+    width:100%;
+    min-width:0;
+    white-space:normal;
+}
+.system-mission-advanced{
+    margin-top:10px;
+}
+.system-mission-advanced p{
+    margin:8px 0 0;
+}
+@media(max-width:1250px){
+    .system-mission-tools-grid{grid-template-columns:1fr;}
+}
+
+/* v0.47.2c-r1 - Scheduler button fit correction */
+.control-mode-grid-v034{
+    grid-template-columns:minmax(0,.92fr) minmax(0,1.16fr) minmax(0,.92fr);
+    gap:4px;
+}
+.control-mode-grid-v034 .control-button{
+    padding-left:3px;
+    padding-right:3px;
+    font-size:.64rem;
+    letter-spacing:-.015em;
+}

@@ -12,10 +12,13 @@ import re
 import subprocess
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+
+from core import iss_voice_runtime
 
 
 READSB_AIRCRAFT_FILES = (
@@ -275,6 +278,10 @@ def get_snapshot(
     ais_metrics = get_ais_metrics(bool(ais_service.get("active")))
     adsb_metrics = get_adsb_metrics(bool(adsb_service.get("active")))
 
+    iss_runtime = iss_voice_runtime.get_status()
+    iss_active = bool(iss_runtime.get("active"))
+    iss_receiver_id = str(iss_runtime.get("receiver_id") or assignments.get("iss_voice") or "")
+
     active_job = mission.get("active_job") or {}
     weather_active = bool(active_job) or live_rf.get("active") is True
     weather_receiver_id = str(active_job.get("receiver_id") or assignments.get("weather") or "")
@@ -290,7 +297,35 @@ def get_snapshot(
         frequency_hz = None
         detail = "Receiver is vrij"
 
-        if weather_active and device_id == weather_receiver_id:
+        if iss_active and device_id == iss_receiver_id:
+            role = "ISS VOICE"
+            status = str(iss_runtime.get("phase") or "ACTIVE").upper()
+            frequency_hz = iss_runtime.get("frequency_hz")
+            detail = str(iss_runtime.get("detail") or "ISS Voice capture active")
+            iq_path = iss_runtime.get("iq_path")
+            iq_bytes = None
+            if iq_path:
+                try:
+                    iq_bytes = Path(str(iq_path)).stat().st_size
+                except OSError:
+                    iq_bytes = iss_runtime.get("iq_bytes")
+            started_at = iss_runtime.get("started_at")
+            elapsed_seconds = None
+            if started_at:
+                try:
+                    elapsed_seconds = max(0, int(time.time() - datetime.fromisoformat(str(started_at)).timestamp()))
+                except (TypeError, ValueError):
+                    elapsed_seconds = None
+            metrics = {
+                "satellite": iss_runtime.get("satellite"),
+                "sample_rate_hz": iss_runtime.get("sample_rate_hz"),
+                "mode": iss_runtime.get("mode"),
+                "elapsed_seconds": elapsed_seconds,
+                "duration_seconds": iss_runtime.get("duration_seconds"),
+                "iq_bytes": iq_bytes,
+                "recording": Path(str(iq_path)).name if iq_path else None,
+            }
+        elif weather_active and device_id == weather_receiver_id:
             role = "WEATHER"
             status = str(live_rf.get("state") or mission.get("state") or "ACTIVE").upper()
             frequency_hz = live_rf.get("frequency_hz") or active_job.get("frequency")
@@ -335,7 +370,17 @@ def get_snapshot(
                 "format": "frequency_hz",
             })
 
-        if role == "AIS":
+        if role == "ISS VOICE":
+            display_metrics.extend([
+                {"key": "satellite", "label": "Satellite", "value": metrics.get("satellite"), "format": "text"},
+                {"key": "mode", "label": "Mode", "value": metrics.get("mode"), "format": "text"},
+                {"key": "sample_rate_hz", "label": "Sample rate", "value": metrics.get("sample_rate_hz"), "format": "frequency_hz"},
+                {"key": "elapsed_seconds", "label": "Elapsed", "value": metrics.get("elapsed_seconds"), "format": "duration"},
+                {"key": "duration_seconds", "label": "Planned", "value": metrics.get("duration_seconds"), "format": "duration"},
+                {"key": "iq_bytes", "label": "IQ written", "value": metrics.get("iq_bytes"), "format": "bytes"},
+                {"key": "recording", "label": "Recording", "value": metrics.get("recording"), "format": "text"},
+            ])
+        elif role == "AIS":
             display_metrics.extend([
                 {"key": "targets", "label": "Schepen", "value": metrics.get("targets"), "format": "integer"},
                 {"key": "messages_per_second", "label": "Berichten/s", "value": metrics.get("messages_per_second"), "format": "decimal_1"},
@@ -387,5 +432,6 @@ def get_snapshot(
         "providers": {
             "ais": ais_metrics,
             "adsb": adsb_metrics,
+            "iss_voice": iss_runtime,
         },
     }

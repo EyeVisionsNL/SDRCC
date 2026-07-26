@@ -3,6 +3,7 @@ import {setText, formatCountdown} from "./utils.js";
 const RECEIVERS = ["SDR1", "SDR2"];
 const nextPassEpoch = {SDR1: null, SDR2: null};
 let serverOffsetSeconds = 0;
+let missionQueueAuthoritative = false;
 
 const ids = {
     SDR1: {
@@ -169,7 +170,36 @@ function renderNextPass(receiver, pass) {
     setText(target.nextPipeline, pass.pipeline || "-");
 }
 
+export function updateMissionQueueVisibility(payload) {
+    const queue = Array.isArray(payload?.queue) ? payload.queue : [];
+    const nextByReceiver = {};
+
+    for (const item of queue) {
+        if (!item || item.skipped) continue;
+        const receiver = passReceiver(item);
+        if (!receiver || nextByReceiver[receiver]) continue;
+        nextByReceiver[receiver] = item;
+    }
+
+    RECEIVERS.forEach(receiver => {
+        const pass = nextByReceiver[receiver];
+        if (pass) renderNextPass(receiver, pass);
+        else clearNextPass(receiver);
+    });
+
+    missionQueueAuthoritative = true;
+    updateCountdown();
+}
+
 export function updateNextPass(data) {
+    // Once Mission Queue has loaded, it is the authoritative source for
+    // per-receiver mission visibility. Keep this compatibility path only
+    // for the initial dashboard render before the queue response arrives.
+    if (missionQueueAuthoritative) {
+        updateCountdown();
+        return;
+    }
+
     RECEIVERS.forEach(clearNextPass);
     const pass = data?.next_pass;
     if (pass) {

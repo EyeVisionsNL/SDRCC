@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from core import live_rf
+from core import iss_voice_runtime
 from core import mission_engine
 from core import mission_result
 from core import mission_scheduler
@@ -133,13 +134,43 @@ def get_snapshot() -> dict[str, Any]:
     rf = live_rf.get_status()
     receiver = receiver_manager.get_status()
     scheduler = mission_scheduler.get_scheduler_status()
+    iss = iss_voice_runtime.get_status()
+    summary = _mission_summary(mission, rf, receiver)
+    if bool(iss.get("active")):
+        summary = {
+            "mission_id": iss.get("mission_id"),
+            "active": True,
+            "mission_type": "iss_voice",
+            "plugin_id": "iss_voice",
+            "satellite": iss.get("satellite") or "ISS (ZARYA)",
+            "receiver": str(iss.get("receiver_id") or "").upper() or None,
+            "receiver_id": iss.get("receiver_id"),
+            "receiver_serial": iss.get("receiver_serial"),
+            "frequency": iss.get("frequency_hz"),
+            "frequency_mhz": round(float(iss.get("frequency_hz") or 0) / 1_000_000, 6),
+            "sample_rate": iss.get("sample_rate_hz"),
+            "mode": iss.get("mode"),
+            "pipeline": "wideband_iq_offline_fm",
+            "status": iss.get("phase"),
+            "result": None,
+            "success": None,
+            "detail": iss.get("detail"),
+            "error": iss.get("error"),
+            "started_at": iss.get("started_at"),
+            "ended_at": None,
+            "duration_seconds": iss.get("elapsed_seconds"),
+            "remaining_seconds": None,
+            "output_path": iss.get("output_directory"),
+            "receiver_status": "ACTIVE",
+        }
 
     return {
         "ok": True,
         "generated_at": _now_text(),
         "mission": mission,
         "live_rf": rf,
+        "iss_voice": iss,
         "receiver_manager": receiver,
         "scheduler": scheduler,
-        "summary": _mission_summary(mission, rf, receiver),
+        "summary": summary,
     }

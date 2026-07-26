@@ -14,16 +14,24 @@ sdr2:
   name: Dynamic Receiver
   locked: false
 assignments:
-  weather: sdr1
+  weather: sdr2
   ais: sdr1
   adsb: sdr2
-  iss_voice: sdr2
+  iss_voice: sdr1
 weather_rf:
-  gain_mode: auto
+  gain_mode: manual
   gain_db: 40.2
-  dc_block: false
+  dc_block: true
   iq_swap: false
   spectrum_span_hz: 1000000
   spectrum_bin_hz: 10000
 weather_planning:
   minimum_elevation: 50.0
+mission_assignments:
+  weather: sdr2
+  iss_voice: sdr1
+receiver_defaults:
+  sdr1:
+  - ais
+  sdr2:
+  - adsb

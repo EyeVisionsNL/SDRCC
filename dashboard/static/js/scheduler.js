@@ -1,4 +1,5 @@
 import {setText} from "./utils.js";
+import {updateMissionQueueVisibility} from "./mission.js";
 
 let startEpoch = null;
 let serverOffsetSeconds = 0;
@@ -106,9 +107,15 @@ async function refreshMissionQueue() {
 }
 
 function renderMissionQueue(payload) {
+    const queue = Array.isArray(payload.queue) ? payload.queue : [];
+
+    // Mission Queue is the single source of truth for all per-receiver
+    // next-mission views on Mission Control and Radio Control.
+    updateMissionQueueVisibility(payload);
+    window.dispatchEvent(new CustomEvent("sdrcc:mission-queue-updated", {detail: payload}));
+
     const list = document.getElementById("mission-queue-list");
     if (!list) return;
-    const queue = Array.isArray(payload.queue) ? payload.queue : [];
     setText("mission-queue-summary", `${queue.length} PASSAGES`);
     if (!queue.length) {
         list.innerHTML = '<div class="mission-queue-empty">No eligible passes scheduled.</div>';

@@ -20,6 +20,9 @@ from core import config as config_core
 from core import controlled_iq_capture
 from core import iss_voice
 from core import iss_voice_audio
+from core import iss_voice_executor
+from core import iss_voice_runtime
+from core import mission_recordings as mission_recordings_core
 from core import passes
 from core import plugin_registry
 from core import plugin_runtime as plugin_runtime_core
@@ -31,6 +34,7 @@ from core import execution_journal as execution_journal_core
 from core import rf_diagnostics
 from core import receiver_manager
 from core import receiver_runtime as receiver_runtime_core
+from core import receiver_contexts as receiver_contexts_core
 from core import receiver_monitor
 from core import state
 from core import tle
@@ -615,6 +619,9 @@ def get_dashboard_data():
         "FINAL APPROACH",
         "PASS ACTIVE",
     }
+    iss_runtime = iss_voice_runtime.get_status()
+    iss_active = bool(iss_runtime.get("active"))
+    iss_receiver_id = str(iss_runtime.get("receiver_id") or "")
 
     for device in devices:
         device_id = device.get("id")
@@ -630,7 +637,11 @@ def get_dashboard_data():
         active_detail = "Geen actieve service"
         status_label = "AVAILABLE"
 
-        if weather_active and assignments.get("weather") == device_id:
+        if iss_active and device_id == iss_receiver_id:
+            current_task = "ISS Voice"
+            active_detail = str(iss_runtime.get("phase") or "Actieve ISS-missie")
+            status_label = "LOCKED"
+        elif weather_active and assignments.get("weather") == device_id:
             current_task = "Weather / METEOR"
             active_detail = "Actieve satellietmissie"
             status_label = "LOCKED"
@@ -644,8 +655,8 @@ def get_dashboard_data():
             status_label = "IN USE"
 
         next_task = (
-            "Weather / METEOR"
-            if assignments.get("weather") == device_id and not weather_active
+            "ISS Voice" if assignments.get("iss_voice") == device_id and not iss_active
+            else "Weather / METEOR" if assignments.get("weather") == device_id and not weather_active
             else "-"
         )
 
@@ -934,6 +945,8 @@ autopilot_runtime = {
     "restore_service_was_active": False,
     "process": None,
     "stop_requested": False,
+    "iss_execution_active": False,
+    "iss_execution_result": None,
 }
 
 
@@ -955,6 +968,8 @@ def reset_autopilot_runtime(target_pass=None):
         "restore_service_was_active": False,
             "process": None,
         "stop_requested": False,
+        "iss_execution_active": False,
+        "iss_execution_result": None,
     })
 
 
@@ -1385,6 +1400,144 @@ def autopilot_start_recording():
     )
 
 
+def run_iss_voice_preflight(target):
+    """Run mission-generic checks for an ISS Voice queue target."""
+    checks = []
+
+    mission_status = mission_engine_core.get_mission_status()
+    mission_ready = (
+        mission_status.get("active_job") is None
+        and str(mission_status.get("phase") or "").upper() == "READY"
+    )
+    checks.append({
+        "name": "Mission Engine",
+        "ok": mission_ready,
+        "detail": "READY en geen actieve Mission Job" if mission_ready else (
+            f"Phase={mission_status.get('phase')}, "
+            f"active_job={mission_status.get('active_job') is not None}"
+        ),
+    })
+
+    validation = iss_voice.validate_config()
+    checks.append({
+        "name": "ISS Voice configuration",
+        "ok": bool(validation.get("ok")),
+        "detail": "Configuration valid" if validation.get("ok") else "; ".join(validation.get("errors") or []),
+    })
+
+    device = device_manager.get_assigned_device("iss_voice")
+    device_ok = bool(device and device.get("serial"))
+    checks.append({
+        "name": "Assigned receiver",
+        "ok": device_ok,
+        "detail": (
+            f"{device.get('number')} / {device.get('serial')}"
+            if device_ok else "No receiver assigned to ISS Voice"
+        ),
+    })
+
+    receiver_available = bool(
+        device and receiver_manager.is_available(
+            device["id"], mission_key=autopilot_runtime.get("pass_key")
+        )
+    )
+    checks.append({
+        "name": "Receiver availability",
+        "ok": receiver_available,
+        "detail": (
+            f"{device.get('number')} is available"
+            if receiver_available and device else "Assigned receiver is reserved by another mission"
+        ),
+    })
+
+    passed = all(item["ok"] for item in checks)
+    failed = [item["name"] for item in checks if not item["ok"]]
+    result = {
+        "passed": passed,
+        "status": "OK" if passed else "FAILED",
+        "detail": "All ISS Voice preflight checks passed" if passed else "Failed: " + ", ".join(failed),
+        "checks": checks,
+    }
+    event_bus.publish_preflight(
+        "SUCCESS" if passed else "WARNING",
+        "ISS Voice preflight passed" if passed else "ISS Voice preflight failed",
+        result["detail"],
+        data={"passed": passed, "failed_checks": failed, "checks": checks, "pass": target},
+    )
+    return result
+
+
+def prepare_iss_voice_receiver(target):
+    """Validate the configured receiver before the reservation boundary."""
+    device = device_manager.get_assigned_device("iss_voice")
+    if device is None:
+        raise RuntimeError("No receiver assigned to ISS Voice")
+    if not receiver_manager.is_available(
+        device["id"], mission_key=autopilot_runtime.get("pass_key")
+    ):
+        raise RuntimeError(f"{device['number']} is reserved by another mission")
+    write_log(
+        f"AUTO: ISS Voice receiver prepared: {device['number']} ({device['serial']})"
+    )
+    event_bus.publish_receiver(
+        "INFO",
+        "ISS Voice receiver prepared",
+        f"{device['number']} ({device['serial']}) passed preparation checks",
+        data={
+            "device_id": device["id"],
+            "serial": device["serial"],
+            "mission_type": "iss_voice",
+            "pass": target,
+        },
+    )
+
+
+def lock_iss_voice_receiver(target):
+    """Reserve the configured receiver at the normal mission lock boundary."""
+    device = device_manager.get_assigned_device("iss_voice")
+    if device is None:
+        raise RuntimeError("No receiver assigned to ISS Voice")
+    receiver_manager.reserve(
+        device["id"],
+        mission_key=autopilot_runtime["pass_key"],
+        reason="AUTO ISS Voice mission",
+    )
+    write_log(
+        f"AUTO: ISS Voice receiver locked: {device['number']} ({device['serial']})"
+    )
+    event_bus.publish_mission(
+        "INFO",
+        "ISS Voice mission locked",
+        f"{device['number']} reserved for {target.get('name', 'ISS')}",
+        data={
+            "device_id": device["id"],
+            "serial": device["serial"],
+            "mission_type": "iss_voice",
+            "pass": target,
+        },
+    )
+
+
+def run_iss_voice_autopilot(target):
+    """Execute one queue-selected ISS mission through the flexible receiver lifecycle."""
+    autopilot_runtime["iss_execution_active"] = True
+    try:
+        write_log(f"AUTO: ISS Voice execution gestart voor {target.get('name', 'ISS')}")
+        result = iss_voice_executor.execute_pass(
+            target=target, service_state=service_state, service_action=run_systemctl,
+            wait_for_service=wait_for_service,
+            mission_key=autopilot_runtime.get("pass_key"),
+        )
+        autopilot_runtime["iss_execution_result"] = result
+        write_log(f"AUTO: ISS Voice execution PASS: {result['mission']['mission_id']}")
+    except Exception as error:
+        autopilot_runtime["iss_execution_result"] = {"ok": False, "error": str(error)}
+        write_log(f"AUTO: ISS Voice execution FAILED: {error}")
+        event_bus.publish_mission("ERROR", "ISS Voice mission failed", str(error), data={"pass": target})
+    finally:
+        autopilot_runtime["iss_execution_active"] = False
+
+
 def mission_autopilot_worker():
     write_log("Mission autopilot gestart")
 
@@ -1435,10 +1588,74 @@ def mission_autopilot_worker():
             end_epoch = int(target["end_epoch"])
             seconds_until_start = start_epoch - now_epoch
 
+            mission_type = str(target.get("mission_type") or "weather")
             config = scheduler["observer"]["config"]
             preflight_seconds = int(config["preflight_seconds"])
             prepare_seconds = int(config["prepare_seconds"])
             lock_seconds = int(config["lock_seconds"])
+
+            if mission_type == "iss_voice":
+                if (
+                    0 < seconds_until_start <= preflight_seconds
+                    and not autopilot_runtime["preflight_ok"]
+                    and time.monotonic() - autopilot_runtime["last_preflight_attempt"] >= 10
+                ):
+                    autopilot_runtime["last_preflight_attempt"] = time.monotonic()
+                    result = run_iss_voice_preflight(target)
+                    if result["passed"]:
+                        autopilot_runtime["preflight_ok"] = True
+                        write_log(f"AUTO: ISS Voice preflight OK for {target['name']}")
+                    else:
+                        write_log(f"AUTO: ISS Voice preflight FAILED: {result['detail']}")
+
+                if (
+                    0 < seconds_until_start <= prepare_seconds
+                    and autopilot_runtime["preflight_ok"]
+                    and not autopilot_runtime["prepared"]
+                ):
+                    prepare_iss_voice_receiver(target)
+                    autopilot_runtime["prepared"] = True
+
+                if (
+                    0 < seconds_until_start <= lock_seconds
+                    and autopilot_runtime["prepared"]
+                    and not autopilot_runtime["locked"]
+                ):
+                    lock_iss_voice_receiver(target)
+                    autopilot_runtime["locked"] = True
+
+                if (
+                    -2 <= seconds_until_start <= 1
+                    and autopilot_runtime["locked"]
+                    and not autopilot_runtime["record_started"]
+                ):
+                    autopilot_runtime["record_started"] = True
+                    threading.Thread(
+                        target=run_iss_voice_autopilot, args=(dict(target),), daemon=True,
+                        name="sdrcc-iss-voice-executor",
+                    ).start()
+
+                if now_epoch > end_epoch and not autopilot_runtime["record_started"]:
+                    device = device_manager.get_assigned_device("iss_voice")
+                    if device and not receiver_manager.is_available(device["id"]):
+                        try:
+                            receiver_manager.release(
+                                mission_key=autopilot_runtime["pass_key"],
+                                detail="ISS Voice pass missed before execution",
+                            )
+                        except Exception as release_error:
+                            write_log(f"AUTO: ISS Voice reservation release failed: {release_error}")
+                    write_log("AUTO: ISS Voice pass missed without recording")
+                    reset_autopilot_runtime()
+
+                if (
+                    autopilot_runtime["record_started"]
+                    and not autopilot_runtime.get("iss_execution_active")
+                    and autopilot_runtime.get("iss_execution_result") is not None
+                ):
+                    reset_autopilot_runtime()
+                time.sleep(AUTOPILOT_POLL_SECONDS)
+                continue
 
             if (
                 0 < seconds_until_start <= preflight_seconds
@@ -1827,6 +2044,58 @@ def api_plugin_capabilities():
             "plugins": {},
             "capabilities": {},
         }), 500
+
+
+@app.route("/api/receiver-contexts", methods=["GET"])
+def api_receiver_contexts():
+    """Expose the read-only assignment/default/restore foundation."""
+    try:
+        return jsonify(receiver_contexts_core.get_snapshot())
+    except Exception as error:
+        return jsonify({"ok": False, "read_only": True, "error": str(error)}), 500
+
+
+@app.route("/api/mission-assignments", methods=["POST"])
+def api_mission_assignments():
+    payload = request.get_json(silent=True) or {}
+    mission = mission_engine_core.get_mission_status()
+    receiver_status = get_reconciled_receiver_manager_status()
+    if (
+        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
+        or autopilot_runtime.get("prepared")
+        or autopilot_runtime.get("locked")
+        or autopilot_runtime.get("record_started")
+        or any(value is not None for value in receiver_status.get("reservations", {}).values())
+    ):
+        return jsonify({"ok": False, "message": "Mission assignments kunnen niet tijdens een actieve missie worden gewijzigd."}), 409
+    try:
+        changes = {role: payload.get(role) for role in config_core.get_mission_assignment_roles() if role in payload}
+        assignments = config_core.set_mission_assignments(changes)
+        write_log("Mission assignments opgeslagen: " + ", ".join(f"{k}={v}" for k, v in assignments.items()))
+        return jsonify({"ok": True, "message": "Mission assignments opgeslagen. Runtime-uitvoering is niet gewijzigd.", "mission_assignments": assignments})
+    except Exception as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+
+
+@app.route("/api/receiver-defaults", methods=["POST"])
+def api_receiver_defaults():
+    payload = request.get_json(silent=True) or {}
+    mission = mission_engine_core.get_mission_status()
+    receiver_status = get_reconciled_receiver_manager_status()
+    if (
+        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
+        or autopilot_runtime.get("prepared")
+        or autopilot_runtime.get("locked")
+        or autopilot_runtime.get("record_started")
+        or any(value is not None for value in receiver_status.get("reservations", {}).values())
+    ):
+        return jsonify({"ok": False, "message": "Receiver defaults kunnen niet tijdens een actieve missie worden gewijzigd."}), 409
+    try:
+        defaults = config_core.set_receiver_defaults(payload.get("receiver_defaults", payload))
+        write_log("Receiver default contexts opgeslagen: " + str(defaults))
+        return jsonify({"ok": True, "message": "Receiver defaults opgeslagen. Services zijn niet gestart of gestopt.", "receiver_defaults": defaults})
+    except Exception as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
 
 
 @app.route("/api/receiver-runtime", methods=["GET"])
@@ -2524,6 +2793,38 @@ def api_iss_voice_demodulate():
         return jsonify({"ok": False, "error": str(error)}), 400
     except Exception as error:
         write_log(f"ISS OFFLINE DEMODULATION FAILED: {error}")
+        return jsonify({"ok": False, "error": str(error)}), 409
+
+
+@app.route("/api/mission-recordings", methods=["GET"])
+def api_mission_recordings():
+    try:
+        return jsonify(mission_recordings_core.inventory(limit=request.args.get("limit", 100)))
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 500
+
+
+@app.route("/api/mission-recordings/file/<path:relative_path>", methods=["GET"])
+def api_mission_recording_file(relative_path):
+    try:
+        path = mission_recordings_core.safe_path(str(mission_recordings_core.ROOT / relative_path))
+        return send_file(path, conditional=True)
+    except (ValueError, FileNotFoundError):
+        abort(404)
+
+
+@app.route("/api/iss-voice/execute", methods=["POST"])
+def api_iss_voice_execute():
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = iss_voice_executor.execute_pass(
+            target=payload, service_state=service_state, service_action=run_systemctl,
+            wait_for_service=wait_for_service,
+        )
+        return jsonify(result)
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    except Exception as error:
         return jsonify({"ok": False, "error": str(error)}), 409
 
 

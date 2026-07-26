@@ -7,7 +7,6 @@ from zoneinfo import ZoneInfo
 import json
 
 from core import event_bus
-from core import mission_preflight
 from core import mission_planner
 from core.config import get_scheduler_config
 
@@ -86,6 +85,8 @@ def _serialize_pass(pass_data):
         "receiver_role": pass_data.get("receiver_role", "weather"),
         "planner_source": pass_data.get("planner_source", "weather_passes"),
         "automation_eligible": bool(pass_data.get("automation_eligible", True)),
+        "execution_enabled": bool(pass_data.get("execution_enabled", True)),
+        "priority": pass_data.get("priority"),
         "name": pass_data.get("name"),
         "start": _format_local(start),
         "maximum": _format_local(maximum),
@@ -173,7 +174,12 @@ def _build_observer(next_pass):
 
     elif now_epoch >= prepare_at_epoch:
         phase = "PREPARE RECEIVER"
-        detail = "Weather-profiel activeren en ontvangers vrijgeven"
+        mission_type = str(next_pass.get("mission_type") or "weather")
+        detail = (
+            "ISS Voice-profiel activeren en toegewezen receiver vrijgeven"
+            if mission_type == "iss_voice"
+            else "Weather-profiel activeren en ontvangers vrijgeven"
+        )
         pass_active = False
 
     elif now_epoch >= preflight_at_epoch:
@@ -183,7 +189,12 @@ def _build_observer(next_pass):
 
     else:
         phase = "WAIT FOR PASS"
-        detail = "Wachten op volgende METEOR-passage"
+        mission_type = str(next_pass.get("mission_type") or "weather")
+        detail = (
+            "Wachten op volgende ISS Voice-passage"
+            if mission_type == "iss_voice"
+            else "Wachten op volgende METEOR-passage"
+        )
         pass_active = False
 
     def format_epoch(epoch):
@@ -249,10 +260,9 @@ class MissionScheduler:
         with self._lock:
             state = _load_state()
 
-        upcoming = [
-            item for item in mission_planner.get_candidates(hours_ahead)
-            if item.get("automation_eligible", False)
-        ]
+        # Mission Planner is the sole provider of the unified executable queue.
+        # The scheduler selects and observes; it does not apply plugin policy.
+        upcoming = mission_planner.get_executable_candidates(hours_ahead)
         queue = [
             _serialize_pass(item)
             for item in upcoming[:queue_limit]
@@ -261,39 +271,15 @@ class MissionScheduler:
         next_pass = queue[0] if queue else None
         observer = _build_observer(next_pass)
 
+        # Preflight execution belongs to mission_autopilot_worker. Keeping this
+        # object preserves the API contract while preventing duplicate authority.
         preflight = {
             "executed": False,
             "passed": None,
-            "status": "PENDING",
-            "detail": "Preflight start op T-5:00",
+            "status": "AUTOPILOT_OWNED",
+            "detail": "Preflight wordt uitgevoerd door de mission autopilot",
             "checks": [],
         }
-
-        countdown_seconds = observer.get("countdown_seconds")
-        preflight_seconds = observer.get(
-            "config",
-            {},
-        ).get("preflight_seconds", 300)
-
-        if (
-            state["mode"] == "AUTO"
-            and countdown_seconds is not None
-            and countdown_seconds <= preflight_seconds
-            and countdown_seconds > 0
-        ):
-            result = mission_preflight.run_preflight()
-            preflight = {
-                "executed": True,
-                **result,
-            }
-
-            observer["detail"] = (
-                "Preflight OK"
-                if result["passed"]
-                else result["detail"]
-            )
-        elif state["mode"] != "AUTO":
-            preflight["detail"] = "Preflight wacht op AUTO-modus"
 
         if state["mode"] == "PAUSED":
             next_action = "Scheduler gepauzeerd"
@@ -302,9 +288,12 @@ class MissionScheduler:
             next_action = "Geen passage gepland"
 
         elif state["mode"] == "AUTO":
-            next_action = (
-                "Observer: profiel Weather voorbereiden"
+            mission_label = (
+                "ISS Voice"
+                if str(next_pass.get("mission_type") or "weather") == "iss_voice"
+                else "Weather"
             )
+            next_action = f"Observer: profiel {mission_label} voorbereiden"
 
         else:
             next_action = (

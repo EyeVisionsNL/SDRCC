@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/static/css/timeline.css">
     <link rel="stylesheet" href="/static/css/mission.css">
     <link rel="stylesheet" href="/static/css/theme.css">
-    <link rel="stylesheet" href="/static/css/radio.css?v=0.24.1">
+    <link rel="stylesheet" href="/static/css/radio.css?v=0.47.1a">
     <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.35.4">
     <link rel="stylesheet" href="/static/css/mission_monitor.css?v=0.24.1">
     <link rel="stylesheet" href="/static/css/history.css">
@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.25.2">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.43.0c4">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
+    <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.48.0a">
 </head>
 <body>
 <header class="topbar">
@@ -55,7 +56,7 @@
     <button class="tab-button" data-tab="mission-planner">🗓 Mission Planner</button>
     <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>
     <button class="tab-button" data-tab="history">🗂 Mission History</button>
-    <button class="tab-button" data-tab="images">📸 Images</button>
+    <button class="tab-button" data-tab="images">🎙️ Mission Recordings</button>
     <button class="tab-button" data-tab="logs">📜 Logs</button>
 </nav>
 
@@ -76,7 +77,7 @@
                 </div>
             </section>
 
-            <section class="card controls-panel controls-panel-v034">
+            <section class="card controls-panel controls-panel-v034" data-control-scope="mission">
                 <h2>🎛 Mission Operations</h2>
 
                 <div class="control-section-v035">
@@ -102,20 +103,6 @@
                     </div>
                 </div>
 
-                <details class="advanced-controls system-controls-v035">
-                    <summary>🖥 System</summary>
-                    <div class="control-action-grid-v034">
-                        <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
-                    </div>
-                </details>
-
-                <details class="advanced-controls">
-                    <summary>⚙ Advanced</summary>
-                    <div class="control-action-grid-v034">
-                        <button class="control-button" data-action="simulate_record">🛰 Simulate Recording</button>
-                        <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Reset Mission</button>
-                    </div>
-                </details>
                 <p class="control-result" id="control-result">No action started.</p>
             </section>
         </aside>
@@ -226,6 +213,50 @@
             <div class="system-meter"><div class="system-meter-top"><span>Disk</span><strong id="system-disk">-</strong></div><div class="bar"><div id="system-disk-bar"></div></div></div>
             <p class="uptime">⏱ Uptime: <strong id="system-uptime">-</strong></p>
         </section>
+        <section class="card system-service-control-card compact-card" aria-labelledby="system-service-control-title">
+            <div class="section-heading-row">
+                <div>
+                    <h2 id="system-service-control-title">🧩 Service Control</h2>
+                    <p class="muted">Handmatige bediening van de continue AIS- en ADS-B-services.</p>
+                </div>
+            </div>
+            <div class="system-service-controls">
+                <div class="system-service-row">
+                    <div class="system-service-label">
+                        <strong>🚢 AIS</strong>
+                        <span id="ais-status-radio" class="muted">Status laden...</span>
+                    </div>
+                    <button type="button" class="control-button" data-action="start_ais">▶ Start</button>
+                    <button type="button" class="control-button" data-action="stop_ais">■ Stop</button>
+                </div>
+                <div class="system-service-row">
+                    <div class="system-service-label">
+                        <strong>✈ ADS-B</strong>
+                        <span id="adsb-status-radio" class="muted">Status laden...</span>
+                    </div>
+                    <button type="button" class="control-button" data-action="start_adsb">▶ Start</button>
+                    <button type="button" class="control-button" data-action="stop_adsb">■ Stop</button>
+                </div>
+            </div>
+        </section>
+        <section class="card system-mission-tools-card compact-card" data-control-scope="system" aria-labelledby="system-mission-tools-title">
+            <div class="section-heading-row">
+                <div>
+                    <h2 id="system-mission-tools-title">🛠 Mission Tools</h2>
+                    <p class="muted">TLE-beheer, simulatie en handmatig herstel van de Mission Engine.</p>
+                </div>
+            </div>
+            <div class="system-mission-tools-grid">
+                <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
+                <button class="control-button" data-action="simulate_record">🛰 Simulate Recording</button>
+                <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Reset Mission</button>
+            </div>
+            <details class="advanced-controls system-mission-advanced">
+                <summary>⚙ Advanced</summary>
+                <p class="muted">Simulatie en reset zijn beheerfuncties. Gebruik Reset Mission alleen wanneer de Mission Engine handmatig moet worden teruggezet.</p>
+            </details>
+            <p class="control-result" id="system-control-result">No system action started.</p>
+        </section>
         <section class="card mission-sounds-panel compact-card" aria-labelledby="mission-sounds-title">
             <div class="mission-sounds-heading"><h2 id="mission-sounds-title">🔊 Mission Event Center</h2><label class="mission-sounds-toggle"><input id="mission-sounds-enabled" type="checkbox"><span>Sound enabled</span></label></div>
             <label class="mission-sounds-volume" for="mission-sounds-volume"><span>Volume</span><input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35"><strong id="mission-sounds-volume-value">35%</strong></label>
@@ -270,70 +301,54 @@
             </div>
         </section>
 
-        <section class="card radio-card assignment-preview-card">
-            <h2>🔀 Receiver Assignment</h2>
-            <p class="muted">Kies welke SDR voor Weather- en METEOR-opnames wordt gebruikt.</p>
-            <form id="receiver-assignment-form" class="assignment-form">
-                <label class="assignment-choice">
-                    <input type="radio" name="weather_receiver" value="sdr1">
-                    <span><strong>SDR1</strong><small>05419737</small></span>
-                </label>
-                <label class="assignment-choice">
-                    <input type="radio" name="weather_receiver" value="sdr2">
-                    <span><strong>SDR2</strong><small>24006572</small></span>
-                </label>
-                <button type="submit" class="control-button" id="apply-weather-receiver">Toepassen</button>
-            </form>
-            <p id="receiver-assignment-result" class="muted">-</p>
-            <div class="assignment-preview">
-                <div><span>AIS</span><strong>SDR1</strong></div>
-                <div><span>ADS-B</span><strong>SDR2</strong></div>
-            </div>
-        </section>
-
-        <section class="card radio-card receiver-roles-card">
-            <h2>🧩 Receiver Roles</h2>
-            <form id="receiver-roles-form" class="rf-settings-form">
-                <label><span id="receiver-role-sdr1-label">SDR1</span>
-                    <select id="receiver-role-sdr1">
-                        <option value="ais">AIS</option>
-                        <option value="adsb">ADS-B</option>
-                        <option value="manual">MANUAL</option>
-                    </select>
-                </label>
-                <label><span id="receiver-role-sdr2-label">SDR2</span>
-                    <select id="receiver-role-sdr2">
-                        <option value="ais">AIS</option>
-                        <option value="adsb">ADS-B</option>
-                        <option value="manual">MANUAL</option>
-                    </select>
-                </label>
-                <button type="submit" class="control-button">Rollen bewaren</button>
-                <button type="button" class="control-button" id="apply-receiver-roles">Receiverrollen toepassen</button>
-            </form>
-
-            <div id="receiver-roles-result" class="muted" hidden>Rollen worden opgeslagen in station.yaml.</div>
-            <div id="receiver-roles-apply-result" class="muted" hidden>Receiverrollen toepassen.</div>
-
-            <div class="receiver-service-controls" style="display:grid; gap:8px; margin-top:10px;">
-                <div class="receiver-service-row" style="display:grid; grid-template-columns:minmax(120px, 1fr) auto auto; gap:8px; align-items:center;">
-                    <div class="receiver-service-label" style="display:flex; align-items:center; gap:8px; min-width:0;">
-                        <strong>🚢 AIS</strong>
-                        <span id="ais-status-radio" class="muted">Status laden...</span>
-                    </div>
-                    <button type="button" class="control-button" data-action="start_ais">▶ Start</button>
-                    <button type="button" class="control-button" data-action="stop_ais">■ Stop</button>
+        <section class="card radio-card assignment-preview-card mission-assignment-card">
+            <div class="section-heading-row">
+                <div>
+                    <h2>🔀 Mission Assignments & Receiver Defaults</h2>
+                    <p class="muted">Koppel missietypen vrij aan SDR1 of SDR2 en bepaal de normale terugkeerrol per receiver.</p>
                 </div>
-
-                <div class="receiver-service-row" style="display:grid; grid-template-columns:minmax(120px, 1fr) auto auto; gap:8px; align-items:center;">
-                    <div class="receiver-service-label" style="display:flex; align-items:center; gap:8px; min-width:0;">
-                        <strong>✈ ADS-B</strong>
-                        <span id="adsb-status-radio" class="muted">Status laden...</span>
-                    </div>
-                    <button type="button" class="control-button" data-action="start_adsb">▶ Start</button>
-                    <button type="button" class="control-button" data-action="stop_adsb">■ Stop</button>
-                </div>
+                <span class="muted">Foundation · geen servicewissels</span>
             </div>
+            <form id="mission-assignments-form" class="assignment-policy-form">
+                <fieldset>
+                    <legend>Mission Assignments</legend>
+                    <label>Weather / METEOR
+                        <select id="mission-assignment-weather">
+                            <option value="sdr1">SDR1 · 05419737</option>
+                            <option value="sdr2">SDR2 · 24006572</option>
+                        </select>
+                    </label>
+                    <label>ISS Voice
+                        <select id="mission-assignment-iss-voice">
+                            <option value="sdr1">SDR1 · 05419737</option>
+                            <option value="sdr2">SDR2 · 24006572</option>
+                        </select>
+                    </label>
+                    <button type="submit" class="control-button">Mission assignments bewaren</button>
+                </fieldset>
+            </form>
+            <form id="receiver-defaults-form" class="assignment-policy-form">
+                <fieldset>
+                    <legend>Receiver Defaults</legend>
+                    <label>SDR1 standaardcontext
+                        <select id="receiver-default-sdr1">
+                            <option value="none">Geen continue plugin</option>
+                            <option value="ais">AIS</option>
+                            <option value="adsb">ADS-B</option>
+                        </select>
+                    </label>
+                    <label>SDR2 standaardcontext
+                        <select id="receiver-default-sdr2">
+                            <option value="none">Geen continue plugin</option>
+                            <option value="ais">AIS</option>
+                            <option value="adsb">ADS-B</option>
+                        </select>
+                    </label>
+                    <button type="submit" class="control-button">Receiver defaults bewaren</button>
+                </fieldset>
+            </form>
+            <p id="assignment-policy-result" class="muted" hidden aria-live="polite"></p>
+            <div id="assignment-policy-runtime" class="assignment-policy-runtime" aria-live="polite"></div>
         </section>
 
 
@@ -738,32 +753,39 @@
 </section>
 
 <section class="tab-page" id="tab-images">
-    <div class="images-grid">
-        <section class="card image-main">
-            <h2>📸 Laatste opname</h2>
-            <div id="capture-empty-images" class="capture-empty">Nog geen afbeelding gevonden.</div>
+    <div class="mission-recordings-grid">
+        <section class="card mission-recordings-player">
+            <h2>🎙️ Mission Recordings</h2>
+            <p class="muted">Weather images and ISS Voice audio are available from one mission-result viewer.</p>
+            <div id="mission-recordings-audio-wrap" class="hidden">
+                <h3>ISS Voice recording</h3>
+                <audio id="mission-recordings-audio" controls preload="metadata"></audio>
+                <p id="mission-recordings-meta" class="muted">-</p>
+            </div>
+            <div id="capture-empty-images" class="capture-empty">Nog geen afbeelding geselecteerd.</div>
             <div id="capture-content-images" class="capture-content hidden">
-                <img id="capture-image-images" src="" alt="Laatste capture">
+                <img id="capture-image-images" class="mission-recordings-preview" src="" alt="Mission image">
                 <div class="capture-meta">
                     <p><strong id="capture-name-images">-</strong></p>
-                    <p>Satelliet: <span id="capture-satellite-images">-</span></p>
+                    <p>Satellite: <span id="capture-satellite-images">-</span></p>
                     <p>Pipeline: <span id="capture-pipeline-images">-</span></p>
                     <p>Product: <span id="capture-product-images">-</span></p>
-                    <p>Resolutie: <span id="capture-resolution-images">-</span></p>
-                    <p>Gewijzigd: <span id="capture-modified-images">-</span></p>
-                    <p>Grootte: <span id="capture-size-images">-</span> KB</p>
+                    <p>Resolution: <span id="capture-resolution-images">-</span></p>
+                    <p>Modified: <span id="capture-modified-images">-</span></p>
+                    <p>Size: <span id="capture-size-images">-</span> KB</p>
                 </div>
             </div>
         </section>
         <section class="card">
-            <h2>🛰 Image Pipeline</h2>
-            <p>Laatste satelliet: <span id="image-pipeline-satellite" class="warn">-</span></p>
+            <h2>Mission Results</h2>
+            <div id="mission-recordings-list" class="recording-list">Mission Recordings laden...</div>
+            <hr>
+            <h3>Weather image pipeline</h3>
+            <p>Satellite: <span id="image-pipeline-satellite" class="warn">-</span></p>
             <p>Pipeline: <span id="image-pipeline-type" class="warn">-</span></p>
             <p>Product: <span id="image-pipeline-product" class="warn">-</span></p>
             <p>Status: <span id="image-pipeline-status" class="warn">standby</span></p>
-            <hr>
-            <h3>Laatste opnames</h3>
-            <div id="recent-captures" class="recent-captures">Nog geen opnames gevonden.</div>
+            <div id="recent-captures" class="recent-captures hidden"></div>
         </section>
     </div>
 </section>
@@ -783,12 +805,14 @@
 
 <script src="/static/dashboard.js"></script>
 <script src="/static/js/capture_live.js"></script>
-<script src="/static/js/radio.js?v=0.24.1"></script>
+<script src="/static/js/mission_recordings.js?v=0.48.0a"></script>
+<script src="/static/js/radio.js?v=0.47.1a"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.35.4"></script>
 <script src="/static/js/mission_monitor.js?v=0.24.1"></script>
 <script src="/static/js/weather_planning.js"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.23.2c"></script>
+<script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/mission_cards_v034.js?v=0.45.1"></script>
 <script src="/static/js/radio_view.js?v=0.23.3a1"></script>

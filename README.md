@@ -5,246 +5,221 @@
 <h1 align="center">SDR Control Center</h1>
 
 <p align="center">
-  Mission Control voor een lokaal multi-receiver SDR-groundstation.
+  Flexibel lokaal groundstation voor satellietontvangst, AIS, ADS-B en geautomatiseerde SDR-missies.
 </p>
 
 <p align="center">
-  <strong>Ontwikkelstatus: v0.21.1</strong><br>
+  <strong>Ontwikkelstatus: v0.47.x</strong><br>
   Ubuntu 26.04 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/mission-control.png" alt="SDRCC Mission Control" width="100%">
 </p>
 
 ## Over SDRCC
 
-**SDR Control Center (SDRCC)** brengt satellietontvangst, AIS, ADS-B, receiverbeheer en missieautomatisering samen in één lokaal dashboard. Het systeem plant METEOR-passages, reserveert een gekozen SDR, schakelt conflicterende services gecontroleerd uit, start SatDump, bewaakt de missie en herstelt daarna de normale receivertaak.
+**SDR Control Center (SDRCC)** brengt twee fysieke SDR-ontvangers, meerdere radiodiensten en geplande missies samen in één lokaal dashboard. De software plant passages, wijst iedere missie toe aan de juiste receiver, bewaakt de runtime, registreert lifecycle-events en herstelt na afloop de normale receivertaak.
 
-SDRCC is ontwikkeld als een echte groundstation-cockpit: de operator ziet in één overzicht wat eraan komt, welke receiver actief is, welke services draaien en wat het resultaat van eerdere missies was.
+De huidige opstelling gebruikt:
 
-## Huidige hardware-indeling
-
-| Receiver | Serienummer | Normale taak | Dynamische taak |
+| Receiver | Serienummer | Standaardcontext | Missierol |
 |---|---:|---|---|
-| SDR1 | `05419737` | AIS | Weather / METEOR |
-| SDR2 | `24006572` | ADS-B | Weather / METEOR |
+| SDR1 | `05419737` | AIS | Weather / METEOR LRPT |
+| SDR2 | `24006572` | ADS-B | ISS Voice |
 
-De Weather/METEOR-receiver is vanuit **Radio Control** selecteerbaar. SDRCC gebruikt uitsluitend de receiver die door de operator is gekozen. Tijdens een missie wordt alleen de conflicterende service op die receiver tijdelijk gestopt en na afloop hersteld.
+Receiver-toewijzingen en standaardcontexten zijn via **Radio Control** instelbaar. De **Mission Queue** blijft daarbij de centrale bron voor de geplande missie per receiver.
 
 ## Belangrijkste functies
 
-### Mission Control
-
-- Mission Engine met de toestanden `READY`, `WAIT FOR PASS`, `LOCK RECEIVER`, `RECORDING`, `DECODING`, `PROCESSING` en `ARCHIVING`.
+- Dual-SDR architectuur met receiver-specifieke planning en status.
+- Mission Queue, Mission Planner en configureerbare minimale elevatie.
 - Mission Scheduler met `AUTO`, `MANUAL` en `PAUSED`.
-- Mission Queue met volledige satellietnaam, tijd, receiver, frequentie en elevatie.
-- Automation Controller voor veilige voorbereiding en uitvoering.
-- Event Bus en Live Event Timeline.
-- Veilige **STOP MISSION**-actie met annulering, receiver-release en serviceherstel.
-- Virtual Mission voor hardwarevrije workflowtests.
-- Centrale frontend-`MissionState` als één bron van waarheid.
-- ETA naar preflight, prepare, receiver lock en opname.
-
-### Satellietontvangst
-
-- Pass prediction voor **METEOR-M2 3** en **METEOR-M2 4**.
-- Configureerbare minimale elevatie.
-- SatDump LRPT-pipeline.
-- Live RF-telemetrie: SNR, peak-SNR, BER, frames, CADU-bytes, Viterbi, Deframer en images.
-- Automatische missieclassificatie, waaronder `SUCCESS`, `NO SIGNAL`, `NO SYNC`, `NO IMAGES`, `FAILED` en `CANCELLED`.
-- Mission Diagnostics en opgeslagen pass-elevatie.
-- Offline decode en image gallery voor alle producten van een missie.
-
-### Receiver Monitor
-
-- Dynamische statuskaart per fysieke SDR.
-- AIS-statistieken:
-  - aantal schepen;
-  - berichten per seconde uit `journalctl`;
-  - maximaal bereik;
-  - actieve service en frequentie.
-- ADS-B-statistieken:
-  - aantal vliegtuigen van de laatste 60 seconden;
-  - aantal vliegtuigen met positie;
-  - berichten per seconde;
-  - maximaal bereik.
-- Weather/METEOR-status tijdens een actieve missie.
-
-### Radio Control
-
-- Dynamische Weather Receiver Assignment.
-- Gain-modus en tuner gain.
-- DC block en IQ swap.
-- Korte spectrum-momentopname met `rtl_power` wanneer de gekozen SDR beschikbaar is.
-- Live RF Console tijdens een SatDump-missie.
-
-> **Spectrumbeperking:** dezelfde RTL-SDR kan niet gelijktijdig door SatDump en `rtl_power` worden geopend. De spectrummeting is daarom een korte momentopname wanneer de receiver vrij is. Tijdens een missie toont SDRCC decodertelemetrie; er is op dit moment geen live waterfall van dezelfde dongle.
-
-### History en beelden
-
-- Mission History met filters, KPI's en missie-details.
-- Mission Quality, Mission Summary en Event Timeline.
-- Inventaris van recording, images, logs, telemetry en diagnostics.
-- Klikbare image gallery met alle producten uit een missie.
-- Laatste ontvangst en aparte Beelden-pagina.
+- METEOR-M2 3 en METEOR-M2 4 LRPT-ontvangst via SatDump.
+- ISS Voice-planning en controlled wideband-IQ capture op de toegewezen SDR.
+- Receiver Manager met reservering, context, service-observatie en hersteldoel.
+- Live Event Timeline en read-only Execution Journal.
+- AIS- en ADS-B-monitoring met live statistieken en ingebedde viewers.
+- Live RF Console, decodertelemetrie en idle Spectrum Scan.
+- Mission History, Mission Analytics, image pipeline en live logging.
+- Handmatige serviceregeling en veilige missiehulpmiddelen op het tabblad **System**.
 
 ## Dashboard
 
 ### Mission Control
 
+De operationele cockpit toont de Mission Queue, de eerstvolgende missie per receiver, schedulerbediening, Live Event Timeline en Execution Journal.
+
 ![Mission Control](docs/screenshots/mission-control.png)
 
-De centrale cockpit met systeemstatus, bediening, Automation Controller, Mission Queue, actuele missie, volgende passage en Live Event Timeline.
+### System
+
+Systeemstatus, handmatige bediening van de continue AIS- en ADS-B-services, TLE-beheer, simulatie en gecontroleerd missieherstel.
+
+![System](docs/screenshots/system.png)
 
 ### Radio Control
 
-![Radio Control](docs/screenshots/radio-control.png)
+Live status van beide SDR's, Receiver Monitor, read-only Receiver Runtime Diagnostics, vrije mission assignments, receiver defaults en RF-instellingen.
 
-Receiverstatus, AIS- en ADS-B-statistieken, Weather Receiver Assignment en RF-instellingen.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/radio-control.png" alt="Radio Control status en diagnostics"></td>
+    <td width="50%"><img src="docs/screenshots/receiver-assignments-monitor.png" alt="Receiver assignments en Mission Monitor"></td>
+  </tr>
+</table>
 
-![Spectrum en Live RF Console](docs/screenshots/radio-spectrum-rf-console.png)
+### Live RF en Spectrum Scan
 
-De spectrummeting werkt als idle scan. Tijdens een Weather-missie wordt de Live RF Console gevuld met SatDump-telemetrie.
+Tijdens Weather-opnames toont de Live RF Console decodertelemetrie. Wanneer de receiver vrij is kan een korte spectrumscan worden uitgevoerd.
+
+![Live RF Console en Spectrum Scan](docs/screenshots/live-rf-spectrum.png)
+
+> Dezelfde RTL-SDR kan niet tegelijk door SatDump en een losse spectrumtool worden geopend. Spectrum Scan is daarom een korte idle-meting; tijdens een missie gebruikt SDRCC de beschikbare SatDump-telemetrie.
+
+### Radio View
+
+Gezamenlijk overzicht van ADS-B, AIS en de eerstvolgende satellietpassage.
+
+![Radio View](docs/screenshots/radio-view.png)
+
+### Mission Planner
+
+De planner combineert pass prediction, minimale elevatie, receiver assignment, conflictcontrole en de uiteindelijke planningbeslissing.
+
+![Mission Planner](docs/screenshots/mission-planner.png)
+
+### Mission Analytics
+
+Historische prestaties per receiver en satelliet, inclusief succesratio, peak-SNR, beelden, resultaten en kwaliteitsverdeling.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/mission-analytics-overview.png" alt="Mission Analytics overzicht"></td>
+    <td width="50%"><img src="docs/screenshots/mission-analytics-results.png" alt="Mission Analytics resultaten"></td>
+  </tr>
+</table>
 
 ### Mission History
 
+Blijvend overzicht van afgeronde, mislukte en geannuleerde missies met kwaliteitsdiagnose, missiegegevens, bestanden en telemetrie.
+
 ![Mission History](docs/screenshots/mission-history.png)
 
-![Mission History details](docs/screenshots/mission-history-details.png)
+### Images
 
-Blijvend overzicht van voltooide, mislukte en geannuleerde missies, inclusief events, kwaliteit, bestanden en diagnostics.
+De nieuwste succesvolle ontvangst en de beschikbare producten uit de image pipeline.
 
-### Beelden
-
-![Beelden](docs/screenshots/images.png)
-
-Weergave van het nieuwste product en recente satellietbeelden.
+![Images](docs/screenshots/images.png)
 
 ### Logs
 
-![Logs](docs/screenshots/logs.png)
-
 Live applicatielog voor scheduler-, receiver-, SatDump- en missieactiviteiten.
+
+![Logs](docs/screenshots/logs.png)
 
 ## Architectuur
 
 ```text
-Mission Queue
-      ↓
-Automation Controller
-      ↓
-Receiver Manager
-      ↓
-Mission Scheduler
-      ↓
-Mission Engine
-      ↓
-SatDump
-      ↓
-Mission Result / Diagnostics / History / Images
+Pass Prediction / Planning Policy
+              ↓
+         Mission Planner
+              ↓
+          Mission Queue
+              ↓
+     Automation / Scheduler
+              ↓
+        Mission Engine
+              ↓
+ Receiver Manager + Execution Plan
+              ↓
+ SatDump / Service Delegation / Capture
+              ↓
+ History · Analytics · Images · Journal
 ```
 
-Belangrijke ondersteunende onderdelen:
+Belangrijke uitgangspunten:
 
-```text
-Event Bus          → operationele gebeurtenissen
-MissionState       → centrale frontendstatus
-Receiver Monitor   → AIS, ADS-B en Weather-statistieken
-Mission Operations → samengevoegde operationele API-status
-```
+- **Mission Queue** is de bron voor komende receiver-specifieke missies.
+- **Receiver Manager** blijft autoriteit voor receiverstatus en reservering.
+- **Execution Journal** observeert de lifecycle en neemt geen operationele autoriteit over.
+- Bestaande servicepaden worden hergebruikt; er is geen tweede servicecontroller.
+- Plugins en execution plans blijven fail-closed wanneer uitvoering niet expliciet ondersteund is.
 
 ## Missieverloop
 
 | Moment | Actie |
 |---|---|
-| T-5 minuten | Preflightcontroles |
-| T-90 seconden | Receiver en services voorbereiden |
-| T-30 seconden | Receiver reserveren en locken |
-| T-0 | SatDump starten |
-| Tijdens passage | Recording en live decodertelemetrie |
-| Na LOS | Decode, processing en archivering |
-| Afronding | Resultaat bepalen, receiver vrijgeven en service herstellen |
+| T-5 minuten | Preflight en policycontrole |
+| T-90 seconden | Receiver en afhankelijkheden voorbereiden |
+| T-30 seconden | Receiver reserveren en missiecontext vastleggen |
+| T-0 | Capture- of decoderproces starten |
+| Tijdens passage | Live status, events en telemetrie bijwerken |
+| Na LOS | Proces afronden, resultaat classificeren en archiveren |
+| Afronding | Receiver vrijgeven en standaardcontext herstellen |
 
 ## Belangrijke services
 
 | Service | Functie |
 |---|---|
-| `sdrcc.service` | Flask-dashboard en SDRCC-controller |
-| `ais-catcher.service` | AIS-ontvangst op de toegewezen receiver |
-| `ais-catcher-control.service` | Gecontroleerd AIS-servicebeheer |
-| `readsb.service` | ADS-B-ontvangst |
+| `sdrcc.service` | Flask-dashboard en SDRCC-runtime |
+| `ais-catcher.service` | Continue AIS-ontvangst |
+| `ais-catcher-control.service` | Bestaand gecontroleerd AIS-servicepad |
+| `readsb.service` | Continue ADS-B-ontvangst |
 
 Status controleren:
 
 ```bash
-systemctl status sdrcc.service --no-pager
-systemctl status ais-catcher.service --no-pager
-systemctl status readsb.service --no-pager
+systemctl status sdrcc.service --no-pager -l
+systemctl status ais-catcher.service --no-pager -l
+systemctl status readsb.service --no-pager -l
 ```
 
 ## Dashboard starten
 
-SDRCC draait standaard op:
+SDRCC draait standaard lokaal op:
 
 ```text
 http://127.0.0.1:8080
 ```
 
-De service starten of herstarten:
+Herstarten en controleren:
 
 ```bash
 sudo systemctl restart sdrcc.service
 systemctl status sdrcc.service --no-pager -l
-```
-
-Recente fouten controleren:
-
-```bash
-journalctl -u sdrcc.service --since "5 minutes ago" --no-pager \
-  | grep -E 'Traceback|ERROR| 500 ' || true
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/api/status
 ```
 
 ## Belangrijkste API-endpoints
 
 | Endpoint | Functie |
 |---|---|
-| `GET /api/mission-operations` | Gecombineerde missie-, RF- en receiverstatus |
+| `GET /api/status` | Algemene systeemstatus |
+| `GET /api/mission-operations` | Samengevoegde operationele status |
+| `GET /api/mission-queue` | Receiver-specifieke geplande missies |
 | `GET /api/mission-engine` | Mission Engine-status |
-| `POST /api/mission/stop` | Actieve missie gecontroleerd stoppen |
-| `GET /api/mission-queue` | Komende passages en queue-status |
-| `GET /api/automation-controller` | Automation Controller-status |
-| `GET /api/receiver-manager` | Receiverreservering en laatste release |
-| `GET /api/receiver-monitor` | AIS-, ADS-B- en Weather-statistieken per SDR |
-| `GET /api/live-rf` | Live SatDump-telemetrie |
-| `GET /api/mission-history` | Mission History-overzicht |
-| `GET /api/mission-history/<id>` | Details, events, files en gallery van een missie |
-| `GET /api/capture-status` | Laatste beschikbare afbeelding |
+| `GET /api/mission-scheduler` | Schedulerstatus en modus |
+| `GET /api/automation-controller` | Automationstatus |
+| `GET /api/receiver-contexts` | Toewijzingen en standaardcontexten |
+| `GET /api/receiver-runtime` | Read-only receiver-runtime |
+| `GET /api/receiver-monitor` | AIS-, ADS-B- en missiestatistieken |
+| `GET /api/live-rf` | Live decoder- en RF-telemetrie |
+| `GET /api/execution-journal` | Read-only execution lifecycle |
+| `GET /api/mission-history` | Opgeslagen missies en resultaten |
+| `GET /api/capture-status` | Laatste beschikbare beeldproduct |
 
 ## Projectstructuur
 
 ```text
 SDRCC/
-├── config/                    # Station-, profiel- en satellietconfiguratie
-├── core/
-│   ├── automation_controller.py
-│   ├── event_bus.py
-│   ├── live_rf.py
-│   ├── mission_diagnostics.py
-│   ├── mission_engine.py
-│   ├── mission_operations.py
-│   ├── mission_queue.py
-│   ├── mission_result.py
-│   ├── mission_scheduler.py
-│   ├── receiver_manager.py
-│   ├── receiver_monitor.py
-│   └── satdump.py
-├── dashboard/
-│   ├── app.py
-│   ├── static/
-│   └── templates/
-├── data/
-│   ├── recordings/
-│   ├── state/
-│   └── tle/
-├── docs/screenshots/
-├── scripts/
+├── config/                     # Station-, receiver- en satellietconfiguratie
+├── core/                       # Planning, runtime, receivers en execution
+├── dashboard/                  # Flask API en webinterface
+├── data/                       # TLE, state, recordings en resultaten
+├── docs/                       # Architectuur- en release-documentatie
+│   └── screenshots/            # README-afbeeldingen
+├── scripts/                    # CLI, validators en hulpmiddelen
 ├── README.md
 └── VERSION
 ```
@@ -257,42 +232,16 @@ De actieve ontwikkelbranch is:
 develop
 ```
 
-Voor iedere wijziging:
+SDRCC wordt in kleine, controleerbare releases ontwikkeld. Iedere wijziging wordt eerst geanalyseerd, daarna als compleet installatiepakket geleverd en gevalideerd. Operationele wijzigingen worden pas gecommit nadat idle-tests en relevante echte missies zijn beoordeeld.
+
+Controle vóór een commit:
 
 ```bash
-cd ~/SDRCC
 git status
 git diff --check
-git log --oneline -5
+python3 -m compileall -q core dashboard scripts
 ```
 
-De ontwikkelwerkwijze bestaat uit kleine, testbare commits. Grote wijzigingen worden eerst geanalyseerd; de dashboardlayout wordt alleen gewijzigd wanneer dat expliciet nodig is.
+## Status
 
-## Roadmap
-
-### v0.22 — Live Weather Mission
-
-- echte METEOR-missie van preflight tot imageproduct verder valideren;
-- live SatDump-telemetrie verfijnen;
-- spectrum-momentopname afronden met frequentie-as, piek en ruisvloer;
-- nieuwste missiebeelden automatisch en correct aan missiegegevens koppelen;
-- operationele diagnose van decoder- en imagepipeline verbeteren.
-
-### v0.23 — Mission Analytics
-
-- SNR- en framestatistieken per missie;
-- prestaties per satelliet en elevatie;
-- succespercentage en ontvangstkwaliteit;
-- historische trends en beste ontvangst.
-
-### Richting v1.0
-
-- volledig autonome groundstation-workflow;
-- pluginarchitectuur voor extra SDR-toepassingen;
-- stabiele installatie- en upgradeprocedure;
-- uitgebreide health monitoring en foutdiagnose;
-- publieke, gedocumenteerde API v1.
-
-## Opmerking
-
-SDRCC is momenteel afgestemd op de lokale hardware- en serviceconfiguratie van dit groundstation. Controleer serienummers, service-namen, locatie, antennes en frequenties voordat het project op een andere installatie wordt gebruikt.
+SDRCC is actief in ontwikkeling. De huidige v0.47.x-lijn richt zich op flexibele receiver assignments, meerdere mission types, execution plans, runtime-observatie en gecontroleerde plugin-uitvoering.

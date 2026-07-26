@@ -9,7 +9,7 @@ export function setupControls(refreshCallback) {
 
             const missionAction = button.dataset.missionAction;
             if (missionAction) {
-                await runMissionAction(missionAction, refreshCallback);
+                await runMissionAction(missionAction, refreshCallback, button);
                 return;
             }
 
@@ -21,13 +21,20 @@ export function setupControls(refreshCallback) {
                 if (!confirmed) return;
             }
 
-            await runAction(actionId, refreshCallback);
+            await runAction(actionId, refreshCallback, button);
         });
     });
 }
 
-async function runMissionAction(missionAction, refreshCallback) {
-    const resultBox = document.getElementById("control-result");
+function getResultBox(button) {
+    const scope = button ? button.closest("[data-control-scope]") : null;
+    return (scope && scope.querySelector(".control-result"))
+        || document.getElementById("control-result")
+        || document.getElementById("system-control-result");
+}
+
+async function runMissionAction(missionAction, refreshCallback, button) {
+    const resultBox = getResultBox(button);
 
     if (missionAction === "reset") {
         const confirmed = confirm("Reset Mission Engine to READY?");
@@ -67,8 +74,8 @@ async function runMissionAction(missionAction, refreshCallback) {
     }
 }
 
-async function runAction(actionId, refreshCallback) {
-    const resultBox = document.getElementById("control-result");
+async function runAction(actionId, refreshCallback, button) {
+    const resultBox = getResultBox(button);
 
     if (resultBox) {
         resultBox.textContent = "Running action...";

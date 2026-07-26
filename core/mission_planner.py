@@ -17,7 +17,7 @@ from core.config import get_assignment, get_enabled_satellites
 
 ROOT = Path(__file__).resolve().parent.parent
 ISS_CONFIG_FILE = ROOT / "config" / "iss_voice.yaml"
-VERSION = "0.47.0a"
+VERSION = "0.48.0b"
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -69,6 +69,20 @@ def _iss_config() -> dict[str, Any]:
 def _iss_voice_candidates(hours_ahead: int) -> list[dict[str, Any]]:
     config = _iss_config()
     priority = int(config.get("planning_priority", 3))
+    enabled = bool(config.get("enabled", False))
+    planner_enabled = bool(config.get("planner_enabled", False))
+    execution_enabled = bool(config.get("execution_enabled", False))
+    backend_enabled = bool(config.get("execution_backend_enabled", False))
+    receiver_claim_enabled = bool(config.get("receiver_claim_enabled", False))
+    automation_eligible = all(
+        (
+            enabled,
+            planner_enabled,
+            execution_enabled,
+            backend_enabled,
+            receiver_claim_enabled,
+        )
+    )
     candidates = []
     for raw in iss_passes.get_passes(hours_ahead):
         item = deepcopy(raw)
@@ -78,8 +92,8 @@ def _iss_voice_candidates(hours_ahead: int) -> list[dict[str, Any]]:
                 "mission_type": str(config.get("mission_type", "iss_voice")),
                 "receiver_role": "iss_voice",
                 "planner_source": "iss_passes",
-                "automation_eligible": False,
-                "execution_enabled": False,
+                "automation_eligible": automation_eligible,
+                "execution_enabled": execution_enabled and backend_enabled,
                 "priority": priority,
             }
         )
@@ -179,7 +193,13 @@ def get_sources(hours_ahead: int = 48) -> list[dict[str, Any]]:
             "mission_type": str(iss_config.get("mission_type", "iss_voice")),
             "enabled": bool(iss_config.get("enabled", False)),
             "planner_enabled": bool(iss_config.get("planner_enabled", False)),
-            "execution_enabled": False,
+            "execution_enabled": bool(
+                iss_config.get("enabled", False)
+                and iss_config.get("planner_enabled", False)
+                and iss_config.get("execution_enabled", False)
+                and iss_config.get("execution_backend_enabled", False)
+                and iss_config.get("receiver_claim_enabled", False)
+            ),
             "receiver_role": "iss_voice",
             "receiver": get_assignment("iss_voice"),
             "satellite_name": iss_config.get("satellite_name", "ISS (ZARYA)"),
@@ -197,8 +217,29 @@ def get_sources(hours_ahead: int = 48) -> list[dict[str, Any]]:
 
 
 def get_candidates(hours_ahead: int = 48) -> list[dict[str, Any]]:
-    """Return only candidates approved by the single station planning policy."""
+    """Return all candidates approved by the station planning policy.
+
+    Planning approval does not imply runtime execution permission. Consumers that
+    execute missions must use :func:`get_executable_candidates`.
+    """
     return _build(hours_ahead)["approved"]
+
+
+def get_executable_candidates(hours_ahead: int = 48) -> list[dict[str, Any]]:
+    """Return the unified, chronological queue of executable missions.
+
+    This is the only Mission Scheduler input. Providers remain responsible for
+    publishing their execution contract; the scheduler does not special-case a
+    plugin or mission type.
+    """
+    candidates = [
+        item
+        for item in get_candidates(hours_ahead)
+        if item.get("automation_eligible", False)
+        and item.get("execution_enabled", False)
+    ]
+    candidates.sort(key=lambda item: item["start"])
+    return candidates
 
 
 def get_rejected_candidates(hours_ahead: int = 48) -> list[dict[str, Any]]:

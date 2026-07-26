@@ -53,12 +53,12 @@ def validate_config() -> dict[str, Any]:
         errors.append("doppler_tracking moet actief zijn")
     if not bool(config.get("execution_backend_enabled")):
         errors.append("execution_backend_enabled moet actief zijn")
-    if bool(config.get("execution_enabled")):
-        errors.append("execution_enabled moet in foundation false zijn")
-    if bool(config.get("receiver_claim_enabled")):
-        errors.append("receiver_claim_enabled moet in foundation false zijn")
-    if bool(config.get("planner_enabled")):
-        errors.append("planner_enabled moet in foundation false zijn")
+    if not bool(config.get("execution_enabled")):
+        errors.append("execution_enabled moet actief zijn")
+    if not bool(config.get("receiver_claim_enabled")):
+        errors.append("receiver_claim_enabled moet actief zijn")
+    if not bool(config.get("planner_enabled")):
+        errors.append("planner_enabled moet actief zijn")
     if not bool(config.get("controlled_capture_enabled")):
         errors.append("controlled_capture_enabled moet actief zijn")
     if not bool(config.get("offline_demodulation_enabled")):
@@ -83,13 +83,13 @@ def get_status() -> dict[str, Any]:
     validation = validate_config()
     return {
         "ok": validation["ok"],
-        "version": "0.46.0d",
+        "version": "0.48.0c",
         "foundation_only": False,
-        "backend_only": True,
-        "read_only": True,
-        "planner_enabled": False,
-        "execution_enabled": False,
-        "receiver_claim_enabled": False,
+        "backend_only": False,
+        "read_only": False,
+        "planner_enabled": bool((validation.get("config") or {}).get("planner_enabled")),
+        "execution_enabled": bool((validation.get("config") or {}).get("execution_enabled")),
+        "receiver_claim_enabled": bool((validation.get("config") or {}).get("receiver_claim_enabled")),
         "offline_demodulation_enabled": bool((validation.get("config") or {}).get("offline_demodulation_enabled")),
         "validation": validation,
     }

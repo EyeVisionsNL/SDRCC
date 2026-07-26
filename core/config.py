@@ -261,3 +261,135 @@ def set_weather_rf_config(settings):
     rf.setdefault("spectrum_bin_hz", current["spectrum_bin_hz"])
     save_station(data)
     return get_weather_rf_config()
+
+
+# v0.47.1a Mission Assignment & Restore Policy Foundation
+MISSION_ASSIGNMENT_ROLES = ("weather", "iss_voice")
+DEFAULT_CONTEXT_PLUGINS = ("ais", "adsb")
+RECEIVER_IDS = ("sdr1", "sdr2")
+
+
+def get_mission_assignment_roles():
+    """Return mission-capable roles in stable UI order."""
+    return MISSION_ASSIGNMENT_ROLES
+
+
+def get_mission_assignments():
+    """Return central mission_type -> receiver assignments.
+
+    Existing generic assignments remain the backwards-compatible fallback.
+    """
+    data = load_station()
+    configured = data.get("mission_assignments", {}) or {}
+    legacy = get_receiver_assignments()
+    result = {}
+    for role in MISSION_ASSIGNMENT_ROLES:
+        raw = configured.get(role, legacy.get(role))
+        result[role] = _validate_assignment_device(raw, allow_none=True)
+    return result
+
+
+def set_mission_assignments(changes):
+    """Persist mission assignments and keep legacy role assignments aligned."""
+    if not isinstance(changes, dict):
+        raise ValueError("Mission assignments moeten als mapping worden aangeleverd")
+    unknown = set(changes) - set(MISSION_ASSIGNMENT_ROLES)
+    if unknown:
+        raise ValueError("Onbekend missietype: " + ", ".join(sorted(unknown)))
+
+    normalized = {
+        role: _validate_assignment_device(device_id, allow_none=True)
+        for role, device_id in changes.items()
+    }
+    data = load_station()
+    mission_assignments = data.setdefault("mission_assignments", {})
+    mission_assignments.update(normalized)
+    # Backwards compatibility: existing Weather/ISS consumers keep working.
+    assignments = data.setdefault("assignments", {})
+    assignments.update(normalized)
+    save_station(data)
+    return get_mission_assignments()
+
+
+def get_receiver_defaults():
+    """Return receiver -> ordered list of default continuous plugins.
+
+    When the new section is absent, derive a safe context from legacy AIS/ADS-B
+    assignments. This is configuration only; no service state is changed.
+    """
+    data = load_station()
+    configured = data.get("receiver_defaults")
+    if configured is None:
+        legacy = get_receiver_assignments()
+        derived = {receiver_id: [] for receiver_id in RECEIVER_IDS}
+        for plugin_id in DEFAULT_CONTEXT_PLUGINS:
+            receiver_id = legacy.get(plugin_id)
+            if receiver_id in derived:
+                derived[receiver_id].append(plugin_id)
+        return derived
+
+    result = {receiver_id: [] for receiver_id in RECEIVER_IDS}
+    seen = set()
+    for receiver_id in RECEIVER_IDS:
+        raw_plugins = (configured or {}).get(receiver_id, []) or []
+        if isinstance(raw_plugins, str):
+            raw_plugins = [raw_plugins]
+        for raw_plugin in raw_plugins:
+            plugin_id = str(raw_plugin or "").strip().lower()
+            if plugin_id not in DEFAULT_CONTEXT_PLUGINS:
+                raise ValueError(f"Ongeldige default plugin voor {receiver_id}: {raw_plugin}")
+            if plugin_id in seen:
+                raise ValueError(f"Default plugin {plugin_id} is aan meerdere receivers gekoppeld")
+            seen.add(plugin_id)
+            result[receiver_id].append(plugin_id)
+    return result
+
+
+def set_receiver_defaults(defaults):
+    """Persist receiver default contexts without starting or stopping services."""
+    if not isinstance(defaults, dict):
+        raise ValueError("Receiver defaults moeten als mapping worden aangeleverd")
+    unknown_receivers = set(defaults) - set(RECEIVER_IDS)
+    if unknown_receivers:
+        raise ValueError("Onbekende receiver: " + ", ".join(sorted(unknown_receivers)))
+
+    normalized = {receiver_id: [] for receiver_id in RECEIVER_IDS}
+    seen = set()
+    for receiver_id in RECEIVER_IDS:
+        raw_plugins = defaults.get(receiver_id, []) or []
+        if isinstance(raw_plugins, str):
+            raw_plugins = [] if raw_plugins in {"", "none", "manual"} else [raw_plugins]
+        for raw_plugin in raw_plugins:
+            plugin_id = str(raw_plugin or "").strip().lower()
+            if plugin_id not in DEFAULT_CONTEXT_PLUGINS:
+                raise ValueError(f"Ongeldige default plugin voor {receiver_id}: {raw_plugin}")
+            if plugin_id in seen:
+                raise ValueError(f"{plugin_id.upper()} kan maar één default receiver hebben")
+            seen.add(plugin_id)
+            normalized[receiver_id].append(plugin_id)
+
+    data = load_station()
+    data["receiver_defaults"] = normalized
+    # Keep the existing service-role configuration aligned during migration.
+    assignments = data.setdefault("assignments", {})
+    for plugin_id in DEFAULT_CONTEXT_PLUGINS:
+        assignments[plugin_id] = next(
+            (rid for rid, plugins in normalized.items() if plugin_id in plugins),
+            None,
+        )
+    save_station(data)
+    return get_receiver_defaults()
+
+
+def get_assignment_restore_policy():
+    """Return the complete non-operational assignment/restore configuration."""
+    return {
+        "version": "0.47.1a",
+        "mission_assignments": get_mission_assignments(),
+        "receiver_defaults": get_receiver_defaults(),
+        "mission_assignment_roles": list(MISSION_ASSIGNMENT_ROLES),
+        "default_context_plugins": list(DEFAULT_CONTEXT_PLUGINS),
+        "receiver_ids": list(RECEIVER_IDS),
+        "execution_enabled": False,
+        "restore_enabled": False,
+    }

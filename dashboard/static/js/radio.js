@@ -2,7 +2,9 @@
     let rfFormDirty = false;
     let rfFormSaving = false;
     let rfFormFocused = false;
-    let receiverRolesDirty = false;
+    let lastDevices = [];
+    let missionQueueByReceiver = {};
+    let lastReceiverContexts = null;
 
     function rfFormIsBeingEdited() {
         return rfFormDirty || rfFormSaving || rfFormFocused;
@@ -14,9 +16,80 @@
         return await response.json();
     }
 
+
+    async function getReceiverContexts() {
+        const response = await fetch("/api/receiver-contexts", {cache: "no-store"});
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || "receiver contexts api fout");
+        return data;
+    }
+
+    function roleLabel(value) {
+        const role = String(value || "").trim().toLowerCase();
+        const labels = {
+            ais: "AIS",
+            adsb: "ADS-B",
+            weather: "Weather / METEOR",
+            iss_voice: "ISS Voice",
+            meshcore: "MeshCore",
+        };
+        return labels[role] || (role ? role.replaceAll("_", " ").toUpperCase() : "-");
+    }
+
+    function receiverQueueRole(receiver) {
+        const item = missionQueueByReceiver[receiver];
+        return item ? String(item.mission_type || item.plugin_id || item.receiver_role || "") : "";
+    }
+
+    function renderAssignmentRuntimeSummary() {
+        const runtime = document.getElementById("assignment-policy-runtime");
+        if (!runtime || !lastReceiverContexts) return;
+
+        const defaults = lastReceiverContexts.receiver_defaults || {};
+        const currentSdr1 = roleLabel((defaults.sdr1 || [])[0]);
+        const currentSdr2 = roleLabel((defaults.sdr2 || [])[0]);
+        const nextSdr1Role = receiverQueueRole("SDR1");
+        const nextSdr2Role = receiverQueueRole("SDR2");
+        const nextSdr1 = roleLabel(nextSdr1Role);
+        const nextSdr2 = roleLabel(nextSdr2Role);
+
+        const transitionSdr1 = nextSdr1Role ? `${currentSdr1} → ${nextSdr1} → ${currentSdr1}` : `${currentSdr1} · geen geplande wissel`;
+        const transitionSdr2 = nextSdr2Role ? `${currentSdr2} → ${nextSdr2} → ${currentSdr2}` : `${currentSdr2} · geen geplande wissel`;
+
+        runtime.innerHTML = `
+            <div><span>Current Context</span><strong>SDR1 ${currentSdr1} · SDR2 ${currentSdr2}</strong></div>
+            <div><span>Next Mission</span><strong>SDR1 ${nextSdr1} · SDR2 ${nextSdr2}</strong></div>
+            <div><span>Planned Transition</span><strong>SDR1 ${transitionSdr1}<br>SDR2 ${transitionSdr2}</strong></div>`;
+    }
+
+    function populateAssignmentPolicy(data) {
+        lastReceiverContexts = data;
+        const mission = data.mission_assignments || {};
+        const defaults = data.receiver_defaults || {};
+        const weather = document.getElementById("mission-assignment-weather");
+        const iss = document.getElementById("mission-assignment-iss-voice");
+        const sdr1 = document.getElementById("receiver-default-sdr1");
+        const sdr2 = document.getElementById("receiver-default-sdr2");
+        if (weather) weather.value = mission.weather || "sdr1";
+        if (iss) iss.value = mission.iss_voice || "sdr2";
+        if (sdr1) sdr1.value = (defaults.sdr1 || [])[0] || "none";
+        if (sdr2) sdr2.value = (defaults.sdr2 || [])[0] || "none";
+        renderAssignmentRuntimeSummary();
+        clearAssignmentPolicyResult();
+    }
+
     function setText(id, value) {
         const element = document.getElementById(id);
-        if (element) element.textContent = value;
+        if (!element) return;
+        element.textContent = value;
+        if (id === "assignment-policy-result") element.hidden = !value;
+    }
+
+    function clearAssignmentPolicyResult() {
+        const element = document.getElementById("assignment-policy-result");
+        if (!element) return;
+        element.textContent = "";
+        element.hidden = true;
     }
 
     function setPill(id, service) {
@@ -81,41 +154,38 @@
         if (iq) iq.checked = Boolean(settings.iq_swap);
     }
 
-    function populateReceiverRoles(data) {
-        if (receiverRolesDirty) return;
-        const devices = Array.isArray(data.devices) ? data.devices : [];
-        const assignments = data.assignments || {};
-        for (const receiverId of ["sdr1", "sdr2"]) {
-            const select = document.getElementById(`receiver-role-${receiverId}`);
-            const label = document.getElementById(`receiver-role-${receiverId}-label`);
-            const device = devices.find(item => String(item.id || "").toLowerCase() === receiverId)
-                || devices.find((item, index) => receiverNumber(item, index).toLowerCase() === receiverId);
-            if (label) {
-                const number = device ? (device.number || receiverId.toUpperCase()) : receiverId.toUpperCase();
-                const serial = device && device.serial ? ` · ${device.serial}` : "";
-                label.textContent = `${number}${serial}`;
-            }
-            if (!select) continue;
-            let role = "manual";
-            if (String(assignments.ais || "").toLowerCase() === receiverId) role = "ais";
-            else if (String(assignments.adsb || "").toLowerCase() === receiverId) role = "adsb";
-            select.value = role;
-        }
-    }
-
     function receiverNumber(dev, index) {
         const name = String(dev.name || dev.id || "");
         const match = name.match(/SDR\s*(\d+)/i);
         return match ? `SDR${match[1]}` : `SDR${index + 1}`;
     }
 
+    function normalizeReceiver(value) {
+        const normalized = String(value || "").trim().toUpperCase().replaceAll("_", "");
+        if (normalized.includes("SDR1") || normalized === "1") return "SDR1";
+        if (normalized.includes("SDR2") || normalized === "2") return "SDR2";
+        return "";
+    }
+
+    function missionQueueTask(item) {
+        if (!item) return "";
+        const name = item.name || item.satellite || "Mission";
+        const type = String(item.mission_type || item.plugin_id || item.receiver_role || "")
+            .replaceAll("_", " ")
+            .toUpperCase();
+        return type ? `${name} · ${type}` : name;
+    }
+
     function renderDevices(devices) {
+        lastDevices = Array.isArray(devices) ? devices : [];
         const container = document.getElementById("radio-devices");
         if (!container) return;
         container.innerHTML = "";
 
-        for (const [index, dev] of (devices || []).entries()) {
+        for (const [index, dev] of lastDevices.entries()) {
             const number = receiverNumber(dev, index);
+            const queuedTask = missionQueueTask(missionQueueByReceiver[normalizeReceiver(number)]);
+            const nextTask = queuedTask || dev.next_task || "-";
             const item = document.createElement("article");
             item.className = "radio-device";
             item.innerHTML = `
@@ -128,7 +198,7 @@
                     <span>Serienummer<strong>${dev.serial || "-"}</strong></span>
                     <span>Standaardtaak<strong>${dev.default_task || "-"}</strong></span>
                     <span>Huidige taak<strong>${dev.current_task || "-"}</strong></span>
-                    <span>Volgende taak<strong>${dev.next_task || "-"}</strong></span>
+                    <span>Volgende taak<strong>${nextTask}</strong></span>
                     <span>Bron / status<strong>${dev.active_detail || "-"}</strong></span>
                 </div>
             `;
@@ -235,6 +305,22 @@
         }
     }
 
+    window.addEventListener("sdrcc:mission-queue-updated", event => {
+        const queue = Array.isArray(event.detail?.queue) ? event.detail.queue : [];
+        const nextByReceiver = {};
+        for (const item of queue) {
+            if (!item || item.skipped) continue;
+            const receiver = normalizeReceiver(
+                item.active_receiver || item.reserved_receiver || item.configured_receiver || item.receiver || item.receiver_id
+            );
+            if (!receiver || nextByReceiver[receiver]) continue;
+            nextByReceiver[receiver] = item;
+        }
+        missionQueueByReceiver = nextByReceiver;
+        if (lastDevices.length) renderDevices(lastDevices);
+        renderAssignmentRuntimeSummary();
+    });
+
     async function updateRadioPage() {
         try {
             const data = await getStatus();
@@ -247,10 +333,11 @@
             setPill("radio-ais-pill", data.ais);
             setPill("radio-adsb-pill", data.adsb);
             renderDevices(data.devices || []);
-            populateReceiverRoles(data);
-            const selected = (data.assignments || {}).weather;
-            const radio = document.querySelector(`input[name="weather_receiver"][value="${selected}"]`);
-            if (radio) radio.checked = true;
+            try {
+                populateAssignmentPolicy(await getReceiverContexts());
+            } catch (contextError) {
+                setText("assignment-policy-result", `Context laden mislukt: ${contextError.message}`);
+            }
             if (!rfFormIsBeingEdited()) {
                 populateRf(data.weather_rf || {});
             }
@@ -261,91 +348,58 @@
         }
     }
 
-    const form = document.getElementById("receiver-assignment-form");
-    if (form) {
-        form.addEventListener("submit", async (event) => {
+    const missionAssignmentsForm = document.getElementById("mission-assignments-form");
+    if (missionAssignmentsForm) {
+        missionAssignmentsForm.addEventListener("submit", async (event) => {
             event.preventDefault();
-            const selected = form.querySelector('input[name="weather_receiver"]:checked');
-            const result = document.getElementById("receiver-assignment-result");
-            if (!selected) {
-                if (result) result.textContent = "Kies eerst SDR1 of SDR2.";
-                return;
-            }
+            const result = document.getElementById("assignment-policy-result");
             try {
-                const response = await fetch("/api/receiver-assignment", {
+                const response = await fetch("/api/mission-assignments", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({weather: selected.value}),
+                    body: JSON.stringify({
+                        weather: document.getElementById("mission-assignment-weather")?.value,
+                        iss_voice: document.getElementById("mission-assignment-iss-voice")?.value,
+                    }),
                 });
                 const data = await response.json();
                 if (result) result.textContent = data.message || (response.ok ? "Opgeslagen." : "Mislukt.");
-                if (!response.ok) return;
-                await updateRadioPage();
+                if (response.ok) populateAssignmentPolicy(await getReceiverContexts());
             } catch (error) {
                 if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
             }
         });
     }
 
-
-    const receiverRolesForm = document.getElementById("receiver-roles-form");
-    if (receiverRolesForm) {
-        for (const select of receiverRolesForm.querySelectorAll("select")) {
-            select.addEventListener("change", () => { receiverRolesDirty = true; });
-        }
-        receiverRolesForm.addEventListener("submit", async (event) => {
+    const receiverDefaultsForm = document.getElementById("receiver-defaults-form");
+    if (receiverDefaultsForm) {
+        receiverDefaultsForm.addEventListener("submit", async (event) => {
             event.preventDefault();
-            const sdr1 = document.getElementById("receiver-role-sdr1")?.value || "manual";
-            const sdr2 = document.getElementById("receiver-role-sdr2")?.value || "manual";
-            const result = document.getElementById("receiver-roles-result");
-            const submitButton = receiverRolesForm.querySelector('button[type="submit"]');
-            if (sdr1 === sdr2 && ["ais", "adsb"].includes(sdr1)) {
-                if (result) result.textContent = `${sdr1.toUpperCase()} kan niet tegelijk aan SDR1 en SDR2 worden toegewezen.`;
+            const result = document.getElementById("assignment-policy-result");
+            const first = document.getElementById("receiver-default-sdr1")?.value || "none";
+            const second = document.getElementById("receiver-default-sdr2")?.value || "none";
+            if (first !== "none" && first === second) {
+                if (result) result.textContent = `${first.toUpperCase()} kan maar één default receiver hebben.`;
                 return;
             }
-            if (submitButton) submitButton.disabled = true;
-            if (result) result.textContent = "Receiverrollen worden opgeslagen...";
             try {
-                const response = await fetch("/api/receiver-roles", {
+                const response = await fetch("/api/receiver-defaults", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({sdr1, sdr2}),
+                    body: JSON.stringify({receiver_defaults: {
+                        sdr1: first === "none" ? [] : [first],
+                        sdr2: second === "none" ? [] : [second],
+                    }}),
                 });
                 const data = await response.json();
                 if (result) result.textContent = data.message || (response.ok ? "Opgeslagen." : "Mislukt.");
-                if (!response.ok) return;
-                receiverRolesDirty = false;
-                await updateRadioPage();
+                if (response.ok) populateAssignmentPolicy(await getReceiverContexts());
             } catch (error) {
                 if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
-            } finally {
-                if (submitButton) submitButton.disabled = false;
             }
         });
     }
 
-    const applyReceiverRolesButton = document.getElementById("apply-receiver-roles");
-    if (applyReceiverRolesButton) {
-        applyReceiverRolesButton.addEventListener("click", async () => {
-            const result = document.getElementById("receiver-roles-apply-result");
-            if (receiverRolesDirty) {
-                if (result) result.textContent = "Bewaar eerst de gewijzigde rollen.";
-                return;
-            }
-            applyReceiverRolesButton.disabled = true;
-            if (result) result.textContent = "Services worden netjes gestopt, omgezet en opnieuw gestart...";
-            try {
-                const response = await fetch("/api/receiver-roles/apply", {method: "POST"});
-                const data = await response.json();
-                if (result) result.textContent = data.message || (response.ok ? "Toegepast." : "Mislukt.");
-                if (response.ok) await updateRadioPage();
-            } catch (error) {
-                if (result) result.textContent = `Toepassen mislukt: ${error.message}`;
-            } finally {
-                applyReceiverRolesButton.disabled = false;
-            }
-        });
-    }
 
     const gainMode = document.getElementById("weather-gain-mode");
     if (gainMode) gainMode.addEventListener("change", () => {

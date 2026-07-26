@@ -20,8 +20,8 @@ iss_voice:
   minimum_elevation: 20.0
   planning_priority: 3
   execution_backend_enabled: true
-  execution_enabled: false
-  receiver_claim_enabled: false
+  execution_enabled: true
+  receiver_claim_enabled: true
   planner_enabled: true
   controlled_capture_enabled: true
   controlled_capture_max_seconds: 30

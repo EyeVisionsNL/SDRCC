@@ -90,3 +90,12 @@
 .uptime {
     margin-bottom: 0;
 }
+
+/* v0.47.1c Service Control */
+.system-service-control-card .section-heading-row{margin-bottom:10px}
+.system-service-control-card .section-heading-row p{margin:5px 0 0}
+.system-service-controls{display:grid;gap:10px}
+.system-service-row{display:grid;grid-template-columns:minmax(120px,1fr) auto auto;gap:8px;align-items:center;padding:10px;border:1px solid #24364d;border-radius:9px;background:#07111f}
+.system-service-label{display:flex;align-items:center;gap:8px;min-width:0}
+.system-service-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:520px){.system-service-row{grid-template-columns:1fr 1fr}.system-service-label{grid-column:1/-1}.system-service-row .control-button{width:100%}}
