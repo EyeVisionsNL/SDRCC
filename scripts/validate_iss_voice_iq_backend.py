@@ -21,7 +21,7 @@ def main():
     plan=adapter.build_plan({"target":"ISS (ZARYA)"}).as_dict()
     check(plan["target_type"]=="wideband_iq_capture", "plan targets wideband IQ capture")
     check(plan["executable"] is False and plan["read_only"] is True, "plan remains fail-closed")
-    spec=build_spec(mission_id="validator",receiver_serial="24006572",frequency_hz=437800000,sample_rate_hz=240000,duration_seconds=10)
+    spec=build_spec(mission_id="validator",receiver_serial="TEST-RECEIVER-0001",frequency_hz=437800000,sample_rate_hz=240000,duration_seconds=10)
     cmd=build_command(spec); check(cmd[0]=="rtl_sdr" and "2400000" in cmd, "bounded rtl_sdr command uses exact sample count")
     info=describe_capture(spec); check(info["expected_bytes"]==4800000, "CU8 expected size calculated")
     runtime=validate_runtime()

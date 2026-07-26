@@ -1,0 +1,16 @@
+GET /api/receiver-monitor
+HTTP 200
+Content-Type: application/json
+
+GET /api/receiver-manager
+HTTP 200
+Content-Type: application/json
+
+GET /api/receiver-contexts
+HTTP 200
+Content-Type: application/json
+
+OPTIONS /api/mission-assignments
+HTTP 200
+Allow: POST, OPTIONS
+

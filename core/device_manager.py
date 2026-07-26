@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
 from core import plugin_registry
-from core.config import get_assignment, get_receiver_assignments, load_station
+from core.config import get_assignment, get_receiver_assignments
+from core.receiver_registry import get_receiver as registry_get_receiver, get_receivers
 
 
 def get_devices():
-    cfg = load_station()
     assignments = get_receiver_assignments()
     devices = []
-    for index in (1, 2):
-        device_id = f"sdr{index}"
-        if device_id not in cfg:
-            continue
-        item = cfg[device_id]
+    for item in get_receivers():
+        device_id = item["runtime_id"]
         roles = [role for role, assigned in assignments.items() if assigned == device_id]
         fixed_role = next(
             (
@@ -25,12 +22,17 @@ def get_devices():
         )
         devices.append({
             "id": device_id,
-            "number": f"SDR{index}",
-            "name": item.get("name", f"SDR{index}"),
-            "serial": str(item.get("serial", "")),
+            "registry_id": item["id"],
+            "number": item["number"],
+            "name": item["name"],
+            "description": item["description"],
+            "serial": item["serial"],
+            "driver": item["driver"],
+            "aliases": item["aliases"],
+            "capabilities": item["capabilities"],
             "role": fixed_role,
             "roles": roles,
-            "locked": item.get("locked", False),
+            "locked": item["locked"],
             "weather_selected": assignments.get("weather") == device_id,
         })
     return devices
@@ -49,7 +51,14 @@ def get_receiver_role(device_id):
 
 
 def get_device(device_id):
-    return next((d for d in get_devices() if d["id"] == device_id), None)
+    requested = str(device_id or "").strip().lower()
+    direct = next((d for d in get_devices() if d["id"] == requested or d["registry_id"] == requested), None)
+    if direct is not None:
+        return direct
+    registry_item = registry_get_receiver(requested)
+    if registry_item is None:
+        return None
+    return next((d for d in get_devices() if d["registry_id"] == registry_item["id"]), None)
 
 
 def get_assigned_device(role):
@@ -67,11 +76,13 @@ def get_dynamic_device():
 
 def get_assigned_roles(device_id):
     """Return all configured roles assigned to one receiver."""
+    device = get_device(device_id)
+    runtime_id = device["id"] if device else str(device_id or "").strip().lower()
     assignments = get_receiver_assignments()
     return [
         role
         for role, assigned_device in assignments.items()
-        if assigned_device == device_id
+        if assigned_device == runtime_id
     ]
 
 
@@ -103,10 +114,11 @@ def print_devices():
     print("-----------------------------")
     for device in get_devices():
         print(device["name"])
-        print(f"  ID     : {device['id']}")
-        print(f"  Serial : {device['serial']}")
-        print(f"  Roles  : {', '.join(device['roles']) or '-'}")
-        print(f"  Locked : {'YES' if device['locked'] else 'NO'}")
+        print(f"  Registry ID : {device['registry_id']}")
+        print(f"  Runtime ID  : {device['id']}")
+        print(f"  Serial      : {device['serial']}")
+        print(f"  Roles       : {', '.join(device['roles']) or '-'}")
+        print(f"  Locked      : {'YES' if device['locked'] else 'NO'}")
         print()
     weather = get_weather_device()
     print("Selected weather receiver")

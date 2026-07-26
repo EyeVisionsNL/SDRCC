@@ -32,6 +32,7 @@ from core import plugin_capabilities as plugin_capabilities_core
 from core import execution_plan_consumer as execution_plan_consumer_core
 from core import execution_journal as execution_journal_core
 from core import receiver_manager
+from core import receiver_registry
 from core import receiver_runtime as receiver_runtime_core
 from core import receiver_contexts as receiver_contexts_core
 from core import receiver_monitor
@@ -2043,6 +2044,14 @@ def api_plugin_capabilities():
             "plugins": {},
             "capabilities": {},
         }), 500
+
+
+@app.route("/api/receiver-registry", methods=["GET"])
+def api_receiver_registry():
+    try:
+        return jsonify(receiver_registry.public_snapshot())
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 500
 
 
 @app.route("/api/receiver-contexts", methods=["GET"])

@@ -1,0 +1,35 @@
+version: 1
+receivers:
+  receiver01:
+    name: AIS Receiver
+    description: Migrated from station.yaml
+    number: RX01
+    enabled: true
+    hardware:
+      driver: rtlsdr
+      serial: 05419737
+    aliases:
+    - sdr1
+    capabilities:
+    - ais
+    - iss_voice
+    - recording
+    defaults:
+      locked: true
+  receiver02:
+    name: Dynamic Receiver
+    description: Migrated from station.yaml
+    number: RX02
+    enabled: true
+    hardware:
+      driver: rtlsdr
+      serial: '24006572'
+    aliases:
+    - sdr2
+    capabilities:
+    - weather
+    - adsb
+    - live_rf
+    - recording
+    defaults:
+      locked: false

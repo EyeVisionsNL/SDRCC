@@ -9,6 +9,7 @@ CONFIG_DIR = PROJECT_ROOT / "config"
 STATION_CONFIG = CONFIG_DIR / "station.yaml"
 SATELLITES_CONFIG = CONFIG_DIR / "satellites.yaml"
 SCHEDULER_CONFIG = CONFIG_DIR / "scheduler.yaml"
+RECEIVERS_CONFIG = CONFIG_DIR / "receivers.yaml"
 
 
 def load_yaml(path: Path):
@@ -38,6 +39,11 @@ def load_satellites():
 def load_scheduler():
     """Laad Mission Scheduler-configuratie."""
     return load_yaml(SCHEDULER_CONFIG)
+
+
+def load_receivers():
+    """Laad de statische Receiver Registry."""
+    return load_yaml(RECEIVERS_CONFIG)
 
 
 def get_scheduler_config():
@@ -88,12 +94,21 @@ def get_assignment_roles():
     return ("weather", "ais", "adsb", "iss_voice", "meshcore")
 
 
+def _configured_receiver_ids():
+    """Return enabled compatibility IDs from the central registry."""
+    from core.receiver_registry import get_receiver_ids
+    return tuple(get_receiver_ids(compatibility=True))
+
+
 def get_assignment_defaults():
-    """Return backwards-compatible defaults for roles already in production."""
+    """Return safe defaults based on the configured receivers."""
+    receiver_ids = _configured_receiver_ids()
+    first = receiver_ids[0] if receiver_ids else None
+    second = receiver_ids[1] if len(receiver_ids) > 1 else first
     return {
-        "weather": "sdr1",
-        "ais": "sdr1",
-        "adsb": "sdr2",
+        "weather": first,
+        "ais": first,
+        "adsb": second,
         "iss_voice": None,
         "meshcore": None,
     }
@@ -110,8 +125,8 @@ def _validate_assignment_device(device_id, *, allow_none=False):
     if device_id is None and allow_none:
         return None
     normalized = str(device_id or "").strip().lower()
-    if normalized not in {"sdr1", "sdr2"}:
-        raise ValueError("Receiver moet sdr1 of sdr2 zijn")
+    if normalized not in set(_configured_receiver_ids()):
+        raise ValueError("Onbekende of uitgeschakelde receiver")
     return normalized
 
 
@@ -128,7 +143,7 @@ def get_receiver_assignments():
             assignments[role] = None
             continue
         value = str(raw_value).strip().lower()
-        assignments[role] = value if value in {"sdr1", "sdr2"} else defaults.get(role)
+        assignments[role] = value if value in set(_configured_receiver_ids()) else defaults.get(role)
 
     return assignments
 
@@ -179,7 +194,7 @@ def set_receiver_roles(roles):
     """Backward-compatible fixed AIS/ADS-B assignment editor."""
     allowed = {"ais", "adsb", "manual"}
     normalized = {}
-    for receiver_id in ("sdr1", "sdr2"):
+    for receiver_id in _configured_receiver_ids():
         role = str((roles or {}).get(receiver_id, "manual")).strip().lower()
         if role not in allowed:
             raise ValueError(f"Ongeldige rol voor {receiver_id}: {role}")
@@ -268,7 +283,7 @@ def set_weather_rf_config(settings):
 # v0.47.1a Mission Assignment & Restore Policy Foundation
 MISSION_ASSIGNMENT_ROLES = ("weather", "iss_voice")
 DEFAULT_CONTEXT_PLUGINS = ("ais", "adsb")
-RECEIVER_IDS = ("sdr1", "sdr2")
+RECEIVER_IDS = _configured_receiver_ids()
 
 
 def get_mission_assignment_roles():
