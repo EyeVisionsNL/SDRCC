@@ -8,6 +8,7 @@ from typing import Any, Type
 
 from core import plugin_registry
 from core import execution_journal
+from core import receiver_registry
 from core.execution_adapter import ExecutionAdapter, ExecutionAdapterError
 from core.execution_adapters import (
     NullAdapter, SatDumpAdapter, ServiceAdapter, WidebandIQAdapter,
@@ -22,6 +23,22 @@ _ADAPTERS: dict[str | None, Type[ExecutionAdapter]] = {
     "satdump": SatDumpAdapter,
     "wideband_iq": WidebandIQAdapter,
 }
+
+
+def _normalize_receiver_request(request: dict[str, Any] | None) -> dict[str, Any]:
+    """Return a defensive request with Registry-backed receiver identity."""
+    normalized = dict(request or {})
+    requested = normalized.get("receiver_id") or normalized.get("receiver")
+    identity = receiver_registry.identity(requested)
+    if identity is None:
+        return normalized
+    normalized["receiver_id"] = identity["canonical_id"]
+    normalized["registry_id"] = identity["canonical_id"]
+    normalized["canonical_id"] = identity["canonical_id"]
+    normalized["receiver"] = identity["runtime_id"]
+    normalized["runtime_id"] = identity["runtime_id"]
+    normalized["receiver_serial"] = identity["serial"]
+    return normalized
 
 
 class PluginNotFoundError(ExecutionAdapterError):
@@ -80,8 +97,9 @@ def build_plan_with_journal(
     request: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a plan and return its observer-only journal correlation."""
-    plan = get_adapter(plugin_id).build_plan(request).as_dict()
-    entry = execution_journal.create_entry(plan, request=request)
+    normalized_request = _normalize_receiver_request(request)
+    plan = get_adapter(plugin_id).build_plan(normalized_request).as_dict()
+    entry = execution_journal.create_entry(plan, request=normalized_request)
     return {
         "plan": plan,
         "execution_id": entry["execution_id"],

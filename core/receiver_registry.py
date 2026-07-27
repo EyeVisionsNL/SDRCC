@@ -145,9 +145,39 @@ def get_receivers(*, include_disabled: bool = False) -> list[dict[str, Any]]:
 
 
 def get_receiver_ids(*, compatibility: bool = True) -> tuple[str, ...]:
+    """Return enabled receiver identities in stable registry order.
+
+    compatibility=True preserves the existing runtime aliases used by older
+    callers. compatibility=False returns canonical registry identities.
+    """
     receivers = get_receivers()
     key = "runtime_id" if compatibility else "id"
     return tuple(str(item[key]) for item in receivers)
+
+
+def resolve_runtime_id(receiver_id: str | None) -> str | None:
+    """Resolve a canonical ID or alias to the compatibility runtime ID."""
+    item = get_receiver(receiver_id, include_disabled=True)
+    return str(item["runtime_id"]) if item else None
+
+
+def identity(receiver_id: str | None, *, include_disabled: bool = False) -> dict[str, Any] | None:
+    """Return the shared identity contract used by core runtime components."""
+    item = get_receiver(receiver_id, include_disabled=include_disabled)
+    if item is None:
+        return None
+    return {
+        "id": item["id"],
+        "registry_id": item["id"],
+        "canonical_id": item["id"],
+        "runtime_id": item["runtime_id"],
+        "aliases": deepcopy(item["aliases"]),
+        "number": item["number"],
+        "name": item["name"],
+        "serial": item["serial"],
+        "driver": item["driver"],
+        "enabled": item["enabled"],
+    }
 
 
 def resolve_id(receiver_id: str | None) -> str | None:
@@ -174,7 +204,7 @@ def public_snapshot() -> dict[str, Any]:
     receivers = get_receivers(include_disabled=True)
     return {
         "ok": True,
-        "version": "0.49.0b",
+        "version": "0.49.0c1",
         "authority": "static_identity_only",
         "registry_file": str(REGISTRY_FILE),
         "receiver_count": len(receivers),

@@ -30,6 +30,7 @@ from typing import Any, Callable
 from core import execution_factory
 from core import plugin_health
 from core import plugin_registry
+from core import receiver_registry
 from core import plugin_runtime
 
 
@@ -39,7 +40,7 @@ HealthReader = Callable[..., dict[str, Any]]
 ExecutionReader = Callable[..., dict[str, Any]]
 PlanningReader = Callable[..., dict[str, Any]]
 
-_MANAGER_VERSION = "0.45.0"
+_MANAGER_VERSION = "0.49.0c2"
 
 
 def _now() -> str:
@@ -258,6 +259,7 @@ class PluginManager:
         planning = self._planning_reader(
             include_planned=include_planned,
         )
+        receiver_identity = receiver_registry.public_snapshot()
 
         plugins = _merge_plugins(
             registry, runtime, health, execution, planning
@@ -270,6 +272,7 @@ class PluginManager:
             "health": bool(health.get("ok", True)),
             "execution": bool(execution.get("ok", True)),
             "planning": bool(planning.get("ok", True)),
+            "receiver_registry": bool(receiver_identity.get("ok", True)),
         }
 
         ready = health.get("ready")
@@ -309,6 +312,8 @@ class PluginManager:
             "include_planned": include_planned,
             "metadata_authority": "plugin_registry",
             "receiver_authority": "receiver_manager",
+            "receiver_identity_authority": "receiver_registry",
+            "receiver_identity": deepcopy(receiver_identity),
             "runtime_source": "plugin_runtime",
             "health_source": "plugin_health",
             "execution_source": "execution_factory",

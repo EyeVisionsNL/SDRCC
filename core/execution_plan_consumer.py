@@ -14,9 +14,10 @@ from typing import Any, Mapping
 
 from core import execution_factory
 from core import execution_journal
+from core import receiver_registry
 
 
-_CONSUMER_VERSION = "0.43.0c2"
+_CONSUMER_VERSION = "0.49.0c2"
 _HISTORY_LIMIT = 100
 _lock = Lock()
 _history: list[dict[str, Any]] = []
@@ -35,7 +36,17 @@ def _normalize_context(
 ) -> dict[str, Any]:
     if context is None:
         return {}
-    return deepcopy(dict(context))
+    normalized = deepcopy(dict(context))
+    requested = normalized.get("receiver_id") or normalized.get("receiver")
+    identity = receiver_registry.identity(requested)
+    if identity is not None:
+        normalized["receiver_id"] = identity["canonical_id"]
+        normalized["registry_id"] = identity["canonical_id"]
+        normalized["canonical_id"] = identity["canonical_id"]
+        normalized["receiver"] = identity["runtime_id"]
+        normalized["runtime_id"] = identity["runtime_id"]
+        normalized["receiver_serial"] = identity["serial"]
+    return normalized
 
 
 def _validate_plan(plan: Mapping[str, Any]) -> list[str]:

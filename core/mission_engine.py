@@ -9,6 +9,7 @@ import json
 from core import event_bus
 from core import execution_plan_consumer
 from core import execution_journal
+from core import receiver_registry
 
 
 class MissionState(str, Enum):
@@ -205,13 +206,24 @@ class MissionEngine:
                 )
 
             now = self._now()
+            requested_receiver = receiver_id or receiver
+            receiver_identity = receiver_registry.identity(requested_receiver)
+            canonical_receiver_id = (
+                receiver_identity["canonical_id"] if receiver_identity else None
+            )
+            runtime_receiver_id = (
+                receiver_identity["runtime_id"] if receiver_identity else None
+            )
+            registry_receiver_serial = (
+                receiver_identity["serial"] if receiver_identity else None
+            )
             plan_consumption = execution_plan_consumer.consume_weather_mission({
                 "target": satellite,
                 "satellite": satellite,
                 "receiver_role": "weather",
-                "receiver": receiver,
-                "receiver_id": receiver_id,
-                "receiver_serial": receiver_serial,
+                "receiver": runtime_receiver_id or receiver,
+                "receiver_id": canonical_receiver_id or receiver_id,
+                "receiver_serial": registry_receiver_serial or receiver_serial,
                 "frequency": frequency,
                 "pipeline": pipeline,
                 "output_path": output_path,
@@ -223,10 +235,20 @@ class MissionEngine:
                 mode=str(mode or "-"),
                 pipeline=str(pipeline or "-"),
                 output_path=str(output_path or "-"),
-                receiver=str(receiver) if receiver else None,
-                receiver_id=str(receiver_id) if receiver_id else None,
+                receiver=(
+                    str(runtime_receiver_id or receiver)
+                    if (runtime_receiver_id or receiver)
+                    else None
+                ),
+                receiver_id=(
+                    str(canonical_receiver_id or receiver_id)
+                    if (canonical_receiver_id or receiver_id)
+                    else None
+                ),
                 receiver_serial=(
-                    str(receiver_serial) if receiver_serial else None
+                    str(registry_receiver_serial or receiver_serial)
+                    if (registry_receiver_serial or receiver_serial)
+                    else None
                 ),
                 min_elevation=(float(min_elevation) if min_elevation is not None else None),
                 max_elevation=(float(max_elevation) if max_elevation is not None else None),

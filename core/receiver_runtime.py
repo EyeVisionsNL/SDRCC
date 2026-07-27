@@ -24,6 +24,7 @@ from core import config
 from core import mission_engine
 from core import plugin_registry
 from core import receiver_manager
+from core import receiver_registry
 
 
 ServiceReader = Callable[[str], dict[str, Any]]
@@ -86,7 +87,7 @@ def _normalise_assignments(raw: Any) -> dict[str, str | None]:
     assignments: dict[str, str | None] = {}
     for role in plugin_registry.get_plugin_roles():
         value = data.get(role)
-        assignments[role] = str(value).strip() if value else None
+        assignments[role] = receiver_registry.resolve_id(value) if value else None
     return assignments
 
 
@@ -128,7 +129,9 @@ def _mission_for_receiver(
     if not isinstance(active_job, dict):
         return None
 
-    active_receiver = str(active_job.get("receiver_id") or "").strip()
+    active_receiver = receiver_registry.resolve_id(
+        active_job.get("receiver_id") or active_job.get("receiver")
+    )
     if active_receiver == receiver_id:
         return deepcopy(active_job)
 
@@ -183,11 +186,11 @@ class ReceiverRuntime:
             config.get_receiver_assignments()
         )
 
-        manager_receivers = manager_status.get("receivers")
+        manager_receivers = manager_status.get("canonical_receivers")
         if not isinstance(manager_receivers, dict):
             manager_receivers = {}
 
-        reservations = manager_status.get("reservations")
+        reservations = manager_status.get("canonical_reservations")
         if not isinstance(reservations, dict):
             reservations = {}
 
@@ -225,8 +228,16 @@ class ReceiverRuntime:
                 reservation,
             )
 
+            identity = receiver_registry.identity(receiver_id) or {
+                "canonical_id": receiver_id,
+                "runtime_id": receiver_id,
+                "registry_id": receiver_id,
+            }
             receivers[receiver_id] = {
                 "receiver_id": receiver_id,
+                "registry_id": identity["canonical_id"],
+                "canonical_id": identity["canonical_id"],
+                "runtime_id": identity["runtime_id"],
                 "device": deepcopy(device),
                 "serial": device.get("serial"),
                 "name": device.get("name"),
@@ -257,13 +268,30 @@ class ReceiverRuntime:
             for receiver_id, item in receivers.items()
         }
 
+        compatibility_receivers = {
+            item["runtime_id"]: item for item in receivers.values()
+        }
+        compatibility_states = {
+            item["runtime_id"]: item["runtime_state"]
+            for item in receivers.values()
+        }
+        compatibility_assignments = {
+            role: receiver_registry.resolve_runtime_id(receiver_id)
+            if receiver_id else None
+            for role, receiver_id in assignments.items()
+        }
+
         return {
             "ok": bool(manager_status.get("ok", True)),
+            "version": "0.49.0c2",
             "read_only": True,
             "authority": "receiver_manager",
+            "identity_authority": "receiver_registry",
+            "state_identity": "canonical",
             "updated_at": observed_at,
             "receiver_count": len(receivers),
-            "assignments": assignments,
+            "assignments": compatibility_assignments,
+            "canonical_assignments": assignments,
             "mission_phase": (
                 mission_status.get("phase")
                 or mission_status.get("state")
@@ -273,8 +301,10 @@ class ReceiverRuntime:
                 if isinstance(active_job, dict)
                 else None
             ),
-            "states": states,
-            "receivers": receivers,
+            "states": compatibility_states,
+            "canonical_states": states,
+            "receivers": compatibility_receivers,
+            "canonical_receivers": receivers,
         }
 
     def get_receivers(self) -> dict[str, dict[str, Any]]:
@@ -283,10 +313,11 @@ class ReceiverRuntime:
 
     def get_receiver(self, receiver_id: str) -> dict[str, Any] | None:
         """Return one receiver observation, or None when unknown."""
-        key = str(receiver_id or "").strip()
-        if not key:
+        identity = receiver_registry.identity(receiver_id)
+        if identity is None:
             return None
-        receiver = self.get_receivers().get(key)
+        snapshot = self.get_snapshot()
+        receiver = snapshot["canonical_receivers"].get(identity["canonical_id"])
         return deepcopy(receiver) if receiver is not None else None
 
 
