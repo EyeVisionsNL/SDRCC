@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/static/css/layout.css">
     <link rel="stylesheet" href="/static/css/cards.css">
     <link rel="stylesheet" href="/static/css/system.css">
+    <link rel="stylesheet" href="/static/css/receiver_inventory.css?v=0.50.0a">
     <link rel="stylesheet" href="/static/css/capture.css">
     <link rel="stylesheet" href="/static/css/log.css">
     <link rel="stylesheet" href="/static/css/controls.css">
@@ -212,6 +213,14 @@
             <div class="system-meter"><div class="system-meter-top"><span>RAM</span><strong id="system-ram">-</strong></div><div class="bar"><div id="system-ram-bar"></div></div></div>
             <div class="system-meter"><div class="system-meter-top"><span>Disk</span><strong id="system-disk">-</strong></div><div class="bar"><div id="system-disk-bar"></div></div></div>
             <p class="uptime">⏱ Uptime: <strong id="system-uptime">-</strong></p>
+        </section>
+        <section class="card receiver-inventory-card compact-card" aria-labelledby="receiver-inventory-title">
+            <div class="section-heading-row">
+                <div><h2 id="receiver-inventory-title">📻 Receiver Inventory</h2><p class="muted">Read-only koppeling tussen fysieke dongel, Receiver Registry, runtime-alias en pluginrollen.</p></div>
+                <span class="receiver-inventory-badge">REGISTRY AUTHORITY</span>
+            </div>
+            <div id="receiver-inventory" class="receiver-inventory-grid" aria-live="polite"><div class="receiver-inventory-empty">Receiver Inventory laden...</div></div>
+            <p id="receiver-inventory-status" class="muted receiver-inventory-status">Bron: Receiver Registry en Receiver Runtime.</p>
         </section>
         <section class="card system-service-control-card compact-card" aria-labelledby="system-service-control-title">
             <div class="section-heading-row">
@@ -793,6 +802,7 @@
 </footer>
 
 <script src="/static/dashboard.js"></script>
+<script src="/static/js/receiver_inventory.js?v=0.50.0a"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/mission_recordings.js?v=0.48.0a"></script>
 <script src="/static/js/radio.js?v=0.47.1a"></script>

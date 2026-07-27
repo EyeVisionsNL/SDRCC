@@ -26,6 +26,7 @@ from core import mission_recordings as mission_recordings_core
 from core import passes
 from core import plugin_registry
 from core import plugin_runtime as plugin_runtime_core
+from core import plugin_execution_runtime as plugin_execution_runtime_core
 from core import plugin_health as plugin_health_core
 from core import plugin_manager as plugin_manager_core
 from core import plugin_capabilities as plugin_capabilities_core
@@ -34,6 +35,7 @@ from core import execution_journal as execution_journal_core
 from core import receiver_manager
 from core import receiver_registry
 from core import receiver_runtime as receiver_runtime_core
+from core import receiver_inventory as receiver_inventory_core
 from core import receiver_contexts as receiver_contexts_core
 from core import receiver_monitor
 from core import state
@@ -1808,6 +1810,25 @@ def api_plugin_runtime():
             "plugins": [],
         }), 500
 
+
+
+@app.route("/api/plugin-execution-runtime", methods=["GET"])
+def api_plugin_execution_runtime():
+    """Expose the observer-only plugin execution lifecycle foundation."""
+    include_planned = request.args.get("include_planned", default="true", type=str).strip().lower() not in {"0", "false", "no", "off"}
+    try:
+        return jsonify(plugin_execution_runtime_core.get_snapshot(include_planned=include_planned))
+    except Exception as error:
+        return jsonify({"ok": False, "read_only": True, "foundation_only": True, "behavior_changed": False, "error": str(error), "plugins": []}), 500
+
+
+@app.route("/api/receiver-inventory", methods=["GET"])
+def api_receiver_inventory():
+    """Expose the read-only physical-to-runtime receiver inventory."""
+    try:
+        return jsonify(receiver_inventory_core.get_snapshot())
+    except Exception as error:
+        return jsonify({"ok": False, "read_only": True, "error": str(error), "receivers": []}), 500
 
 @app.route("/api/plugin-health", methods=["GET"])
 def api_plugin_health():

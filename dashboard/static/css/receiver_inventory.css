@@ -1,0 +1,16 @@
+
+.receiver-inventory-card { grid-column: 1 / -1; }
+.receiver-inventory-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:14px; margin-top:12px; }
+.receiver-inventory-item { border:1px solid var(--border-color,rgba(255,255,255,.12)); border-radius:10px; padding:14px; background:rgba(255,255,255,.025); }
+.receiver-inventory-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px; }
+.receiver-inventory-head h3 { margin:0; font-size:1.05rem; }
+.receiver-inventory-serial { font-family:monospace; opacity:.9; }
+.receiver-inventory-state,.receiver-inventory-badge { display:inline-flex; border-radius:999px; padding:3px 8px; font-size:.72rem; font-weight:700; letter-spacing:.04em; background:rgba(80,160,255,.14); }
+.receiver-inventory-state[data-state="MISSION_ACTIVE"],.receiver-inventory-state[data-state="SERVICE_ACTIVE"] { background:rgba(55,190,120,.16); }
+.receiver-inventory-details { display:grid; grid-template-columns:minmax(110px,.7fr) 1.3fr; gap:6px 10px; margin:0; }
+.receiver-inventory-details dt { color:var(--muted-color,#9ca3af); }
+.receiver-inventory-details dd { margin:0; overflow-wrap:anywhere; }
+.receiver-inventory-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.receiver-inventory-tag { border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:2px 7px; font-size:.75rem; }
+.receiver-inventory-empty { padding:14px; opacity:.75; }
+.receiver-inventory-status { margin-top:10px; }
