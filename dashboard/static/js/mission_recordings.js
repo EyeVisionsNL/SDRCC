@@ -71,16 +71,22 @@
     if (!img || !empty) return;
     if (image && image.url) {
       const separator = image.url.includes('?') ? '&' : '?';
-      img.src = `${image.url}${separator}t=${Date.now()}`;
+      const cacheKey = image.modified || monitor.updated_at || image.size_kb || Date.now();
+      const nextSrc = `${image.url}${separator}v=${encodeURIComponent(cacheKey)}`;
+      if (img.getAttribute('src') !== nextSrc) img.src = nextSrc;
       img.classList.remove('hidden'); empty.classList.add('hidden');
       text('mission-operations-preview-state', image.live ? 'LIVE' : 'LATEST');
-      text('mission-operations-preview-meta', `${image.satellite || '-'} · ${image.product || image.filename || '-'} · ${image.resolution || '-'}`);
+      const source = monitor.active ? 'LIVE' : 'LATEST';
+      const telemetry = monitor.active
+        ? ` · ${Number(monitor.frames || 0).toLocaleString('nl-NL')} frames · ${formatBytes(monitor.cadu_bytes || 0)} CADU`
+        : '';
+      text('mission-operations-preview-meta', `${source} · ${image.satellite || monitor.satellite || '-'} · ${image.product || image.filename || '-'} · ${image.resolution || '-'}${telemetry}`);
     } else {
       img.removeAttribute('src'); img.classList.add('hidden'); empty.classList.remove('hidden');
       text('mission-operations-preview-state', 'STANDBY'); text('mission-operations-preview-meta', '-');
     }
   };
-  const updateLive = (snapshot) => {
+  const updateLive = (snapshot, missionMonitor = {}) => {
     const summary = snapshot && snapshot.summary || {};
     const rf = snapshot && snapshot.live_rf || {};
     const iss = snapshot && snapshot.iss_voice || {};
@@ -121,7 +127,7 @@
     if ((!audio.available || !isIss || (state.liveAudioMissionId && state.liveAudioMissionId !== audio.mission_id)) && state.liveAudioPlaying) stopLiveAudio();
     if (!state.liveAudioPlaying) setAudioConnection(audio.available ? 'READY' : 'DISCONNECTED');
 
-    if (isIss) setPreview({}); else setPreview(snapshot && snapshot.mission_monitor || {});
+    if (isIss) setPreview({}); else setPreview(missionMonitor || {});
     text('mission-operations-updated', `Updated ${new Date().toLocaleTimeString('nl-NL')}`);
   };
   const findHistory = (row) => {
@@ -179,12 +185,18 @@
     }
   };
   const refreshLive = async () => {
-    try {
-      const snapshot = await fetchJson('/api/mission-operations');
-      updateLive(snapshot);
-    } catch (error) {
-      updateLive({});
-      text('mission-operations-detail', `Live status unavailable: ${error.message}`);
+    const values = await Promise.allSettled([
+      fetchJson('/api/mission-operations'),
+      fetchJson('/api/mission-monitor')
+    ]);
+    const snapshot = values[0].status === 'fulfilled' ? values[0].value : {};
+    const missionMonitor = values[1].status === 'fulfilled' ? values[1].value : {};
+    updateLive(snapshot, missionMonitor);
+    if (values[0].status === 'rejected') {
+      text('mission-operations-detail', `Live status unavailable: ${values[0].reason.message}`);
+    }
+    if (values[1].status === 'rejected') {
+      text('mission-operations-preview-meta', `Preview unavailable: ${values[1].reason.message}`);
     }
   };
   document.addEventListener('DOMContentLoaded', () => {
