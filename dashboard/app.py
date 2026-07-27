@@ -22,6 +22,7 @@ from core import iss_voice
 from core import iss_voice_audio
 from core import iss_voice_executor
 from core import iss_voice_runtime
+from core import iss_voice_runtime_recovery
 from core import mission_recordings as mission_recordings_core
 from core import passes
 from core import plugin_registry
@@ -2756,22 +2757,49 @@ def get_reconciled_receiver_manager_status():
     ))
 
     status = receiver_manager.get_status()
-    if (
-        status.get("reservation") is not None
-        and mission.get("active_job") is None
+    idle_runtime = (
+        mission.get("active_job") is None
         and phase in {"READY", "WAIT FOR PASS"}
         and not runtime_active
-    ):
-        stale = status.get("reservation") or {}
-        receiver_manager.release(
-            mission_key=stale.get("mission_key"),
-            detail="Automatisch vrijgegeven: geen actieve missie",
-        )
-        write_log(
-            "Receiver Manager: achtergebleven reservering automatisch "
-            f"vrijgegeven ({stale.get('mission_key', '-')})"
-        )
-        status = receiver_manager.get_status()
+    )
+
+    if idle_runtime:
+        canonical_reservations = status.get("canonical_reservations")
+        if not isinstance(canonical_reservations, dict):
+            canonical_reservations = {}
+
+        stale_reservations = [
+            reservation
+            for reservation in canonical_reservations.values()
+            if isinstance(reservation, dict)
+        ]
+        for stale in stale_reservations:
+            mission_key = str(stale.get("mission_key") or "").strip()
+            if not mission_key:
+                continue
+            receiver_id = (
+                stale.get("runtime_id")
+                or stale.get("receiver_id")
+                or stale.get("registry_id")
+                or "-"
+            )
+            try:
+                receiver_manager.release(
+                    mission_key=mission_key,
+                    detail="Automatisch vrijgegeven na runtime-recovery: geen actieve missie",
+                )
+                write_log(
+                    "Receiver Manager: achtergebleven reservering automatisch "
+                    f"vrijgegeven ({receiver_id}, {mission_key})"
+                )
+            except Exception as release_error:
+                write_log(
+                    "Receiver Manager: automatische reservation recovery mislukt "
+                    f"({receiver_id}, {mission_key}): {release_error}"
+                )
+
+        if stale_reservations:
+            status = receiver_manager.get_status()
 
     return status
 
@@ -3191,7 +3219,28 @@ def capture_file(relative_path):
     return send_file(requested)
 
 
+
+def recover_stale_iss_voice_observer():
+    """Reconcile the persisted ISS observer after an interrupted restart."""
+    try:
+        receiver_status = get_reconciled_receiver_manager_status()
+        result = iss_voice_runtime_recovery.recover_if_stale(
+            mission_status=mission_engine_core.get_mission_status(),
+            receiver_status=receiver_status,
+            iss_execution_active=bool(autopilot_runtime.get("iss_execution_active")),
+        )
+        if result.get("changed"):
+            write_log(
+                "ISS Voice runtime: achtergebleven observerstatus automatisch "
+                f"hersteld ({result.get('mission_id') or '-'})"
+            )
+        return result
+    except Exception as recovery_error:
+        write_log(f"ISS Voice runtime recovery overgeslagen: {recovery_error}")
+        return {"ok": False, "changed": False, "error": str(recovery_error)}
+
 def run():
+    recover_stale_iss_voice_observer()
     event_bus.publish_system(
         "SYSTEM",
         "Event Bus gestart",
