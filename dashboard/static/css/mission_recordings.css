@@ -330,3 +330,8 @@
         max-height:none !important;
     }
 }
+
+/* v0.53.1a Mission Operations tab visibility fix */
+.mission-operations-page:not(.active){
+    display:none !important;
+}
