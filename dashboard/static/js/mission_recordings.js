@@ -1,5 +1,5 @@
 (() => {
-  const state = { recordings: [], history: [], selected: null };
+  const state = { recordings: [], history: [], selected: null, audioMonitor: null, liveAudioPlaying: false, liveAudioMissionId: null };
   const byId = (id) => document.getElementById(id);
   const text = (id, value, fallback = '-') => { const el = byId(id); if (el) el.textContent = value ?? fallback; };
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
@@ -19,6 +19,44 @@
     const response = await fetch(url, { cache: 'no-store' });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     return response.json();
+  };
+
+  const setAudioConnection = (label, className = '') => {
+    const el = byId('mission-operations-audio-connection');
+    if (!el) return;
+    el.textContent = label;
+    el.className = `mission-operations-audio-connection ${className}`.trim();
+  };
+  const stopLiveAudio = () => {
+    const audio = byId('mission-operations-live-audio');
+    if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
+    state.liveAudioPlaying = false;
+    state.liveAudioMissionId = null;
+    const button = byId('mission-operations-audio-play');
+    if (button) button.textContent = '▶ Live audio';
+    setAudioConnection('DISCONNECTED');
+  };
+  const toggleLiveAudio = async () => {
+    const audio = byId('mission-operations-live-audio');
+    const button = byId('mission-operations-audio-play');
+    const monitor = state.audioMonitor || {};
+    if (!audio || !button) return;
+    if (state.liveAudioPlaying) { stopLiveAudio(); return; }
+    if (!monitor.available || !monitor.stream_url) return;
+    try {
+      setAudioConnection('CONNECTING', 'connecting');
+      audio.src = `${monitor.stream_url}&t=${Date.now()}`;
+      audio.volume = Number(byId('mission-operations-audio-volume')?.value || 0.85);
+      await audio.play();
+      state.liveAudioPlaying = true;
+      state.liveAudioMissionId = monitor.mission_id || null;
+      button.textContent = '■ Stop audio';
+      setAudioConnection('CONNECTED', 'connected');
+    } catch (error) {
+      stopLiveAudio();
+      setAudioConnection('ERROR', 'error');
+      text('mission-operations-audio-detail', `Live audio could not start: ${error.message}`);
+    }
   };
   const setMode = (active) => {
     const badge = byId('mission-operations-mode-badge');
@@ -42,28 +80,48 @@
       text('mission-operations-preview-state', 'STANDBY'); text('mission-operations-preview-meta', '-');
     }
   };
-  const updateLive = (engine, rf, monitor) => {
-    const activeJob = engine && engine.active_job;
-    const active = Boolean((rf && rf.active) || (monitor && monitor.active) || activeJob);
+  const updateLive = (snapshot) => {
+    const summary = snapshot && snapshot.summary || {};
+    const rf = snapshot && snapshot.live_rf || {};
+    const iss = snapshot && snapshot.iss_voice || {};
+    const audio = snapshot && snapshot.audio_monitor || {};
+    const active = Boolean(summary.active);
+    const isIss = summary.mission_type === 'iss_voice' || summary.plugin_id === 'iss_voice' || Boolean(iss.active);
     setMode(active);
-    const stateValue = (rf && rf.state) || (monitor && monitor.state) || (activeJob && activeJob.state) || 'IDLE';
-    const satellite = (rf && rf.satellite) || (monitor && monitor.satellite) || (activeJob && (activeJob.satellite || activeJob.target)) || 'No active mission';
-    text('mission-operations-state', stateValue);
-    text('mission-operations-satellite', satellite);
-    text('mission-operations-detail', active ? ((rf && rf.detail) || (engine && engine.detail) || 'Mission is active.') : 'Waiting for the next mission.');
-    text('mission-operations-receiver', (rf && (rf.receiver || rf.serial)) || (activeJob && (activeJob.receiver || activeJob.receiver_id)) || '-');
-    const hz = Number((rf && rf.frequency_hz) || (activeJob && activeJob.frequency) || 0);
+    text('mission-operations-state', summary.status || 'IDLE');
+    text('mission-operations-satellite', summary.satellite || 'No active mission');
+    text('mission-operations-detail', active ? (summary.detail || 'Mission is active.') : 'Waiting for the next mission.');
+    text('mission-operations-receiver', summary.receiver || summary.receiver_id || '-');
+    const hz = Number(summary.frequency || 0);
     text('mission-operations-frequency', hz ? `${(hz / 1e6).toFixed(3)} MHz` : '-');
-    text('mission-operations-elapsed', formatClock(rf && rf.elapsed_seconds));
-    text('mission-operations-remaining', formatClock(rf && rf.remaining_seconds));
-    text('mission-operations-snr', `${Number((rf && rf.snr_db) || 0).toFixed(2)} dB`);
-    text('mission-operations-peak-snr', `${Number((rf && rf.peak_snr_db) || (monitor && monitor.peak_snr_db) || 0).toFixed(2)} dB`);
-    text('mission-operations-frames', (rf && rf.frames) ?? (monitor && monitor.frames) ?? 0);
-    text('mission-operations-cadu', formatBytes((rf && rf.cadu_bytes) ?? (monitor && monitor.cadu_bytes) ?? 0));
-    const elapsed = Number(rf && rf.elapsed_seconds || 0); const remaining = Number(rf && rf.remaining_seconds || 0);
+    text('mission-operations-elapsed', formatClock(summary.duration_seconds));
+    text('mission-operations-remaining', formatClock(summary.remaining_seconds));
+    text('mission-operations-snr', isIss ? 'N/A' : `${Number(summary.snr_db || 0).toFixed(2)} dB`);
+    text('mission-operations-peak-snr', isIss ? 'N/A' : `${Number(summary.peak_snr_db || 0).toFixed(2)} dB`);
+    text('mission-operations-frames', isIss ? 'N/A' : (summary.frames ?? 0));
+    text('mission-operations-cadu', isIss ? 'N/A' : formatBytes(summary.cadu_bytes || 0));
+    const elapsed = Number(summary.duration_seconds || 0); const remaining = Number(summary.remaining_seconds || 0);
     const progress = elapsed + remaining > 0 ? Math.min(100, (elapsed / (elapsed + remaining)) * 100) : (active ? 2 : 0);
     const bar = byId('mission-operations-progress'); if (bar) bar.style.width = `${progress}%`;
-    setPreview(monitor || {});
+
+    const audioCard = byId('mission-operations-audio-monitor');
+    if (audioCard) audioCard.classList.toggle('hidden', !isIss);
+    text('mission-operations-audio-state', audio.stream_state || 'STANDBY');
+    text('mission-operations-audio-iq', formatBytes(audio.iq_bytes || 0));
+    text('mission-operations-audio-rate', audio.observed_byte_rate ? `${formatBytes(audio.observed_byte_rate)}/s` : '-');
+    text('mission-operations-audio-sample-rate', audio.sample_rate_hz ? `${Number(audio.sample_rate_hz / 1000).toFixed(0)} kS/s` : '-');
+    text('mission-operations-audio-detail', audio.detail || 'Waiting for an active ISS Voice IQ recording.');
+    state.audioMonitor = audio;
+    text('mission-operations-audio-transport', audio.transport === 'streaming_wav_pcm16' ? 'PCM WAV · 48 kHz' : '-');
+    const play = byId('mission-operations-audio-play');
+    if (play) {
+      play.disabled = !audio.available;
+      play.title = audio.available ? 'Start or stop the read-only live audio monitor' : (audio.detail || 'Live audio unavailable');
+    }
+    if ((!audio.available || !isIss || (state.liveAudioMissionId && state.liveAudioMissionId !== audio.mission_id)) && state.liveAudioPlaying) stopLiveAudio();
+    if (!state.liveAudioPlaying) setAudioConnection(audio.available ? 'READY' : 'DISCONNECTED');
+
+    if (isIss) setPreview({}); else setPreview(snapshot && snapshot.mission_monitor || {});
     text('mission-operations-updated', `Updated ${new Date().toLocaleTimeString('nl-NL')}`);
   };
   const findHistory = (row) => {
@@ -121,10 +179,27 @@
     }
   };
   const refreshLive = async () => {
-    const values = await Promise.allSettled([fetchJson('/api/mission-engine'), fetchJson('/api/live-rf'), fetchJson('/api/mission-monitor')]);
-    updateLive(values[0].status === 'fulfilled' ? values[0].value : {}, values[1].status === 'fulfilled' ? values[1].value : {}, values[2].status === 'fulfilled' ? values[2].value : {});
+    try {
+      const snapshot = await fetchJson('/api/mission-operations');
+      updateLive(snapshot);
+    } catch (error) {
+      updateLive({});
+      text('mission-operations-detail', `Live status unavailable: ${error.message}`);
+    }
   };
   document.addEventListener('DOMContentLoaded', () => {
+    const play = byId('mission-operations-audio-play');
+    const volume = byId('mission-operations-audio-volume');
+    const liveAudio = byId('mission-operations-live-audio');
+    if (play) play.addEventListener('click', toggleLiveAudio);
+    if (volume) volume.addEventListener('input', () => { if (liveAudio) liveAudio.volume = Number(volume.value); });
+    if (liveAudio) {
+      liveAudio.addEventListener('playing', () => setAudioConnection('CONNECTED', 'connected'));
+      liveAudio.addEventListener('waiting', () => setAudioConnection('BUFFERING', 'connecting'));
+      liveAudio.addEventListener('error', () => { if (state.liveAudioPlaying) { state.liveAudioPlaying = false; const b=byId('mission-operations-audio-play'); if(b)b.textContent='▶ Live audio'; setAudioConnection('ERROR','error'); } });
+      liveAudio.addEventListener('ended', stopLiveAudio);
+    }
+    window.addEventListener('beforeunload', stopLiveAudio);
     refreshResults(); refreshLive();
     setInterval(refreshLive, 3000); setInterval(refreshResults, 15000);
   });

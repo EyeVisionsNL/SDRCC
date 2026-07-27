@@ -10,7 +10,7 @@ from datetime import datetime
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from flask import Flask, jsonify, render_template, request, send_file, abort
+from flask import Flask, Response, jsonify, render_template, request, send_file, abort, stream_with_context
 
 from core import device_manager
 from core import weather_planning as weather_planning_core
@@ -20,6 +20,7 @@ from core import config as config_core
 from core import controlled_iq_capture
 from core import iss_voice
 from core import iss_voice_audio
+from core import iss_voice_audio_monitor
 from core import iss_voice_executor
 from core import iss_voice_runtime
 from core import iss_voice_runtime_recovery
@@ -1745,6 +1746,36 @@ def index():
 def api_status():
     return jsonify(get_dashboard_data())
 
+
+
+@app.route("/api/iss-voice/audio-monitor", methods=["GET"])
+def api_iss_voice_audio_monitor():
+    """Read-only status for the ISS Voice live-audio foundation."""
+    try:
+        return jsonify(iss_voice_audio_monitor.get_status())
+    except Exception as error:
+        return jsonify({"ok": False, "authority": "observer_only", "error": str(error)}), 500
+
+
+@app.route("/api/iss-voice/audio-stream", methods=["GET"])
+def api_iss_voice_audio_stream():
+    """Stream read-only live PCM audio from the active ISS IQ recording."""
+    mission_id = str(request.args.get("mission_id") or "").strip()
+    if not mission_id:
+        return jsonify({"ok": False, "error": "mission_id ontbreekt"}), 400
+    try:
+        generator = iss_voice_audio_monitor.stream_wav(mission_id)
+        return Response(
+            stream_with_context(generator),
+            mimetype="audio/wav",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+    except (ValueError, RuntimeError) as error:
+        return jsonify({"ok": False, "authority": "observer_only", "error": str(error)}), 409
 
 
 @app.route("/api/mission-operations")

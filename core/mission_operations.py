@@ -13,6 +13,7 @@ from typing import Any
 
 from core import live_rf
 from core import iss_voice_runtime
+from core import iss_voice_audio_monitor
 from core import mission_engine
 from core import mission_result
 from core import mission_scheduler
@@ -135,6 +136,7 @@ def get_snapshot() -> dict[str, Any]:
     receiver = receiver_manager.get_status()
     scheduler = mission_scheduler.get_scheduler_status()
     iss = iss_voice_runtime.get_status()
+    audio_monitor = iss_voice_audio_monitor.get_status()
     summary = _mission_summary(mission, rf, receiver)
     if bool(iss.get("active")):
         summary = {
@@ -162,6 +164,9 @@ def get_snapshot() -> dict[str, Any]:
             "remaining_seconds": None,
             "output_path": iss.get("output_directory"),
             "receiver_status": "ACTIVE",
+            "iq_bytes": audio_monitor.get("iq_bytes"),
+            "iq_byte_rate": audio_monitor.get("observed_byte_rate"),
+            "audio_monitor_state": audio_monitor.get("stream_state"),
         }
 
     return {
@@ -170,6 +175,7 @@ def get_snapshot() -> dict[str, Any]:
         "mission": mission,
         "live_rf": rf,
         "iss_voice": iss,
+        "audio_monitor": audio_monitor,
         "receiver_manager": receiver,
         "scheduler": scheduler,
         "summary": summary,

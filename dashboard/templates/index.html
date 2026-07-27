@@ -796,6 +796,28 @@
         </section>
     </div>
 
+    <section id="mission-operations-audio-monitor" class="card mission-operations-audio-monitor hidden">
+        <div class="mission-operations-section-title">
+            <h3>ISS Live Audio Monitor</h3>
+            <span id="mission-operations-audio-state" class="mission-operations-state">STANDBY</span>
+        </div>
+        <div class="mission-operations-audio-grid">
+            <div><span>IQ captured</span><strong id="mission-operations-audio-iq">0 B</strong></div>
+            <div><span>Observed rate</span><strong id="mission-operations-audio-rate">-</strong></div>
+            <div><span>RF sample rate</span><strong id="mission-operations-audio-sample-rate">-</strong></div>
+            <div><span>Transport</span><strong id="mission-operations-audio-transport">PCM WAV</strong></div>
+        </div>
+        <div class="mission-operations-audio-controls">
+            <button id="mission-operations-audio-play" type="button" disabled>▶ Live audio</button>
+            <label class="mission-operations-volume">Volume
+                <input id="mission-operations-audio-volume" type="range" min="0" max="1" step="0.05" value="0.85">
+            </label>
+            <span id="mission-operations-audio-connection" class="mission-operations-audio-connection">DISCONNECTED</span>
+            <span id="mission-operations-audio-detail" class="muted">Waiting for an active ISS Voice IQ recording.</span>
+            <audio id="mission-operations-live-audio" preload="none"></audio>
+        </div>
+    </section>
+
     <div class="mission-operations-results-grid">
         <section class="card mission-recordings-player">
             <div class="mission-operations-section-title">
