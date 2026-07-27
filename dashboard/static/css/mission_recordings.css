@@ -1,3 +1,332 @@
 .mission-operations-header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.mission-operations-header h2{margin-bottom:6px}.mission-operations-mode{display:flex;flex-direction:column;align-items:flex-end;gap:7px}.mission-operations-badge,.mission-operations-state{display:inline-flex;align-items:center;justify-content:center;border:1px solid #334155;border-radius:999px;padding:4px 10px;font-size:.72rem;font-weight:800;letter-spacing:.05em}.mission-operations-badge.live{color:#22c55e;border-color:#16a34a;background:rgba(34,197,94,.1)}.mission-operations-badge.result{color:#38bdf8;border-color:#0284c7;background:rgba(14,165,233,.1)}.mission-operations-live-grid,.mission-operations-results-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:14px;margin-top:14px}.mission-operations-section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border,#334155);padding-bottom:10px;margin-bottom:12px}.mission-operations-section-title h3{margin:0}.mission-operations-primary{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}.mission-operations-primary strong{font-size:1.35rem}.mission-operations-progress-track{height:9px;background:#020617;border:1px solid #334155;border-radius:999px;overflow:hidden;margin-bottom:14px}.mission-operations-progress-bar{height:100%;width:0;background:#0ea5e9;transition:width .5s ease}.mission-operations-metrics,.mission-operations-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.mission-operations-metrics>div,.mission-operations-summary-grid>div{background:rgba(2,6,23,.7);border:1px solid #334155;border-radius:7px;padding:9px;min-width:0}.mission-operations-metrics span,.mission-operations-summary-grid span{display:block;color:#8da2c0;font-size:.75rem;margin-bottom:4px}.mission-operations-metrics strong,.mission-operations-summary-grid strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mission-operations-preview-card{min-height:330px}.mission-operations-preview{display:block;width:100%;max-height:390px;object-fit:contain;background:#020617;border:1px solid #334155;border-radius:8px}.mission-operations-preview-empty{display:flex;align-items:center;justify-content:center;min-height:240px;background:#020617;border:1px solid #334155;border-radius:8px;color:#8da2c0;text-align:center}.mission-recordings-player audio{width:100%;margin:12px 0}.recording-list{display:flex;flex-direction:column;gap:8px;max-height:590px;overflow:auto;padding-right:3px}.recording-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;padding:10px 11px;border:1px solid var(--border,#334155);border-radius:8px;background:rgba(15,23,42,.55);color:inherit;cursor:pointer}.recording-item span:nth-child(2){display:flex;flex-direction:column;min-width:0}.recording-item strong,.recording-item small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.recording-item:hover,.recording-item.selected{border-color:var(--accent,#38bdf8);background:rgba(14,165,233,.08)}.recording-item small{opacity:.72}.mission-recordings-preview{display:block;max-width:100%;max-height:650px;margin:auto;border-radius:8px;object-fit:contain}.mission-operations-summary{margin-top:16px;border-top:1px solid #334155;padding-top:12px}.mission-operations-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.mission-operations-pipeline{border-top:1px solid #334155;margin-top:14px;padding-top:12px}.hidden{display:none!important}@media(max-width:1100px){.mission-operations-live-grid,.mission-operations-results-grid{grid-template-columns:1fr}.mission-operations-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.mission-operations-header{flex-direction:column}.mission-operations-mode{align-items:flex-start}.mission-operations-metrics,.mission-operations-summary-grid{grid-template-columns:1fr 1fr}}
 .mission-operations-audio-monitor{margin-top:14px}.mission-operations-audio-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.mission-operations-audio-grid>div{background:rgba(2,6,23,.7);border:1px solid #334155;border-radius:7px;padding:9px;min-width:0}.mission-operations-audio-grid span{display:block;color:#8da2c0;font-size:.75rem;margin-bottom:4px}.mission-operations-audio-grid strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mission-operations-audio-controls{display:flex;align-items:center;gap:12px;margin-top:12px}.mission-operations-audio-controls button:disabled{cursor:not-allowed;opacity:.55}@media(max-width:700px){.mission-operations-audio-grid{grid-template-columns:1fr 1fr}.mission-operations-audio-controls{align-items:flex-start;flex-direction:column}}
 .mission-operations-audio-controls button{min-width:130px}.mission-operations-volume{display:flex;align-items:center;gap:8px;color:#8da2c0;font-size:.78rem}.mission-operations-volume input{width:120px}.mission-operations-audio-connection{border:1px solid #475569;border-radius:999px;color:#94a3b8;font-size:.68rem;font-weight:700;letter-spacing:.04em;padding:4px 8px}.mission-operations-audio-connection.connected{border-color:#16a34a;color:#4ade80}.mission-operations-audio-connection.connecting{border-color:#ca8a04;color:#facc15}.mission-operations-audio-connection.error{border-color:#dc2626;color:#f87171}
+
+/* v0.53.0a Mission Operations Dashboard */
+.mission-operations-console{display:flex;flex-direction:column;gap:10px}
+.mission-operations-console-group{border:1px solid #334155;border-radius:8px;background:rgba(2,6,23,.42);overflow:hidden}
+.mission-operations-console-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-bottom:1px solid #334155;background:rgba(15,23,42,.55)}
+.mission-operations-console-heading span{font-weight:800;letter-spacing:.04em}
+.mission-operations-console-heading strong{font-size:.72rem;color:#38bdf8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mission-operations-console-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#334155}
+.mission-operations-console-grid>div{background:rgba(2,6,23,.92);padding:8px 10px;min-width:0}
+.mission-operations-console-grid>div.wide{grid-column:span 2}
+.mission-operations-console-grid span{display:block;color:#8da2c0;font-size:.72rem;margin-bottom:3px}
+.mission-operations-console-grid strong{display:block;font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:1100px){.mission-operations-console-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.mission-operations-console-grid{grid-template-columns:1fr 1fr}.mission-operations-console-grid>div.wide{grid-column:span 2}}
+
+
+/* v0.53.1 Mission Operations UI Polish */
+.mission-operations-page{
+    height:calc(100vh - 126px);
+    min-height:650px;
+    overflow:hidden;
+    display:grid;
+    grid-template-rows:auto minmax(0,1.08fr) auto minmax(0,.82fr);
+    gap:10px;
+}
+.mission-operations-page>.mission-operations-header{
+    margin:0;
+    padding:10px 14px;
+    min-height:0;
+}
+.mission-operations-page>.mission-operations-header h2{margin:0 0 3px}
+.mission-operations-page>.mission-operations-header p{margin:0}
+.mission-operations-live-grid,
+.mission-operations-results-grid{
+    min-height:0;
+    margin:0;
+    gap:10px;
+}
+.mission-operations-live-grid{
+    grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);
+}
+.mission-operations-results-grid{
+    grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);
+}
+.mission-operations-viewport-card,
+.mission-operations-result-card{
+    min-height:0;
+    overflow:hidden;
+    padding:10px 14px;
+}
+.mission-operations-section-title{
+    padding-bottom:6px;
+    margin-bottom:7px;
+}
+.mission-operations-section-title h3{font-size:.92rem}
+.mission-operations-primary{
+    margin-bottom:7px;
+    gap:2px;
+}
+.mission-operations-primary strong{font-size:1.05rem}
+.mission-operations-progress-track{
+    height:6px;
+    margin-bottom:7px;
+}
+.mission-operations-console{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px;
+    min-height:0;
+}
+.mission-operations-console-group{
+    min-width:0;
+    border-radius:6px;
+}
+.mission-operations-console-group:last-child{
+    grid-column:1 / -1;
+}
+.mission-operations-console-heading{
+    padding:5px 8px;
+}
+.mission-operations-console-heading span{font-size:.78rem}
+.mission-operations-console-heading strong{font-size:.65rem}
+.mission-operations-console-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+}
+.mission-operations-console-grid>div{
+    padding:5px 7px;
+}
+.mission-operations-console-grid span{
+    font-size:.62rem;
+    margin-bottom:1px;
+}
+.mission-operations-console-grid strong{
+    font-size:.72rem;
+}
+.mission-operations-preview-card{
+    display:flex;
+    flex-direction:column;
+}
+.mission-operations-preview{
+    flex:1 1 auto;
+    min-height:0;
+    max-height:none;
+    height:100%;
+}
+.mission-operations-preview-empty{
+    flex:1 1 auto;
+    min-height:0;
+}
+.mission-operations-preview-card #mission-operations-preview-meta{
+    margin:6px 0 0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.mission-operations-audio-monitor{
+    margin:0;
+    padding:8px 14px;
+}
+.mission-operations-audio-monitor .mission-operations-section-title{
+    margin-bottom:6px;
+}
+.mission-operations-audio-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:6px;
+}
+.mission-operations-audio-grid>div{
+    padding:6px 8px;
+}
+.mission-operations-audio-controls{
+    margin-top:7px;
+}
+.mission-recordings-player{
+    display:flex;
+    flex-direction:column;
+    overflow:auto;
+}
+.mission-recordings-player audio{
+    margin:5px 0;
+}
+.mission-recordings-player h3,
+.mission-operations-summary h3,
+.mission-operations-pipeline h3{
+    margin:4px 0 6px;
+    font-size:.9rem;
+}
+.mission-operations-summary{
+    margin-top:7px;
+    padding-top:7px;
+}
+.mission-operations-summary-grid{
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:5px;
+}
+.mission-operations-summary-grid>div{
+    padding:6px 7px;
+}
+.mission-operations-summary-grid span{font-size:.62rem;margin-bottom:2px}
+.mission-operations-summary-grid strong{font-size:.73rem}
+.mission-recordings-preview{
+    max-height:190px;
+}
+.mission-operations-results-card{
+    display:flex;
+    flex-direction:column;
+}
+.recording-list{
+    flex:1 1 auto;
+    min-height:0;
+    max-height:none;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+    gap:5px;
+}
+.recording-item{
+    padding:6px 8px;
+    gap:7px;
+    border-radius:6px;
+}
+.recording-item strong{font-size:.78rem}
+.recording-item small{font-size:.65rem}
+.mission-operations-pipeline{
+    flex:0 0 auto;
+    margin-top:7px;
+    padding-top:7px;
+    display:grid;
+    grid-template-columns:auto repeat(4,minmax(0,1fr));
+    align-items:center;
+    gap:5px 10px;
+}
+.mission-operations-pipeline h3{
+    margin:0;
+}
+.mission-operations-pipeline p{
+    margin:0;
+    font-size:.72rem;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.mission-operations-pipeline .recent-captures{
+    grid-column:1 / -1;
+}
+@media(max-width:1200px){
+    .mission-operations-page{
+        height:auto;
+        min-height:0;
+        overflow:visible;
+        display:block;
+    }
+    .mission-operations-live-grid,
+    .mission-operations-results-grid{
+        grid-template-columns:1fr;
+        margin-top:10px;
+    }
+    .mission-operations-viewport-card,
+    .mission-operations-result-card{
+        overflow:visible;
+    }
+    .recording-list{
+        max-height:360px;
+    }
+}
+@media(max-width:760px){
+    .mission-operations-console{
+        grid-template-columns:1fr;
+    }
+    .mission-operations-console-group:last-child{
+        grid-column:auto;
+    }
+    .mission-operations-console-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+    .mission-operations-summary-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+    .mission-operations-pipeline{
+        grid-template-columns:1fr 1fr;
+    }
+    .mission-operations-pipeline h3{
+        grid-column:1 / -1;
+    }
+}
+
+
+/* v0.53.1-r2 Mission Operations layout recovery */
+.mission-operations-page{
+    height:auto !important;
+    max-height:none !important;
+    min-height:0 !important;
+    overflow:visible !important;
+    display:block !important;
+}
+
+.mission-operations-live-grid,
+.mission-operations-results-grid{
+    height:auto !important;
+    min-height:0 !important;
+    overflow:visible !important;
+    margin-top:10px;
+}
+
+.mission-operations-results-grid{
+    align-items:stretch;
+}
+
+.mission-operations-result-card,
+.mission-operations-viewport-card{
+    height:auto !important;
+    max-height:none !important;
+    min-height:0 !important;
+    overflow:visible !important;
+}
+
+.mission-operations-results-card{
+    display:flex !important;
+    flex-direction:column;
+}
+
+.mission-operations-results-card .recording-list{
+    display:flex;
+    flex-direction:column;
+    flex:0 1 auto;
+    height:auto !important;
+    min-height:120px !important;
+    max-height:260px !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+    scrollbar-width:thin;
+    scrollbar-color:#64748b #0f172a;
+}
+
+.mission-operations-results-card .recording-list::-webkit-scrollbar{
+    width:10px;
+}
+.mission-operations-results-card .recording-list::-webkit-scrollbar-track{
+    background:#0f172a;
+}
+.mission-operations-results-card .recording-list::-webkit-scrollbar-thumb{
+    background:#64748b;
+    border-radius:8px;
+    border:2px solid #0f172a;
+}
+
+.mission-recordings-player{
+    height:auto !important;
+    max-height:360px !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    scrollbar-gutter:stable;
+}
+
+.mission-operations-pipeline{
+    max-height:none !important;
+    overflow:visible !important;
+}
+
+@media(max-width:1200px){
+    .mission-operations-results-card .recording-list{
+        max-height:320px !important;
+    }
+    .mission-recordings-player{
+        max-height:none !important;
+    }
+}

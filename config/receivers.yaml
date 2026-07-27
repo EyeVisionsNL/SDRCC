@@ -1,7 +1,7 @@
 version: 1
 receivers:
   receiver01:
-    name: AIS Receiver
+    name: SDR1
     description: Migrated from station.yaml
     number: RX01
     enabled: true
@@ -17,7 +17,7 @@ receivers:
     defaults:
       locked: true
   receiver02:
-    name: Dynamic Receiver
+    name: SDR2
     description: Migrated from station.yaml
     number: RX02
     enabled: true

@@ -21,7 +21,7 @@ from core import iss_voice_runtime
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ROOT = (PROJECT_ROOT / "data" / "recordings" / "iss_voice").resolve()
-VERSION = "0.51.1b"
+VERSION = "0.52.0"
 AUDIO_SAMPLE_RATE = 48000
 DEEMPHASIS_US = 75.0
 READ_COMPLEX_SAMPLES = 24000       # 100 ms at the normal 240 kS/s rate
@@ -225,31 +225,59 @@ def get_status() -> dict[str, Any]:
     }
 
 
-def stream_wav(requested_mission_id: str) -> Iterator[bytes]:
-    """Yield a live PCM WAV stream from the active mission's growing IQ file."""
-    runtime = iss_voice_runtime.get_status()
-    mission_id, _output_directory, iq_path = _runtime_paths(runtime)
-    if not runtime.get("active") or not mission_id or requested_mission_id != mission_id:
-        raise ValueError("ISS Voice mission is niet actief of mission_id komt niet overeen")
-    sample_rate = int(runtime.get("sample_rate_hz") or 0)
-    if sample_rate <= 0 or sample_rate % AUDIO_SAMPLE_RATE != 0:
-        raise ValueError("Actieve RF sample rate is niet geschikt voor live audio")
-    if iq_path is None or not iq_path.is_file():
-        raise ValueError("Actief IQ-bestand is nog niet beschikbaar")
+class LiveWavStream:
+    """Close-aware iterator with synchronous admission and client accounting."""
 
-    _register_client()
-    demodulator = _LiveNfmDemodulator(sample_rate)
-    byte_rate = sample_rate * 2
-    chunk_bytes = READ_COMPLEX_SAMPLES * 2
-    try:
+    def __init__(self, mission_id: str, iq_path: Path, sample_rate: int) -> None:
+        self.mission_id = mission_id
+        self.iq_path = iq_path
+        self.sample_rate = sample_rate
+        self._closed = False
+        _register_client()
+        self._iterator = self._generate()
+
+    def __iter__(self) -> "LiveWavStream":
+        return self
+
+    def __next__(self) -> bytes:
+        if self._closed:
+            raise StopIteration
+        try:
+            return next(self._iterator)
+        except StopIteration:
+            self.close()
+            raise
+        except BaseException:
+            self.close()
+            raise
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._iterator.close()
+        finally:
+            _unregister_client()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def _generate(self) -> Iterator[bytes]:
+        demodulator = _LiveNfmDemodulator(self.sample_rate)
+        byte_rate = self.sample_rate * 2
+        chunk_bytes = READ_COMPLEX_SAMPLES * 2
         yield _wav_stream_header(AUDIO_SAMPLE_RATE)
-        with iq_path.open("rb", buffering=0) as handle:
-            current_size = iq_path.stat().st_size
+        with self.iq_path.open("rb", buffering=0) as handle:
+            current_size = self.iq_path.stat().st_size
             start_offset = max(0, current_size - int(byte_rate * START_BUFFER_SECONDS))
             start_offset -= start_offset % 2
             handle.seek(start_offset)
             last_data = time.monotonic()
-            while True:
+            while not self._closed:
                 current_runtime = iss_voice_runtime.get_status()
                 current_mission = str(current_runtime.get("mission_id") or "")
                 raw = handle.read(chunk_bytes)
@@ -259,10 +287,28 @@ def stream_wav(requested_mission_id: str) -> Iterator[bytes]:
                     if pcm:
                         yield pcm
                     continue
-                if (not current_runtime.get("active") or current_mission != mission_id) and time.monotonic() - last_data > 1.0:
+                idle_for = time.monotonic() - last_data
+                if (not current_runtime.get("active") or current_mission != self.mission_id) and idle_for > 1.0:
                     break
-                if time.monotonic() - last_data > IDLE_TIMEOUT_SECONDS:
+                if idle_for > IDLE_TIMEOUT_SECONDS:
                     break
                 time.sleep(0.08)
-    finally:
-        _unregister_client()
+
+
+def stream_wav(requested_mission_id: str) -> LiveWavStream:
+    """Validate synchronously, then return a close-aware live WAV iterator.
+
+    Synchronous validation is deliberate: Flask can return a useful 409 before
+    response headers are sent, instead of discovering admission errors only
+    when the lazy generator starts iterating.
+    """
+    runtime = iss_voice_runtime.get_status()
+    mission_id, _output_directory, iq_path = _runtime_paths(runtime)
+    if not runtime.get("active") or not mission_id or requested_mission_id != mission_id:
+        raise ValueError("ISS Voice mission is niet actief of mission_id komt niet overeen")
+    sample_rate = int(runtime.get("sample_rate_hz") or 0)
+    if sample_rate <= 0 or sample_rate % AUDIO_SAMPLE_RATE != 0:
+        raise ValueError("Actieve RF sample rate is niet geschikt voor live audio")
+    if iq_path is None or not iq_path.is_file():
+        raise ValueError("Actief IQ-bestand is nog niet beschikbaar")
+    return LiveWavStream(mission_id, iq_path, sample_rate)

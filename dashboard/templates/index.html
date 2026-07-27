@@ -750,7 +750,7 @@
     </div>
 </section>
 
-<section class="tab-page" id="tab-images">
+<section class="tab-page mission-operations-page" id="tab-images">
     <section class="card mission-operations-header">
         <div>
             <h2>🛰️ Mission Operations</h2>
@@ -763,7 +763,7 @@
     </section>
 
     <div class="mission-operations-live-grid">
-        <section class="card mission-operations-status-card">
+        <section class="card mission-operations-status-card mission-operations-viewport-card">
             <div class="mission-operations-section-title">
                 <h3>Live Mission</h3>
                 <span id="mission-operations-state" class="mission-operations-state">IDLE</span>
@@ -773,19 +773,58 @@
                 <span id="mission-operations-detail" class="muted">Waiting for the next mission.</span>
             </div>
             <div class="mission-operations-progress-track"><div id="mission-operations-progress" class="mission-operations-progress-bar"></div></div>
-            <div class="mission-operations-metrics">
-                <div><span>Receiver</span><strong id="mission-operations-receiver">-</strong></div>
-                <div><span>Frequency</span><strong id="mission-operations-frequency">-</strong></div>
-                <div><span>Elapsed</span><strong id="mission-operations-elapsed">00:00</strong></div>
-                <div><span>Remaining</span><strong id="mission-operations-remaining">00:00</strong></div>
-                <div><span>Current SNR</span><strong id="mission-operations-snr">0.00 dB</strong></div>
-                <div><span>Peak SNR</span><strong id="mission-operations-peak-snr">0.00 dB</strong></div>
-                <div><span>Frames</span><strong id="mission-operations-frames">0</strong></div>
-                <div><span>CADU</span><strong id="mission-operations-cadu">0</strong></div>
+            <div class="mission-operations-console" data-version="0.53.1-r2">
+                <section class="mission-operations-console-group">
+                    <div class="mission-operations-console-heading"><span>Mission</span><strong id="mission-operations-mission-type">-</strong></div>
+                    <div class="mission-operations-console-grid">
+                        <div><span>Mission ID</span><strong id="mission-operations-mission-id">-</strong></div>
+                        <div><span>Elapsed</span><strong id="mission-operations-elapsed">00:00</strong></div>
+                        <div><span>Remaining</span><strong id="mission-operations-remaining">00:00</strong></div>
+                        <div><span>Scheduler</span><strong id="mission-operations-scheduler">-</strong></div>
+                    </div>
+                </section>
+                <section class="mission-operations-console-group">
+                    <div class="mission-operations-console-heading"><span>RF</span><strong id="mission-operations-rf-state">STANDBY</strong></div>
+                    <div class="mission-operations-console-grid">
+                        <div><span>Receiver</span><strong id="mission-operations-receiver">-</strong></div>
+                        <div><span>Frequency</span><strong id="mission-operations-frequency">-</strong></div>
+                        <div><span>Sample rate</span><strong id="mission-operations-sample-rate">-</strong></div>
+                        <div><span>Mode</span><strong id="mission-operations-rf-mode">-</strong></div>
+                        <div><span>Current SNR</span><strong id="mission-operations-snr">0.00 dB</strong></div>
+                        <div><span>Peak SNR</span><strong id="mission-operations-peak-snr">0.00 dB</strong></div>
+                    </div>
+                </section>
+                <section class="mission-operations-console-group">
+                    <div class="mission-operations-console-heading"><span>Recorder</span><strong id="mission-operations-recorder-state">STANDBY</strong></div>
+                    <div class="mission-operations-console-grid">
+                        <div><span>Type</span><strong id="mission-operations-recorder-type">-</strong></div>
+                        <div><span>Captured</span><strong id="mission-operations-recorder-bytes">0 B</strong></div>
+                        <div><span>Write rate</span><strong id="mission-operations-recorder-rate">-</strong></div>
+                        <div class="wide"><span>Output</span><strong id="mission-operations-output">-</strong></div>
+                    </div>
+                </section>
+                <section class="mission-operations-console-group">
+                    <div class="mission-operations-console-heading"><span>Decoder</span><strong id="mission-operations-decoder-state">STANDBY</strong></div>
+                    <div class="mission-operations-console-grid">
+                        <div><span>Pipeline</span><strong id="mission-operations-decoder-pipeline">-</strong></div>
+                        <div><span>Frames</span><strong id="mission-operations-frames">0</strong></div>
+                        <div><span>CADU</span><strong id="mission-operations-cadu">0 B</strong></div>
+                        <div><span>Images</span><strong id="mission-operations-images">0</strong></div>
+                    </div>
+                </section>
+                <section class="mission-operations-console-group">
+                    <div class="mission-operations-console-heading"><span>Runtime</span><strong id="mission-operations-authority">OBSERVER ONLY</strong></div>
+                    <div class="mission-operations-console-grid">
+                        <div><span>Receiver state</span><strong id="mission-operations-runtime-receiver">-</strong></div>
+                        <div><span>Scheduler mode</span><strong id="mission-operations-runtime-scheduler">-</strong></div>
+                        <div><span>Audio monitor</span><strong id="mission-operations-runtime-audio">-</strong></div>
+                        <div><span>Clients</span><strong id="mission-operations-runtime-clients">0</strong></div>
+                    </div>
+                </section>
             </div>
         </section>
 
-        <section class="card mission-operations-preview-card">
+        <section class="card mission-operations-preview-card mission-operations-viewport-card">
             <div class="mission-operations-section-title">
                 <h3>Live / Latest Preview</h3>
                 <span id="mission-operations-preview-state" class="mission-operations-state">STANDBY</span>
@@ -819,7 +858,7 @@
     </section>
 
     <div class="mission-operations-results-grid">
-        <section class="card mission-recordings-player">
+        <section class="card mission-recordings-player mission-operations-result-card">
             <div class="mission-operations-section-title">
                 <h3>Selected Result</h3>
                 <span id="mission-operations-selected-kind" class="mission-operations-state">NONE</span>
@@ -854,7 +893,7 @@
                 </div>
             </div>
         </section>
-        <section class="card mission-operations-results-card">
+        <section class="card mission-operations-results-card mission-operations-result-card">
             <div class="mission-operations-section-title">
                 <h3>Mission Results</h3>
                 <span id="mission-operations-result-count" class="mission-operations-state">0 FILES</span>
@@ -888,7 +927,7 @@
 <script src="/static/dashboard.js"></script>
 <script src="/static/js/receiver_inventory.js?v=0.50.0a"></script>
 <script src="/static/js/capture_live.js"></script>
-<script src="/static/js/mission_recordings.js?v=0.51.0"></script>
+<script src="/static/js/mission_recordings.js?v=0.53.1-r2"></script>
 <script src="/static/js/radio.js?v=0.47.1a"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.35.4"></script>
 <script src="/static/js/mission_monitor.js?v=0.24.1"></script>

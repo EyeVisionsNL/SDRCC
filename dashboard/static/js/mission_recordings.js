@@ -1,5 +1,5 @@
 (() => {
-  const state = { recordings: [], history: [], selected: null, audioMonitor: null, liveAudioPlaying: false, liveAudioMissionId: null };
+  const state = { recordings: [], history: [], selected: null, audioMonitor: null, liveAudioPlaying: false, liveAudioConnecting: false, liveAudioMissionId: null };
   const byId = (id) => document.getElementById(id);
   const text = (id, value, fallback = '-') => { const el = byId(id); if (el) el.textContent = value ?? fallback; };
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
@@ -31,6 +31,7 @@
     const audio = byId('mission-operations-live-audio');
     if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
     state.liveAudioPlaying = false;
+    state.liveAudioConnecting = false;
     state.liveAudioMissionId = null;
     const button = byId('mission-operations-audio-play');
     if (button) button.textContent = '▶ Live audio';
@@ -42,17 +43,23 @@
     const monitor = state.audioMonitor || {};
     if (!audio || !button) return;
     if (state.liveAudioPlaying) { stopLiveAudio(); return; }
-    if (!monitor.available || !monitor.stream_url) return;
+    if (state.liveAudioConnecting || !monitor.available || !monitor.stream_url) return;
     try {
+      state.liveAudioConnecting = true;
+      button.disabled = true;
       setAudioConnection('CONNECTING', 'connecting');
       audio.src = `${monitor.stream_url}&t=${Date.now()}`;
       audio.volume = Number(byId('mission-operations-audio-volume')?.value || 0.85);
       await audio.play();
+      state.liveAudioConnecting = false;
+      button.disabled = false;
       state.liveAudioPlaying = true;
       state.liveAudioMissionId = monitor.mission_id || null;
       button.textContent = '■ Stop audio';
       setAudioConnection('CONNECTED', 'connected');
     } catch (error) {
+      state.liveAudioConnecting = false;
+      button.disabled = false;
       stopLiveAudio();
       setAudioConnection('ERROR', 'error');
       text('mission-operations-audio-detail', `Live audio could not start: ${error.message}`);
@@ -91,21 +98,46 @@
     const rf = snapshot && snapshot.live_rf || {};
     const iss = snapshot && snapshot.iss_voice || {};
     const audio = snapshot && snapshot.audio_monitor || {};
+    const consoleData = snapshot && snapshot.console || {};
+    const missionConsole = consoleData.mission || {};
+    const rfConsole = consoleData.rf || {};
+    const recorderConsole = consoleData.recorder || {};
+    const decoderConsole = consoleData.decoder || {};
+    const runtimeConsole = consoleData.runtime || {};
     const active = Boolean(summary.active);
     const isIss = summary.mission_type === 'iss_voice' || summary.plugin_id === 'iss_voice' || Boolean(iss.active);
     setMode(active);
-    text('mission-operations-state', summary.status || 'IDLE');
-    text('mission-operations-satellite', summary.satellite || 'No active mission');
+    text('mission-operations-state', missionConsole.state || summary.status || 'IDLE');
+    text('mission-operations-satellite', missionConsole.satellite || summary.satellite || 'No active mission');
+    text('mission-operations-mission-id', missionConsole.mission_id || summary.mission_id || '-');
+    text('mission-operations-mission-type', String(missionConsole.mission_type || (isIss ? 'iss_voice' : 'weather')).replaceAll('_', ' ').toUpperCase());
+    text('mission-operations-scheduler', missionConsole.state || runtimeConsole.scheduler_phase || '-');
     text('mission-operations-detail', active ? (summary.detail || 'Mission is active.') : 'Waiting for the next mission.');
-    text('mission-operations-receiver', summary.receiver || summary.receiver_id || '-');
-    const hz = Number(summary.frequency || 0);
+    text('mission-operations-receiver', rfConsole.receiver || summary.receiver || summary.receiver_id || '-');
+    const hz = Number(rfConsole.frequency_hz || summary.frequency || 0);
     text('mission-operations-frequency', hz ? `${(hz / 1e6).toFixed(3)} MHz` : '-');
+    text('mission-operations-sample-rate', rfConsole.sample_rate_hz ? `${(Number(rfConsole.sample_rate_hz) / 1000).toFixed(0)} kS/s` : '-');
+    text('mission-operations-rf-mode', rfConsole.mode || '-');
+    text('mission-operations-rf-state', rfConsole.active ? 'ACTIVE' : (rfConsole.receiver_state || 'STANDBY'));
     text('mission-operations-elapsed', formatClock(summary.duration_seconds));
     text('mission-operations-remaining', formatClock(summary.remaining_seconds));
     text('mission-operations-snr', isIss ? 'N/A' : `${Number(summary.snr_db || 0).toFixed(2)} dB`);
     text('mission-operations-peak-snr', isIss ? 'N/A' : `${Number(summary.peak_snr_db || 0).toFixed(2)} dB`);
-    text('mission-operations-frames', isIss ? 'N/A' : (summary.frames ?? 0));
-    text('mission-operations-cadu', isIss ? 'N/A' : formatBytes(summary.cadu_bytes || 0));
+    text('mission-operations-frames', decoderConsole.applicable === false ? 'N/A' : (decoderConsole.frames ?? summary.frames ?? 0));
+    text('mission-operations-cadu', decoderConsole.applicable === false ? 'N/A' : formatBytes(decoderConsole.cadu_bytes || summary.cadu_bytes || 0));
+    text('mission-operations-images', decoderConsole.applicable === false ? 'N/A' : (decoderConsole.image_count ?? summary.image_count ?? 0));
+    text('mission-operations-decoder-state', isIss ? 'NOT APPLICABLE' : (decoderConsole.status || 'STANDBY'));
+    text('mission-operations-decoder-pipeline', isIss ? 'OFFLINE FM AUDIO' : (decoderConsole.pipeline || summary.pipeline || '-'));
+    text('mission-operations-recorder-state', recorderConsole.status || 'STANDBY');
+    text('mission-operations-recorder-type', isIss ? 'WIDEBAND IQ' : String(recorderConsole.type || 'SATDUMP').replaceAll('_', ' ').toUpperCase());
+    text('mission-operations-recorder-bytes', formatBytes(recorderConsole.bytes || 0));
+    text('mission-operations-recorder-rate', recorderConsole.byte_rate ? `${formatBytes(recorderConsole.byte_rate)}/s` : '-');
+    text('mission-operations-output', recorderConsole.output_path || summary.output_path || '-');
+    text('mission-operations-authority', String(runtimeConsole.authority || snapshot.authority || 'observer_only').replaceAll('_', ' ').toUpperCase());
+    text('mission-operations-runtime-receiver', runtimeConsole.receiver_state || '-');
+    text('mission-operations-runtime-scheduler', runtimeConsole.scheduler_mode || '-');
+    text('mission-operations-runtime-audio', runtimeConsole.audio_monitor_state || '-');
+    text('mission-operations-runtime-clients', runtimeConsole.audio_clients ?? 0);
     const elapsed = Number(summary.duration_seconds || 0); const remaining = Number(summary.remaining_seconds || 0);
     const progress = elapsed + remaining > 0 ? Math.min(100, (elapsed / (elapsed + remaining)) * 100) : (active ? 2 : 0);
     const bar = byId('mission-operations-progress'); if (bar) bar.style.width = `${progress}%`;
@@ -121,7 +153,7 @@
     text('mission-operations-audio-transport', audio.transport === 'streaming_wav_pcm16' ? 'PCM WAV · 48 kHz' : '-');
     const play = byId('mission-operations-audio-play');
     if (play) {
-      play.disabled = !audio.available;
+      play.disabled = state.liveAudioConnecting || !audio.available;
       play.title = audio.available ? 'Start or stop the read-only live audio monitor' : (audio.detail || 'Live audio unavailable');
     }
     if ((!audio.available || !isIss || (state.liveAudioMissionId && state.liveAudioMissionId !== audio.mission_id)) && state.liveAudioPlaying) stopLiveAudio();
@@ -208,6 +240,8 @@
     if (liveAudio) {
       liveAudio.addEventListener('playing', () => setAudioConnection('CONNECTED', 'connected'));
       liveAudio.addEventListener('waiting', () => setAudioConnection('BUFFERING', 'connecting'));
+      liveAudio.addEventListener('stalled', () => setAudioConnection('BUFFERING', 'connecting'));
+      liveAudio.addEventListener('canplay', () => { if (state.liveAudioConnecting) setAudioConnection('READY', 'connecting'); });
       liveAudio.addEventListener('error', () => { if (state.liveAudioPlaying) { state.liveAudioPlaying = false; const b=byId('mission-operations-audio-play'); if(b)b.textContent='▶ Live audio'; setAudioConnection('ERROR','error'); } });
       liveAudio.addEventListener('ended', stopLiveAudio);
     }

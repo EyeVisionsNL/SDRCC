@@ -19,6 +19,9 @@ from core import mission_result
 from core import mission_scheduler
 from core import receiver_manager
 
+VERSION = "0.53.0a"
+AUTHORITY = "observer_only"
+
 
 def _now_text() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
@@ -129,6 +132,107 @@ def _mission_summary(
     return summary
 
 
+def _console_snapshot(
+    summary: dict[str, Any] | None,
+    mission: dict[str, Any],
+    rf: dict[str, Any],
+    receiver: dict[str, Any],
+    scheduler: dict[str, Any],
+    iss: dict[str, Any],
+    audio_monitor: dict[str, Any],
+) -> dict[str, Any]:
+    """Project existing owner state into stable read-only dashboard sections."""
+    summary = summary if isinstance(summary, dict) else {}
+    active = bool(summary.get("active"))
+    is_iss = (
+        summary.get("mission_type") == "iss_voice"
+        or summary.get("plugin_id") == "iss_voice"
+        or bool(iss.get("active"))
+    )
+    observer = scheduler.get("observer") if isinstance(scheduler.get("observer"), dict) else {}
+    reservation = receiver.get("reservation")
+    receiver_state = (
+        reservation.get("status")
+        if isinstance(reservation, dict)
+        else summary.get("receiver_status") or "AVAILABLE"
+    )
+
+    recorder_bytes = _coalesce(
+        summary.get("iq_bytes"),
+        audio_monitor.get("iq_bytes") if is_iss else None,
+        rf.get("recording_bytes"),
+        rf.get("bytes_written"),
+    )
+    recorder_rate = _coalesce(
+        summary.get("iq_byte_rate"),
+        audio_monitor.get("observed_byte_rate") if is_iss else None,
+        rf.get("byte_rate"),
+    )
+
+    return {
+        "mission": {
+            "active": active,
+            "mission_id": summary.get("mission_id"),
+            "mission_type": _coalesce(
+                summary.get("mission_type"),
+                summary.get("plugin_id"),
+                "weather" if summary.get("satellite") else None,
+            ),
+            "satellite": summary.get("satellite"),
+            "state": _coalesce(summary.get("status"), observer.get("phase"), "IDLE"),
+            "detail": _coalesce(summary.get("detail"), observer.get("detail")),
+            "elapsed_seconds": summary.get("duration_seconds"),
+            "remaining_seconds": summary.get("remaining_seconds"),
+            "started_at": summary.get("started_at"),
+            "ended_at": summary.get("ended_at"),
+        },
+        "rf": {
+            "active": bool(rf.get("active") or iss.get("active")),
+            "receiver": _coalesce(summary.get("receiver"), summary.get("receiver_id")),
+            "receiver_serial": summary.get("receiver_serial"),
+            "receiver_state": receiver_state,
+            "frequency_hz": summary.get("frequency"),
+            "sample_rate_hz": summary.get("sample_rate"),
+            "mode": summary.get("mode"),
+            "snr_db": None if is_iss else summary.get("snr_db"),
+            "peak_snr_db": None if is_iss else summary.get("peak_snr_db"),
+            "signal_metrics_available": not is_iss,
+        },
+        "recorder": {
+            "active": active and bool(summary.get("output_path")),
+            "type": "wideband_iq" if is_iss else "satdump",
+            "status": (
+                audio_monitor.get("stream_state")
+                if is_iss
+                else _coalesce(rf.get("state"), summary.get("status"), "STANDBY")
+            ),
+            "bytes": recorder_bytes,
+            "byte_rate": recorder_rate,
+            "output_path": summary.get("output_path"),
+        },
+        "decoder": {
+            "applicable": not is_iss,
+            "pipeline": summary.get("pipeline"),
+            "status": "NOT APPLICABLE" if is_iss else _coalesce(summary.get("status"), "STANDBY"),
+            "frames": summary.get("frames"),
+            "cadu_bytes": summary.get("cadu_bytes"),
+            "image_count": summary.get("image_count"),
+            "ber": summary.get("ber"),
+            "viterbi": summary.get("viterbi"),
+            "deframer": summary.get("deframer"),
+        },
+        "runtime": {
+            "authority": AUTHORITY,
+            "scheduler_mode": scheduler.get("mode"),
+            "scheduler_phase": observer.get("phase"),
+            "receiver_state": receiver_state,
+            "audio_monitor_state": audio_monitor.get("stream_state"),
+            "audio_clients": audio_monitor.get("active_clients"),
+            "generated_from_existing_owners": True,
+        },
+    }
+
+
 def get_snapshot() -> dict[str, Any]:
     """Return one timestamped snapshot for all mission-operation widgets."""
     mission = _normalise_mission_snapshot(mission_engine.get_mission_status())
@@ -169,8 +273,12 @@ def get_snapshot() -> dict[str, Any]:
             "audio_monitor_state": audio_monitor.get("stream_state"),
         }
 
+    console = _console_snapshot(summary, mission, rf, receiver, scheduler, iss, audio_monitor)
+
     return {
         "ok": True,
+        "version": VERSION,
+        "authority": AUTHORITY,
         "generated_at": _now_text(),
         "mission": mission,
         "live_rf": rf,
@@ -179,4 +287,5 @@ def get_snapshot() -> dict[str, Any]:
         "receiver_manager": receiver,
         "scheduler": scheduler,
         "summary": summary,
+        "console": console,
     }
