@@ -2,12 +2,19 @@
     let rfFormDirty = false;
     let rfFormSaving = false;
     let rfFormFocused = false;
+    let assignmentFormDirty = false;
+    let assignmentFormSaving = false;
+    let assignmentFormFocused = false;
     let lastDevices = [];
     let missionQueueByReceiver = {};
     let lastReceiverContexts = null;
 
     function rfFormIsBeingEdited() {
         return rfFormDirty || rfFormSaving || rfFormFocused;
+    }
+
+    function assignmentFormIsBeingEdited() {
+        return assignmentFormDirty || assignmentFormSaving || assignmentFormFocused;
     }
 
     async function getStatus() {
@@ -17,10 +24,10 @@
     }
 
 
-    async function getReceiverContexts() {
-        const response = await fetch("/api/receiver-contexts", {cache: "no-store"});
+    async function getReceiverAuthority() {
+        const response = await fetch("/api/receiver-assignments", {cache: "no-store"});
         const data = await response.json();
-        if (!response.ok || !data.ok) throw new Error(data.error || "receiver contexts api fout");
+        if (!response.ok) throw new Error(data.message || data.error || "receiver assignments api error");
         return data;
     }
 
@@ -45,37 +52,41 @@
         const runtime = document.getElementById("assignment-policy-runtime");
         if (!runtime || !lastReceiverContexts) return;
 
-        const defaults = lastReceiverContexts.receiver_defaults || {};
-        const currentSdr1 = roleLabel((defaults.sdr1 || [])[0]);
-        const currentSdr2 = roleLabel((defaults.sdr2 || [])[0]);
-        const nextSdr1Role = receiverQueueRole("SDR1");
-        const nextSdr2Role = receiverQueueRole("SDR2");
-        const nextSdr1 = roleLabel(nextSdr1Role);
-        const nextSdr2 = roleLabel(nextSdr2Role);
-
-        const transitionSdr1 = nextSdr1Role ? `${currentSdr1} → ${nextSdr1} → ${currentSdr1}` : `${currentSdr1} · geen geplande wissel`;
-        const transitionSdr2 = nextSdr2Role ? `${currentSdr2} → ${nextSdr2} → ${currentSdr2}` : `${currentSdr2} · geen geplande wissel`;
-
-        runtime.innerHTML = `
-            <div><span>Current Context</span><strong>SDR1 ${currentSdr1} · SDR2 ${currentSdr2}</strong></div>
-            <div><span>Next Mission</span><strong>SDR1 ${nextSdr1} · SDR2 ${nextSdr2}</strong></div>
-            <div><span>Planned Transition</span><strong>SDR1 ${transitionSdr1}<br>SDR2 ${transitionSdr2}</strong></div>`;
+        const roles = lastReceiverContexts.roles || {};
+        const order = ["weather", "ais", "adsb", "iss_voice"];
+        runtime.innerHTML = order.map(role => {
+            const item = roles[role] || {};
+            const configured = String(item.configured_receiver || "-").toUpperCase();
+            const verified = item.verified_runtime_receiver
+                ? String(item.verified_runtime_receiver).toUpperCase()
+                : (item.runtime_active ? "UNVERIFIED" : "INACTIVE");
+            const state = String(item.verification || "UNKNOWN").replaceAll("_", " ");
+            return `<div class="assignment-runtime-role" data-state="${state.toLowerCase()}"><span>${roleLabel(role)}</span><strong>Configured ${configured} · Runtime ${verified}</strong><small>${state}</small></div>`;
+        }).join("");
     }
 
     function populateAssignmentPolicy(data) {
         lastReceiverContexts = data;
-        const mission = data.mission_assignments || {};
-        const defaults = data.receiver_defaults || {};
-        const weather = document.getElementById("mission-assignment-weather");
-        const iss = document.getElementById("mission-assignment-iss-voice");
-        const sdr1 = document.getElementById("receiver-default-sdr1");
-        const sdr2 = document.getElementById("receiver-default-sdr2");
-        if (weather) weather.value = mission.weather || "sdr1";
-        if (iss) iss.value = mission.iss_voice || "sdr2";
-        if (sdr1) sdr1.value = (defaults.sdr1 || [])[0] || "none";
-        if (sdr2) sdr2.value = (defaults.sdr2 || [])[0] || "none";
+        const assignments = data.configured_assignments || data.assignments || {};
+        for (const role of ["weather", "ais", "adsb", "iss_voice"]) {
+            const suffix = role === "iss_voice" ? "iss-voice" : role;
+            const select = document.getElementById(`receiver-assignment-${suffix}`);
+            if (select && assignments[role]) select.value = assignments[role];
+        }
+        const status = document.getElementById("assignment-authority-status");
+        if (status) {
+            status.textContent = String(data.status || "UNKNOWN").replaceAll("_", " ");
+            status.dataset.state = String(data.status || "unknown").toLowerCase();
+        }
+        const drift = document.getElementById("assignment-authority-drift");
+        const driftItems = Array.isArray(data.drift) ? data.drift : [];
+        if (drift) {
+            drift.hidden = driftItems.length === 0;
+            drift.innerHTML = driftItems.map(item =>
+                `<div><strong>${roleLabel(item.role)}</strong><span>${String(item.type || "configuration drift").replaceAll("_", " ")} · expected ${item.expected_serial || "-"} · configured ${item.service_config_serial || "-"} · runtime ${item.runtime_serial || "-"}</span></div>`
+            ).join("");
+        }
         renderAssignmentRuntimeSummary();
-        clearAssignmentPolicyResult();
     }
 
     function setText(id, value) {
@@ -139,6 +150,14 @@
         return match ? `SDR${match[1]}` : `SDR${index + 1}`;
     }
 
+    function assignmentReceiverLabel(dev, index) {
+        const number = receiverNumber(dev, index);
+        const name = String(dev.name || "").trim();
+        const compactName = name.replace(/\s+/g, "").toUpperCase();
+        const compactNumber = number.replace(/\s+/g, "").toUpperCase();
+        return !name || compactName === compactNumber ? number : `${number} · ${name}`;
+    }
+
     function normalizeReceiver(value) {
         const normalized = String(value || "").trim().toUpperCase().replaceAll("_", "");
         if (normalized.includes("SDR1") || normalized === "1") return "SDR1";
@@ -150,10 +169,14 @@
         const byId = {};
         for (const [index, dev] of (devices || []).entries()) {
             const id = String(dev.id || `sdr${index + 1}`).toLowerCase();
-            const number = receiverNumber(dev, index);
-            byId[id] = `${number} · ${dev.name || "Receiver"}`;
+            byId[id] = assignmentReceiverLabel(dev, index);
         }
-        for (const selectId of ["mission-assignment-weather", "mission-assignment-iss-voice"]) {
+        for (const selectId of [
+            "receiver-assignment-weather",
+            "receiver-assignment-ais",
+            "receiver-assignment-adsb",
+            "receiver-assignment-iss-voice",
+        ]) {
             const select = document.getElementById(selectId);
             if (!select) continue;
             const selected = select.value;
@@ -330,9 +353,11 @@
             setPill("radio-adsb-pill", data.adsb);
             renderDevices(data.devices || []);
             try {
-                populateAssignmentPolicy(await getReceiverContexts());
+                if (!assignmentFormIsBeingEdited()) {
+                    populateAssignmentPolicy(await getReceiverAuthority());
+                }
             } catch (contextError) {
-                setText("assignment-policy-result", `Context laden mislukt: ${contextError.message}`);
+                setText("assignment-policy-result", `Assignment Authority unavailable: ${contextError.message}`);
             }
             if (!rfFormIsBeingEdited()) {
                 populateRf(data.weather_rf || {});
@@ -343,54 +368,60 @@
         }
     }
 
-    const missionAssignmentsForm = document.getElementById("mission-assignments-form");
-    if (missionAssignmentsForm) {
-        missionAssignmentsForm.addEventListener("submit", async (event) => {
+    const receiverAssignmentsForm = document.getElementById("receiver-assignments-form");
+    if (receiverAssignmentsForm) {
+        const submitButton = receiverAssignmentsForm.querySelector('button[type="submit"]');
+        for (const control of receiverAssignmentsForm.querySelectorAll("select")) {
+            control.addEventListener("focus", () => { assignmentFormFocused = true; });
+            control.addEventListener("blur", () => { assignmentFormFocused = false; });
+            control.addEventListener("change", () => {
+                assignmentFormDirty = true;
+                clearAssignmentPolicyResult();
+            });
+        }
+        receiverAssignmentsForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const result = document.getElementById("assignment-policy-result");
-            try {
-                const response = await fetch("/api/mission-assignments", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({
-                        weather: document.getElementById("mission-assignment-weather")?.value,
-                        iss_voice: document.getElementById("mission-assignment-iss-voice")?.value,
-                    }),
-                });
-                const data = await response.json();
-                if (result) result.textContent = data.message || (response.ok ? "Opgeslagen." : "Mislukt.");
-                if (response.ok) populateAssignmentPolicy(await getReceiverContexts());
-            } catch (error) {
-                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
-            }
-        });
-    }
-
-    const receiverDefaultsForm = document.getElementById("receiver-defaults-form");
-    if (receiverDefaultsForm) {
-        receiverDefaultsForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const result = document.getElementById("assignment-policy-result");
-            const first = document.getElementById("receiver-default-sdr1")?.value || "none";
-            const second = document.getElementById("receiver-default-sdr2")?.value || "none";
-            if (first !== "none" && first === second) {
-                if (result) result.textContent = `${first.toUpperCase()} kan maar één default receiver hebben.`;
+            const assignments = {
+                weather: document.getElementById("receiver-assignment-weather")?.value,
+                ais: document.getElementById("receiver-assignment-ais")?.value,
+                adsb: document.getElementById("receiver-assignment-adsb")?.value,
+                iss_voice: document.getElementById("receiver-assignment-iss-voice")?.value,
+            };
+            if (assignments.ais === assignments.adsb) {
+                setText("assignment-policy-result", "AIS and ADS-B cannot use the same receiver.");
                 return;
             }
+            assignmentFormSaving = true;
+            if (submitButton) submitButton.disabled = true;
+            setText("assignment-policy-result", "Applying transaction and verifying runtime...");
             try {
-                const response = await fetch("/api/receiver-defaults", {
+                const response = await fetch("/api/receiver-assignments", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({receiver_defaults: {
-                        sdr1: first === "none" ? [] : [first],
-                        sdr2: second === "none" ? [] : [second],
-                    }}),
+                    body: JSON.stringify({assignments}),
                 });
                 const data = await response.json();
-                if (result) result.textContent = data.message || (response.ok ? "Opgeslagen." : "Mislukt.");
-                if (response.ok) populateAssignmentPolicy(await getReceiverContexts());
+                if (!response.ok || !data.ok) {
+                    const rollback = data.rollback_performed
+                        ? ` Rollback ${data.rollback_ok ? "completed" : "needs attention"}.`
+                        : "";
+                    throw new Error((data.message || `HTTP ${response.status}`) + rollback);
+                }
+                assignmentFormDirty = false;
+                const verified = data.verification || await getReceiverAuthority();
+                populateAssignmentPolicy(verified);
+                setText(
+                    "assignment-policy-result",
+                    data.changed
+                        ? "Assignments applied, services synchronized and runtime verified."
+                        : "Assignments were already synchronized."
+                );
             } catch (error) {
-                if (result) result.textContent = `Opslaan mislukt: ${error.message}`;
+                setText("assignment-policy-result", `Apply failed: ${error.message}`);
+            } finally {
+                assignmentFormSaving = false;
+                if (submitButton) submitButton.disabled = false;
             }
         });
     }
@@ -525,11 +556,19 @@
         for (const receiver of receivers) {
             const card = document.createElement("article");
             const roleClass = String(receiver.role || "idle").toLowerCase().replaceAll("-", "");
-            card.className = `receiver-monitor-item role-${roleClass}`;
+            const configured = (receiver.configured_roles || []).map(roleLabel).join(", ") || "None";
+            const verified = (receiver.verified_runtime_roles || []).map(roleLabel).join(", ") || "None";
+            const authorityState = receiver.authority_status || "UNKNOWN";
+            card.className = `receiver-monitor-item role-${roleClass}${receiver.configuration_drift ? " has-drift" : ""}`;
             card.innerHTML = `
                 <div class="receiver-monitor-heading">
                     <div><strong>${receiver.number || receiver.id || "SDR"}</strong><small>${receiver.serial || "-"}</small></div>
                     <div class="receiver-monitor-badges"><span>${receiver.role || "IDLE"}</span><span>${receiver.status || "-"}</span></div>
+                </div>
+                <div class="receiver-monitor-authority">
+                    <span>Configured<strong>${configured}</strong></span>
+                    <span>Verified runtime<strong>${verified}</strong></span>
+                    <span>Drift<strong data-state="${String(authorityState).toLowerCase()}">${authorityState}</strong></span>
                 </div>
                 <div class="receiver-monitor-metrics">${renderReceiverMetrics(receiver)}</div>
                 <p>${receiver.detail || "-"}</p>
@@ -537,7 +576,12 @@
             grid.appendChild(card);
         }
         if (!receivers.length) grid.textContent = "Geen receiverstatus beschikbaar.";
-        setText("receiver-monitor-updated", data && data.generated_at ? `Bijgewerkt ${data.generated_at}` : "Niet beschikbaar");
+        setText(
+            "receiver-monitor-updated",
+            data && data.generated_at
+                ? `${data.authority_status || "UNKNOWN"} · Updated ${data.generated_at}`
+                : "Unavailable"
+        );
     }
 
     async function updateReceiverMonitor() {

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 import json
 import os
+import time
 
 from core import device_manager, execution_factory, execution_journal, event_bus
 from core import iss_voice, iss_voice_audio, iss_voice_runtime, receiver_manager, wideband_iq_recorder
@@ -88,7 +89,13 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
             duration_seconds=duration, mode=cfg.get("modulation", "NFM"), phase="PREPARING",
             detail="Preparing receiver for ISS Voice capture",
         )
-        for service in device_manager.get_conflicting_services(device["id"], exclude_role="iss_voice"):
+        conflicts = device_manager.get_conflicting_services(device["id"], exclude_role="iss_voice")
+        iss_voice_runtime.update(
+            phase="STOPPING_CONFLICTS",
+            conflicting_services=conflicts,
+            detail="Stopping conflicting receiver services",
+        )
+        for service in conflicts:
             state = service_state(service)
             if not bool(state.get("active")):
                 continue
@@ -101,6 +108,12 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
                 data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device["id"], "service": service},
             )
 
+        iss_voice_runtime.update(
+            phase="WAITING_FOR_RECEIVER",
+            stopped_services=stopped_services,
+            detail="Conflicting services stopped; waiting for receiver release",
+        )
+        time.sleep(2.0)
         receiver_manager.activate(mission_key=mission_key, mission_id=mission_id)
         execution_journal.append_event_once(execution_id, "STARTED", source="iss_voice_executor",
             details={"mission_id": mission_id, "receiver_id": device["id"], "stopped_services": stopped_services})
@@ -112,19 +125,43 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         )
         output_dir = spec.output_directory
         iss_voice_runtime.update(
-            phase="RECORDING", output_directory=str(spec.output_directory), iq_path=str(spec.iq_path),
-            metadata_path=str(spec.metadata_path), detail="Wideband IQ recording active",
+            phase="STARTING_CAPTURE", output_directory=str(spec.output_directory), iq_path=str(spec.iq_path),
+            metadata_path=str(spec.metadata_path), stopped_services=stopped_services,
+            detail="Starting and verifying RTL-SDR capture",
         )
-        event_bus.publish_receiver(
-            "SUCCESS", "ISS Voice IQ recording started",
-            f"{int(cfg['downlink_frequency_hz']) / 1_000_000:.4f} MHz at {int(cfg['rf_sample_rate_hz']) / 1000:.0f} kS/s",
-            data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device["id"],
-                  "frequency_hz": int(cfg["downlink_frequency_hz"]), "sample_rate_hz": int(cfg["rf_sample_rate_hz"]),
-                  "iq_path": str(spec.iq_path), "duration_seconds": duration},
+
+        def capture_started(start_metadata: dict[str, Any]) -> None:
+            iss_voice_runtime.update(
+                phase="RECORDING",
+                capture_pid=start_metadata.get("capture_pid"),
+                capture_started_at=start_metadata.get("capture_started_at"),
+                startup_bytes=start_metadata.get("startup_bytes"),
+                capture_attempt=start_metadata.get("active_attempt"),
+                detail="Wideband IQ recording verified active",
+            )
+            event_bus.publish_receiver(
+                "SUCCESS", "ISS Voice IQ recording verified",
+                f"{int(cfg['downlink_frequency_hz']) / 1_000_000:.4f} MHz at {int(cfg['rf_sample_rate_hz']) / 1000:.0f} kS/s",
+                data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device["id"],
+                      "frequency_hz": int(cfg["downlink_frequency_hz"]), "sample_rate_hz": int(cfg["rf_sample_rate_hz"]),
+                      "iq_path": str(spec.iq_path), "duration_seconds": duration,
+                      "pid": start_metadata.get("capture_pid"), "attempt": start_metadata.get("active_attempt")},
+            )
+
+        capture = wideband_iq_recorder.execute_capture(
+            spec,
+            services_confirmed_stopped=True,
+            retry_count=2,
+            retry_delay_seconds=2.0,
+            startup_timeout_seconds=5.0,
+            on_started=capture_started,
         )
-        capture = wideband_iq_recorder.execute_capture(spec, services_confirmed_stopped=True)
         if not capture.get("complete"):
-            raise RuntimeError(f"IQ-opname onvolledig (returncode {capture.get('returncode')})")
+            stderr = str(capture.get("stderr") or "").strip()
+            detail = f"IQ-opname onvolledig (returncode {capture.get('returncode')}, {capture.get('actual_bytes')} bytes)"
+            if stderr:
+                detail += f": {stderr[-1000:]}"
+            raise RuntimeError(detail)
         iss_voice_runtime.update(
             phase="DEMODULATING", iq_bytes=capture.get("actual_bytes"),
             detail="IQ capture complete; creating audio",
@@ -140,15 +177,24 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
             data={"plugin_id": "iss_voice", "mission_id": mission_id},
         )
         audio = iss_voice_audio.demodulate_mission(mission_id, cfg)
+        wav_path_value = audio.get("wav_path")
+        wav_bytes = int(audio.get("wav_bytes") or 0)
+        wav_duration = float(audio.get("audio_duration_seconds") or 0.0)
+        minimum_duration = max(0.5, duration * 0.90)
+        if not audio.get("ok") or not wav_path_value or wav_bytes <= 44 or wav_duration < minimum_duration:
+            raise RuntimeError(
+                "WAV-validatie mislukt "
+                f"(bytes={wav_bytes}, duur={wav_duration:.3f}s, minimum={minimum_duration:.3f}s)"
+            )
         iss_voice_runtime.update(
-            phase="FINALIZING", wav_path=audio.get("wav_path"), detail="Audio created; restoring receiver context",
+            phase="FINALIZING", wav_path=wav_path_value, wav_bytes=wav_bytes,
+            audio_duration_seconds=wav_duration,
+            detail="Audio validated; restoring receiver context",
         )
         event_bus.publish_mission(
             "SUCCESS", "ISS Voice audio created", str(audio.get("wav_path") or "audio.wav"),
             data={"plugin_id": "iss_voice", "mission_id": mission_id, "wav_path": audio.get("wav_path")},
         )
-        execution_journal.append_event_once(execution_id, "FINISHED", source="iss_voice_executor",
-            details={"mission_id": mission_id, "wav_path": audio.get("wav_path"), "iq_path": capture.get("iq_path")})
     except Exception as exc:
         failure = exc
         iss_voice_runtime.update(phase="FAILED", detail=str(exc), error=str(exc))
@@ -156,8 +202,6 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
             "ERROR", "ISS Voice capture failed", str(exc),
             data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device.get("id")},
         )
-        execution_journal.append_event_once(execution_id, "FAILED", source="iss_voice_executor",
-            details={"mission_id": mission_id, "error": str(exc)})
     finally:
         restore_errors = []
         for service in reversed(stopped_services):
@@ -177,6 +221,33 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         if restore_errors:
             extra = "Herstel onvolledig: " + ", ".join(restore_errors)
             failure = RuntimeError(f"{failure}; {extra}" if failure else extra)
+
+    if failure is None:
+        execution_journal.append_event_once(
+            execution_id,
+            "FINISHED",
+            source="iss_voice_executor",
+            details={
+                "mission_id": mission_id,
+                "wav_path": (audio or {}).get("wav_path"),
+                "iq_path": (capture or {}).get("iq_path"),
+                "restored_services": stopped_services,
+            },
+        )
+    else:
+        execution_journal.append_event_once(
+            execution_id,
+            "FAILED",
+            source="iss_voice_executor",
+            details={
+                "mission_id": mission_id,
+                "error": str(failure),
+                "capture_returncode": (capture or {}).get("returncode"),
+                "capture_bytes": (capture or {}).get("actual_bytes"),
+                "capture_stderr": str((capture or {}).get("stderr") or "")[-2000:],
+                "stopped_services": stopped_services,
+            },
+        )
 
     ended = datetime.now().astimezone()
     wav_path = (audio or {}).get("wav_path")
@@ -211,5 +282,5 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     )
     if failure:
         raise failure
-    return {"ok": True, "version": "0.48.0e", "mission": history,
+    return {"ok": True, "version": "0.53.1d", "mission": history,
             "capture": capture, "audio": audio, "stopped_and_restored_services": stopped_services}

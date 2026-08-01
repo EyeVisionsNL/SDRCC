@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+"""Validate the v0.54.0a single receiver-assignment authority contract."""
+
 from pathlib import Path
 import ast
-import json
-import tempfile
+
 import yaml
+
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -16,42 +18,84 @@ def check(label, condition):
 
 def main():
     from core import config
-    from core import receiver_contexts
 
     policy = config.get_assignment_restore_policy()
-    check("foundation version", policy["version"] == "0.47.1a")
-    check("mission roles centralized", set(policy["mission_assignments"]) == {"weather", "iss_voice"})
+    check("authority version", policy["version"] == "0.54.0a")
+    check(
+        "single persistent authority declared",
+        policy["assignment_authority"] == "config/station.yaml:assignments",
+    )
+    check("only assignments persists", policy["persistent_assignment_keys"] == ["assignments"])
+    check("execution enabled", policy["execution_enabled"] is True)
+    check("rollback enabled", policy["restore_enabled"] is True)
+    check("legacy mappings are compatibility views", policy["compatibility_views_only"] is True)
     check("both physical receivers supported", set(policy["receiver_ids"]) == {"sdr1", "sdr2"})
-    check("AIS and ADS-B are flexible defaults", set(policy["default_context_plugins"]) == {"ais", "adsb"})
-    check("foundation execution disabled", policy["execution_enabled"] is False)
-    check("foundation restore disabled", policy["restore_enabled"] is False)
 
-    snapshot = receiver_contexts.get_snapshot()
-    check("context snapshot valid", snapshot["ok"] is True)
-    check("context API contract read-only", snapshot["read_only"] is True)
-    check("no service authority", snapshot["service_authority"] is False)
-    check("no receiver authority", snapshot["receiver_authority"] is False)
-    check("no mission engine authority", snapshot["mission_engine_authority"] is False)
-
-    source = (ROOT / "core" / "receiver_contexts.py").read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    imports = {node.names[0].name for node in ast.walk(tree) if isinstance(node, ast.Import)}
-    check("context module contains no subprocess import", "subprocess" not in imports)
-    check("context module contains no systemctl", "systemctl" not in source)
+    assignments = policy["assignments"]
+    missions = policy["mission_assignments"]
+    defaults = policy["receiver_defaults"]
+    check(
+        "mission projection derived from assignments",
+        missions == {role: assignments.get(role) for role in ("weather", "iss_voice")},
+    )
+    projected_defaults = {receiver_id: [] for receiver_id in policy["receiver_ids"]}
+    for role in ("ais", "adsb"):
+        receiver_id = assignments.get(role)
+        if receiver_id in projected_defaults:
+            projected_defaults[receiver_id].append(role)
+    check("service defaults derived from assignments", defaults == projected_defaults)
 
     station = yaml.safe_load((ROOT / "config" / "station.yaml").read_text(encoding="utf-8"))
-    check("mission_assignments persisted", isinstance(station.get("mission_assignments"), dict))
-    check("receiver_defaults persisted", isinstance(station.get("receiver_defaults"), dict))
-    check("legacy assignments retained", isinstance(station.get("assignments"), dict))
+    check("assignments persisted", isinstance(station.get("assignments"), dict))
+    check("mission_assignments removed", "mission_assignments" not in station)
+    check("receiver_defaults removed", "receiver_defaults" not in station)
+
+    authority_source = (ROOT / "core" / "receiver_authority.py").read_text(encoding="utf-8")
+    tree = ast.parse(authority_source)
+    imports = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    check("authority has no Flask dependency", "flask" not in imports)
+    check("authority never starts missions", "start_mission" not in authority_source)
+    check("authority exposes transaction coordinator", "def apply_assignments(" in authority_source)
+    check("authority exposes runtime verification", "def get_snapshot(" in authority_source)
+
+    helper_source = (ROOT / "scripts" / "sdrcc_apply_receiver_roles.py").read_text(
+        encoding="utf-8"
+    )
+    check("privileged helper is standalone", "from core" not in helper_source)
+    check("privileged helper has rollback", "rollback" in helper_source.lower())
 
     app_source = (ROOT / "dashboard" / "app.py").read_text(encoding="utf-8")
-    for route in ("/api/receiver-contexts", "/api/mission-assignments", "/api/receiver-defaults"):
+    for route in (
+        "/api/receiver-assignments",
+        "/api/mission-assignments",
+        "/api/receiver-defaults",
+        "/api/receiver-monitor",
+    ):
         check(f"route present {route}", route in app_source)
+    check(
+        "all assignment writers use common transaction",
+        app_source.count("_apply_receiver_assignment_changes(") >= 6,
+    )
+    check(
+        "transaction reserves through Receiver Manager",
+        "_reserve_assignment_transaction_receivers" in app_source
+        and "receiver_manager.reserve(" in app_source,
+    )
+    check(
+        "service serial is never read from station role blocks",
+        "station[ais_receiver][\"serial\"]" not in app_source,
+    )
 
     html = (ROOT / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
-    check("Mission Assignments UI present", "mission-assignments-form" in html)
-    check("Receiver Defaults UI present", "receiver-defaults-form" in html)
-    print("VALIDATION PASS: v0.47.1a Mission Assignment & Restore Policy Foundation")
+    check("one Receiver Assignments form", html.count('id="receiver-assignments-form"') == 1)
+    check("old Mission Assignments form removed", "mission-assignments-form" not in html)
+    check("old Receiver Defaults form removed", "receiver-defaults-form" not in html)
+    print("VALIDATION PASS: v0.54.0a Receiver Assignment Authority")
 
 
 if __name__ == "__main__":

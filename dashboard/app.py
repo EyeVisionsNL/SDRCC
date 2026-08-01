@@ -35,6 +35,7 @@ from core import plugin_capabilities as plugin_capabilities_core
 from core import execution_plan_consumer as execution_plan_consumer_core
 from core import execution_journal as execution_journal_core
 from core import receiver_manager
+from core import receiver_authority
 from core import receiver_registry
 from core import receiver_runtime as receiver_runtime_core
 from core import receiver_inventory as receiver_inventory_core
@@ -60,6 +61,7 @@ app = Flask(__name__)
 
 LOG_FILE = PROJECT_ROOT / "logs" / "sdrcc.log"
 SDRCC_SCRIPT = PROJECT_ROOT / "scripts" / "sdrcc.py"
+RECEIVER_ROLE_HELPER = Path("/usr/local/sbin/sdrcc-apply-receiver-roles")
 
 IMAGE_DIRS = [
     PROJECT_ROOT / "data" / "images",
@@ -178,6 +180,32 @@ def run_command(command, timeout=60):
 
 def run_systemctl(action, service):
     return run_command(["sudo", "-n", "systemctl", action, service], timeout=30)
+
+
+def apply_receiver_service_configuration(ais_serial, adsb_serial):
+    """Use the existing privileged adapter and return its structured result."""
+    import json
+
+    result = run_command([
+        "sudo",
+        "-n",
+        str(RECEIVER_ROLE_HELPER),
+        str(ais_serial),
+        str(adsb_serial),
+    ], timeout=180)
+    raw = (result.stdout or "").strip()
+    try:
+        payload = json.loads(raw) if raw else {}
+    except (TypeError, ValueError):
+        payload = {}
+    if result.returncode != 0 or not payload.get("ok"):
+        payload.update({
+            "ok": False,
+            "message": payload.get("message")
+            or (result.stderr or raw or "Serviceconfiguratie synchroniseren mislukt").strip(),
+            "returncode": result.returncode,
+        })
+    return payload
 
 
 def service_state(service_name):
@@ -615,6 +643,7 @@ def get_dashboard_data():
     mission = get_mission_data_for_status()
     scheduler = mission_scheduler_core.get_scheduler_status()
     assignments = config_core.get_receiver_assignments()
+    live_rf_status = live_rf.get_status()
 
     mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
     observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
@@ -625,7 +654,17 @@ def get_dashboard_data():
     }
     iss_runtime = iss_voice_runtime.get_status()
     iss_active = bool(iss_runtime.get("active"))
-    iss_receiver_id = str(iss_runtime.get("receiver_id") or "")
+    authority_snapshot = receiver_authority.get_snapshot(
+        mission_status=mission,
+        weather_runtime=live_rf_status,
+        iss_runtime=iss_runtime,
+        use_cache=False,
+    )
+    authority_roles = authority_snapshot.get("roles") or {}
+    weather_runtime = authority_roles.get("weather") or {}
+    ais_runtime = authority_roles.get("ais") or {}
+    adsb_runtime = authority_roles.get("adsb") or {}
+    iss_verified_runtime = authority_roles.get("iss_voice") or {}
 
     for device in devices:
         device_id = device.get("id")
@@ -641,22 +680,70 @@ def get_dashboard_data():
         active_detail = "Geen actieve service"
         status_label = "AVAILABLE"
 
-        if iss_active and device_id == iss_receiver_id:
+        if (
+            iss_verified_runtime.get("runtime_active")
+            and iss_verified_runtime.get("verified_runtime_receiver")
+            and device_id == iss_verified_runtime.get("verified_runtime_receiver")
+        ):
             current_task = "ISS Voice"
             active_detail = str(iss_runtime.get("phase") or "Actieve ISS-missie")
-            status_label = "LOCKED"
-        elif weather_active and assignments.get("weather") == device_id:
+            status_label = (
+                "DRIFT" if iss_verified_runtime.get("configuration_drift") else "LOCKED"
+            )
+        elif (
+            weather_runtime.get("runtime_active")
+            and weather_runtime.get("verified_runtime_receiver")
+            and device_id == weather_runtime.get("verified_runtime_receiver")
+        ):
             current_task = "Weather / METEOR"
             active_detail = "Actieve satellietmissie"
-            status_label = "LOCKED"
-        elif assignments.get("ais") == device_id and ais.get("active"):
+            status_label = "DRIFT" if weather_runtime.get("configuration_drift") else "LOCKED"
+        elif (
+            ais_runtime.get("service_active")
+            and ais_runtime.get("verified_runtime_receiver") == device_id
+        ):
             current_task = "AIS"
-            active_detail = "ais-catcher.service"
-            status_label = "IN USE"
-        elif assignments.get("adsb") == device_id and adsb.get("active"):
+            active_detail = "ais-catcher.service · verified runtime"
+            status_label = "DRIFT" if ais_runtime.get("configuration_drift") else "IN USE"
+        elif (
+            adsb_runtime.get("service_active")
+            and adsb_runtime.get("verified_runtime_receiver") == device_id
+        ):
             current_task = "ADS-B"
-            active_detail = "readsb.service"
-            status_label = "IN USE"
+            active_detail = "readsb.service · verified runtime"
+            status_label = "DRIFT" if adsb_runtime.get("configuration_drift") else "IN USE"
+
+        configured_unverified = [
+            item for item in (
+                weather_runtime,
+                ais_runtime,
+                adsb_runtime,
+                iss_verified_runtime,
+            )
+            if item.get("runtime_active")
+            and item.get("configured_receiver") == device_id
+            and not item.get("verified_runtime_receiver")
+        ]
+        configured_drift = [
+            item for item in (
+                weather_runtime,
+                ais_runtime,
+                adsb_runtime,
+                iss_verified_runtime,
+            )
+            if item.get("configuration_drift")
+            and item.get("configured_receiver") == device_id
+        ]
+        if current_task == "Vrij" and configured_unverified:
+            current_task = "Runtime unverified"
+            active_detail = ", ".join(
+                str(item.get("role") or "service").upper()
+                for item in configured_unverified
+            )
+            status_label = "UNVERIFIED"
+        elif current_task == "Vrij" and configured_drift:
+            active_detail = "Configured receiver differs from verified runtime"
+            status_label = "DRIFT"
 
         next_task = (
             "ISS Voice" if assignments.get("iss_voice") == device_id and not iss_active
@@ -669,7 +756,7 @@ def get_dashboard_data():
         device["next_task"] = next_task
         device["active_detail"] = active_detail
         device["status_label"] = status_label
-        device["in_use"] = status_label in {"IN USE", "LOCKED"}
+        device["in_use"] = status_label in {"IN USE", "LOCKED", "DRIFT", "UNVERIFIED"}
 
     return {
         "server_time_epoch": int(datetime.now().timestamp()),
@@ -679,6 +766,7 @@ def get_dashboard_data():
         "adsb": adsb,
         "devices": devices,
         "assignments": assignments,
+        "receiver_authority": authority_snapshot,
         "weather_rf": config_core.get_weather_rf_config(),
         "tle_present": tle.exists(),
         "system": system_stats.get_stats(),
@@ -1858,7 +1946,9 @@ def api_plugin_execution_runtime():
 def api_receiver_inventory():
     """Expose the read-only physical-to-runtime receiver inventory."""
     try:
-        return jsonify(receiver_inventory_core.get_snapshot())
+        snapshot = receiver_inventory_core.get_snapshot()
+        snapshot["assignment_verification"] = receiver_authority.get_snapshot()
+        return jsonify(snapshot)
     except Exception as error:
         return jsonify({"ok": False, "read_only": True, "error": str(error), "receivers": []}), 500
 
@@ -2116,54 +2206,196 @@ def api_receiver_contexts():
         return jsonify({"ok": False, "read_only": True, "error": str(error)}), 500
 
 
-@app.route("/api/mission-assignments", methods=["POST"])
-def api_mission_assignments():
-    payload = request.get_json(silent=True) or {}
+def _receiver_assignment_block_reason():
     mission = mission_engine_core.get_mission_status()
     receiver_status = get_reconciled_receiver_manager_status()
+    reservations = receiver_status.get("canonical_reservations")
+    if not isinstance(reservations, dict):
+        reservations = receiver_status.get("reservations") or {}
     if (
         mission.get("phase") not in {"READY", "WAIT FOR PASS"}
         or autopilot_runtime.get("prepared")
         or autopilot_runtime.get("locked")
         or autopilot_runtime.get("record_started")
-        or any(value is not None for value in receiver_status.get("reservations", {}).values())
+        or any(isinstance(value, dict) for value in reservations.values())
     ):
-        return jsonify({"ok": False, "message": "Mission assignments kunnen niet tijdens een actieve missie worden gewijzigd."}), 409
+        return "Receiver assignments kunnen niet tijdens een actieve missie worden gewijzigd."
+    return None
+
+
+def _reserve_assignment_transaction_receivers():
+    """Atomically protect the transaction against new mission reservations.
+
+    Receiver Manager remains the reservation authority. Unique owner keys let
+    us protect both receivers using its existing one-owner-per-receiver model.
+    If a concurrent mission wins either reservation, no assignment mutation is
+    started and every reservation already obtained here is released.
+    """
+    reservation_keys = []
     try:
-        changes = {role: payload.get(role) for role in config_core.get_mission_assignment_roles() if role in payload}
-        assignments = config_core.set_mission_assignments(changes)
-        write_log("Mission assignments opgeslagen: " + ", ".join(f"{k}={v}" for k, v in assignments.items()))
-        return jsonify({"ok": True, "message": "Mission assignments opgeslagen. Runtime-uitvoering is niet gewijzigd.", "mission_assignments": assignments})
+        receiver_ids = config_core.get_assignment_restore_policy()["receiver_ids"]
+        for receiver_id in receiver_ids:
+            key = f"receiver_authority:{receiver_id}"
+            receiver_manager.reserve(
+                receiver_id,
+                mission_key=key,
+                reason="receiver assignment transaction",
+            )
+            reservation_keys.append(key)
+        return reservation_keys
+    except Exception:
+        for key in reversed(reservation_keys):
+            try:
+                receiver_manager.release(
+                    mission_key=key,
+                    detail="Receiver assignment transaction afgebroken",
+                )
+            except Exception:
+                pass
+        raise
+
+
+def _release_assignment_transaction_receivers(reservation_keys):
+    errors = []
+    for key in reversed(reservation_keys or []):
+        try:
+            receiver_manager.release(
+                mission_key=key,
+                detail="Receiver assignment transaction afgerond",
+            )
+        except Exception as error:
+            errors.append(f"{key}: {error}")
+    return errors
+
+
+def _apply_receiver_assignment_changes(changes):
+    blocked = _receiver_assignment_block_reason()
+    if blocked:
+        return {"ok": False, "message": blocked}, 409
+    reservation_keys = []
+    try:
+        reservation_keys = _reserve_assignment_transaction_receivers()
+        result = receiver_authority.apply_assignments(
+            changes,
+            privileged_apply=apply_receiver_service_configuration,
+        )
+    except (TypeError, ValueError) as error:
+        return {"ok": False, "message": str(error)}, 400
+    except RuntimeError as error:
+        return {
+            "ok": False,
+            "message": f"Receiver Manager kon de assignment transaction niet reserveren: {error}",
+        }, 409
     except Exception as error:
-        return jsonify({"ok": False, "message": str(error)}), 400
+        return {"ok": False, "message": str(error)}, 500
+    finally:
+        release_errors = _release_assignment_transaction_receivers(reservation_keys)
+        if release_errors:
+            write_log(
+                "Receiver Authority reservation release fout: "
+                + "; ".join(release_errors)
+            )
+
+    if not result.get("ok"):
+        write_log(
+            "Receiver Authority transaction mislukt: "
+            f"{result.get('message')}; rollback_ok={result.get('rollback_ok')}"
+        )
+        return result, (409 if result.get("rollback_ok") else 500)
+
+    assignments = result.get("assignments") or {}
+    write_log(
+        "Receiver Authority toegepast: "
+        + ", ".join(f"{role}={receiver}" for role, receiver in assignments.items())
+    )
+    event_bus.publish_receiver(
+        "INFO",
+        "Receiver assignments applied",
+        "Assignment Authority and service configuration are synchronized",
+        data={
+            "assignment_authority": result.get("assignment_authority"),
+            "assignments": assignments,
+            "changed": result.get("changed"),
+            "configuration_drift": (
+                result.get("verification") or {}
+            ).get("configuration_drift"),
+        },
+    )
+    return result, 200
+
+
+@app.route("/api/receiver-assignments", methods=["GET", "POST"])
+def api_receiver_assignments():
+    """Expose and change the single Receiver Assignment Authority."""
+    if request.method == "GET":
+        try:
+            return jsonify(receiver_authority.get_snapshot())
+        except Exception as error:
+            return jsonify({"ok": False, "message": str(error)}), 500
+
+    payload = request.get_json(silent=True) or {}
+    raw_changes = payload.get("assignments", payload)
+    if not isinstance(raw_changes, dict):
+        return jsonify({"ok": False, "message": "assignments moet een mapping zijn"}), 400
+    allowed = {"weather", "ais", "adsb", "iss_voice"}
+    unknown = set(raw_changes) - allowed
+    if unknown:
+        return jsonify({
+            "ok": False,
+            "message": "Onbekende receiverrol: " + ", ".join(sorted(unknown)),
+        }), 400
+    changes = {role: raw_changes[role] for role in allowed if role in raw_changes}
+    if not changes:
+        return jsonify({"ok": False, "message": "Geen assignments aangeleverd"}), 400
+    result, status = _apply_receiver_assignment_changes(changes)
+    return jsonify(result), status
+
+
+@app.route("/api/mission-assignments", methods=["POST"])
+def api_mission_assignments():
+    payload = request.get_json(silent=True) or {}
+    changes = {
+        role: payload.get(role)
+        for role in config_core.get_mission_assignment_roles()
+        if role in payload
+    }
+    result, status = _apply_receiver_assignment_changes(changes)
+    result["mission_assignments"] = config_core.get_mission_assignments()
+    result.setdefault("message", "Mission assignments via Assignment Authority toegepast.")
+    return jsonify(result), status
 
 
 @app.route("/api/receiver-defaults", methods=["POST"])
 def api_receiver_defaults():
     payload = request.get_json(silent=True) or {}
-    mission = mission_engine_core.get_mission_status()
-    receiver_status = get_reconciled_receiver_manager_status()
-    if (
-        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
-        or autopilot_runtime.get("prepared")
-        or autopilot_runtime.get("locked")
-        or autopilot_runtime.get("record_started")
-        or any(value is not None for value in receiver_status.get("reservations", {}).values())
-    ):
-        return jsonify({"ok": False, "message": "Receiver defaults kunnen niet tijdens een actieve missie worden gewijzigd."}), 409
     try:
-        defaults = config_core.set_receiver_defaults(payload.get("receiver_defaults", payload))
-        write_log("Receiver default contexts opgeslagen: " + str(defaults))
-        return jsonify({"ok": True, "message": "Receiver defaults opgeslagen. Services zijn niet gestart of gestopt.", "receiver_defaults": defaults})
+        defaults = payload.get("receiver_defaults", payload)
+        if not isinstance(defaults, dict):
+            raise ValueError("Receiver defaults moeten als mapping worden aangeleverd")
+        changes = {"ais": None, "adsb": None}
+        for receiver_id, raw_plugins in defaults.items():
+            plugins = [raw_plugins] if isinstance(raw_plugins, str) else (raw_plugins or [])
+            for plugin_id in plugins:
+                normalized = str(plugin_id or "").strip().lower()
+                if normalized in changes:
+                    if changes[normalized] is not None:
+                        raise ValueError(f"{normalized.upper()} kan maar één receiver hebben")
+                    changes[normalized] = receiver_id
     except Exception as error:
         return jsonify({"ok": False, "message": str(error)}), 400
+    result, status = _apply_receiver_assignment_changes(changes)
+    result["receiver_defaults"] = config_core.get_receiver_defaults()
+    result.setdefault("message", "Receiver defaults via Assignment Authority toegepast.")
+    return jsonify(result), status
 
 
 @app.route("/api/receiver-runtime", methods=["GET"])
 def api_receiver_runtime():
     """Expose the read-only Receiver Runtime observation snapshot."""
     try:
-        return jsonify(receiver_runtime_core.get_snapshot())
+        snapshot = receiver_runtime_core.get_snapshot()
+        snapshot["assignment_verification"] = receiver_authority.get_snapshot()
+        return jsonify(snapshot)
     except Exception as error:
         return jsonify({
             "ok": False,
@@ -2178,13 +2410,23 @@ def api_receiver_runtime():
 def api_receiver_monitor():
     try:
         mission = mission_engine_core.get_mission_status()
+        ais = service_state("ais-catcher.service")
+        adsb = service_state("readsb.service")
+        live = live_rf.get_status()
+        authority = receiver_authority.get_snapshot(
+            mission_status=mission,
+            weather_runtime=live,
+            iss_runtime=iss_voice_runtime.get_status(),
+            use_cache=False,
+        )
         return jsonify(receiver_monitor.get_snapshot(
             devices=device_manager.get_devices(),
             assignments=config_core.get_receiver_assignments(),
-            ais_service=service_state("ais-catcher.service"),
-            adsb_service=service_state("readsb.service"),
+            ais_service=ais,
+            adsb_service=adsb,
             mission=mission,
-            live_rf=live_rf.get_status(),
+            live_rf=live,
+            authority_snapshot=authority,
         ))
     except Exception as error:
         return jsonify({
@@ -2925,161 +3167,51 @@ def api_receiver_manager():
 def api_receiver_assignment():
     payload = request.get_json(silent=True) or {}
     device_id = payload.get("weather")
-    mission = mission_engine_core.get_mission_status()
-    receiver_runtime = get_reconciled_receiver_manager_status()
-    if (
-        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
-        or autopilot_runtime.get("prepared")
-        or autopilot_runtime.get("locked")
-        or autopilot_runtime.get("record_started")
-        or (
-            device_id
-            and receiver_runtime.get("reservations", {}).get(device_id) is not None
-        )
-    ):
-        return jsonify({
-            "ok": False,
-            "message": "Receiverkeuze kan niet tijdens een actieve missie.",
-        }), 409
     try:
         device = device_manager.get_device(device_id)
         if device is None:
             raise ValueError("Onbekende SDR-keuze")
-        assignments = config_core.set_assignment("weather", device_id)
-        write_log(
-            f"Weather-ontvanger gewijzigd naar {device['number']} "
-            f"({device['serial']})"
-        )
-        event_bus.publish_receiver(
-            "INFO",
-            "Weather-ontvanger gewijzigd",
-            f"Weather gebruikt nu {device['number']} ({device['serial']})",
-            data={
-                "role": "weather",
-                "device_id": device["id"],
-                "number": device["number"],
-                "serial": device["serial"],
-                "assignments": assignments,
-            },
-        )
-        return jsonify({
-            "ok": True,
-            "message": f"Weather gebruikt nu {device['number']}.",
-            "assignments": assignments,
-            "device": device,
-        })
     except Exception as error:
         return jsonify({"ok": False, "message": str(error)}), 400
+    result, status = _apply_receiver_assignment_changes({"weather": device_id})
+    result["device"] = device
+    result.setdefault("message", f"Weather gebruikt nu {device['number']}.")
+    return jsonify(result), status
 
 
 
 @app.route("/api/receiver-roles", methods=["POST"])
 def api_receiver_roles():
     payload = request.get_json(silent=True) or {}
-    mission = mission_engine_core.get_mission_status()
-    receiver_runtime = get_reconciled_receiver_manager_status()
-    if (
-        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
-        or autopilot_runtime.get("prepared")
-        or autopilot_runtime.get("locked")
-        or autopilot_runtime.get("record_started")
-        or receiver_runtime.get("reservation") is not None
-    ):
-        return jsonify({
-            "ok": False,
-            "message": "Receiverrollen kunnen niet tijdens een actieve missie worden gewijzigd.",
-        }), 409
-
     roles = {
-        "sdr1": payload.get("sdr1", "manual"),
-        "sdr2": payload.get("sdr2", "manual"),
+        "sdr1": str(payload.get("sdr1", "manual")).strip().lower(),
+        "sdr2": str(payload.get("sdr2", "manual")).strip().lower(),
     }
     try:
-        assignments = config_core.set_receiver_roles(roles)
-        write_log(
-            "Receiverrollen opgeslagen: "
-            f"SDR1={str(roles['sdr1']).upper()}, "
-            f"SDR2={str(roles['sdr2']).upper()}"
-        )
-        return jsonify({
-            "ok": True,
-            "message": (
-                "Rollen opgeslagen. Services zijn in deze stap nog niet gewijzigd."
-            ),
-            "assignments": assignments,
-            "roles": roles,
-        })
+        if any(role not in {"ais", "adsb", "manual"} for role in roles.values()):
+            raise ValueError("Receiverrol moet AIS, ADS-B of manual zijn")
+        if len([role for role in roles.values() if role == "ais"]) > 1:
+            raise ValueError("AIS kan maar aan één receiver worden toegewezen")
+        if len([role for role in roles.values() if role == "adsb"]) > 1:
+            raise ValueError("ADS-B kan maar aan één receiver worden toegewezen")
+        changes = {
+            "ais": next((receiver for receiver, role in roles.items() if role == "ais"), None),
+            "adsb": next((receiver for receiver, role in roles.items() if role == "adsb"), None),
+        }
     except Exception as error:
         return jsonify({"ok": False, "message": str(error)}), 400
+    result, status = _apply_receiver_assignment_changes(changes)
+    result["roles"] = roles
+    result.setdefault("message", "Receiverrollen via Assignment Authority toegepast.")
+    return jsonify(result), status
 
 
 @app.route("/api/receiver-roles/apply", methods=["POST"])
 def api_receiver_roles_apply():
-    mission = mission_engine_core.get_mission_status()
-    receiver_runtime = get_reconciled_receiver_manager_status()
-    if (
-        mission.get("phase") not in {"READY", "WAIT FOR PASS"}
-        or autopilot_runtime.get("prepared")
-        or autopilot_runtime.get("locked")
-        or autopilot_runtime.get("record_started")
-        or receiver_runtime.get("reservation") is not None
-    ):
-        return jsonify({
-            "ok": False,
-            "message": "Receiverrollen kunnen niet tijdens een actieve missie worden toegepast.",
-        }), 409
-
-    station = config_core.load_station()
     assignments = config_core.get_receiver_assignments()
-    ais_receiver = assignments.get("ais")
-    adsb_receiver = assignments.get("adsb")
-    if ais_receiver not in {"sdr1", "sdr2"} or adsb_receiver not in {"sdr1", "sdr2"}:
-        return jsonify({
-            "ok": False,
-            "message": "Wijs eerst zowel AIS als ADS-B aan een receiver toe.",
-        }), 400
-    if ais_receiver == adsb_receiver:
-        return jsonify({
-            "ok": False,
-            "message": "AIS en ADS-B kunnen niet dezelfde receiver gebruiken.",
-        }), 400
-
-    try:
-        ais_serial = str(station[ais_receiver]["serial"])
-        adsb_serial = str(station[adsb_receiver]["serial"])
-    except (KeyError, TypeError) as error:
-        return jsonify({
-            "ok": False,
-            "message": f"Receiver-serienummer ontbreekt: {error}",
-        }), 400
-
-    result = run_command([
-        "sudo", "-n", "/usr/local/sbin/sdrcc-apply-receiver-roles",
-        ais_serial, adsb_serial,
-    ], timeout=120)
-    raw = (result.stdout or "").strip()
-    try:
-        import json
-        payload = json.loads(raw) if raw else {}
-    except Exception:
-        payload = {}
-    message = payload.get("message") or (result.stderr or raw or "Receiverwisseling mislukt").strip()
-    if result.returncode != 0 or not payload.get("ok"):
-        write_log(f"Receiverrollen toepassen mislukt: {message}")
-        return jsonify({"ok": False, "message": message}), 500
-
-    write_log(
-        "Receiverrollen toegepast: "
-        f"AIS={ais_receiver}/{ais_serial}, ADS-B={adsb_receiver}/{adsb_serial}"
-    )
-    return jsonify({
-        "ok": True,
-        "message": message,
-        "changed": bool(payload.get("changed")),
-        "assignments": assignments,
-        "ais_serial": ais_serial,
-        "adsb_serial": adsb_serial,
-    })
+    result, status = _apply_receiver_assignment_changes(assignments)
+    result.setdefault("message", "Serviceconfiguratie met Assignment Authority gesynchroniseerd.")
+    return jsonify(result), status
 
 
 @app.route("/api/weather-planning", methods=["GET", "POST"])

@@ -67,6 +67,32 @@
         return snapshot.mission_phase || "Geen";
     }
 
+    function assignmentVerification(snapshot) {
+        const verification = snapshot?.assignment_verification || {};
+        const status = String(verification.status || "UNVERIFIED").toUpperCase();
+        const configured = verification.configured_assignments || {};
+        const runtime = verification.verified_runtime_assignments || {};
+        const drift = Array.isArray(verification.drift) ? verification.drift : [];
+        const roleText = ["weather", "ais", "adsb", "iss_voice"].map((role) => {
+            const expected = configured[role] || "-";
+            const observed = runtime[role] || "niet actief / niet geverifieerd";
+            return `${displayRole(role)}: ${expected} → ${observed}`;
+        }).join(" · ");
+        const detail = drift.length
+            ? drift.map((item) => `${displayRole(item.role)}: ${item.type}`).join(" · ")
+            : "Geen configuratiedrift waargenomen.";
+
+        return `
+            <div class="runtime-assignment-verification is-${escapeHtml(status.toLowerCase())}">
+                <div>
+                    <strong>Assignment Authority: ${escapeHtml(status)}</strong>
+                    <small>${escapeHtml(verification.assignment_authority || "config/station.yaml:assignments")}</small>
+                </div>
+                <p>${escapeHtml(roleText)}</p>
+                <p>${escapeHtml(detail)}</p>
+            </div>`;
+    }
+
     function receiverRow(receiverId, receiver, snapshot) {
         const roles = Array.isArray(receiver.configured_roles)
             ? receiver.configured_roles.map(displayRole).join(", ")
@@ -122,7 +148,7 @@
 
         const entries = Object.entries(receivers);
 
-        grid.innerHTML = entries.length
+        grid.innerHTML = assignmentVerification(snapshot) + (entries.length
             ? `
                 <div class="runtime-diagnostics-table-wrap">
                     <table class="runtime-diagnostics-table">
@@ -144,7 +170,7 @@
                         </tbody>
                     </table>
                 </div>`
-            : '<div class="runtime-diagnostics-empty">Geen receivers waargenomen.</div>';
+            : '<div class="runtime-diagnostics-empty">Geen receivers waargenomen.</div>');
 
         authority.textContent =
             `Authority: ${snapshot.authority || "onbekend"} · read-only`;

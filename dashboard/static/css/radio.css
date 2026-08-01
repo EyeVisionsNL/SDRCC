@@ -95,3 +95,26 @@
 
 /* v0.49.0a Receiver & Weather configuration */
 .runtime-diagnostics-card{padding-top:14px;padding-bottom:14px}.runtime-diagnostics-grid{gap:7px}.mission-assignment-card{grid-column:span 1}.mission-assignment-card .section-heading-row p{margin:3px 0 0}.assignment-policy-form{margin-top:8px}.assignment-policy-form fieldset{padding:9px;gap:8px}.assignment-policy-runtime{gap:6px;margin-top:8px}.assignment-policy-runtime div{padding:7px}.rf-settings-card{grid-column:span 1}.rf-settings-form{display:grid;grid-template-columns:1fr;gap:9px}.rf-settings-form fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0;padding:10px;border:1px solid #24364d;border-radius:10px;background:#07111f}.rf-settings-form legend{padding:0 7px;font-weight:700}.rf-settings-form .rf-settings-help{grid-column:1/-1;margin:2px 0 0;color:#8fa7c5;font-size:.78rem;line-height:1.4}.rf-settings-form>button{grid-column:auto}.spectrum-card{display:none!important}@media(max-width:1100px){.mission-assignment-card,.rf-settings-card{grid-column:1/-1}}@media(max-width:650px){.rf-settings-form fieldset{grid-template-columns:1fr}}
+
+/* v0.54.0a Receiver Assignment Authority */
+.receiver-badge-drift,.receiver-badge-unverified{color:#facc15;border-color:#a16207;background:#2a1f08}
+.assignment-authority-status{padding:5px 9px;border:1px solid #334155;border-radius:999px;background:#0f172a;color:#94a3b8;font-size:.68rem;font-weight:800;letter-spacing:.05em}
+.assignment-authority-status[data-state="in_sync"]{border-color:#15803d;color:#4ade80;background:#0b2a18}
+.assignment-authority-status[data-state="drift"],.assignment-authority-status[data-state="unverified"]{border-color:#a16207;color:#facc15;background:#2a1f08}
+.receiver-assignments-form fieldset{grid-template-columns:repeat(2,minmax(0,1fr))}
+.assignment-policy-runtime{grid-template-columns:repeat(2,minmax(0,1fr))}
+.assignment-runtime-role small{color:#64748b;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
+.assignment-runtime-role[data-state="verified"] small,.assignment-runtime-role[data-state="configured"] small{color:#4ade80}
+.assignment-runtime-role[data-state="drift"] small,.assignment-runtime-role[data-state="unverified"] small{color:#facc15}
+.assignment-authority-drift{display:grid;gap:6px;margin-top:9px;padding:9px;border:1px solid #a16207;border-radius:8px;background:#2a1f08}
+.assignment-authority-drift[hidden]{display:none}
+.assignment-authority-drift div{display:flex;flex-direction:column;gap:2px}
+.assignment-authority-drift strong{color:#facc15;font-size:.78rem}
+.assignment-authority-drift span{color:#fde68a;font-size:.72rem}
+.receiver-monitor-item.has-drift{border-color:#a16207;box-shadow:0 0 0 1px rgba(250,204,21,.08) inset}
+.receiver-monitor-authority{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:9px}
+.receiver-monitor-authority span{display:flex;flex-direction:column;gap:2px;padding:7px;border:1px solid #17263a;border-radius:7px;background:#07111f;color:#8fa7c5;font-size:.65rem}
+.receiver-monitor-authority strong{overflow:hidden;color:#e2e8f0;font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}
+.receiver-monitor-authority strong[data-state="drift"],.receiver-monitor-authority strong[data-state="unverified"]{color:#facc15}
+.receiver-monitor-authority strong[data-state="verified"]{color:#4ade80}
+@media(max-width:700px){.receiver-assignments-form fieldset,.assignment-policy-runtime,.receiver-monitor-authority{grid-template-columns:1fr}}

@@ -313,50 +313,43 @@
         <section class="card radio-card assignment-preview-card mission-assignment-card">
             <div class="section-heading-row">
                 <div>
-                    <h2>🔀 Mission Assignments & Receiver Defaults</h2>
-                    <p class="muted">Koppel missietypen vrij aan SDR1 of SDR2 en bepaal de normale terugkeerrol per receiver.</p>
+                    <h2>🔀 Receiver Assignments</h2>
+                    <p class="muted">One Assignment Authority for mission roles and continuous services.</p>
                 </div>
-                <span class="muted">Foundation · geen servicewissels</span>
+                <span id="assignment-authority-status" class="assignment-authority-status">Loading...</span>
             </div>
-            <form id="mission-assignments-form" class="assignment-policy-form">
+            <form id="receiver-assignments-form" class="assignment-policy-form receiver-assignments-form">
                 <fieldset>
-                    <legend>Mission Assignments</legend>
+                    <legend>Configured receiver</legend>
                     <label>Weather / METEOR
-                        <select id="mission-assignment-weather">
+                        <select id="receiver-assignment-weather">
+                            <option value="sdr1">SDR1</option>
+                            <option value="sdr2">SDR2</option>
+                        </select>
+                    </label>
+                    <label>AIS
+                        <select id="receiver-assignment-ais">
+                            <option value="sdr1">SDR1</option>
+                            <option value="sdr2">SDR2</option>
+                        </select>
+                    </label>
+                    <label>ADS-B
+                        <select id="receiver-assignment-adsb">
                             <option value="sdr1">SDR1</option>
                             <option value="sdr2">SDR2</option>
                         </select>
                     </label>
                     <label>ISS Voice
-                        <select id="mission-assignment-iss-voice">
+                        <select id="receiver-assignment-iss-voice">
                             <option value="sdr1">SDR1</option>
                             <option value="sdr2">SDR2</option>
                         </select>
                     </label>
-                    <button type="submit" class="control-button">Mission assignments bewaren</button>
-                </fieldset>
-            </form>
-            <form id="receiver-defaults-form" class="assignment-policy-form">
-                <fieldset>
-                    <legend>Receiver Defaults</legend>
-                    <label>SDR1 standaardcontext
-                        <select id="receiver-default-sdr1">
-                            <option value="none">Geen continue plugin</option>
-                            <option value="ais">AIS</option>
-                            <option value="adsb">ADS-B</option>
-                        </select>
-                    </label>
-                    <label>SDR2 standaardcontext
-                        <select id="receiver-default-sdr2">
-                            <option value="none">Geen continue plugin</option>
-                            <option value="ais">AIS</option>
-                            <option value="adsb">ADS-B</option>
-                        </select>
-                    </label>
-                    <button type="submit" class="control-button">Receiver defaults bewaren</button>
+                    <button type="submit" class="control-button">Apply assignments</button>
                 </fieldset>
             </form>
             <p id="assignment-policy-result" class="muted" hidden aria-live="polite"></p>
+            <div id="assignment-authority-drift" class="assignment-authority-drift" hidden aria-live="polite"></div>
             <div id="assignment-policy-runtime" class="assignment-policy-runtime" aria-live="polite"></div>
         </section>
 

@@ -22,6 +22,45 @@
 
 .runtime-diagnostics-grid {
     min-width: 0;
+    display: grid;
+    gap: 12px;
+}
+
+.runtime-assignment-verification {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid #29415f;
+    border-radius: 10px;
+    background: #081525;
+}
+
+.runtime-assignment-verification > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.runtime-assignment-verification p,
+.runtime-assignment-verification small {
+    margin: 0;
+    color: #8fa7c5;
+    font-size: .78rem;
+}
+
+.runtime-assignment-verification.is-in_sync {
+    border-color: #246b52;
+}
+
+.runtime-assignment-verification.is-drift {
+    border-color: #a84848;
+    background: #241015;
+}
+
+.runtime-assignment-verification.is-unverified {
+    border-color: #9a742c;
+    background: #211b0e;
 }
 
 .runtime-diagnostics-table-wrap {

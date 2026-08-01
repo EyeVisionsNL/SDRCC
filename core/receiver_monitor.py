@@ -18,13 +18,19 @@ from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from core import iss_voice_runtime
+from core import iss_voice_runtime, receiver_authority, receiver_registry
 
 
 READSB_AIRCRAFT_FILES = (
     Path("/run/readsb/aircraft.json"),
     Path("/var/run/readsb/aircraft.json"),
     Path("/run/dump1090-fa/aircraft.json"),
+)
+
+READSB_STATS_FILES = (
+    Path("/run/readsb/stats.json"),
+    Path("/var/run/readsb/stats.json"),
+    Path("/run/dump1090-fa/stats.json"),
 )
 
 AIS_SHIPS_URLS = (
@@ -138,6 +144,33 @@ def _message_rate(key: str, total: Any) -> float | None:
     return round(delta / elapsed, 1)
 
 
+
+
+def _readsb_window_message_rate(payload: Any, window: str = "last1min") -> float | None:
+    """Return readsb's own average message rate for a statistics window.
+
+    readsb already publishes a bounded counter with explicit start and end
+    timestamps. Using that window avoids false zero values when readsb or SDRCC
+    restarts and the cumulative counter in aircraft.json resets.
+    """
+
+    if not isinstance(payload, dict):
+        return None
+    sample = payload.get(window)
+    if not isinstance(sample, dict):
+        return None
+
+    messages = _safe_number(sample.get("messages"))
+    start = _safe_number(sample.get("start"))
+    end = _safe_number(sample.get("end"))
+    if messages is None or start is None or end is None:
+        return None
+    elapsed = end - start
+    if elapsed <= 0 or messages < 0:
+        return None
+    return round(messages / elapsed, 1)
+
+
 def _extract_list(payload: Any, keys: tuple[str, ...]) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
@@ -226,9 +259,17 @@ def get_adsb_metrics(service_active: bool) -> dict[str, Any]:
         return result
 
     payload, source = _read_json_file(READSB_AIRCRAFT_FILES)
+    stats_payload, stats_source = _read_json_file(READSB_STATS_FILES)
     if not isinstance(payload, dict):
         result["detail"] = "ADS-B-service actief; aircraft.json niet gevonden"
         return result
+
+    messages_per_second = _readsb_window_message_rate(stats_payload)
+    message_rate_source = stats_source if messages_per_second is not None else None
+    if messages_per_second is None:
+        messages_per_second = _message_rate("adsb", payload.get("messages"))
+        if messages_per_second is not None:
+            message_rate_source = source
 
     aircraft = _extract_list(payload, ("aircraft",))
     active_aircraft = []
@@ -251,9 +292,11 @@ def get_adsb_metrics(service_active: bool) -> dict[str, Any]:
         "available": True,
         "targets": len(active_aircraft),
         "with_position": with_position,
-        "messages_per_second": _message_rate("adsb", payload.get("messages")),
+        "messages_per_second": messages_per_second,
+        "message_rate_source": message_rate_source,
         "max_range_nm": round(max(ranges), 1) if ranges else None,
         "source": source,
+        "stats_source": stats_source,
         "detail": f"{len(active_aircraft)} vliegtuigen gezien in de laatste 60 seconden",
     })
     return result
@@ -266,6 +309,30 @@ def _device_number(device: dict[str, Any], fallback_index: int) -> str:
     return f"SDR{fallback_index + 1}"
 
 
+def _same_receiver(left: Any, right: Any) -> bool:
+    """Compare receiver identities through the central Receiver Registry.
+
+    Runtime components may expose either a compatibility alias (``sdr1``) or
+    the canonical registry identity (``receiver01``). The monitor is a
+    read-only consumer and must not require every provider to expose the same
+    representation. Unknown identities retain exact-match compatibility.
+    """
+
+    left_value = str(left or "").strip().lower()
+    right_value = str(right or "").strip().lower()
+    if not left_value or not right_value:
+        return False
+    if left_value == right_value:
+        return True
+
+    try:
+        left_id = receiver_registry.resolve_id(left_value)
+        right_id = receiver_registry.resolve_id(right_value)
+    except (OSError, ValueError, TypeError):
+        return False
+    return bool(left_id and right_id and left_id == right_id)
+
+
 def get_snapshot(
     *,
     devices: list[dict[str, Any]],
@@ -274,17 +341,37 @@ def get_snapshot(
     adsb_service: dict[str, Any],
     mission: dict[str, Any],
     live_rf: dict[str, Any],
+    authority_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     ais_metrics = get_ais_metrics(bool(ais_service.get("active")))
     adsb_metrics = get_adsb_metrics(bool(adsb_service.get("active")))
 
     iss_runtime = iss_voice_runtime.get_status()
-    iss_active = bool(iss_runtime.get("active"))
-    iss_receiver_id = str(iss_runtime.get("receiver_id") or assignments.get("iss_voice") or "")
 
     active_job = mission.get("active_job") or {}
-    weather_active = bool(active_job) or live_rf.get("active") is True
-    weather_receiver_id = str(active_job.get("receiver_id") or assignments.get("weather") or "")
+    authority = authority_snapshot or receiver_authority.get_snapshot(
+        service_states={"ais": ais_service, "adsb": adsb_service},
+        mission_status=mission,
+        weather_runtime=live_rf,
+        iss_runtime=iss_runtime,
+        use_cache=False,
+    )
+    authority_roles = authority.get("roles") if isinstance(authority, dict) else {}
+    if not isinstance(authority_roles, dict):
+        authority_roles = {}
+    weather_observation = authority_roles.get("weather") or {}
+    ais_observation = authority_roles.get("ais") or {}
+    adsb_observation = authority_roles.get("adsb") or {}
+    iss_observation = authority_roles.get("iss_voice") or {}
+
+    def roles_for_device(device_id: str, field: str) -> list[str]:
+        roles = []
+        for candidate_role, observation in authority_roles.items():
+            if not isinstance(observation, dict):
+                continue
+            if _same_receiver(device_id, observation.get(field)):
+                roles.append(str(candidate_role))
+        return roles
 
     receiver_rows = []
     for index, raw_device in enumerate(devices or []):
@@ -296,10 +383,42 @@ def get_snapshot(
         metrics: dict[str, Any] = {}
         frequency_hz = None
         detail = "Receiver is vrij"
+        configured_roles = roles_for_device(device_id, "configured_receiver")
+        verified_runtime_roles = roles_for_device(device_id, "verified_runtime_receiver")
+        relevant_observations = [
+            observation
+            for observation in authority_roles.values()
+            if isinstance(observation, dict)
+            and (
+                _same_receiver(device_id, observation.get("configured_receiver"))
+                or _same_receiver(device_id, observation.get("verified_runtime_receiver"))
+            )
+        ]
+        configuration_drift = any(
+            bool(observation.get("configuration_drift"))
+            for observation in relevant_observations
+        )
+        active_unverified = [
+            observation
+            for observation in relevant_observations
+            if observation.get("runtime_active")
+            and not observation.get("verified_runtime_receiver")
+        ]
 
-        if iss_active and device_id == iss_receiver_id:
+        if (
+            iss_observation.get("runtime_active")
+            and iss_observation.get("verified_runtime_receiver")
+            and _same_receiver(
+                device_id,
+                iss_observation.get("verified_runtime_receiver"),
+            )
+        ):
             role = "ISS VOICE"
-            status = str(iss_runtime.get("phase") or "ACTIVE").upper()
+            status = (
+                "DRIFT"
+                if iss_observation.get("configuration_drift")
+                else str(iss_runtime.get("phase") or "ACTIVE").upper()
+            )
             frequency_hz = iss_runtime.get("frequency_hz")
             detail = str(iss_runtime.get("detail") or "ISS Voice capture active")
             iq_path = iss_runtime.get("iq_path")
@@ -325,9 +444,20 @@ def get_snapshot(
                 "iq_bytes": iq_bytes,
                 "recording": Path(str(iq_path)).name if iq_path else None,
             }
-        elif weather_active and device_id == weather_receiver_id:
+        elif (
+            weather_observation.get("runtime_active")
+            and weather_observation.get("verified_runtime_receiver")
+            and _same_receiver(
+                device_id,
+                weather_observation.get("verified_runtime_receiver"),
+            )
+        ):
             role = "WEATHER"
-            status = str(live_rf.get("state") or mission.get("state") or "ACTIVE").upper()
+            status = (
+                "DRIFT"
+                if weather_observation.get("configuration_drift")
+                else str(live_rf.get("state") or mission.get("state") or "ACTIVE").upper()
+            )
             frequency_hz = live_rf.get("frequency_hz") or active_job.get("frequency")
             detail = str(live_rf.get("detail") or active_job.get("satellite") or "Actieve satellietmissie")
             metrics = {
@@ -345,18 +475,47 @@ def get_snapshot(
                 "viterbi": live_rf.get("viterbi"),
                 "deframer": live_rf.get("deframer"),
             }
-        elif assignments.get("ais") == device_id and ais_service.get("active"):
+        elif (
+            ais_observation.get("service_active")
+            and _same_receiver(device_id, ais_observation.get("verified_runtime_receiver"))
+        ):
             role = "AIS"
-            status = "RUNNING"
+            status = "DRIFT" if ais_observation.get("configuration_drift") else "RUNNING"
             frequency_hz = 161_975_000
-            detail = ais_metrics["detail"]
+            detail = (
+                f"{ais_metrics['detail']} · geverifieerd op {number}"
+                + (
+                    f", geconfigureerd voor {str(ais_observation.get('configured_receiver') or '-').upper()}"
+                    if ais_observation.get("configuration_drift") else ""
+                )
+            )
             metrics = ais_metrics
-        elif assignments.get("adsb") == device_id and adsb_service.get("active"):
+        elif (
+            adsb_observation.get("service_active")
+            and _same_receiver(device_id, adsb_observation.get("verified_runtime_receiver"))
+        ):
             role = "ADS-B"
-            status = "RUNNING"
+            status = "DRIFT" if adsb_observation.get("configuration_drift") else "RUNNING"
             frequency_hz = 1_090_000_000
-            detail = adsb_metrics["detail"]
+            detail = (
+                f"{adsb_metrics['detail']} · geverifieerd op {number}"
+                + (
+                    f", geconfigureerd voor {str(adsb_observation.get('configured_receiver') or '-').upper()}"
+                    if adsb_observation.get("configuration_drift") else ""
+                )
+            )
             metrics = adsb_metrics
+
+        if role == "IDLE" and active_unverified:
+            status = "UNVERIFIED"
+            affected = ", ".join(
+                str(observation.get("role") or "service").upper()
+                for observation in active_unverified
+            )
+            detail = f"{affected} is actief, maar de gebruikte receiver is niet geverifieerd"
+        elif role == "IDLE" and configuration_drift:
+            status = "DRIFT"
+            detail = "Configuratiedrift: configured en verified runtime komen niet overeen"
 
         display_metrics: list[dict[str, Any]] = []
 
@@ -423,6 +582,15 @@ def get_snapshot(
             "detail": detail,
             "metrics": metrics,
             "display_metrics": display_metrics,
+            "configured_roles": configured_roles,
+            "verified_runtime_roles": verified_runtime_roles,
+            "configuration_drift": configuration_drift,
+            "authority_status": (
+                "DRIFT" if configuration_drift
+                else "UNVERIFIED" if active_unverified
+                else "VERIFIED" if verified_runtime_roles
+                else "CONFIGURED"
+            ),
         })
 
     return {
@@ -434,4 +602,8 @@ def get_snapshot(
             "adsb": adsb_metrics,
             "iss_voice": iss_runtime,
         },
+        "assignment_authority": authority.get("assignment_authority"),
+        "authority_status": authority.get("status"),
+        "configuration_drift": bool(authority.get("configuration_drift")),
+        "drift": authority.get("drift", []),
     }

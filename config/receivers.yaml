@@ -11,8 +11,11 @@ receivers:
     aliases:
     - sdr1
     capabilities:
+    - weather
     - ais
+    - adsb
     - iss_voice
+    - live_rf
     - recording
     defaults:
       locked: true
@@ -28,7 +31,9 @@ receivers:
     - sdr2
     capabilities:
     - weather
+    - ais
     - adsb
+    - iss_voice
     - live_rf
     - recording
     defaults:
