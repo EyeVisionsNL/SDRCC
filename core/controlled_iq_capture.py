@@ -29,10 +29,6 @@ def _mission_id() -> str:
     return f"iss_controlled_{stamp}_{uuid4().hex[:6]}"
 
 
-def _result_ok(result: Any) -> bool:
-    return int(getattr(result, "returncode", 1)) == 0
-
-
 def execute_controlled_capture(
     *,
     duration_seconds: int,
@@ -60,7 +56,7 @@ def execute_controlled_capture(
     capture_id = mission_id or _mission_id()
     mission_key = f"iss_voice:controlled:{capture_id}"
     stopped_services: list[str] = []
-    reservation_created = False
+    handover_started = False
     execution_id: str | None = None
     capture: dict[str, Any] | None = None
     failure: Exception | None = None
@@ -81,25 +77,26 @@ def execute_controlled_capture(
     )
 
     try:
-        receiver_manager.reserve(
-            device["id"], mission_key=mission_key, mission_id=capture_id,
-            reason="ISS Voice controlled IQ capture",
-        )
-        reservation_created = True
-
-        for service in device_manager.get_conflicting_services(
+        conflicts = device_manager.get_conflicting_services(
             device["id"], exclude_role="iss_voice"
-        ):
-            state = service_state(service)
-            if not bool(state.get("active")):
-                continue
-            result = service_action("stop", service)
-            if not _result_ok(result):
-                detail = str(getattr(result, "stderr", "")).strip()
-                raise RuntimeError(f"{service} kon niet worden gestopt: {detail}")
-            if not wait_for_service(service, "inactive", 15):
-                raise RuntimeError(f"{service} stopte niet volledig")
-            stopped_services.append(service)
+        )
+        manager_status = receiver_manager.begin_handover(
+            device["id"],
+            mission_key=mission_key,
+            mission_id=capture_id,
+            reason="ISS Voice controlled IQ capture",
+            services=conflicts,
+            service_state=service_state,
+            service_action=service_action,
+            wait_for_service=wait_for_service,
+        )
+        handover_started = True
+        reservation = (manager_status.get("reservations") or {}).get(device["id"]) or {}
+        stopped_services = [
+            item.get("service")
+            for item in (reservation.get("handover") or {}).get("services") or []
+            if item.get("stopped_by_sdrcc")
+        ]
 
         receiver_manager.activate(mission_key=mission_key, mission_id=capture_id)
         execution_journal.append_event_once(
@@ -146,28 +143,19 @@ def execute_controlled_capture(
             )
     finally:
         restore_errors: list[str] = []
-        for service in reversed(stopped_services):
-            result = service_action("start", service)
-            if not _result_ok(result):
-                restore_errors.append(
-                    f"{service}: {str(getattr(result, 'stderr', '')).strip()}"
-                )
-                continue
-            if not wait_for_service(service, "active", 15):
-                restore_errors.append(f"{service}: werd niet actief")
-
-        if reservation_created:
-            try:
-                receiver_manager.release(
-                    mission_key=mission_key,
-                    detail=(
-                        "ISS controlled capture afgerond"
-                        if failure is None else
-                        "ISS controlled capture vrijgegeven na fout"
-                    ),
-                )
-            except Exception as exc:
-                restore_errors.append(f"receiver release: {exc}")
+        if handover_started:
+            restored = receiver_manager.restore_handover(
+                mission_key=mission_key,
+                service_state=service_state,
+                service_action=service_action,
+                wait_for_service=wait_for_service,
+                detail=(
+                    "ISS controlled capture afgerond"
+                    if failure is None else
+                    "ISS controlled capture hersteld na fout"
+                ),
+            )
+            restore_errors.extend(restored.get("errors") or [])
 
         if restore_errors:
             message = "Herstel onvolledig: " + "; ".join(restore_errors)

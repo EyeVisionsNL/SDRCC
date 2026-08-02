@@ -784,6 +784,19 @@ def handle_service_action(action_id, action):
     systemctl_action = str(action["systemctl"]).strip().lower()
     label = action["label"]
 
+    block = receiver_manager.service_action_block(plugin_id, systemctl_action)
+    if block is not None:
+        message = block.get("message") or (
+            f"{label} geweigerd: receiver is niet beschikbaar."
+        )
+        write_log(f"{label}: geblokkeerd door Receiver Manager - {message}")
+        return jsonify({
+            "ok": False,
+            "message": message,
+            "receiver_handover_block": block,
+            "authority": "receiver_manager",
+        }), 409
+
     delegation = execution_plan_consumer_core.delegate_service_action(
         plugin_id,
         systemctl_action,
@@ -1033,8 +1046,6 @@ autopilot_runtime = {
     "locked": False,
     "record_started": False,
     "record_data": None,
-    "restore_service": None,
-    "restore_service_was_active": False,
     "process": None,
     "stop_requested": False,
     "iss_execution_active": False,
@@ -1056,13 +1067,35 @@ def reset_autopilot_runtime(target_pass=None):
         "locked": False,
         "record_started": False,
         "record_data": None,
-        "restore_service": None,
-        "restore_service_was_active": False,
-            "process": None,
+        "process": None,
         "stop_requested": False,
         "iss_execution_active": False,
         "iss_execution_result": None,
     })
+
+
+def restore_autopilot_receiver(detail):
+    """Restore or release the current autopilot reservation exactly once."""
+    mission_key = autopilot_runtime.get("pass_key")
+    if not mission_key:
+        return {"ok": True, "released": False, "reason": "no mission key"}
+    status = receiver_manager.get_status()
+    reservation = next((
+        item for item in status.get("canonical_reservations", {}).values()
+        if isinstance(item, dict) and item.get("mission_key") == mission_key
+    ), None)
+    if reservation is None:
+        return {"ok": True, "released": False, "reason": "no reservation"}
+    if isinstance(reservation.get("handover"), dict):
+        return receiver_manager.restore_handover(
+            mission_key=mission_key,
+            service_state=service_state,
+            service_action=run_systemctl,
+            wait_for_service=wait_for_service,
+            detail=str(detail),
+        )
+    receiver_manager.release(mission_key=mission_key, detail=str(detail))
+    return {"ok": True, "released": True, "errors": []}
 
 
 def autopilot_prepare_receiver():
@@ -1071,34 +1104,30 @@ def autopilot_prepare_receiver():
     if device is None:
         raise RuntimeError("Geen Weather-ontvanger toegewezen")
 
-    receiver_manager.reserve(
+    conflict_services = device_manager.get_conflicting_services(
+        device["id"], exclude_role="weather"
+    )
+    receiver_manager.begin_handover(
         device["id"],
         mission_key=autopilot_runtime["pass_key"],
         reason="AUTO Weather-missie",
+        services=conflict_services,
+        service_state=service_state,
+        service_action=run_systemctl,
+        wait_for_service=wait_for_service,
+        previous_profile=state.get_sdr2_state().get("profile"),
     )
 
-    conflict_service = device_manager.get_conflicting_service(device["id"])
-    was_active = bool(
-        conflict_service
-        and service_state(conflict_service)["active"]
-    )
-    autopilot_runtime["restore_service"] = conflict_service
-    autopilot_runtime["restore_service_was_active"] = was_active
-
-    if was_active:
-        result = run_systemctl("stop", conflict_service)
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"{conflict_service} kon niet worden gestopt: "
-                + result.stderr.strip()
-            )
-        if not wait_for_service(conflict_service, "inactive"):
-            raise RuntimeError(f"{conflict_service} stopte niet volledig")
-
-    profiles.set_active_profile("weather")
+    try:
+        profiles.set_active_profile("weather")
+    except Exception:
+        restore_autopilot_receiver(
+            "Weather receiver context restored after profile activation failure"
+        )
+        raise
     write_log(
         f"AUTO: Weather actief op {device['number']} "
-        f"({device['serial']}); conflict={conflict_service or 'geen'}"
+        f"({device['serial']}); conflicts={','.join(conflict_services) or 'geen'}"
     )
     event_bus.publish_receiver(
         "INFO",
@@ -1107,8 +1136,8 @@ def autopilot_prepare_receiver():
         data={
             "device_id": device["id"],
             "serial": device["serial"],
-            "conflict_service": conflict_service,
-            "conflict_was_active": was_active,
+            "conflicting_services": conflict_services,
+            "handover_authority": "receiver_manager",
         },
     )
 
@@ -1394,47 +1423,24 @@ def monitor_auto_record_process(process):
             )
 
     finally:
-        restore_service = autopilot_runtime.get("restore_service")
-        restore_needed = autopilot_runtime.get("restore_service_was_active", False)
-
-        if restore_service and restore_needed:
-            write_log(f"AUTO: {restore_service} herstellen")
-            result = run_systemctl("start", restore_service)
-            if result.returncode != 0:
-                write_log(
-                    f"AUTO ERROR: {restore_service} kon niet worden gestart: "
-                    + result.stderr.strip()
-                )
-            elif not wait_for_service(restore_service, "active"):
-                write_log(f"AUTO ERROR: {restore_service} werd niet actief")
-            else:
-                write_log(f"AUTO: {restore_service} is weer actief")
-                event_bus.publish_receiver(
-                    "SUCCESS",
-                    "Receiver-service hersteld",
-                    f"{restore_service} is weer actief",
-                    data={"service": restore_service},
-                )
-
-        profiles.set_active_profile("adsb")
-
-        released_data = autopilot_runtime.get("record_data") or {}
         try:
-            receiver_manager.release(
+            restored = receiver_manager.restore_handover(
                 mission_key=autopilot_runtime.get("pass_key"),
-                detail="Weather-receiver is vrijgegeven na de missie",
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+                detail="Weather receiver context restored after mission",
             )
-        except Exception as release_error:
-            write_log(f"AUTO ERROR: receiver vrijgeven mislukt: {release_error}")
-        event_bus.publish_receiver(
-            "INFO",
-            "Receiver vrijgegeven",
-            "Weather-receiver is vrijgegeven na de missie",
-            data=satdump_core.build_event_context(released_data),
-        )
+            if not restored.get("ok"):
+                write_log(
+                    "AUTO ERROR: receiver handover vereist aandacht: "
+                    + "; ".join(restored.get("errors") or [])
+                )
+        except Exception as restore_error:
+            write_log(f"AUTO ERROR: receiver handover herstellen mislukt: {restore_error}")
         autopilot_runtime["process"] = None
         mission_engine_core.mission_set_state("READY")
-        write_log("AUTO: missie afgerond; profiel terug naar ADS-B")
+        write_log("AUTO: missie afgerond; oorspronkelijke receivercontext hersteld")
         if autopilot_runtime.get("stop_requested"):
             reset_autopilot_runtime()
 
@@ -1645,6 +1651,9 @@ def mission_autopilot_worker():
 
             if mission_queue_core.is_pass_skipped(next_pass):
                 if autopilot_runtime.get("target_pass") and not autopilot_runtime.get("record_started"):
+                    restore_autopilot_receiver(
+                        "Receiver context restored after Mission Queue skip"
+                    )
                     reset_autopilot_runtime()
                 time.sleep(AUTOPILOT_POLL_SECONDS)
                 continue
@@ -1671,6 +1680,9 @@ def mission_autopilot_worker():
             # A queue override can be changed while a target is already prepared.
             if mission_queue_core.is_pass_skipped(target) and not autopilot_runtime.get("record_started"):
                 write_log(f"AUTO: passage overgeslagen via Mission Queue: {target.get('name', '-')}")
+                restore_autopilot_receiver(
+                    "Receiver context restored after Mission Queue override"
+                )
                 reset_autopilot_runtime()
                 time.sleep(AUTOPILOT_POLL_SECONDS)
                 continue
@@ -1728,15 +1740,12 @@ def mission_autopilot_worker():
                     ).start()
 
                 if now_epoch > end_epoch and not autopilot_runtime["record_started"]:
-                    device = device_manager.get_assigned_device("iss_voice")
-                    if device and not receiver_manager.is_available(device["id"]):
-                        try:
-                            receiver_manager.release(
-                                mission_key=autopilot_runtime["pass_key"],
-                                detail="ISS Voice pass missed before execution",
-                            )
-                        except Exception as release_error:
-                            write_log(f"AUTO: ISS Voice reservation release failed: {release_error}")
+                    try:
+                        restore_autopilot_receiver(
+                            "ISS Voice pass missed before execution"
+                        )
+                    except Exception as restore_error:
+                        write_log(f"AUTO: ISS Voice reservation restore failed: {restore_error}")
                     write_log("AUTO: ISS Voice pass missed without recording")
                     reset_autopilot_runtime()
 
@@ -1788,10 +1797,15 @@ def mission_autopilot_worker():
 
             if now_epoch > end_epoch and not autopilot_runtime["record_started"]:
                 write_log("AUTO: passage gemist zonder opname; ontvangers herstellen")
-                restore_service = autopilot_runtime.get("restore_service")
-                if restore_service and autopilot_runtime.get("restore_service_was_active"):
-                    run_systemctl("start", restore_service)
-                profiles.set_active_profile("adsb")
+                if autopilot_runtime.get("prepared"):
+                    restored = restore_autopilot_receiver(
+                        "Weather receiver context restored after missed pass"
+                    )
+                    if not restored.get("ok"):
+                        write_log(
+                            "AUTO ERROR: herstel na gemiste passage vereist aandacht: "
+                            + "; ".join(restored.get("errors") or [])
+                        )
                 mission_engine_core.mission_reset()
                 reset_autopilot_runtime()
 
@@ -2924,22 +2938,17 @@ def _stop_active_mission(receiver_id=None):
     # Vóór Recording bestaat er geen watcher die annulering en herstel uitvoert.
     if not autopilot_runtime.get("record_started"):
         cancel_active_mission()
-        restore_service = autopilot_runtime.get("restore_service")
-        if restore_service and autopilot_runtime.get("restore_service_was_active"):
-            result = run_systemctl("start", restore_service)
-            if result.returncode != 0:
-                write_log(
-                    f"STOP MISSION: {restore_service} kon niet worden hersteld: "
-                    + result.stderr.strip()
-                )
-        profiles.set_active_profile("adsb")
         try:
-            receiver_manager.release(
-                mission_key=autopilot_runtime.get("pass_key"),
-                detail="Weather-receiver vrijgegeven na operatorstop",
+            restored = restore_autopilot_receiver(
+                "Receiver context restored after operator stop"
             )
-        except Exception as release_error:
-            write_log(f"STOP MISSION: receiver vrijgeven mislukt: {release_error}")
+            if not restored.get("ok"):
+                write_log(
+                    "STOP MISSION: receiver handover vereist aandacht: "
+                    + "; ".join(restored.get("errors") or [])
+                )
+        except Exception as restore_error:
+            write_log(f"STOP MISSION: receiverherstel mislukt: {restore_error}")
         reset_autopilot_runtime()
 
     event_bus.publish_mission(
@@ -3011,7 +3020,7 @@ def api_mission_engine_finish_recording():
 
 
 
-def get_reconciled_receiver_manager_status():
+def get_reconciled_receiver_manager_status(*, recover=False):
     """Release a persisted receiver reservation when no mission runtime owns it.
 
     Receiver reservations are stored on disk so they survive a process restart.
@@ -3019,6 +3028,9 @@ def get_reconciled_receiver_manager_status():
     Mission Engine is already back in READY or WAIT FOR PASS.  Only clear it when
     there is no active Mission Job and no prepared/locked/recording runtime.
     """
+    if not recover:
+        return receiver_manager.get_status()
+
     mission = mission_engine_core.get_mission_status()
     phase = str(mission.get("phase") or mission.get("state") or "").upper()
     runtime_active = any((
@@ -3028,6 +3040,26 @@ def get_reconciled_receiver_manager_status():
         autopilot_runtime.get("record_started"),
         autopilot_runtime.get("process") is not None,
     ))
+
+    active_keys = []
+    if runtime_active and autopilot_runtime.get("pass_key"):
+        active_keys.append(autopilot_runtime["pass_key"])
+    recovery = receiver_manager.recover_handovers(
+        service_state=service_state,
+        service_action=run_systemctl,
+        wait_for_service=wait_for_service,
+        active_mission_keys=active_keys,
+    )
+    if recovery.get("recovered"):
+        write_log(
+            "Receiver Manager: "
+            f"{recovery['recovered']} achtergebleven handover(s) hersteld"
+        )
+    if recovery.get("attention"):
+        write_log(
+            "Receiver Manager: handover recovery vereist aandacht: "
+            + str(recovery.get("results"))
+        )
 
     status = receiver_manager.get_status()
     idle_runtime = (
@@ -3045,6 +3077,8 @@ def get_reconciled_receiver_manager_status():
             reservation
             for reservation in canonical_reservations.values()
             if isinstance(reservation, dict)
+            and not isinstance(reservation.get("handover"), dict)
+            and str(reservation.get("status") or "").upper() != "ATTENTION"
         ]
         for stale in stale_reservations:
             mission_key = str(stale.get("mission_key") or "").strip()
@@ -3386,7 +3420,7 @@ def capture_file(relative_path):
 def recover_stale_iss_voice_observer():
     """Reconcile the persisted ISS observer after an interrupted restart."""
     try:
-        receiver_status = get_reconciled_receiver_manager_status()
+        receiver_status = get_reconciled_receiver_manager_status(recover=True)
         result = iss_voice_runtime_recovery.recover_if_stale(
             mission_status=mission_engine_core.get_mission_status(),
             receiver_status=receiver_status,

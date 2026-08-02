@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 from pathlib import Path
 
 from core import mission_result
@@ -11,8 +12,9 @@ from core import event_bus
 from core import passes
 from core import config as config_core
 from core import process_manager
+from core import receiver_manager
 from core import state
-from core.device_manager import get_assigned_device, get_conflicting_service
+from core.device_manager import get_assigned_device, get_conflicting_services
 
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "recordings"
@@ -233,34 +235,31 @@ def service_is_active(service_name):
     return result.stdout.strip() == "active"
 
 
-def set_service_state(service_name, action):
-    result = subprocess.run(
+def service_state(service_name):
+    active = service_is_active(service_name)
+    return {
+        "service": service_name,
+        "active": active,
+        "state": "active" if active else "inactive",
+    }
+
+
+def set_service_state(action, service_name):
+    return subprocess.run(
         ["sudo", "-n", "systemctl", action, service_name],
         capture_output=True,
         text=True,
     )
 
-    if result.returncode != 0:
-        print(
-            f"Serviceactie mislukt: {action} {service_name}"
-        )
 
-        if result.stdout.strip():
-            print("STDOUT:", result.stdout.strip())
-
-        if result.stderr.strip():
-            print("STDERR:", result.stderr.strip())
-
-        return False
-
-    return True
-
-
-def wait_for_service_stopped(service_name, timeout=15):
+def wait_for_service(service_name, expected_state, timeout=15):
     deadline = time.monotonic() + timeout
 
     while time.monotonic() < deadline:
-        if not service_is_active(service_name):
+        active = service_is_active(service_name)
+        if (expected_state == "active" and active) or (
+            expected_state == "inactive" and not active
+        ):
             return True
 
         time.sleep(0.5)
@@ -296,52 +295,78 @@ def record_now():
 
     data["output_path"].mkdir(parents=True, exist_ok=True)
 
-    conflict_service = get_conflicting_service(data["device"]["id"])
-    conflict_was_active = bool(conflict_service and service_is_active(conflict_service))
+    conflict_services = get_conflicting_services(
+        data["device"]["id"], exclude_role="weather"
+    )
+    active_context = _active_mission_context()
+    mission_id = active_context.get("mission_id")
+    mission_key = "record_now:" + str(
+        mission_id or datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+    )
+    previous_profile = state.get_sdr2_state().get("profile")
+    handover_started = False
 
     print("Preparing Weather receiver...")
     print("-----------------------------")
     print("Recorder     :", data["device"]["name"])
     print("Serial       :", data["device"]["serial"])
-    print("Conflict     :", conflict_service or "geen")
+    print("Conflicts    :", ", ".join(conflict_services) or "geen")
     event_bus.publish_receiver(
         "INFO",
         "Weather-receiver voorbereid",
         f"{data['device']['number']} ({data['device']['serial']})",
         data={
             **build_event_context(data),
-            "conflict_service": conflict_service,
-            "conflict_was_active": conflict_was_active,
-        },
-    )
-
-    if conflict_was_active:
-        print()
-        print(f"Stopping {conflict_service}...")
-        if not set_service_state(conflict_service, "stop"):
-            return False
-        if not wait_for_service_stopped(conflict_service):
-            print(f"{conflict_service} stopte niet volledig.")
-            return False
-
-    # Geef libusb tijd om SDR1 vrij te geven.
-    time.sleep(2)
-
-    print()
-    print("Starting SatDump...")
-    _print_record_data(data)
-
-    event_bus.publish_satdump(
-        "INFO",
-        "SatDump-opname gestart",
-        f"{data['pass']['name']} via {data['device']['number']}",
-        data={
-            **build_event_context(data),
-            "command": list(data["command"]),
+            "conflicting_services": conflict_services,
+            "handover_authority": "receiver_manager",
         },
     )
 
     try:
+        manager_status = receiver_manager.begin_handover(
+            data["device"]["id"],
+            mission_key=mission_key,
+            mission_id=mission_id,
+            reason="Record NOW Weather mission",
+            services=conflict_services,
+            service_state=service_state,
+            service_action=set_service_state,
+            wait_for_service=wait_for_service,
+            previous_profile=previous_profile,
+        )
+        handover_started = True
+        reservation = (manager_status.get("reservations") or {}).get(
+            data["device"]["id"], {}
+        )
+        stopped = [
+            item.get("service")
+            for item in (reservation.get("handover") or {}).get("services") or []
+            if item.get("stopped_by_sdrcc")
+        ]
+        print("Stopped      :", ", ".join(stopped) or "geen")
+
+        state.set_sdr2_state(
+            status="recording",
+            profile="weather",
+            locked=True,
+            process="satdump",
+        )
+        receiver_manager.activate(mission_key=mission_key, mission_id=mission_id)
+
+        print()
+        print("Starting SatDump...")
+        _print_record_data(data)
+
+        event_bus.publish_satdump(
+            "INFO",
+            "SatDump-opname gestart",
+            f"{data['pass']['name']} via {data['device']['number']}",
+            data={
+                **build_event_context(data),
+                "command": list(data["command"]),
+            },
+        )
+
         result = subprocess.run(data["command"])
         success = result.returncode == 0
 
@@ -368,23 +393,20 @@ def record_now():
         print("Restoring receiver services...")
         print("-----------------------------")
 
-        if conflict_was_active and conflict_service:
-            print(f"Starting {conflict_service}...")
-            set_service_state(conflict_service, "start")
-
-        event_bus.publish_receiver(
-            "INFO",
-            "Receiver vrijgegeven",
-            f"{data['device']['number']} is vrijgegeven",
-            data=build_event_context(data),
-        )
-
-        state.set_sdr2_state(
-            status="idle",
-            profile="adsb",
-            locked=False,
-            process=None,
-        )
+        if handover_started:
+            restored = receiver_manager.restore_handover(
+                mission_key=mission_key,
+                service_state=service_state,
+                service_action=set_service_state,
+                wait_for_service=wait_for_service,
+                detail="Record NOW receiver context restored",
+            )
+            if not restored.get("ok"):
+                errors = "; ".join(restored.get("errors") or [])
+                print("ATTENTION   :", errors)
+                raise RuntimeError(
+                    "Record NOW receiverherstel vereist aandacht: " + errors
+                )
 
 
 def _print_record_data(data):

@@ -102,13 +102,18 @@ def get_role_services(role):
     return plugin_registry.get_plugin_services(role)
 
 
+def get_role_handover_services(role):
+    """Return ordered services that must release a receiver for a mission."""
+    return plugin_registry.get_plugin_handover_services(role)
+
+
 def get_conflicting_services(device_id, *, exclude_role=None):
     """Return unique services that currently occupy a receiver."""
     services = []
     for role in get_assigned_roles(device_id):
         if exclude_role and role == exclude_role:
             continue
-        for service in get_role_services(role):
+        for service in get_role_handover_services(role):
             if service not in services:
                 services.append(service)
     return services

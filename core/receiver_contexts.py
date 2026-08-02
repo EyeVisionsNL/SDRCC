@@ -1,45 +1,50 @@
 #!/usr/bin/env python3
-"""Read-only Mission Assignment and Restore Context foundation.
+"""Receiver Manager projection for mission and restore contexts.
 
-v0.47.1a deliberately does not stop/start services, reserve receivers, or
-change Mission Engine state. It exposes validated configuration and any future
-persisted context document through one central observation contract.
+This module remains observer-only. Receiver Manager is the sole writer and its
+existing state file is the only runtime source for persisted handovers.
 """
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from core import config
 from core import plugin_registry
+from core import receiver_manager
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-STATE_FILE = PROJECT_ROOT / "data" / "state" / "receiver_contexts.json"
-VERSION = "0.48.0a"
-
-
-def _empty_runtime_contexts() -> dict[str, Any]:
-    return {
-        "mission_context": None,
-        "restore_context": None,
-        "updated_at": None,
-    }
+VERSION = "0.54.0b"
 
 
 def _read_runtime_contexts() -> dict[str, Any]:
-    if not STATE_FILE.exists():
-        return _empty_runtime_contexts()
-    try:
-        payload = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError, TypeError):
-        return _empty_runtime_contexts()
-    if not isinstance(payload, dict):
-        return _empty_runtime_contexts()
+    snapshot = receiver_manager.get_status()
+    reservations = [
+        item for item in snapshot.get("canonical_reservations", {}).values()
+        if isinstance(item, dict)
+    ]
+    last_releases = [
+        item for item in snapshot.get("canonical_last_releases", {}).values()
+        if isinstance(item, dict)
+    ]
+    active = reservations[0] if len(reservations) == 1 else None
+    latest_release = max(
+        last_releases,
+        key=lambda item: str(item.get("released_at") or ""),
+        default=None,
+    )
+    source = active or latest_release or {}
     return {
-        "mission_context": payload.get("mission_context"),
-        "restore_context": payload.get("restore_context"),
-        "updated_at": payload.get("updated_at"),
+        "mission_context": active,
+        "restore_context": (
+            (active or {}).get("handover")
+            or (latest_release or {}).get("handover")
+        ),
+        "reservations": reservations,
+        "last_releases": last_releases,
+        "updated_at": (
+            ((active or {}).get("handover") or {}).get("updated_at")
+            or source.get("released_at")
+            or source.get("reserved_at")
+        ),
     }
 
 
@@ -95,6 +100,8 @@ def get_snapshot() -> dict[str, Any]:
         },
         "mission_context": runtime["mission_context"],
         "restore_context": runtime["restore_context"],
+        "reservations": runtime["reservations"],
+        "last_releases": runtime["last_releases"],
         "updated_at": runtime["updated_at"],
         "validation": validation,
     }

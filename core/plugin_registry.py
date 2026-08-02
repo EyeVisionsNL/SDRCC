@@ -22,6 +22,7 @@ _REGISTRY = {
         "receiver_type": "rtl_sdr",
         "executor": "satdump",
         "services": [],
+        "handover_services": [],
         "capabilities": [
             "mission_planning",
             "recording",
@@ -46,6 +47,12 @@ _REGISTRY = {
         "receiver_type": "rtl_sdr",
         "executor": "service",
         "services": ["ais-catcher.service"],
+        # Stop the watchdog before the receiver process. Reversed restoration
+        # starts AIS-catcher first and its control service last.
+        "handover_services": [
+            "ais-catcher-control.service",
+            "ais-catcher.service",
+        ],
         "capabilities": [
             "continuous_receive",
             "service_control",
@@ -67,6 +74,7 @@ _REGISTRY = {
         "receiver_type": "rtl_sdr",
         "executor": "service",
         "services": ["readsb.service"],
+        "handover_services": ["readsb.service"],
         "capabilities": [
             "continuous_receive",
             "service_control",
@@ -88,6 +96,7 @@ _REGISTRY = {
         "receiver_type": "rtl_sdr",
         "executor": "wideband_iq",
         "services": [],
+        "handover_services": [],
         "capabilities": [
             "mission_planning",
             "pass_planning",
@@ -112,6 +121,7 @@ _REGISTRY = {
         "receiver_type": "rtl_sdr",
         "executor": None,
         "services": [],
+        "handover_services": [],
         "capabilities": [
             "packet_receive",
         ],
@@ -156,6 +166,14 @@ def get_plugin_services(plugin_id: str) -> list[str]:
     """Return services owned by a plugin."""
     plugin = get_plugin(plugin_id)
     return list(plugin["services"]) if plugin else []
+
+
+def get_plugin_handover_services(plugin_id: str) -> list[str]:
+    """Return ordered services that must release a plugin receiver."""
+    plugin = get_plugin(plugin_id)
+    if plugin is None:
+        return []
+    return list(plugin.get("handover_services") or plugin.get("services") or [])
 
 
 def get_plugin_capabilities(plugin_id: str) -> list[str]:
@@ -227,6 +245,17 @@ def validate_registry(
             errors.append(f"{key}: services moet een lijst zijn")
         elif len(services) != len(set(services)):
             errors.append(f"{key}: dubbele service")
+
+        handover_services = plugin.get("handover_services")
+        if not isinstance(handover_services, list):
+            errors.append(f"{key}: handover_services moet een lijst zijn")
+        elif any(
+            not isinstance(item, str) or not item.endswith(".service")
+            for item in handover_services
+        ):
+            errors.append(f"{key}: ongeldige handover-service")
+        elif len(handover_services) != len(set(handover_services)):
+            errors.append(f"{key}: dubbele handover-service")
 
         capabilities = plugin.get("capabilities")
         if not isinstance(capabilities, list) or not capabilities:

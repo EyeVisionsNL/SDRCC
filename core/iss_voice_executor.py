@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any, Callable
 import json
 import os
-import time
 
 from core import device_manager, execution_factory, execution_journal, event_bus
 from core import iss_voice, iss_voice_audio, iss_voice_runtime, receiver_manager, wideband_iq_recorder
@@ -23,10 +22,6 @@ HISTORY_FILE = PROJECT_ROOT / "data" / "state" / "mission_history.json"
 ServiceState = Callable[[str], dict[str, Any]]
 ServiceAction = Callable[[str, str], Any]
 ServiceWait = Callable[[str, str, int], bool]
-
-
-def _result_ok(result: Any) -> bool:
-    return int(getattr(result, "returncode", 1)) == 0
 
 
 def _append_history(item: dict[str, Any]) -> None:
@@ -62,7 +57,7 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     duration = max(1, min(int(target.get("duration_seconds") or 1), 1200))
     stopped_services: list[str] = []
     execution_id = None
-    reserved = False
+    handover_started = False
     started = datetime.now().astimezone()
     output_dir: Path | None = None
     failure: Exception | None = None
@@ -79,9 +74,6 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         details={"mission_id": mission_id, "receiver_id": device["id"], "queue_key": target.get("queue_key")})
 
     try:
-        receiver_manager.reserve(device["id"], mission_key=mission_key, mission_id=mission_id,
-                                 reason="ISS Voice automatic mission")
-        reserved = True
         iss_voice_runtime.begin(
             mission_id=mission_id, execution_id=execution_id, receiver_id=device["id"],
             receiver_serial=device.get("serial"), satellite=target.get("name") or cfg.get("satellite_name"),
@@ -95,25 +87,30 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
             conflicting_services=conflicts,
             detail="Stopping conflicting receiver services",
         )
-        for service in conflicts:
-            state = service_state(service)
-            if not bool(state.get("active")):
-                continue
-            result = service_action("stop", service)
-            if not _result_ok(result) or not wait_for_service(service, "inactive", 15):
-                raise RuntimeError(f"{service} kon niet veilig worden gestopt")
-            stopped_services.append(service)
-            event_bus.publish_receiver(
-                "INFO", "Conflicting receiver service stopped", service,
-                data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device["id"], "service": service},
-            )
+        manager_status = receiver_manager.begin_handover(
+            device["id"],
+            mission_key=mission_key,
+            mission_id=mission_id,
+            reason="ISS Voice automatic mission",
+            services=conflicts,
+            service_state=service_state,
+            service_action=service_action,
+            wait_for_service=wait_for_service,
+        )
+        handover_started = True
+        reservation = (manager_status.get("reservations") or {}).get(device["id"]) or {}
+        handover = reservation.get("handover") or {}
+        stopped_services = [
+            item.get("service")
+            for item in handover.get("services") or []
+            if item.get("stopped_by_sdrcc")
+        ]
 
         iss_voice_runtime.update(
             phase="WAITING_FOR_RECEIVER",
             stopped_services=stopped_services,
             detail="Conflicting services stopped; waiting for receiver release",
         )
-        time.sleep(2.0)
         receiver_manager.activate(mission_key=mission_key, mission_id=mission_id)
         execution_journal.append_event_once(execution_id, "STARTED", source="iss_voice_executor",
             details={"mission_id": mission_id, "receiver_id": device["id"], "stopped_services": stopped_services})
@@ -204,20 +201,24 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         )
     finally:
         restore_errors = []
-        for service in reversed(stopped_services):
-            result = service_action("start", service)
-            if not _result_ok(result) or not wait_for_service(service, "active", 15):
-                restore_errors.append(service)
-            else:
-                event_bus.publish_receiver(
-                    "SUCCESS", "Receiver service restored", service,
-                    data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device["id"], "service": service},
-                )
-        if reserved:
+        if handover_started:
+            restored = receiver_manager.restore_handover(
+                mission_key=mission_key,
+                service_state=service_state,
+                service_action=service_action,
+                wait_for_service=wait_for_service,
+                detail="ISS Voice context restored",
+            )
+            restore_errors.extend(restored.get("errors") or [])
+        else:
             try:
-                receiver_manager.release(mission_key=mission_key, detail="ISS Voice context restored")
-            except Exception as exc:
-                restore_errors.append(f"receiver:{exc}")
+                receiver_manager.release(
+                    mission_key=mission_key,
+                    detail="ISS Voice reservation released before handover",
+                )
+            except RuntimeError as exc:
+                if "Geen receiver-reservering" not in str(exc):
+                    restore_errors.append(f"receiver release: {exc}")
         if restore_errors:
             extra = "Herstel onvolledig: " + ", ".join(restore_errors)
             failure = RuntimeError(f"{failure}; {extra}" if failure else extra)
