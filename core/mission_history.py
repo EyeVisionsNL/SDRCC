@@ -7,8 +7,6 @@ import os
 import re
 import shutil
 
-from core import mission_result
-
 try:
     import fcntl
 except ImportError:  # pragma: no cover - SDRCC draait op Linux
@@ -21,8 +19,13 @@ HISTORY_FILE = STATE_DIR / "mission_history.json"
 LOCK_FILE = STATE_DIR / "mission_history.lock"
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
+HISTORY_LIMIT = 500
 RECORDINGS_DIR = PROJECT_ROOT / "data" / "recordings"
 MISSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,160}$")
+
+
+class MissionHistoryError(RuntimeError):
+    """Mission History kon niet betrouwbaar gelezen of geschreven worden."""
 
 
 def _normalise_limit(limit: Any) -> int:
@@ -39,28 +42,39 @@ def _read_history_unlocked() -> list[dict[str, Any]]:
 
     try:
         payload = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return []
+    except OSError as error:
+        raise MissionHistoryError(
+            f"Mission History kon niet worden gelezen: {error}"
+        ) from error
+    except json.JSONDecodeError as error:
+        raise MissionHistoryError(
+            f"Mission History bevat ongeldige JSON: {error}"
+        ) from error
 
     if not isinstance(payload, list):
-        return []
-    return [
-        mission_result.normalize_history_mission(item)
-        for item in payload
-        if isinstance(item, dict)
-    ]
+        raise MissionHistoryError("Mission History moet een JSON-lijst bevatten")
+    if any(not isinstance(item, dict) for item in payload):
+        raise MissionHistoryError("Mission History bevat een ongeldig record")
+    return [dict(item) for item in payload]
 
 
 def load_history() -> list[dict[str, Any]]:
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    with LOCK_FILE.open("a+", encoding="utf-8") as lock_handle:
-        if fcntl is not None:
-            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_SH)
-        try:
-            return _read_history_unlocked()
-        finally:
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        with LOCK_FILE.open("a+", encoding="utf-8") as lock_handle:
             if fcntl is not None:
-                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_SH)
+            try:
+                return _read_history_unlocked()
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+    except MissionHistoryError:
+        raise
+    except OSError as error:
+        raise MissionHistoryError(
+            f"Mission History kon niet worden geopend: {error}"
+        ) from error
 
 
 def _matches_text(mission: dict[str, Any], query: str) -> bool:
@@ -89,7 +103,23 @@ def get_missions(
     satellite: Optional[str] = None,
     query: Optional[str] = None,
 ) -> list[dict[str, Any]]:
-    missions = load_history()
+    return _filter_missions(
+        load_history(),
+        limit=limit,
+        result=result,
+        satellite=satellite,
+        query=query,
+    )
+
+
+def _filter_missions(
+    missions: list[dict[str, Any]],
+    *,
+    limit: int = DEFAULT_LIMIT,
+    result: Optional[str] = None,
+    satellite: Optional[str] = None,
+    query: Optional[str] = None,
+) -> list[dict[str, Any]]:
     result_filter = str(result or "").strip().upper()
     satellite_filter = str(satellite or "").strip().lower()
     text_filter = str(query or "").strip()
@@ -278,7 +308,8 @@ def get_history_payload(
     query: Optional[str] = None,
 ) -> dict[str, Any]:
     all_missions = load_history()
-    missions = get_missions(
+    missions = _filter_missions(
+        all_missions,
         limit=limit,
         result=result,
         satellite=satellite,
@@ -302,10 +333,69 @@ def get_history_payload(
 def _write_history_unlocked(missions: list[dict[str, Any]]) -> None:
     """Schrijf Mission History atomair weg terwijl de caller de exclusieve lock bezit."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    temporary = HISTORY_FILE.with_suffix(".json.tmp")
-    payload = json.dumps(missions, ensure_ascii=False, indent=2) + "\n"
-    temporary.write_text(payload, encoding="utf-8")
-    os.replace(temporary, HISTORY_FILE)
+    temporary = HISTORY_FILE.with_name(
+        f".{HISTORY_FILE.name}.{os.getpid()}.tmp"
+    )
+    try:
+        with temporary.open("w", encoding="utf-8") as handle:
+            json.dump(missions, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, HISTORY_FILE)
+        try:
+            directory_fd = os.open(STATE_DIR, os.O_RDONLY)
+        except OSError:
+            directory_fd = None
+        if directory_fd is not None:
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def record_mission(
+    mission: dict[str, Any],
+    *,
+    limit: int = HISTORY_LIMIT,
+) -> dict[str, Any]:
+    """Bewaar één eindresultaat via de enige Mission History-schrijfroute.
+
+    De read-modify-write-cyclus valt volledig onder dezelfde exclusieve lock.
+    Een herhaalde write met dezelfde mission-ID vervangt het bestaande record
+    en maakt dus nooit een duplicaat. Ongeldige of corrupte bestaande History
+    wordt expliciet geweigerd en nooit als een lege lijst overschreven.
+    """
+    if not isinstance(mission, dict):
+        raise TypeError("Mission History-record moet een dictionary zijn")
+
+    item = dict(mission)
+    mission_id = str(item.get("mission_id") or "").strip()
+    if not MISSION_ID_PATTERN.fullmatch(mission_id):
+        raise ValueError("Ongeldige mission-ID")
+    item["mission_id"] = mission_id
+
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with LOCK_FILE.open("a+", encoding="utf-8") as lock_handle:
+        if fcntl is not None:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        try:
+            missions = _read_history_unlocked()
+            remaining = [
+                existing for existing in missions
+                if str(existing.get("mission_id") or "") != mission_id
+            ]
+            merged = [item, *remaining][:_normalise_limit(limit)]
+            _write_history_unlocked(merged)
+            return dict(item)
+        finally:
+            if fcntl is not None:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
 
 def _safe_output_directory(mission: dict[str, Any]) -> tuple[Optional[Path], Optional[str]]:

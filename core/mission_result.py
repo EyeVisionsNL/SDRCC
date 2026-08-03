@@ -182,51 +182,10 @@ def classify(
 
 
 def normalize_history_mission(mission: Mapping[str, Any]) -> dict[str, Any]:
-    """Geef een niet-destructief, actueel beoordeelde History-weergave terug."""
-    normalized = dict(mission)
-    stored_result = str(normalized.get("result") or normalized.get("status") or "").upper()
+    """Backward-compatible kopie zonder historische herclassificatie.
 
-    if stored_result == "CANCELLED":
-        evaluated = classify(
-            cancelled=True,
-            frames=_as_int(normalized.get("frames")),
-            cadu_bytes=_as_int(normalized.get("cadu_bytes")),
-            image_count=_as_int(normalized.get("image_count")),
-            peak_snr_db=_as_optional_float(normalized.get("peak_snr_db")),
-        )
-    elif stored_result == "FAILED":
-        evaluated = classify(
-            returncode=1,
-            frames=_as_int(normalized.get("frames")),
-            cadu_bytes=_as_int(normalized.get("cadu_bytes")),
-            image_count=_as_int(normalized.get("image_count")),
-            peak_snr_db=_as_optional_float(normalized.get("peak_snr_db")),
-        )
-    else:
-        evaluated = classify(
-            returncode=0,
-            output_path=normalized.get("output_path"),
-            frames=_as_int(normalized.get("frames")),
-            cadu_bytes=_as_int(normalized.get("cadu_bytes")),
-            image_count=_as_int(normalized.get("image_count")),
-            peak_snr_db=_as_optional_float(normalized.get("peak_snr_db")),
-        )
-
-        # Bewaar een expliciet NO SYNC-resultaat wanneer oude logs geen stdout bevatten.
-        if (
-            stored_result == "NO SYNC"
-            and evaluated["result"] == "NO SIGNAL"
-            and evaluated["image_count"] == 0
-            and evaluated["cadu_bytes"] == 0
-        ):
-            evaluated["result"] = "NO SYNC"
-            evaluated["detail"] = str(
-                normalized.get("detail") or "Signaal gezien, maar geen decoder-lock"
-            )
-
-    normalized.update(evaluated)
-    normalized["stored_result"] = stored_result or None
-    normalized["result_reclassified"] = bool(
-        stored_result and stored_result != evaluated["result"]
-    )
-    return normalized
+    Mission Result beoordeelt Weather/SatDump uitsluitend bij missieafronding.
+    Een eenmaal opgeslagen resultaat wordt daarna door geen enkele reader of
+    dashboardconsumer opnieuw geïnterpreteerd.
+    """
+    return dict(mission)

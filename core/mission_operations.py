@@ -15,7 +15,6 @@ from core import live_rf
 from core import iss_voice_runtime
 from core import iss_voice_audio_monitor
 from core import mission_engine
-from core import mission_result
 from core import mission_scheduler
 from core import receiver_manager
 
@@ -28,27 +27,8 @@ def _now_text() -> str:
 
 
 def _normalise_mission_snapshot(mission: dict[str, Any]) -> dict[str, Any]:
-    """Normalize historic outcomes without mutating Mission Engine state."""
-    normalized = deepcopy(mission)
-
-    history = normalized.get("history")
-    if isinstance(history, list):
-        normalized["history"] = [
-            mission_result.normalize_history_mission(item)
-            if isinstance(item, dict)
-            else item
-            for item in history
-        ]
-
-    last_result = normalized.get("last_result")
-    if isinstance(last_result, dict):
-        normalized["last_result"] = mission_result.normalize_history_mission(last_result)
-
-    active_job = normalized.get("active_job")
-    if isinstance(active_job, dict) and active_job.get("ended_at"):
-        normalized["active_job"] = mission_result.normalize_history_mission(active_job)
-
-    return normalized
+    """Kopieer de snapshot zonder resultaten opnieuw te classificeren."""
+    return deepcopy(mission)
 
 
 def _coalesce(*values: Any) -> Any:

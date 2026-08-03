@@ -9,6 +9,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ROOT = (PROJECT_ROOT / "data" / "recordings").resolve()
 AUDIO = {".wav", ".mp3", ".ogg", ".flac", ".m4a"}
 IMAGES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+DEFAULT_LIMIT = 100
+MAX_LIMIT = 500
 
 
 def safe_path(value: str) -> Path:
@@ -19,7 +21,16 @@ def safe_path(value: str) -> Path:
     return path
 
 
-def inventory(limit: int = 100) -> dict[str, Any]:
+def _normalise_limit(limit: Any) -> int:
+    try:
+        value = int(limit)
+    except (TypeError, ValueError):
+        value = DEFAULT_LIMIT
+    return max(1, min(value, MAX_LIMIT))
+
+
+def inventory(limit: int = DEFAULT_LIMIT) -> dict[str, Any]:
+    effective_limit = _normalise_limit(limit)
     ROOT.mkdir(parents=True, exist_ok=True)
     rows = []
     for path in ROOT.rglob("*"):
@@ -37,4 +48,10 @@ def inventory(limit: int = 100) -> dict[str, Any]:
             "url": "/api/mission-recordings/file/" + str(rel),
         })
     rows.sort(key=lambda item: item["modified_epoch"], reverse=True)
-    return {"ok": True, "version": "0.48.0a", "count": len(rows[:limit]), "recordings": rows[:limit]}
+    selected = rows[:effective_limit]
+    return {
+        "ok": True,
+        "version": "0.54.0c",
+        "count": len(selected),
+        "recordings": selected,
+    }

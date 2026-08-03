@@ -48,7 +48,6 @@ from core import mission_engine as mission_engine_core
 from core import mission_history as mission_history_core
 from core import mission_diagnostics
 from core import mission_operations
-from core import mission_result
 from core import mission_preflight
 from core import mission_simulator
 from core import mission_scheduler as mission_scheduler_core
@@ -589,25 +588,60 @@ def _mission_output_inventory(mission):
 
 
 def _mission_quality(mission, events, inventory):
-    mission = mission_result.normalize_history_mission(mission)
     result = str(mission.get("result") or mission.get("status") or "UNKNOWN").upper()
+    mission_type = str(mission.get("mission_type") or "").strip().lower()
+    plugin_id = str(mission.get("plugin_id") or "").strip().lower()
+    pipeline = str(mission.get("pipeline") or "").strip().lower()
+    is_iss_voice = (
+        mission_type == "iss_voice"
+        or plugin_id == "iss_voice"
+        or pipeline == "wideband_iq_offline_fm"
+    )
     event_text = " ".join(
         f"{event.get('category', '')} {event.get('title', '')} {event.get('detail', '')}"
         for event in events
     ).upper()
-    frames = int(mission.get("frames") or 0)
-    cadu = int(mission.get("cadu_bytes") or 0)
     images = max(int(mission.get("image_count") or 0), inventory["images"]["count"])
+    recording = (
+        bool(mission.get("started_at"))
+        or "RECORDING" in event_text
+        or inventory["recording"]["available"]
+    )
+
+    if is_iss_voice:
+        return {
+            "result": result,
+            "mission_type": "iss_voice",
+            "receiver_lock": bool(
+                mission.get("receiver")
+                or mission.get("receiver_id")
+                or mission.get("receiver_serial")
+            ),
+            "recording": recording,
+            "decoder": None,
+            "decoder_applicable": False,
+            "images": None,
+            "images_applicable": False,
+            "peak_snr_db": None,
+            "snr_applicable": False,
+            "audio_content_assessment": str(
+                mission.get("audio_content_assessment") or "UNASSESSED"
+            ).upper(),
+        }
 
     return {
         "result": result,
+        "mission_type": mission_type or "weather",
         "receiver_lock": bool(mission.get("receiver")) and (
             "LOCK RECEIVER" in event_text or "RECEIVER GELOCKED" in event_text or "RECEIVER LOCK" in event_text
         ),
-        "recording": bool(mission.get("started_at")) or "RECORDING" in event_text or inventory["recording"]["available"],
+        "recording": recording,
         "decoder": images > 0,
+        "decoder_applicable": True,
         "images": images,
+        "images_applicable": True,
         "peak_snr_db": mission.get("peak_snr_db"),
+        "snr_applicable": True,
     }
 
 def get_mission_data_for_status():
@@ -3163,7 +3197,9 @@ def api_iss_voice_demodulate():
 @app.route("/api/mission-recordings", methods=["GET"])
 def api_mission_recordings():
     try:
-        return jsonify(mission_recordings_core.inventory(limit=request.args.get("limit", 100)))
+        return jsonify(mission_recordings_core.inventory(
+            limit=request.args.get("limit", default=100, type=int) or 100
+        ))
     except Exception as error:
         return jsonify({"ok": False, "error": str(error)}), 500
 

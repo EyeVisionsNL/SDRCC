@@ -171,23 +171,25 @@ function sectionTitle(title) {
     return heading;
 }
 
-function statusMark(value) {
+function statusMark(value, applicable = true) {
     const mark = document.createElement("span");
-    mark.className = `history-quality-mark ${value ? "ok" : "missing"}`;
-    mark.textContent = value ? "✓" : "–";
+    mark.className = `history-quality-mark ${!applicable ? "not-applicable" : (value ? "ok" : "missing")}`;
+    mark.textContent = !applicable ? "—" : (value ? "✓" : "–");
     return mark;
 }
 
-function qualityItem(label, value, displayValue = null) {
+function qualityItem(label, value, displayValue = null, applicable = true) {
     const item = document.createElement("div");
     item.className = "history-quality-item";
-    item.append(statusMark(Boolean(value)));
+    item.append(statusMark(Boolean(value), applicable));
 
     const body = document.createElement("div");
     const name = document.createElement("span");
     name.textContent = label;
     const content = document.createElement("strong");
-    content.textContent = displayValue === null ? (value ? "OK" : "Niet bevestigd") : text(displayValue);
+    content.textContent = !applicable
+        ? "N.v.t."
+        : (displayValue === null ? (value ? "OK" : "Niet bevestigd") : text(displayValue));
     body.append(name, content);
     item.appendChild(body);
     return item;
@@ -313,12 +315,15 @@ function renderMissionDetail(payload) {
 
     const qualityGrid = document.createElement("div");
     qualityGrid.className = "history-quality-grid";
+    const decoderApplicable = quality.decoder_applicable !== false;
+    const imagesApplicable = quality.images_applicable !== false;
+    const snrApplicable = quality.snr_applicable !== false;
     qualityGrid.append(
         qualityItem("Receiver lock", quality.receiver_lock),
         qualityItem("Recording", quality.recording),
-        qualityItem("Decoder", quality.decoder),
-        qualityItem("Beelden", Number(quality.images || 0) > 0, number(quality.images, "0")),
-        qualityItem("Piek-SNR", quality.peak_snr_db != null, quality.peak_snr_db == null ? "-" : `${quality.peak_snr_db} dB`)
+        qualityItem("Decoder", quality.decoder, null, decoderApplicable),
+        qualityItem("Beelden", Number(quality.images || 0) > 0, imagesApplicable ? number(quality.images, "0") : null, imagesApplicable),
+        qualityItem("Piek-SNR", quality.peak_snr_db != null, snrApplicable ? (quality.peak_snr_db == null ? "-" : `${quality.peak_snr_db} dB`) : null, snrApplicable)
     );
     qualityBlock.append(qualityHeading, qualityGrid);
 

@@ -1,14 +1,13 @@
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from threading import Lock
 from typing import Optional
-import json
 
 from core import event_bus
 from core import execution_plan_consumer
 from core import execution_journal
+from core import mission_history
 from core import receiver_registry
 
 
@@ -41,12 +40,6 @@ STATE_ORDER = [
     MissionState.ARCHIVING,
 ]
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-STATE_DIR = PROJECT_ROOT / "data" / "state"
-HISTORY_FILE = STATE_DIR / "mission_history.json"
-HISTORY_LIMIT = 50
-
-
 def format_datetime(value: Optional[datetime]):
     if value is None:
         return None
@@ -58,24 +51,13 @@ def calculate_progress(state: MissionState):
     return int((current_index / (len(STATE_ORDER) - 1)) * 100)
 
 
-def _load_history():
-    try:
-        if not HISTORY_FILE.exists():
-            return []
-        data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+def _save_history(mission):
+    """Compatibility-hook: bewaar één record via Mission History-authority.
 
-
-def _save_history(history):
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    temporary = HISTORY_FILE.with_suffix(".tmp")
-    temporary.write_text(
-        json.dumps(history[:HISTORY_LIMIT], indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-    temporary.replace(HISTORY_FILE)
+    De functienaam blijft voorlopig bestaan omdat oudere offline validators
+    deze hook monkeypatchen. De Mission Engine bewaart zelf geen History-cache.
+    """
+    return mission_history.record_mission(mission)
 
 
 @dataclass
@@ -136,7 +118,6 @@ class MissionEngine:
         self.updated_at = datetime.now()
         self.log = []
         self.active_job: Optional[MissionJob] = None
-        self.history = _load_history()
         self._lock = Lock()
         self._log("Mission Engine initialized")
 
@@ -417,9 +398,7 @@ class MissionEngine:
             )
 
             completed_job = self.active_job.to_dict()
-            self.history.insert(0, completed_job)
-            self.history = self.history[:HISTORY_LIMIT]
-            _save_history(self.history)
+            _save_history(completed_job)
 
             self._log(
                 f"Mission Job {self.active_job.mission_id} afgerond: {result}"
@@ -472,9 +451,7 @@ class MissionEngine:
                 self.active_job.progress = 100
                 cancelled_job_object = self.active_job
                 cancelled_job = cancelled_job_object.to_dict()
-                self.history.insert(0, cancelled_job)
-                self.history = self.history[:HISTORY_LIMIT]
-                _save_history(self.history)
+                _save_history(cancelled_job)
                 self.active_job = None
 
             self.state = MissionState.READY
@@ -512,6 +489,13 @@ class MissionEngine:
 
     def status(self):
         with self._lock:
+            history_error = None
+            try:
+                history = mission_history.load_history()
+            except mission_history.MissionHistoryError as error:
+                history = []
+                history_error = str(error)
+
             return {
                 "state": self.state.value,
                 "started_at": format_datetime(self.started_at),
@@ -519,7 +503,8 @@ class MissionEngine:
                 "log": list(self.log),
                 "states": [state.value for state in STATE_ORDER],
                 "active_job": self.active_job.to_dict() if self.active_job else None,
-                "history": list(self.history),
+                "history": history,
+                "history_error": history_error,
             }
 
 

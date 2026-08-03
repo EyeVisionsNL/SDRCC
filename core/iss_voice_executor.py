@@ -10,33 +10,13 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
-import json
-import os
 
 from core import device_manager, execution_factory, execution_journal, event_bus
-from core import iss_voice, iss_voice_audio, iss_voice_runtime, receiver_manager, wideband_iq_recorder
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-HISTORY_FILE = PROJECT_ROOT / "data" / "state" / "mission_history.json"
+from core import iss_voice, iss_voice_audio, iss_voice_runtime, mission_history, receiver_manager, wideband_iq_recorder
 
 ServiceState = Callable[[str], dict[str, Any]]
 ServiceAction = Callable[[str, str], Any]
 ServiceWait = Callable[[str, str, int], bool]
-
-
-def _append_history(item: dict[str, Any]) -> None:
-    HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        history = json.loads(HISTORY_FILE.read_text(encoding="utf-8")) if HISTORY_FILE.exists() else []
-    except Exception:
-        history = []
-    if not isinstance(history, list):
-        history = []
-    history.insert(0, item)
-    temp = HISTORY_FILE.with_suffix(".json.tmp")
-    temp.write_text(json.dumps(history[:100], indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    os.replace(temp, HISTORY_FILE)
-
 
 def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
                  service_action: ServiceAction, wait_for_service: ServiceWait,
@@ -264,11 +244,12 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         "duration_seconds": int((ended-started).total_seconds()), "success": failure is None,
         "result": "SUCCESS" if failure is None else "FAILED", "detail": "ISS Voice WAV recording created" if failure is None else str(failure),
         "error": str(failure) if failure else None, "image_count": 0, "recording_count": 1 if wav_size else 0,
+        "audio_content_assessment": "UNASSESSED",
         "recordings": ([{"type": "audio", "format": "wav", "name": Path(wav_path).name,
                          "path": wav_path, "size_bytes": wav_size}] if wav_size else []),
         "execution_id": execution_id,
     }
-    _append_history(history)
+    mission_history.record_mission(history)
     iss_voice_runtime.finish(
         success=failure is None, detail=history["detail"], mission_id=mission_id, execution_id=execution_id,
         receiver_id=device.get("id"), iq_path=(capture or {}).get("iq_path"),
@@ -283,5 +264,5 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     )
     if failure:
         raise failure
-    return {"ok": True, "version": "0.53.1d", "mission": history,
+    return {"ok": True, "version": "0.54.0c", "mission": history,
             "capture": capture, "audio": audio, "stopped_and_restored_services": stopped_services}

@@ -429,6 +429,12 @@
     border: 1px solid #475569;
 }
 
+.history-quality-mark.not-applicable {
+    color: #64748b;
+    background: rgba(51, 65, 85, .14);
+    border: 1px solid #334155;
+}
+
 .history-files-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
