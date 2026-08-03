@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+import time
 
 from core import device_manager, execution_factory, execution_journal, event_bus
 from core import iss_voice, iss_voice_audio, iss_voice_runtime, mission_history, receiver_manager, wideband_iq_recorder
@@ -34,7 +35,8 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
 
     mission_id = "iss_voice_" + datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
     mission_key = str(mission_key or f"iss_voice:{mission_id}")
-    duration = max(1, min(int(target.get("duration_seconds") or 1), 1200))
+    planned_duration = max(1, min(int(target.get("duration_seconds") or 1), 1200))
+    duration = planned_duration
     stopped_services: list[str] = []
     execution_id = None
     handover_started = False
@@ -47,7 +49,15 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     plan = execution_factory.build_plan_with_journal("iss_voice", {
         "mode": "automatic_pass", "target": target.get("name") or cfg.get("satellite_name"),
         "receiver_role": "iss_voice", "receiver_id": device["id"],
-        "duration_seconds": duration, "frequency": int(cfg["downlink_frequency_hz"]),
+        "duration_seconds": planned_duration, "frequency": int(cfg["downlink_frequency_hz"]),
+        "pass_contract": {
+            key: target.get(key)
+            for key in (
+                "queue_key", "start_epoch", "maximum_epoch", "end_epoch",
+                "minimum_peak_elevation", "begin_elevation", "close_elevation",
+                "norad_id", "tle_source", "tle_epoch", "tle_sha256",
+            )
+        },
     })
     execution_id = plan["execution_id"]
     execution_journal.append_event_once(execution_id, "ACCEPTED", source="iss_voice_executor",
@@ -58,7 +68,7 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
             mission_id=mission_id, execution_id=execution_id, receiver_id=device["id"],
             receiver_serial=device.get("serial"), satellite=target.get("name") or cfg.get("satellite_name"),
             frequency_hz=int(cfg["downlink_frequency_hz"]), sample_rate_hz=int(cfg["rf_sample_rate_hz"]),
-            duration_seconds=duration, mode=cfg.get("modulation", "NFM"), phase="PREPARING",
+            duration_seconds=planned_duration, mode=cfg.get("modulation", "NFM"), phase="PREPARING",
             detail="Preparing receiver for ISS Voice capture",
         )
         conflicts = device_manager.get_conflicting_services(device["id"], exclude_role="iss_voice")
@@ -94,6 +104,17 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         receiver_manager.activate(mission_key=mission_key, mission_id=mission_id)
         execution_journal.append_event_once(execution_id, "STARTED", source="iss_voice_executor",
             details={"mission_id": mission_id, "receiver_id": device["id"], "stopped_services": stopped_services})
+
+        end_epoch = int(target.get("end_epoch") or 0)
+        if end_epoch:
+            remaining = end_epoch - int(time.time())
+            if remaining <= 0:
+                raise RuntimeError("ISS Voice pass window ended before capture could start")
+            duration = max(1, min(planned_duration, remaining, 1200))
+            iss_voice_runtime.update(
+                duration_seconds=duration,
+                detail="Receiver ready; capture bounded by the planned falling edge",
+            )
 
         spec = wideband_iq_recorder.build_spec(
             mission_id=mission_id, receiver_serial=device["serial"],
@@ -248,6 +269,14 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         "recordings": ([{"type": "audio", "format": "wav", "name": Path(wav_path).name,
                          "path": wav_path, "size_bytes": wav_size}] if wav_size else []),
         "execution_id": execution_id,
+        "planning_profile_id": target.get("planning_profile_id"),
+        "minimum_peak_elevation": target.get("minimum_peak_elevation"),
+        "begin_elevation": target.get("begin_elevation"),
+        "close_elevation": target.get("close_elevation"),
+        "norad_id": target.get("norad_id"),
+        "tle_source": target.get("tle_source"),
+        "tle_epoch": target.get("tle_epoch"),
+        "tle_sha256": target.get("tle_sha256"),
     }
     mission_history.record_mission(history)
     iss_voice_runtime.finish(
@@ -264,5 +293,5 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     )
     if failure:
         raise failure
-    return {"ok": True, "version": "0.54.0c", "mission": history,
+    return {"ok": True, "version": "0.54.0d", "mission": history,
             "capture": capture, "audio": audio, "stopped_and_restored_services": stopped_services}

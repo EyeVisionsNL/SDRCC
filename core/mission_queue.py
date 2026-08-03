@@ -11,7 +11,7 @@ from threading import RLock
 from typing import Any
 import json
 
-from core import event_bus, mission_planner, receiver_manager
+from core import event_bus, mission_planner, receiver_manager, tle
 from core.config import get_assignment, get_scheduler_config
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
@@ -41,12 +41,33 @@ def _save_state(state: dict[str, Any]) -> None:
 
 
 def _key(item: dict[str, Any]) -> str:
-    start = item.get("start")
-    if hasattr(start, "timestamp"):
-        epoch = int(start.timestamp())
-    else:
-        epoch = int(item.get("start_epoch") or 0)
-    return f"{item.get('plugin_id', 'weather')}:{item.get('name', '-')}:" + str(epoch)
+    return str(mission_planner.pass_key(item))
+
+
+def get_pass_key(item: dict[str, Any] | None) -> str | None:
+    return mission_planner.pass_key(item)
+
+
+def _pinned_candidate(item: dict[str, Any]) -> dict[str, Any]:
+    candidate = deepcopy(item)
+    for field in ("start", "maximum", "end"):
+        epoch = candidate.get(f"{field}_epoch")
+        if epoch is None:
+            raise ValueError(f"Pinned mission contract has no {field}_epoch")
+        candidate[field] = datetime.fromtimestamp(int(epoch), tz=timezone.utc)
+    return candidate
+
+
+def _same_orbital_pass(first: dict[str, Any], second: dict[str, Any]) -> bool:
+    if str(first.get("plugin_id")) != str(second.get("plugin_id")):
+        return False
+    if str(first.get("name")) != str(second.get("name")):
+        return False
+    first_maximum = first.get("maximum")
+    first_epoch = int(first_maximum.timestamp()) if hasattr(first_maximum, "timestamp") else int(first.get("maximum_epoch") or 0)
+    second_maximum = second.get("maximum")
+    second_epoch = int(second_maximum.timestamp()) if hasattr(second_maximum, "timestamp") else int(second.get("maximum_epoch") or 0)
+    return abs(first_epoch - second_epoch) <= 1800
 
 
 def _quality(elevation: float, duration_seconds: int) -> dict[str, Any]:
@@ -108,6 +129,16 @@ def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: in
         "duration_seconds": duration,
         "max_elevation": item.get("max_elevation"),
         "min_elevation": item.get("min_elevation"),
+        "minimum_peak_elevation": item.get("minimum_peak_elevation"),
+        "begin_elevation": item.get("begin_elevation"),
+        "close_elevation": item.get("close_elevation"),
+        "planning_profile_id": item.get("planning_profile_id"),
+        "planning_decision": item.get("planning_decision"),
+        "planning_reason": item.get("planning_reason"),
+        "norad_id": item.get("norad_id"),
+        "tle_source": item.get("tle_source"),
+        "tle_epoch": item.get("tle_epoch"),
+        "tle_sha256": item.get("tle_sha256"),
         "azimuth": item.get("azimuth"),
         "frequency": frequency,
         "frequency_mhz": round(frequency / 1_000_000, 3) if frequency else None,
@@ -143,13 +174,20 @@ def get_queue(
     active_pass_key: str | None = None,
     target_pass_key: str | None = None,
     controller_status: str | None = None,
+    pinned_pass: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 50))
     receiver_status = receiver_manager.get_status()
     with _LOCK:
         state = _load_state()
         overrides = state["overrides"]
-    raw = mission_planner.get_candidates(hours_ahead)
+    raw = list(mission_planner.get_candidates(hours_ahead))
+    if pinned_pass:
+        pinned = _pinned_candidate(pinned_pass)
+        raw = [item for item in raw if not _same_orbital_pass(item, pinned)]
+        if int(pinned.get("end_epoch") or 0) >= int(datetime.now(timezone.utc).timestamp()) - 5:
+            raw.append(pinned)
+        raw.sort(key=lambda item: item["start"])
     queue = []
     live_keys = set()
     for item in raw[:safe_limit]:
@@ -228,6 +266,7 @@ def get_payload(
     active_pass_key: str | None = None,
     target_pass_key: str | None = None,
     controller_status: str | None = None,
+    pinned_pass: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     generated_at = datetime.now().astimezone()
     queue = get_queue(
@@ -236,12 +275,13 @@ def get_payload(
         active_pass_key=active_pass_key,
         target_pass_key=target_pass_key,
         controller_status=controller_status,
+        pinned_pass=pinned_pass,
     )
     return {
         "generated_at": generated_at.isoformat(timespec="seconds"),
         "generated_epoch": int(generated_at.timestamp()),
         "source": "multi-mission-planner",
-        "planner_version": "0.47.0a",
+        "planner_version": mission_planner.VERSION,
         "planner_authority": "planning_only",
         "sources": mission_planner.get_sources(hours_ahead),
         "ok": True,
@@ -250,6 +290,8 @@ def get_payload(
         "hours_ahead": hours_ahead,
         "minimum_elevation": mission_planner.get_policy()["minimum_elevation"],
         "planning_policy": mission_planner.get_policy(),
+        "planning_profiles": mission_planner.get_policy()["profiles"],
+        "tle_status": tle.get_status(),
         "conflicts": sum(1 for item in queue if item["status"] == "CONFLICT"),
         "skipped": sum(1 for item in queue if item["status"] == "SKIPPED"),
         "queue": queue,

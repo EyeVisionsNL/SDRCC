@@ -14,6 +14,7 @@ from flask import Flask, Response, jsonify, render_template, request, send_file,
 
 from core import device_manager
 from core import weather_planning as weather_planning_core
+from core import downloader as tle_downloader
 from core import event_bus
 from core import live_rf
 from core import config as config_core
@@ -137,7 +138,6 @@ SDRCC_ACTIONS = {
     "schedule": {"label": "Planning tonen", "command": [sys.executable, str(SDRCC_SCRIPT), "schedule"], "mode": "run"},
     "simulate_record": {"label": "Simuleer opname", "command": [sys.executable, str(SDRCC_SCRIPT), "simulate-record"], "mode": "run"},
     "record": {"label": "Record NOW", "command": [sys.executable, str(SDRCC_SCRIPT), "record"], "mode": "start"},
-    "update_tle": {"label": "Update TLE", "command": [sys.executable, str(SDRCC_SCRIPT), "update-tle"], "mode": "run"},
 }
 
 ACTIONS = {}
@@ -1089,11 +1089,7 @@ autopilot_runtime = {
 
 def reset_autopilot_runtime(target_pass=None):
     autopilot_runtime.update({
-        "pass_key": (
-            f"{target_pass['name']}:{target_pass['start_epoch']}"
-            if target_pass
-            else None
-        ),
+        "pass_key": mission_queue_core.get_pass_key(target_pass),
         "target_pass": target_pass,
         "preflight_ok": False,
         "last_preflight_attempt": 0.0,
@@ -1177,7 +1173,9 @@ def autopilot_prepare_receiver():
 
 
 def autopilot_lock_receiver():
-    record_data = satdump_core.build_record_command()
+    record_data = satdump_core.build_record_command(
+        autopilot_runtime.get("target_pass")
+    )
 
     if record_data is None:
         raise RuntimeError("Geen geschikte passage gevonden")
@@ -1487,6 +1485,7 @@ def autopilot_start_recording():
             "Geen voorbereid SatDump-commando beschikbaar"
         )
 
+    satdump_core.align_timeout_to_pass_end(record_data)
     mission_status = mission_engine_core.get_mission_status()
     active_job = mission_status.get("active_job") or {}
     receiver_manager.activate(
@@ -2547,12 +2546,8 @@ def api_mission_queue():
         limit = request.args.get("limit", default=10, type=int) or 10
         hours = request.args.get("hours", default=48, type=int) or 48
         target = autopilot_runtime.get("target_pass") or {}
-        target_key = None
-        active_key = None
-        if target and target.get("name") and target.get("start_epoch") is not None:
-            target_key = f"{target.get('name')}:{int(target.get('start_epoch'))}"
-            if autopilot_runtime.get("record_started"):
-                active_key = target_key
+        target_key = mission_queue_core.get_pass_key(target)
+        active_key = target_key if target_key and autopilot_runtime.get("record_started") else None
 
         mission_status = mission_engine_core.get_mission_status()
         live_status = str(
@@ -2566,6 +2561,7 @@ def api_mission_queue():
             active_pass_key=active_key,
             target_pass_key=target_key,
             controller_status=live_status,
+            pinned_pass=target or None,
         ))
     except ValueError as error:
         return jsonify({"ok": False, "error": str(error)}), 400
@@ -3288,11 +3284,31 @@ def api_receiver_roles_apply():
 def api_weather_planning():
     if request.method == "GET":
         try:
-            return jsonify({"ok": True, "settings": weather_planning_core.get_config()})
+            return jsonify({
+                "ok": True,
+                "settings": weather_planning_core.get_config(),
+                "tle": tle.get_status(),
+            })
         except (ValueError, OSError) as error:
             return jsonify({"ok": False, "message": str(error)}), 500
 
     payload = request.get_json(silent=True) or {}
+    if str(payload.get("action") or "").lower() == "refresh":
+        result = tle_downloader.refresh_required_tles(force=bool(payload.get("force", False)))
+        usable = bool(result.get("ok") or result.get("preserved"))
+        write_log(
+            "Mission Planner TLE refresh: "
+            + (result.get("message") or result.get("error") or "unknown result")
+        )
+        return jsonify({
+            "ok": usable,
+            "warning": not bool(result.get("ok")),
+            "message": result.get("message"),
+            "error": result.get("error"),
+            "tle": result.get("status") or tle.get_status(),
+            "settings": weather_planning_core.get_config(),
+        }), (200 if usable else 503)
+
     mission = get_mission_data_for_status()
     scheduler = mission_scheduler_core.get_scheduler_status()
     mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
@@ -3304,11 +3320,12 @@ def api_weather_planning():
         return jsonify({"ok": False, "message": "Weather Planning is geblokkeerd tijdens een missie."}), 409
     try:
         settings = weather_planning_core.set_config(payload)
-        write_log(f"Minimale weather-elevatie gewijzigd naar {settings['minimum_elevation']} graden")
+        write_log("Mission Planner pass-window profiles updated")
         return jsonify({
             "ok": True,
             "settings": settings,
-            "message": f"Minimale elevatie opgeslagen op {settings['minimum_elevation']:.1f}°. De Mission Queue gebruikt dit direct.",
+            "tle": tle.get_status(),
+            "message": "Pass-window settings saved. New Mission Queue entries use them immediately.",
         })
     except ValueError as error:
         return jsonify({"ok": False, "message": str(error)}), 400

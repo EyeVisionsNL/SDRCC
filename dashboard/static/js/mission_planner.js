@@ -1,5 +1,5 @@
 (() => {
-    const state = {busy: false, timer: null};
+    const state = {busy: false, timer: null, formDirty: false};
 
     const byId = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "-")
@@ -22,17 +22,53 @@
         return `${date} ${time.slice(0, 5)}`.trim();
     }
 
+    function formatTime(value) {
+        if (!value) return "-";
+        const parts = String(value).split(" ");
+        return (parts[1] || parts[0] || "-").slice(0, 5);
+    }
+
     function eligibility(item) {
         const label = String(item.decision || "ELIGIBLE").toUpperCase();
-        const reason = String(item.decision_reason || "Pass meets the current station planning policy.");
+        const reason = String(item.decision_reason || "Pass meets its satellite planning policy.");
         const cls = String(item.decision_class || "eligible").toLowerCase();
         return {label, reason, cls};
     }
 
+    function renderTleStatus(tle) {
+        const node = byId("mission-planner-tle-status");
+        if (!node) return;
+        const stateName = String(tle?.state || "INVALID").toUpperCase();
+        const ages = [tle?.weather?.age_hours, tle?.iss_voice?.age_hours]
+            .map(Number)
+            .filter(Number.isFinite);
+        const age = ages.length ? Math.max(...ages) : null;
+        node.textContent = stateName === "CURRENT"
+            ? `TLE CURRENT · ${age?.toFixed(1) ?? "-"} h`
+            : stateName === "STALE"
+                ? `TLE STALE · ${age?.toFixed(1) ?? "-"} h`
+                : "TLE INVALID";
+        node.className = `mission-planner-tle-status is-${stateName.toLowerCase()}`;
+        node.title = `${tle?.source || "CelesTrak"}; ISS 25544, METEOR 57166 and 59051`;
+    }
+
+    function renderSettings(profiles) {
+        const form = byId("mission-planner-settings-form");
+        if (!form || state.formDirty || form.contains(document.activeElement)) return;
+        form.querySelectorAll("[data-planning-profile]").forEach(group => {
+            const profile = profiles?.[group.dataset.planningProfile];
+            if (!profile) return;
+            group.querySelectorAll("[data-planning-field]").forEach(input => {
+                const value = Number(profile[input.dataset.planningField]);
+                if (Number.isFinite(value)) input.value = String(value);
+            });
+        });
+    }
+
     function render(payload) {
         const queue = Array.isArray(payload.queue) ? payload.queue : [];
-        const minimumElevation = Number(payload.minimum_elevation ?? 40);
-        byId("mission-planner-minimum-elevation").value = String(minimumElevation);
+        renderSettings(payload.planning_profiles || payload.planning_policy?.profiles || {});
+        renderTleStatus(payload.tle_status || {});
         byId("mission-planner-pass-count").textContent = String(queue.length);
         byId("mission-planner-conflict-count").textContent = String(payload.conflicts || 0);
         byId("mission-planner-skipped-count").textContent = String(payload.skipped || 0);
@@ -50,10 +86,15 @@
             const receiver = item.active_receiver || item.reserved_receiver || item.configured_receiver || item.receiver || "-";
             const elevation = Number(item.max_elevation);
             const frequency = Number(item.frequency_mhz);
+            const begin = Number(item.begin_elevation);
+            const close = Number(item.close_elevation);
             const quality = item.quality?.label || "-";
+            const windowAngles = Number.isFinite(begin) && Number.isFinite(close)
+                ? `${begin.toFixed(1)}° rising · ${close.toFixed(1)}° falling`
+                : "-";
             return `<tr class="mission-planner-row is-${escapeHtml(result.cls)}">
                 <td><strong>${escapeHtml(item.name || "Unknown satellite")}</strong><span>${escapeHtml(item.mode || item.pipeline || "-")}</span></td>
-                <td>${escapeHtml(formatDateTime(item.start))}</td>
+                <td><strong>${escapeHtml(formatDateTime(item.start))} → ${escapeHtml(formatTime(item.end))}</strong><small>${escapeHtml(windowAngles)}</small></td>
                 <td>${Number.isFinite(elevation) ? `${elevation.toFixed(1)}°` : "-"}</td>
                 <td>${Number.isFinite(frequency) ? `${frequency.toFixed(3)} MHz` : "-"}</td>
                 <td>${escapeHtml(receiver)}</td>
@@ -64,38 +105,61 @@
         }).join("");
     }
 
-    async function loadPlanner() {
+    async function loadPlanner({quiet = false} = {}) {
         try {
             const response = await fetch("/api/mission-queue?limit=50&hours=48", {cache: "no-store"});
             const payload = await response.json();
             if (!response.ok || payload.ok === false) throw new Error(payload.error || "Mission Planner is unavailable.");
             render(payload);
-            setMessage(`Updated ${new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"})}.`);
+            if (!quiet) {
+                setMessage(`Updated ${new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"})}.`);
+            }
         } catch (error) {
             setMessage(`Refresh failed: ${error.message}`, true);
         }
     }
 
-    async function saveMinimumElevation(event) {
+    function collectProfiles(form) {
+        const profiles = {};
+        form.querySelectorAll("[data-planning-profile]").forEach(group => {
+            const values = {};
+            group.querySelectorAll("[data-planning-field]").forEach(input => {
+                values[input.dataset.planningField] = Number(input.value);
+            });
+            if (values.begin_elevation > values.minimum_peak_elevation) {
+                throw new Error(`${group.querySelector("legend")?.textContent || "Profile"}: begin angle exceeds minimum peak.`);
+            }
+            if (values.close_elevation > values.minimum_peak_elevation) {
+                throw new Error(`${group.querySelector("legend")?.textContent || "Profile"}: close angle exceeds minimum peak.`);
+            }
+            profiles[group.dataset.planningProfile] = values;
+        });
+        return profiles;
+    }
+
+    async function savePassWindows(event) {
         event.preventDefault();
         if (state.busy) return;
         const form = event.currentTarget;
-        const input = byId("mission-planner-minimum-elevation");
         const button = form.querySelector('button[type="submit"]');
         state.busy = true;
         if (button) button.disabled = true;
-        setMessage("Saving minimum elevation...");
+        setMessage("Saving pass-window settings...");
         try {
+            const profiles = collectProfiles(form);
             const response = await fetch("/api/weather-planning", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({minimum_elevation: Number(input.value)}),
+                body: JSON.stringify({profiles}),
             });
             const payload = await response.json();
             if (!response.ok || payload.ok === false) throw new Error(payload.message || "Save failed.");
-            setMessage(payload.message || "Minimum elevation saved.");
+            state.formDirty = false;
+            renderSettings(payload.settings?.profiles || {});
+            renderTleStatus(payload.tle || {});
+            setMessage(payload.message || "Pass-window settings saved.");
             window.dispatchEvent(new CustomEvent("sdrcc:weather-planning-changed", {detail: payload.settings}));
-            await loadPlanner();
+            await loadPlanner({quiet: true});
         } catch (error) {
             setMessage(`Save failed: ${error.message}`, true);
         } finally {
@@ -104,9 +168,38 @@
         }
     }
 
-    byId("mission-planner-settings-form")?.addEventListener("submit", saveMinimumElevation);
-    byId("mission-planner-refresh")?.addEventListener("click", loadPlanner);
-    window.addEventListener("sdrcc:weather-planning-changed", loadPlanner);
+    async function refreshTleAndPlanning() {
+        if (state.busy) return;
+        const button = byId("mission-planner-refresh");
+        state.busy = true;
+        if (button) button.disabled = true;
+        setMessage("Checking the validated CelesTrak TLE cache...");
+        try {
+            const response = await fetch("/api/weather-planning", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({action: "refresh"}),
+            });
+            const payload = await response.json();
+            if (!response.ok || payload.ok === false) throw new Error(payload.error || payload.message || "TLE refresh failed.");
+            renderTleStatus(payload.tle || {});
+            setMessage(payload.warning && payload.error
+                ? `${payload.message} ${payload.error}`
+                : (payload.message || "TLE cache checked."), Boolean(payload.warning));
+            await loadPlanner({quiet: true});
+        } catch (error) {
+            setMessage(`Refresh failed: ${error.message}`, true);
+        } finally {
+            state.busy = false;
+            if (button) button.disabled = false;
+        }
+    }
+
+    const form = byId("mission-planner-settings-form");
+    form?.addEventListener("input", () => { state.formDirty = true; });
+    form?.addEventListener("submit", savePassWindows);
+    byId("mission-planner-refresh")?.addEventListener("click", refreshTleAndPlanning);
+    window.addEventListener("sdrcc:weather-planning-changed", () => loadPlanner({quiet: true}));
     loadPlanner();
-    state.timer = window.setInterval(loadPlanner, 15000);
+    state.timer = window.setInterval(() => loadPlanner({quiet: true}), 15000);
 })();

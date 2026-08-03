@@ -121,11 +121,11 @@
                         <div class="mission-progress"><div class="mission-progress-bar" id="mission-progress-bar"></div></div>
                     </div>
                     <div class="mission-next-pass-v034">
-                        <span class="mission-next-pass-label-v034">NEXT PASS</span>
+                        <span class="mission-next-pass-label-v034" id="mission-sdr1-pass-label">NEXT PASS</span>
                         <strong class="mission-next-pass-name-v034" id="next-name">No pass</strong>
                         <dl class="mission-next-pass-list-v034">
                             <div><dt>Start</dt><dd id="next-start">-</dd></div>
-                            <div><dt>Time to start</dt><dd id="next-countdown">-</dd></div>
+                            <div><dt id="mission-sdr1-countdown-label">Time to start</dt><dd id="next-countdown">-</dd></div>
                             <div><dt>Maximum</dt><dd id="next-maximum">-</dd></div>
                             <div><dt>End</dt><dd id="next-end">-</dd></div>
                             <div><dt>Maximum elevation</dt><dd id="next-elevation">-</dd></div>
@@ -150,11 +150,11 @@
                         <div class="mission-progress"><div class="mission-progress-bar" id="mission-sdr2-progress-bar"></div></div>
                     </div>
                     <div class="mission-next-pass-v034">
-                        <span class="mission-next-pass-label-v034">NEXT PASS</span>
+                        <span class="mission-next-pass-label-v034" id="mission-sdr2-pass-label">NEXT PASS</span>
                         <strong class="mission-next-pass-name-v034" id="mission-sdr2-next-name">No pass</strong>
                         <dl class="mission-next-pass-list-v034">
                             <div><dt>Start</dt><dd id="mission-sdr2-next-start">-</dd></div>
-                            <div><dt>Time to start</dt><dd id="mission-sdr2-next-countdown">-</dd></div>
+                            <div><dt id="mission-sdr2-countdown-label">Time to start</dt><dd id="mission-sdr2-next-countdown">-</dd></div>
                             <div><dt>Maximum</dt><dd id="mission-sdr2-next-maximum">-</dd></div>
                             <div><dt>End</dt><dd id="mission-sdr2-next-end">-</dd></div>
                             <div><dt>Maximum elevation</dt><dd id="mission-sdr2-next-elevation">-</dd></div>
@@ -256,7 +256,6 @@
                 </div>
             </div>
             <div class="system-mission-tools-grid">
-                <button class="control-button" data-action="update_tle">🌍 Update TLE</button>
                 <button class="control-button" data-action="simulate_record">🛰 Simulate Recording</button>
                 <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Reset Mission</button>
             </div>
@@ -543,7 +542,8 @@
                 <p class="muted">Satellite pass eligibility, receiver planning and mission decisions.</p>
             </div>
             <div class="mission-planner-header-actions">
-                <button id="mission-planner-refresh" type="button" class="control-button">↻ Refresh planning</button>
+                <span id="mission-planner-tle-status" class="mission-planner-tle-status">TLE status loading...</span>
+                <button id="mission-planner-refresh" type="button" class="control-button">↻ Refresh TLE &amp; planning</button>
             </div>
         </section>
 
@@ -556,17 +556,51 @@
 
         <section class="card mission-planner-settings">
             <div class="mission-planner-settings-copy">
-                <h2>Planning Settings</h2>
-                <p class="muted">Passes below the configured maximum elevation are excluded before they reach the Mission Queue.</p>
+                <h2>Pass-window settings</h2>
+                <p class="muted">Each satellite has its own peak gate, rising start angle and falling close angle. Values use the configured station location.</p>
             </div>
             <form id="mission-planner-settings-form" class="mission-planner-settings-form">
-                <label>Minimum elevation
-                    <span class="mission-planner-input">
-                        <input id="mission-planner-minimum-elevation" type="number" min="5" max="90" step="1" value="40" required>
-                        <span>°</span>
-                    </span>
-                </label>
-                <button type="submit" class="control-button">Save setting</button>
+                <div class="mission-planner-profile-grid">
+                    <fieldset class="mission-planner-profile" data-planning-profile="meteor_m2_3">
+                        <legend>METEOR-M2 3</legend>
+                        <label>Minimum peak
+                            <span class="mission-planner-input"><input data-planning-field="minimum_peak_elevation" type="number" min="5" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                        <label>Begin rising
+                            <span class="mission-planner-input"><input data-planning-field="begin_elevation" type="number" min="0" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                        <label>Close falling
+                            <span class="mission-planner-input"><input data-planning-field="close_elevation" type="number" min="0" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                    </fieldset>
+                    <fieldset class="mission-planner-profile" data-planning-profile="meteor_m2_4">
+                        <legend>METEOR-M2 4</legend>
+                        <label>Minimum peak
+                            <span class="mission-planner-input"><input data-planning-field="minimum_peak_elevation" type="number" min="5" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                        <label>Begin rising
+                            <span class="mission-planner-input"><input data-planning-field="begin_elevation" type="number" min="0" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                        <label>Close falling
+                            <span class="mission-planner-input"><input data-planning-field="close_elevation" type="number" min="0" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                    </fieldset>
+                    <fieldset class="mission-planner-profile" data-planning-profile="iss_voice">
+                        <legend>ISS Voice</legend>
+                        <label>Minimum peak
+                            <span class="mission-planner-input"><input data-planning-field="minimum_peak_elevation" type="number" min="5" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                        <label>Begin rising
+                            <span class="mission-planner-input"><input data-planning-field="begin_elevation" type="number" min="0" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                        <label>Close falling
+                            <span class="mission-planner-input"><input data-planning-field="close_elevation" type="number" min="0" max="90" step="0.1" required><span>°</span></span>
+                        </label>
+                    </fieldset>
+                </div>
+                <div class="mission-planner-settings-actions">
+                    <button type="submit" class="control-button">Save pass windows</button>
+                </div>
             </form>
         </section>
 
@@ -574,7 +608,7 @@
             <div class="mission-planner-table-wrap">
                 <table class="mission-planner-table">
                     <thead><tr>
-                        <th>Satellite</th><th>Start</th><th>Max elevation</th><th>Frequency</th>
+                        <th>Satellite</th><th>Pass window</th><th>Max elevation</th><th>Frequency</th>
                         <th>Receiver</th><th>Quality</th><th>Decision</th><th>Reason</th>
                     </tr></thead>
                     <tbody id="mission-planner-table-body">
@@ -924,13 +958,12 @@
 <script src="/static/js/radio.js?v=0.47.1a"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.35.4"></script>
 <script src="/static/js/mission_monitor.js?v=0.24.1"></script>
-<script src="/static/js/weather_planning.js"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.23.2c"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/mission_cards_v034.js?v=0.45.1"></script>
 <script src="/static/js/radio_view.js?v=0.23.3a1"></script>
-<script src="/static/js/mission_planner.js?v=0.24.0"></script>
+<script src="/static/js/mission_planner.js?v=0.54.0d"></script>
 </body>
 </html>

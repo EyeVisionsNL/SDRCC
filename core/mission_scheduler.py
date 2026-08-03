@@ -80,6 +80,7 @@ def _serialize_pass(pass_data):
     frequency = pass_data.get("frequency")
 
     return {
+        "queue_key": mission_planner.pass_key(pass_data),
         "plugin_id": pass_data.get("plugin_id", "weather"),
         "mission_type": pass_data.get("mission_type", "weather"),
         "receiver_role": pass_data.get("receiver_role", "weather"),
@@ -109,6 +110,16 @@ def _serialize_pass(pass_data):
         "mode": pass_data.get("mode"),
         "decoder": pass_data.get("decoder"),
         "min_elevation": pass_data.get("min_elevation"),
+        "minimum_peak_elevation": pass_data.get("minimum_peak_elevation"),
+        "begin_elevation": pass_data.get("begin_elevation"),
+        "close_elevation": pass_data.get("close_elevation"),
+        "planning_profile_id": pass_data.get("planning_profile_id"),
+        "planning_decision": pass_data.get("planning_decision"),
+        "planning_reason": pass_data.get("planning_reason"),
+        "norad_id": pass_data.get("norad_id"),
+        "tle_source": pass_data.get("tle_source"),
+        "tle_epoch": pass_data.get("tle_epoch"),
+        "tle_sha256": pass_data.get("tle_sha256"),
     }
 
 

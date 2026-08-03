@@ -2,6 +2,8 @@ import {setText, formatCountdown} from "./utils.js";
 
 const RECEIVERS = ["SDR1", "SDR2"];
 const nextPassEpoch = {SDR1: null, SDR2: null};
+const passEndEpoch = {SDR1: null, SDR2: null};
+const passStatus = {SDR1: "", SDR2: ""};
 let serverOffsetSeconds = 0;
 let missionQueueAuthoritative = false;
 
@@ -14,6 +16,8 @@ const ids = {
         nextName: "next-name",
         nextStart: "next-start",
         nextCountdown: "next-countdown",
+        countdownLabel: "mission-sdr1-countdown-label",
+        passLabel: "mission-sdr1-pass-label",
         nextMaximum: "next-maximum",
         nextEnd: "next-end",
         nextElevation: "next-elevation",
@@ -30,6 +34,8 @@ const ids = {
         nextName: "mission-sdr2-next-name",
         nextStart: "mission-sdr2-next-start",
         nextCountdown: "mission-sdr2-next-countdown",
+        countdownLabel: "mission-sdr2-countdown-label",
+        passLabel: "mission-sdr2-pass-label",
         nextMaximum: "mission-sdr2-next-maximum",
         nextEnd: "mission-sdr2-next-end",
         nextElevation: "mission-sdr2-next-elevation",
@@ -150,6 +156,10 @@ export function updateMissionEngine(mission) {
 function clearNextPass(receiver) {
     const target = ids[receiver];
     nextPassEpoch[receiver] = null;
+    passEndEpoch[receiver] = null;
+    passStatus[receiver] = "";
+    setText(target.passLabel, "NEXT PASS");
+    setText(target.countdownLabel, "Time to start");
     setText(target.nextName, "No pass");
     [target.nextStart, target.nextCountdown, target.nextMaximum, target.nextEnd,
         target.nextElevation, target.nextAzimuth, target.nextFrequency,
@@ -159,6 +169,8 @@ function clearNextPass(receiver) {
 function renderNextPass(receiver, pass) {
     const target = ids[receiver];
     nextPassEpoch[receiver] = Number(pass.start_epoch || 0) || null;
+    passEndEpoch[receiver] = Number(pass.end_epoch || 0) || null;
+    passStatus[receiver] = String(pass.status || "QUEUED").toUpperCase();
     setText(target.nextName, pass.name || pass.satellite || "-");
     setText(target.nextStart, pass.start || "-");
     setText(target.nextMaximum, pass.maximum || "-");
@@ -177,8 +189,11 @@ export function updateMissionQueueVisibility(payload) {
     for (const item of queue) {
         if (!item || item.skipped) continue;
         const receiver = passReceiver(item);
-        if (!receiver || nextByReceiver[receiver]) continue;
-        nextByReceiver[receiver] = item;
+        if (!receiver) continue;
+        const active = ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(String(item.status || "").toUpperCase());
+        const current = nextByReceiver[receiver];
+        const currentActive = current && ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(String(current.status || "").toUpperCase());
+        if (!current || (active && !currentActive)) nextByReceiver[receiver] = item;
     }
 
     RECEIVERS.forEach(receiver => {
@@ -217,6 +232,17 @@ export function updateCountdown() {
     const estimatedServerNow = browserNow + serverOffsetSeconds;
     RECEIVERS.forEach(receiver => {
         const epoch = nextPassEpoch[receiver];
+        const endEpoch = passEndEpoch[receiver];
+        const geometryActive = Boolean(epoch && endEpoch && estimatedServerNow >= epoch && estimatedServerNow < endEpoch);
+        const statusActive = ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(passStatus[receiver]);
+        if (geometryActive || statusActive) {
+            setText(ids[receiver].passLabel, "ACTIVE PASS");
+            setText(ids[receiver].countdownLabel, "Remaining");
+            setText(ids[receiver].nextCountdown, endEpoch ? formatCountdown(endEpoch - estimatedServerNow) : "NU / ACTIEF");
+            return;
+        }
+        setText(ids[receiver].passLabel, "NEXT PASS");
+        setText(ids[receiver].countdownLabel, "Time to start");
         setText(ids[receiver].nextCountdown, epoch ? formatCountdown(epoch - estimatedServerNow) : "-");
     });
 }

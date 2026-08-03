@@ -17,7 +17,7 @@ iss_voice:
   iq_filename: recording.iq
   metadata_filename: capture.json
   output_format: wav
-  minimum_elevation: 20.0
+  minimum_elevation: 40.0
   planning_priority: 3
   execution_backend_enabled: true
   execution_enabled: true
@@ -28,3 +28,7 @@ iss_voice:
   offline_demodulation_enabled: true
   audio_filename: audio.wav
   audio_deemphasis_us: 75.0
+  planning:
+    minimum_peak_elevation: 40.0
+    begin_elevation: 10.0
+    close_elevation: 35.0

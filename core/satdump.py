@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
+from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 
 from core import mission_result
@@ -113,7 +114,20 @@ def check_recording_allowed():
     return True, "OK"
 
 
-def build_record_command():
+def _normalize_planned_pass(pass_data):
+    item = deepcopy(pass_data)
+    for field in ("start", "maximum", "end"):
+        if hasattr(item.get(field), "timestamp"):
+            continue
+        epoch = item.get(f"{field}_epoch")
+        if epoch is None:
+            raise ValueError(f"Planned pass has no {field} time")
+        item[field] = datetime.fromtimestamp(int(epoch), tz=timezone.utc)
+    item.setdefault("duration_seconds", int((item["end"] - item["start"]).total_seconds()))
+    return item
+
+
+def build_record_command(pass_data=None):
     allowed, reason = check_recording_allowed()
 
     if not allowed:
@@ -122,7 +136,7 @@ def build_record_command():
             "reason": reason,
         }
 
-    next_pass = passes.get_next_pass()
+    next_pass = _normalize_planned_pass(pass_data) if pass_data is not None else passes.get_next_pass()
 
     if next_pass is None:
         return None
@@ -135,7 +149,7 @@ def build_record_command():
     output_path = OUTPUT_DIR / folder_name
 
     duration = next_pass["end"] - next_pass["start"]
-    timeout_seconds = int(duration.total_seconds()) + 60
+    timeout_seconds = max(1, int(duration.total_seconds()))
 
     command = [
         "satdump",
@@ -178,6 +192,26 @@ def build_record_command():
         "rf": rf,
         "command": command,
     }
+
+
+def align_timeout_to_pass_end(record_data, *, now_epoch=None):
+    """Keep SatDump bounded by the immutable falling-edge end time."""
+    data = record_data
+    pass_data = data.get("pass") or {}
+    end = pass_data.get("end")
+    end_epoch = int(end.timestamp()) if hasattr(end, "timestamp") else int(pass_data.get("end_epoch") or 0)
+    current_epoch = int(datetime.now(timezone.utc).timestamp()) if now_epoch is None else int(now_epoch)
+    remaining = max(1, end_epoch - current_epoch)
+    command = list(data.get("command") or [])
+    if "--timeout" not in command:
+        raise ValueError("SatDump command has no timeout argument")
+    timeout_index = command.index("--timeout") + 1
+    if timeout_index >= len(command):
+        raise ValueError("SatDump timeout argument has no value")
+    command[timeout_index] = str(remaining)
+    data["command"] = command
+    data["timeout_seconds"] = remaining
+    return data
 
 
 def print_record_preview():

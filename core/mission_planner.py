@@ -17,7 +17,7 @@ from core.config import get_assignment, get_enabled_satellites
 
 ROOT = Path(__file__).resolve().parent.parent
 ISS_CONFIG_FILE = ROOT / "config" / "iss_voice.yaml"
-VERSION = "0.48.0b"
+VERSION = "0.54.0d"
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -28,15 +28,32 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 
 def get_policy() -> dict[str, Any]:
-    """Return the single planning policy used by every mission provider."""
+    """Return the per-satellite policy used by all planning providers."""
     settings = weather_planning.get_config()
     return {
-        "minimum_elevation": float(settings["minimum_elevation"]),
+        "version": settings["version"],
+        "scope": "per_satellite",
+        "profiles": settings["profiles"],
         "minimum_allowed": float(settings["minimum_allowed"]),
+        "angle_minimum_allowed": float(settings["angle_minimum_allowed"]),
         "maximum_allowed": float(settings["maximum_allowed"]),
-        "source": "config/station.yaml:weather_planning.minimum_elevation",
-        "scope": "all_mission_types",
+        "source": "config/satellites.yaml + config/iss_voice.yaml",
+        # Compatibility field for older read-only consumers.
+        "minimum_elevation": float(settings["minimum_elevation"]),
     }
+
+
+def pass_key(item: dict[str, Any] | None) -> str | None:
+    """Build the one stable key used by Planner, Queue and execution."""
+    if not item:
+        return None
+    start = item.get("start")
+    if hasattr(start, "timestamp"):
+        epoch = int(start.timestamp())
+    else:
+        epoch = int(item.get("start_epoch") or 0)
+    plugin_id = str(item.get("plugin_id") or item.get("mission_type") or "weather")
+    return f"{plugin_id}:{item.get('name', '-')}:{epoch}"
 
 
 def _weather_candidates(hours_ahead: int) -> list[dict[str, Any]]:
@@ -112,28 +129,43 @@ def _apply_policy(
     candidates: list[dict[str, Any]],
     policy: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    minimum = float(policy["minimum_elevation"])
+    profiles = policy["profiles"]
     approved: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
     for raw in candidates:
         item = deepcopy(raw)
+        profile_id = str(item.get("planning_profile_id") or "")
+        profile = profiles.get(profile_id)
+        if not isinstance(profile, dict):
+            item["planning_decision"] = "INVALID_PROFILE"
+            item["planning_reason"] = f"No planning profile exists for {profile_id or 'this pass'}."
+            rejected.append(item)
+            continue
+        minimum = float(profile["minimum_peak_elevation"])
         elevation = float(item.get("max_elevation") or 0.0)
         item["min_elevation"] = minimum
+        item["minimum_peak_elevation"] = minimum
+        item["begin_elevation"] = float(profile["begin_elevation"])
+        item["close_elevation"] = float(profile["close_elevation"])
         item["planning_limit_elevation"] = minimum
-        item["planning_policy_source"] = policy["source"]
+        item["planning_policy_source"] = profile["source"]
 
         if elevation < minimum:
             item["planning_decision"] = "BELOW_LIMIT"
             item["planning_reason"] = (
                 f"Maximum elevation {elevation:.1f}° is below the "
-                f"{minimum:.1f}° station planning limit."
+                f"{minimum:.1f}° {profile['label']} peak limit."
             )
             rejected.append(item)
             continue
 
         item["planning_decision"] = "ELIGIBLE"
-        item["planning_reason"] = "Pass meets the current station planning policy."
+        item["planning_reason"] = (
+            f"Pass meets the {profile['label']} policy; window "
+            f"{item['begin_elevation']:.1f}° rising to "
+            f"{item['close_elevation']:.1f}° falling."
+        )
         approved.append(item)
 
     approved.sort(key=lambda item: item["start"])
@@ -168,6 +200,7 @@ def _build(hours_ahead: int) -> dict[str, Any]:
 def get_sources(hours_ahead: int = 48) -> list[dict[str, Any]]:
     built = _build(hours_ahead)
     policy = built["policy"]
+    profiles = policy["profiles"]
     iss_config = _iss_config()
     iss_status = iss_passes.get_status()
     weather_raw = built["providers"]["weather"]
@@ -181,12 +214,15 @@ def get_sources(hours_ahead: int = 48) -> list[dict[str, Any]]:
             "execution_enabled": True,
             "receiver_role": "weather",
             "receiver": get_assignment("weather"),
-            "minimum_elevation": policy["minimum_elevation"],
+            "planning_profiles": {
+                key: profiles[key]
+                for key in ("meteor_m2_3", "meteor_m2_4")
+            },
             "candidate_count": built["approved_counts"]["weather"],
             "rejected_count": built["rejected_counts"]["weather"],
             "raw_candidate_count": len(weather_raw),
             "state": "active",
-            "detail": "Existing Weather pass provider using the station planning policy.",
+            "detail": "Weather provider using independent METEOR pass-window profiles.",
         },
         {
             "plugin_id": "iss_voice",
@@ -203,7 +239,7 @@ def get_sources(hours_ahead: int = 48) -> list[dict[str, Any]]:
             "receiver_role": "iss_voice",
             "receiver": get_assignment("iss_voice"),
             "satellite_name": iss_config.get("satellite_name", "ISS (ZARYA)"),
-            "minimum_elevation": policy["minimum_elevation"],
+            "planning_profiles": {"iss_voice": profiles["iss_voice"]},
             "candidate_count": built["approved_counts"]["iss_voice"],
             "rejected_count": built["rejected_counts"]["iss_voice"],
             "raw_candidate_count": len(iss_raw),
