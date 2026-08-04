@@ -60,6 +60,62 @@ def _write_unlocked(payload: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _as_epoch(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.astimezone()
+        return int(parsed.timestamp())
+    except (TypeError, ValueError):
+        return None
+
+
+def _with_timing(payload: dict[str, Any]) -> dict[str, Any]:
+    """Decorate persisted observer data with live, read-only timing fields."""
+    result = dict(payload)
+    if not result.get("active"):
+        return result
+
+    now_epoch = int(datetime.now().astimezone().timestamp())
+    capture_start_epoch = _as_epoch(
+        result.get("capture_started_at") or result.get("started_at")
+    )
+    planned_start_epoch = _as_epoch(result.get("start_epoch"))
+    end_epoch = _as_epoch(result.get("end_epoch"))
+    duration_seconds = max(0, int(result.get("duration_seconds") or 0))
+
+    if end_epoch is None and capture_start_epoch is not None and duration_seconds:
+        end_epoch = capture_start_epoch + duration_seconds
+
+    timing_start = capture_start_epoch or planned_start_epoch
+    elapsed_seconds = (
+        max(0, now_epoch - timing_start) if timing_start is not None else 0
+    )
+    remaining_seconds = (
+        max(0, end_epoch - now_epoch) if end_epoch is not None else None
+    )
+    if timing_start is not None and end_epoch is not None and end_epoch > timing_start:
+        progress = round(
+            max(0.0, min(100.0, (now_epoch - timing_start) * 100 / (end_epoch - timing_start))),
+            1,
+        )
+    else:
+        progress = 0.0
+
+    result.update({
+        "elapsed_seconds": elapsed_seconds,
+        "remaining_seconds": remaining_seconds,
+        "progress": progress,
+        "timing_start_epoch": timing_start,
+        "timing_end_epoch": end_epoch,
+    })
+    return result
+
+
 def _with_file_lock(callback):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     with LOCK_FILE.open("a+", encoding="utf-8") as handle:
@@ -73,7 +129,7 @@ def _with_file_lock(callback):
 def get_status() -> dict[str, Any]:
     """Return the latest executor observation without changing runtime state."""
     with _lock:
-        return _with_file_lock(lambda: dict(_read_unlocked()))
+        return _with_file_lock(lambda: _with_timing(_read_unlocked()))
 
 
 def begin(**fields: Any) -> dict[str, Any]:

@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="/static/css/receiver_inventory.css?v=0.50.0a">
     <link rel="stylesheet" href="/static/css/capture.css">
     <link rel="stylesheet" href="/static/css/log.css">
-    <link rel="stylesheet" href="/static/css/controls.css">
+    <link rel="stylesheet" href="/static/css/controls.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/timeline.css">
     <link rel="stylesheet" href="/static/css/mission.css">
     <link rel="stylesheet" href="/static/css/theme.css">
@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.24.0">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.25.2">
-    <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.43.0c4">
+    <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.51.0">
 </head>
@@ -115,9 +115,9 @@
                     <span class="mission-receiver-badge-v034" id="mission-sdr1-badge">READY</span>
                 </div>
                 <div class="mission-receiver-body-v034">
-                    <div class="mission-receiver-state-v034">
+                    <div class="mission-receiver-state-v034" aria-live="polite">
                         <strong id="mission-phase">READY</strong>
-                        <span id="mission-detail">Mission Engine ready</span>
+                        <span id="mission-detail">Receiver ready</span>
                         <div class="mission-progress"><div class="mission-progress-bar" id="mission-progress-bar"></div></div>
                     </div>
                     <div class="mission-next-pass-v034">
@@ -144,9 +144,9 @@
                     <span class="mission-receiver-badge-v034" id="mission-sdr2-badge">READY</span>
                 </div>
                 <div class="mission-receiver-body-v034">
-                    <div class="mission-receiver-state-v034">
+                    <div class="mission-receiver-state-v034" aria-live="polite">
                         <strong id="mission-sdr2-phase">READY</strong>
-                        <span id="mission-sdr2-detail">Mission Engine ready</span>
+                        <span id="mission-sdr2-detail">Receiver ready</span>
                         <div class="mission-progress"><div class="mission-progress-bar" id="mission-sdr2-progress-bar"></div></div>
                     </div>
                     <div class="mission-next-pass-v034">
@@ -951,7 +951,7 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/dashboard.js"></script>
+<script src="/static/dashboard.js?v=0.54.0e"></script>
 <script src="/static/js/receiver_inventory.js?v=0.50.0a"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/mission_recordings.js?v=0.53.1-r2"></script>
@@ -962,7 +962,6 @@
 <script src="/static/js/mission_sounds.js?v=0.23.2c"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
-<script src="/static/js/mission_cards_v034.js?v=0.45.1"></script>
 <script src="/static/js/radio_view.js?v=0.23.3a1"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0d"></script>
 </body>

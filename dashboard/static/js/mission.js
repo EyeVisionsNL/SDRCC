@@ -4,11 +4,15 @@ const RECEIVERS = ["SDR1", "SDR2"];
 const nextPassEpoch = {SDR1: null, SDR2: null};
 const passEndEpoch = {SDR1: null, SDR2: null};
 const passStatus = {SDR1: "", SDR2: ""};
+const visiblePass = {SDR1: null, SDR2: null};
 let serverOffsetSeconds = 0;
 let missionQueueAuthoritative = false;
+let dashboardSnapshot = {mission: {}, iss_voice: {}};
+let operationsSnapshot = null;
 
 const ids = {
     SDR1: {
+        card: "mission-sdr1-card",
         badge: "mission-sdr1-badge",
         phase: "mission-phase",
         detail: "mission-detail",
@@ -27,6 +31,7 @@ const ids = {
         nextPipeline: "next-pipeline"
     },
     SDR2: {
+        card: "mission-sdr2-card",
         badge: "mission-sdr2-badge",
         phase: "mission-sdr2-phase",
         detail: "mission-sdr2-detail",
@@ -48,9 +53,9 @@ const ids = {
 
 function normalizeReceiver(...values) {
     for (const value of values) {
-        const normalized = String(value || "").trim().toUpperCase().replaceAll("_", "");
-        if (normalized.includes("SDR1") || normalized === "1") return "SDR1";
-        if (normalized.includes("SDR2") || normalized === "2") return "SDR2";
+        const normalized = String(value || "").trim().toUpperCase().replaceAll("_", "").replaceAll(" ", "");
+        if (normalized.includes("SDR1") || normalized.includes("RECEIVER01") || normalized === "1") return "SDR1";
+        if (normalized.includes("SDR2") || normalized.includes("RECEIVER02") || normalized === "2") return "SDR2";
     }
     return "";
 }
@@ -70,11 +75,17 @@ function missionReceiver(mission) {
 function passReceiver(pass) {
     return normalizeReceiver(
         pass?.receiver_id,
+        pass?.active_receiver,
+        pass?.reserved_receiver,
         pass?.configured_receiver,
         pass?.receiver,
         pass?.receiver_name,
         pass?.device
     );
+}
+
+function estimatedServerNow() {
+    return Math.floor(Date.now() / 1000) + serverOffsetSeconds;
 }
 
 export function updateServerOffset(serverEpoch) {
@@ -96,14 +107,14 @@ function updateLastMission(mission) {
     const resultElement = document.getElementById("last-mission-result");
 
     if (!result) {
-        setText("last-mission-result", "GEEN RESULTAAT");
+        setText("last-mission-result", "NO RESULT");
         setText("last-mission-satellite", "-");
         setText("last-mission-snr", "-");
         setText("last-mission-frames", "-");
         setText("last-mission-images", "-");
         setText("last-mission-duration", "-");
         setText("last-mission-ended", "-");
-        setText("last-mission-detail", "Nog geen missie-uitkomst beschikbaar.");
+        setText("last-mission-detail", "No mission result available yet.");
         if (resultElement) resultElement.className = "last-mission-result";
         return;
     }
@@ -120,24 +131,148 @@ function updateLastMission(mission) {
     if (resultElement) resultElement.className = `last-mission-result ${resultClass(resultName)}`.trim();
 }
 
-function renderMissionCard(receiver, mission, activeReceiver) {
-    const target = ids[receiver];
-    const active = Boolean(mission?.active_job) && activeReceiver === receiver;
-    const phase = active ? (mission.phase || mission.state || "ACTIVE") : "READY";
-    const detail = active ? (mission.detail || "Mission active") : "No active mission";
-    const progress = active ? Number(mission.progress || 0) : 0;
+function runtimeForReceiver(receiver) {
+    const summary = operationsSnapshot?.summary;
+    if (summary?.active && normalizeReceiver(summary.receiver, summary.receiver_id) === receiver) {
+        return {
+            active: true,
+            phase: summary.status || operationsSnapshot?.state || "ACTIVE",
+            detail: summary.detail || "Mission active",
+            progress: summary.progress,
+            remainingSeconds: summary.remaining_seconds,
+            source: summary.mission_type || summary.plugin_id || "mission_operations"
+        };
+    }
 
-    setText(target.badge, String(phase).toUpperCase());
+    const iss = dashboardSnapshot.iss_voice || {};
+    if (iss.active && normalizeReceiver(iss.receiver_id, iss.receiver) === receiver) {
+        return {
+            active: true,
+            phase: iss.phase || "ACTIVE",
+            detail: iss.detail || "ISS Voice mission active",
+            progress: iss.progress,
+            remainingSeconds: iss.remaining_seconds,
+            source: "iss_voice"
+        };
+    }
+
+    const mission = dashboardSnapshot.mission || {};
+    if (mission.active_job && missionReceiver(mission) === receiver) {
+        return {
+            active: true,
+            phase: mission.phase || mission.state || mission.active_job.status || "ACTIVE",
+            detail: mission.detail || mission.active_job.detail || "Mission active",
+            progress: mission.progress ?? mission.active_job.progress,
+            remainingSeconds: null,
+            source: "mission_engine"
+        };
+    }
+
+    const pass = visiblePass[receiver];
+    const activeStatus = ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(
+        String(pass?.status || "").toUpperCase()
+    );
+    if (activeStatus) {
+        return {
+            active: true,
+            phase: pass.live_mission_status || "ACTIVE",
+            detail: `${pass.name || "Mission"} active on ${receiver}`,
+            progress: null,
+            remainingSeconds: pass.end_epoch ? Math.max(0, Number(pass.end_epoch) - estimatedServerNow()) : null,
+            source: "mission_queue"
+        };
+    }
+    return null;
+}
+
+function geometryProgress(pass) {
+    const start = Number(pass?.start_epoch);
+    const end = Number(pass?.end_epoch);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+    return Math.max(0, Math.min(100, (estimatedServerNow() - start) * 100 / (end - start)));
+}
+
+function phaseTone(phase) {
+    const normalized = String(phase || "").toUpperCase();
+    if (normalized === "RECORDING") return "recording";
+    if (["FAILED", "ERROR", "CANCELLED"].includes(normalized)) return "failed";
+    if (["DECODING", "PROCESSING", "ARCHIVING", "DEMODULATING", "FINALIZING"].includes(normalized)) return "processing";
+    return "active";
+}
+
+function blockedCopy(pass) {
+    const blocker = pass?.blocked_by_name || "another mission";
+    const blockerReceiver = pass?.blocked_by_receiver || "another receiver";
+    if (pass?.conflict_scope === "receiver") {
+        return `${pass.receiver || "This receiver"} is already reserved by ${blocker}.`;
+    }
+    return `Mission Automation is busy with ${blocker} on ${blockerReceiver}.`;
+}
+
+function applyCardTone(receiver, tone) {
+    const target = ids[receiver];
+    const card = document.getElementById(target.card);
+    const badge = document.getElementById(target.badge);
+    const classes = ["is-ready", "is-next", "is-active", "is-recording", "is-processing", "is-blocked", "is-failed"];
+    if (card) {
+        card.classList.remove(...classes);
+        card.classList.add(`is-${tone}`);
+    }
+    if (badge) {
+        badge.classList.remove(...classes);
+        badge.classList.add(`is-${tone}`);
+    }
+}
+
+function renderMissionCard(receiver) {
+    const target = ids[receiver];
+    const runtime = runtimeForReceiver(receiver);
+    const pass = visiblePass[receiver];
+    let phase = "READY";
+    let badge = "READY";
+    let detail = pass ? "Receiver ready for the scheduled mission" : "No active mission";
+    let progress = 0;
+    let tone = pass ? "next" : "ready";
+
+    if (runtime?.active) {
+        phase = String(runtime.phase || "ACTIVE").toUpperCase();
+        badge = phase;
+        detail = runtime.detail || "Mission active";
+        const passProgress = geometryProgress(pass);
+        progress = Number.isFinite(passProgress) ? passProgress : Number(runtime.progress || 0);
+        tone = phaseTone(phase);
+    } else if (String(pass?.status || "").toUpperCase() === "BLOCKED") {
+        const now = estimatedServerNow();
+        const start = Number(pass.start_epoch || 0);
+        const end = Number(pass.end_epoch || 0);
+        const missedStart = start > 0 && now >= start && (!end || now < end);
+        phase = missedStart ? "NOT STARTED" : "MISSION OVERLAP";
+        badge = "BLOCKED";
+        detail = missedStart
+            ? `Not started because it overlaps another mission. ${blockedCopy(pass)}`
+            : blockedCopy(pass);
+        tone = "blocked";
+    }
+
+    setText(target.badge, badge);
     setText(target.phase, phase);
     setText(target.detail, detail);
     const bar = document.getElementById(target.progress);
     if (bar) bar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+    applyCardTone(receiver, tone);
 }
 
-export function updateMissionEngine(mission) {
-    if (!mission) return;
-    const activeReceiver = missionReceiver(mission);
-    RECEIVERS.forEach(receiver => renderMissionCard(receiver, mission, activeReceiver));
+function renderMissionCards() {
+    RECEIVERS.forEach(renderMissionCard);
+}
+
+export function updateMissionEngine(data) {
+    if (!data) return;
+    dashboardSnapshot = data.mission
+        ? {mission: data.mission || {}, iss_voice: data.iss_voice || {}}
+        : {mission: data, iss_voice: dashboardSnapshot.iss_voice || {}};
+    const mission = dashboardSnapshot.mission;
+    renderMissionCards();
     updateLastMission(mission);
 
     const stepsBox = document.getElementById("mission-steps");
@@ -158,6 +293,7 @@ function clearNextPass(receiver) {
     nextPassEpoch[receiver] = null;
     passEndEpoch[receiver] = null;
     passStatus[receiver] = "";
+    visiblePass[receiver] = null;
     setText(target.passLabel, "NEXT PASS");
     setText(target.countdownLabel, "Time to start");
     setText(target.nextName, "No pass");
@@ -171,6 +307,7 @@ function renderNextPass(receiver, pass) {
     nextPassEpoch[receiver] = Number(pass.start_epoch || 0) || null;
     passEndEpoch[receiver] = Number(pass.end_epoch || 0) || null;
     passStatus[receiver] = String(pass.status || "QUEUED").toUpperCase();
+    visiblePass[receiver] = pass;
     setText(target.nextName, pass.name || pass.satellite || "-");
     setText(target.nextStart, pass.start || "-");
     setText(target.nextMaximum, pass.maximum || "-");
@@ -207,9 +344,6 @@ export function updateMissionQueueVisibility(payload) {
 }
 
 export function updateNextPass(data) {
-    // Once Mission Queue has loaded, it is the authoritative source for
-    // per-receiver mission visibility. Keep this compatibility path only
-    // for the initial dashboard render before the queue response arrives.
     if (missionQueueAuthoritative) {
         updateCountdown();
         return;
@@ -227,22 +361,62 @@ export function updateNextPass(data) {
     updateCountdown();
 }
 
+function applyCountdownTone(receiver, tone) {
+    const target = ids[receiver];
+    const label = document.getElementById(target.passLabel);
+    const countdown = document.getElementById(target.nextCountdown);
+    const classes = ["is-next", "is-active", "is-blocked"];
+    for (const node of [label, countdown]) {
+        if (!node) continue;
+        node.classList.remove(...classes);
+        node.classList.add(`is-${tone}`);
+    }
+}
+
 export function updateCountdown() {
-    const browserNow = Math.floor(Date.now() / 1000);
-    const estimatedServerNow = browserNow + serverOffsetSeconds;
+    const now = estimatedServerNow();
     RECEIVERS.forEach(receiver => {
         const epoch = nextPassEpoch[receiver];
         const endEpoch = passEndEpoch[receiver];
-        const geometryActive = Boolean(epoch && endEpoch && estimatedServerNow >= epoch && estimatedServerNow < endEpoch);
+        const blocked = passStatus[receiver] === "BLOCKED";
+        const geometryActive = Boolean(epoch && endEpoch && now >= epoch && now < endEpoch);
         const statusActive = ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(passStatus[receiver]);
+
+        if (blocked) {
+            setText(ids[receiver].passLabel, geometryActive ? "NOT STARTED" : "MISSION OVERLAP");
+            setText(ids[receiver].countdownLabel, geometryActive ? "Window closes" : "Starts in");
+            setText(
+                ids[receiver].nextCountdown,
+                geometryActive && endEpoch
+                    ? formatCountdown(endEpoch - now)
+                    : epoch ? formatCountdown(epoch - now) : "-"
+            );
+            applyCountdownTone(receiver, "blocked");
+            return;
+        }
         if (geometryActive || statusActive) {
             setText(ids[receiver].passLabel, "ACTIVE PASS");
             setText(ids[receiver].countdownLabel, "Remaining");
-            setText(ids[receiver].nextCountdown, endEpoch ? formatCountdown(endEpoch - estimatedServerNow) : "NU / ACTIEF");
+            setText(ids[receiver].nextCountdown, endEpoch ? formatCountdown(endEpoch - now) : "NOW / ACTIVE");
+            applyCountdownTone(receiver, "active");
             return;
         }
         setText(ids[receiver].passLabel, "NEXT PASS");
         setText(ids[receiver].countdownLabel, "Time to start");
-        setText(ids[receiver].nextCountdown, epoch ? formatCountdown(epoch - estimatedServerNow) : "-");
+        setText(ids[receiver].nextCountdown, epoch ? formatCountdown(epoch - now) : "-");
+        applyCountdownTone(receiver, "next");
     });
+    renderMissionCards();
+}
+
+function updateOperationsSnapshot(snapshot) {
+    if (!snapshot || snapshot.loading) return;
+    operationsSnapshot = snapshot;
+    renderMissionCards();
+}
+
+if (window.MissionState?.subscribe) {
+    window.MissionState.subscribe(updateOperationsSnapshot);
+} else {
+    window.addEventListener("sdrcc:mission-state", event => updateOperationsSnapshot(event.detail));
 }

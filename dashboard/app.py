@@ -808,6 +808,7 @@ def get_dashboard_data():
         "latest_capture": latest_capture,
         "recent_captures": captures,
         "mission": mission,
+        "iss_voice": iss_runtime,
         "scheduler": scheduler,
         "actions": [{"id": action_id, "label": data["label"]} for action_id, data in ACTIONS.items()],
     }
@@ -2547,14 +2548,27 @@ def api_mission_queue():
         hours = request.args.get("hours", default=48, type=int) or 48
         target = autopilot_runtime.get("target_pass") or {}
         target_key = mission_queue_core.get_pass_key(target)
-        active_key = target_key if target_key and autopilot_runtime.get("record_started") else None
+        iss_runtime = iss_voice_runtime.get_status()
+        iss_active_key = (
+            str(iss_runtime.get("queue_key") or "").strip()
+            if iss_runtime.get("active")
+            else None
+        )
+        active_key = iss_active_key or (
+            target_key
+            if target_key and autopilot_runtime.get("record_started")
+            else None
+        )
 
         mission_status = mission_engine_core.get_mission_status()
-        live_status = str(
-            mission_status.get("phase")
-            or mission_status.get("state")
-            or "WAITING"
-        ).upper()
+        if iss_runtime.get("active"):
+            live_status = str(iss_runtime.get("phase") or "RECORDING").upper()
+        else:
+            live_status = str(
+                mission_status.get("phase")
+                or mission_status.get("state")
+                or "WAITING"
+            ).upper()
         return jsonify(mission_queue_core.get_payload(
             limit=limit,
             hours_ahead=hours,

@@ -153,18 +153,89 @@ def _serialize(item: dict[str, Any], override: dict[str, Any], base_priority: in
         "skipped": bool(override.get("skipped", False)),
         "quality": _quality(item.get("max_elevation", 0), duration),
         "conflict_with": [],
+        "conflicts": [],
+        "blocked_by": None,
+        "blocked_by_name": None,
+        "blocked_by_receiver": None,
+        "blocking": [],
+        "conflict_scope": None,
+        "overlap_seconds": 0,
+        "overlap_warning": False,
         "status": "QUEUED",
     }
 
 
-def _apply_conflicts(queue: list[dict[str, Any]]) -> None:
-    for index, item in enumerate(queue):
-        for other in queue[index + 1:]:
-            overlaps = item["start_epoch"] < other["end_epoch"] and other["start_epoch"] < item["end_epoch"]
-            same_receiver = bool(item.get("receiver")) and item.get("receiver") == other.get("receiver")
-            if overlaps and same_receiver:
-                item["conflict_with"].append(other["queue_key"])
-                other["conflict_with"].append(item["queue_key"])
+def _overlap_seconds(first: dict[str, Any], second: dict[str, Any]) -> int:
+    return max(
+        0,
+        min(int(first["end_epoch"]), int(second["end_epoch"]))
+        - max(int(first["start_epoch"]), int(second["start_epoch"])),
+    )
+
+
+def _apply_conflicts(
+    queue: list[dict[str, Any]],
+    *,
+    active_pass_key: str | None = None,
+) -> None:
+    """Project the single automation lane onto the planned queue.
+
+    Receiver identity remains visible in the conflict metadata, but SDRCC's
+    current automation runtime can start only one mission at a time. The first
+    chronological mission therefore keeps its normal NEXT/TARGET/ACTIVE state;
+    only a later overlapping mission becomes BLOCKED. An actually active pass
+    always wins over chronological projection.
+    """
+    candidates = [item for item in queue if not item.get("skipped")]
+    active = next(
+        (item for item in candidates if item.get("queue_key") == active_pass_key),
+        None,
+    )
+    accepted: list[dict[str, Any]] = [active] if active is not None else []
+
+    for item in candidates:
+        if item is active:
+            continue
+        blocker = next(
+            (
+                accepted_item
+                for accepted_item in accepted
+                if _overlap_seconds(accepted_item, item) > 0
+            ),
+            None,
+        )
+        if blocker is None:
+            accepted.append(item)
+            accepted.sort(key=lambda value: (value["start_epoch"], value["queue_key"]))
+            continue
+
+        overlap = _overlap_seconds(blocker, item)
+        same_receiver = bool(item.get("receiver")) and item.get("receiver") == blocker.get("receiver")
+        scope = "receiver" if same_receiver else "mission_engine"
+        blocker["conflict_with"].append(item["queue_key"])
+        blocker["blocking"].append(item["queue_key"])
+        blocker["conflicts"].append({
+            "queue_key": item["queue_key"],
+            "name": item.get("name"),
+            "receiver": item.get("receiver"),
+            "scope": scope,
+            "overlap_seconds": overlap,
+        })
+        blocker["overlap_warning"] = True
+
+        item["conflict_with"].append(blocker["queue_key"])
+        item["conflicts"].append({
+            "queue_key": blocker["queue_key"],
+            "name": blocker.get("name"),
+            "receiver": blocker.get("receiver"),
+            "scope": scope,
+            "overlap_seconds": overlap,
+        })
+        item["blocked_by"] = blocker["queue_key"]
+        item["blocked_by_name"] = blocker.get("name")
+        item["blocked_by_receiver"] = blocker.get("receiver")
+        item["conflict_scope"] = scope
+        item["overlap_seconds"] = overlap
 
 
 def get_queue(
@@ -205,20 +276,20 @@ def get_queue(
         serialized["active_receiver"] = serialized["reserved_receiver"] if reservation_matches and reservation.get("status") == "ACTIVE" else None
         serialized["receiver_status"] = reservation.get("status") if reservation_matches else "CONFIGURED"
         queue.append(serialized)
-    _apply_conflicts(queue)
+    _apply_conflicts(queue, active_pass_key=active_pass_key)
     eligible = [item for item in queue if not item["skipped"]]
     next_key = eligible[0]["queue_key"] if eligible else None
     for item in queue:
         if item["queue_key"] == active_pass_key:
             item["status"] = "IN PROGRESS"
             item["live_mission_status"] = str(controller_status or "RECORDING").upper()
+        elif item["skipped"]:
+            item["status"] = "SKIPPED"
+        elif item["blocked_by"]:
+            item["status"] = "BLOCKED"
         elif item["queue_key"] == target_pass_key:
             item["status"] = "TARGET"
             item["live_mission_status"] = str(controller_status or "WAITING").upper()
-        elif item["skipped"]:
-            item["status"] = "SKIPPED"
-        elif item["conflict_with"]:
-            item["status"] = "CONFLICT"
         elif item["queue_key"] == next_key:
             item["status"] = "NEXT"
         else:
@@ -228,12 +299,22 @@ def get_queue(
             item["decision"] = "SKIPPED"
             item["decision_reason"] = "Manually skipped by the operator."
             item["decision_class"] = "skipped"
-        elif item["conflict_with"]:
-            item["decision"] = "CONFLICT"
-            item["decision_reason"] = (
-                "Receiver conflict with " + ", ".join(item["conflict_with"]) + "."
-            )
-            item["decision_class"] = "conflict"
+        elif item["blocked_by"]:
+            blocker_name = str(item.get("blocked_by_name") or item["blocked_by"])
+            blocker_receiver = str(item.get("blocked_by_receiver") or "another receiver")
+            if item.get("conflict_scope") == "receiver":
+                reason = (
+                    f"{item.get('receiver') or 'The receiver'} is already needed by "
+                    f"{blocker_name}."
+                )
+            else:
+                reason = (
+                    "The single Mission Automation runtime is occupied by "
+                    f"{blocker_name} on {blocker_receiver}."
+                )
+            item["decision"] = "BLOCKED"
+            item["decision_reason"] = reason
+            item["decision_class"] = "blocked"
         elif item["status"] in {"IN PROGRESS"}:
             item["decision"] = "ACTIVE"
             item["decision_reason"] = "Mission is currently active."
@@ -292,7 +373,9 @@ def get_payload(
         "planning_policy": mission_planner.get_policy(),
         "planning_profiles": mission_planner.get_policy()["profiles"],
         "tle_status": tle.get_status(),
-        "conflicts": sum(1 for item in queue if item["status"] == "CONFLICT"),
+        "conflicts": sum(1 for item in queue if item["status"] == "BLOCKED"),
+        "blocked": sum(1 for item in queue if item["status"] == "BLOCKED"),
+        "overlap_warnings": sum(1 for item in queue if item.get("overlap_warning")),
         "skipped": sum(1 for item in queue if item["status"] == "SKIPPED"),
         "queue": queue,
     }

@@ -75,3 +75,65 @@
     font-size:.64rem;
     letter-spacing:-.015em;
 }
+
+/* v0.54.0e - Mission Control status clarity */
+.mission-receiver-card-v034{
+    position:relative;
+    overflow:hidden;
+    border-color:#24364d;
+    background:linear-gradient(180deg,#07101f 0%,#020712 100%);
+    transition:border-color .2s ease,box-shadow .2s ease;
+}
+.mission-receiver-card-v034::before{
+    content:"";
+    position:absolute;
+    inset:0 auto 0 0;
+    width:3px;
+    background:#475569;
+}
+.mission-receiver-card-v034.is-next{border-color:#334155;box-shadow:inset 3px 0 0 #22c55e}
+.mission-receiver-card-v034.is-next::before{background:#22c55e}
+.mission-receiver-card-v034.is-active{border-color:#38bdf8;box-shadow:inset 3px 0 0 #38bdf8}
+.mission-receiver-card-v034.is-active::before{background:#38bdf8}
+.mission-receiver-card-v034.is-recording{border-color:#ef4444;box-shadow:inset 3px 0 0 #ef4444}
+.mission-receiver-card-v034.is-recording::before{background:#ef4444}
+.mission-receiver-card-v034.is-processing{border-color:#f59e0b;box-shadow:inset 3px 0 0 #f59e0b}
+.mission-receiver-card-v034.is-processing::before{background:#f59e0b}
+.mission-receiver-card-v034.is-blocked{border-color:#f59e0b;box-shadow:inset 3px 0 0 #f59e0b;background:linear-gradient(180deg,rgba(245,158,11,.09) 0%,#020712 100%)}
+.mission-receiver-card-v034.is-blocked::before{background:#f59e0b}
+.mission-receiver-card-v034.is-failed{border-color:#ef4444;box-shadow:inset 3px 0 0 #ef4444}
+.mission-receiver-card-v034.is-failed::before{background:#ef4444}
+.mission-receiver-badge-v034{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border-color:#475569;
+    background:#0f172a;
+    color:#94a3b8;
+    letter-spacing:.05em;
+}
+.mission-receiver-badge-v034::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.mission-receiver-badge-v034.is-next{border-color:rgba(34,197,94,.45);color:#86efac}
+.mission-receiver-badge-v034.is-active{border-color:rgba(56,189,248,.55);color:#7dd3fc}
+.mission-receiver-badge-v034.is-recording,.mission-receiver-badge-v034.is-failed{border-color:rgba(239,68,68,.55);color:#fca5a5}
+.mission-receiver-badge-v034.is-processing,.mission-receiver-badge-v034.is-blocked{border-color:rgba(245,158,11,.55);color:#fbbf24}
+.mission-receiver-state-v034{
+    min-height:230px;
+    border-color:#24364d;
+    background:linear-gradient(180deg,#07101f 0%,#020712 100%);
+}
+.mission-receiver-state-v034>strong{font-size:1.65rem;line-height:1.15}
+.mission-receiver-card-v034.is-ready .mission-receiver-state-v034>strong{color:#94a3b8}
+.mission-receiver-card-v034.is-next .mission-receiver-state-v034>strong{color:#86efac}
+.mission-receiver-card-v034.is-active .mission-receiver-state-v034>strong{color:#7dd3fc}
+.mission-receiver-card-v034.is-recording .mission-receiver-state-v034>strong,.mission-receiver-card-v034.is-failed .mission-receiver-state-v034>strong{color:#fca5a5}
+.mission-receiver-card-v034.is-processing .mission-receiver-state-v034>strong,.mission-receiver-card-v034.is-blocked .mission-receiver-state-v034>strong{color:#fbbf24}
+.mission-receiver-card-v034.is-recording .mission-progress-bar{background:#ef4444}
+.mission-receiver-card-v034.is-blocked .mission-progress-bar{background:#f59e0b}
+.mission-next-pass-label-v034.is-next{color:#86efac}
+.mission-next-pass-label-v034.is-active{color:#fca5a5}
+.mission-next-pass-label-v034.is-blocked{color:#fbbf24}
+#next-countdown.is-next,#mission-sdr2-next-countdown.is-next{color:#86efac}
+#next-countdown.is-active,#mission-sdr2-next-countdown.is-active{color:#fca5a5}
+#next-countdown.is-blocked,#mission-sdr2-next-countdown.is-blocked{color:#fbbf24}
+@media(max-width:850px){.mission-receiver-state-v034{min-height:180px}}

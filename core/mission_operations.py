@@ -18,7 +18,7 @@ from core import mission_engine
 from core import mission_scheduler
 from core import receiver_manager
 
-VERSION = "0.53.0a"
+VERSION = "0.54.0e"
 AUTHORITY = "observer_only"
 
 
@@ -89,6 +89,7 @@ def _mission_summary(
             source.get("duration_seconds"),
         ),
         "remaining_seconds": rf.get("remaining_seconds"),
+        "progress": source.get("progress"),
         "peak_snr_db": _coalesce(rf.get("peak_snr_db"), source.get("peak_snr_db")),
         "snr_db": rf.get("snr_db"),
         "ber": rf.get("ber"),
@@ -245,7 +246,8 @@ def get_snapshot() -> dict[str, Any]:
             "started_at": iss.get("started_at"),
             "ended_at": None,
             "duration_seconds": iss.get("elapsed_seconds"),
-            "remaining_seconds": None,
+            "remaining_seconds": iss.get("remaining_seconds"),
+            "progress": iss.get("progress"),
             "output_path": iss.get("output_directory"),
             "receiver_status": "ACTIVE",
             "iq_bytes": audio_monitor.get("iq_bytes"),

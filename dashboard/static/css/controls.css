@@ -106,6 +106,7 @@
     grid-template-areas:
         "top top"
         "title title"
+        "warning warning"
         "details actions";
     gap:7px 8px;
     align-items:end;
@@ -123,8 +124,19 @@
 .mission-queue-item.is-in-progress,
 .mission-queue-item.is-active,
 .mission-queue-item.is-recording{
-    border-color:#22c55e;
-    box-shadow:inset 3px 0 0 #22c55e;
+    border-color:#ef4444;
+    box-shadow:inset 3px 0 0 #ef4444;
+    background:linear-gradient(180deg,rgba(239,68,68,.09) 0%,#020712 100%);
+}
+.mission-queue-item.is-blocked,
+.mission-queue-item.is-conflict,
+.mission-queue-item.has-overlap{
+    border-color:#f59e0b;
+}
+.mission-queue-item.is-blocked,
+.mission-queue-item.is-conflict{
+    box-shadow:inset 3px 0 0 #f59e0b;
+    background:linear-gradient(180deg,rgba(245,158,11,.10) 0%,#020712 100%);
 }
 .mission-queue-topline{
     grid-area:top;
@@ -165,12 +177,23 @@
 .mission-queue-state.is-next::before{
     background:#22c55e;
 }
-.mission-queue-state.is-active{
+.mission-queue-state.is-active,
+.mission-queue-state.is-recording{
     border-color:rgba(248,113,113,.55);
     color:#fca5a5;
 }
-.mission-queue-state.is-active::before{
+.mission-queue-state.is-active::before,
+.mission-queue-state.is-recording::before{
     background:#ef4444;
+}
+.mission-queue-state.is-blocked,
+.mission-queue-state.is-conflict{
+    border-color:rgba(245,158,11,.55);
+    color:#fbbf24;
+}
+.mission-queue-state.is-blocked::before,
+.mission-queue-state.is-conflict::before{
+    background:#f59e0b;
 }
 .mission-queue-state.is-skipped{
     color:#fbbf24;
@@ -220,6 +243,17 @@
     font-weight:800;
     letter-spacing:.03em;
 }
+.mission-queue-warning{
+    grid-area:warning;
+    padding:5px 7px;
+    border:1px solid rgba(245,158,11,.28);
+    border-radius:6px;
+    background:rgba(245,158,11,.07);
+    color:#fbbf24;
+    font-size:.53rem;
+    font-weight:800;
+    line-height:1.25;
+}
 .mission-queue-actions{
     grid-area:actions;
     align-self:end;
@@ -239,6 +273,7 @@
         grid-template-areas:
             "top top"
             "title title"
+            "warning warning"
             "details actions";
     }
     .mission-queue-actions{

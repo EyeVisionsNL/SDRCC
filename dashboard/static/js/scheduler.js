@@ -1,5 +1,5 @@
 import {setText} from "./utils.js";
-import {updateMissionQueueVisibility} from "./mission.js";
+import {updateMissionQueueVisibility} from "./mission.js?v=0.54.0e";
 
 let startEpoch = null;
 let serverOffsetSeconds = 0;
@@ -92,6 +92,13 @@ function pad(value) {
     return String(value).padStart(2, "0");
 }
 
+function formatOverlap(totalSeconds) {
+    let seconds = Math.max(0, Number(totalSeconds) || 0);
+    const minutes = Math.floor(seconds / 60);
+    seconds = Math.floor(seconds % 60);
+    return minutes > 0 ? `${minutes}m ${pad(seconds)}s` : `${seconds}s`;
+}
+
 /* v0.19.0a - Mission Queue */
 let missionQueueBusy = false;
 
@@ -133,14 +140,30 @@ function renderMissionQueue(payload) {
         const frequencyLabel = Number.isFinite(frequency) ? frequency.toFixed(3) : "-";
         const elevation = Number(item.max_elevation);
         const elevationLabel = Number.isFinite(elevation) ? elevation.toFixed(1) : "-";
+        const liveStatus = String(item.live_mission_status || "").toUpperCase();
         const stateLabel = ["TARGET", "NEXT"].includes(rawStatus)
             ? "NEXT"
             : ["IN PROGRESS", "ACTIVE", "RECORDING"].includes(rawStatus)
-                ? "ACTIVE"
+                ? (liveStatus === "RECORDING" ? "RECORDING" : "ACTIVE")
                 : item.skipped
                     ? "SKIPPED"
-                    : "QUEUED";
-        return `<div class="mission-queue-item is-${escapeQueue(classes)}">
+                    : rawStatus === "BLOCKED"
+                        ? "BLOCKED"
+                        : rawStatus === "CONFLICT"
+                            ? "CONFLICT"
+                            : "QUEUED";
+        const warning = rawStatus === "BLOCKED"
+            ? `ENGINE BUSY · ${item.blocked_by_name || "another mission"} on ${item.blocked_by_receiver || "another receiver"} · ${formatOverlap(item.overlap_seconds)} overlap`
+            : item.overlap_warning
+                ? `OVERLAP · ${Number(item.blocking?.length || 0)} mission${Number(item.blocking?.length || 0) === 1 ? "" : "s"} cannot start`
+                : "";
+        const itemClasses = [
+            "mission-queue-item",
+            `is-${classes}`,
+            `is-${stateLabel.toLowerCase()}`,
+            item.overlap_warning ? "has-overlap" : "",
+        ].filter(Boolean).join(" ");
+        return `<div class="${escapeQueue(itemClasses)}">
             <div class="mission-queue-topline">
                 <time class="mission-queue-time">${escapeQueue(start.slice(0, 5))}</time>
                 <span class="mission-queue-state is-${escapeQueue(stateLabel.toLowerCase())}">${escapeQueue(stateLabel)}</span>
@@ -154,6 +177,7 @@ function renderMissionQueue(payload) {
                 <span>▲ ${escapeQueue(elevationLabel)}°</span>
                 <span class="mission-queue-frequency">${escapeQueue(frequencyLabel)} MHz</span>
             </div>
+            ${warning ? `<div class="mission-queue-warning">⚠ ${escapeQueue(warning)}</div>` : ""}
             <div class="mission-queue-actions">
                 <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_down" title="Lower priority">−</button>
                 <button type="button" data-queue-key="${escapeQueue(item.queue_key)}" data-queue-action="priority_up" title="Raise priority">+</button>
@@ -164,7 +188,7 @@ function renderMissionQueue(payload) {
     list.querySelectorAll("[data-queue-action]").forEach(button => {
         button.addEventListener("click", () => updateMissionQueueItem(button.dataset.queueKey, button.dataset.queueAction));
     });
-    setQueueMessage(`${payload.conflicts || 0} conflict(s), ${payload.skipped || 0} skipped.`, "");
+    setQueueMessage(`${payload.blocked || payload.conflicts || 0} blocked, ${payload.skipped || 0} skipped.`, "");
 }
 
 async function updateMissionQueueItem(queueKey, action) {

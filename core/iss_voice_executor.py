@@ -69,6 +69,8 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
             receiver_serial=device.get("serial"), satellite=target.get("name") or cfg.get("satellite_name"),
             frequency_hz=int(cfg["downlink_frequency_hz"]), sample_rate_hz=int(cfg["rf_sample_rate_hz"]),
             duration_seconds=planned_duration, mode=cfg.get("modulation", "NFM"), phase="PREPARING",
+            queue_key=target.get("queue_key"), start_epoch=target.get("start_epoch"),
+            maximum_epoch=target.get("maximum_epoch"), end_epoch=target.get("end_epoch"),
             detail="Preparing receiver for ISS Voice capture",
         )
         conflicts = device_manager.get_conflicting_services(device["id"], exclude_role="iss_voice")
