@@ -8,8 +8,8 @@
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/layout.css">
     <link rel="stylesheet" href="/static/css/cards.css">
-    <link rel="stylesheet" href="/static/css/system.css">
-    <link rel="stylesheet" href="/static/css/receiver_inventory.css?v=0.50.0a">
+    <link rel="stylesheet" href="/static/css/system.css?v=0.54.0f">
+    <link rel="stylesheet" href="/static/css/receiver_inventory.css?v=0.54.0f">
     <link rel="stylesheet" href="/static/css/capture.css">
     <link rel="stylesheet" href="/static/css/log.css">
     <link rel="stylesheet" href="/static/css/controls.css?v=0.54.0e">
@@ -206,75 +206,120 @@
 </section>
 
 <section class="tab-page" id="tab-system">
-    <div class="system-page-v034">
-        <section class="card system-panel compact-card">
-            <h2>🖥 System Status</h2>
-            <div class="system-meter"><div class="system-meter-top"><span>CPU</span><strong id="system-cpu">-</strong></div><div class="bar"><div id="system-cpu-bar"></div></div></div>
-            <div class="system-meter"><div class="system-meter-top"><span>RAM</span><strong id="system-ram">-</strong></div><div class="bar"><div id="system-ram-bar"></div></div></div>
-            <div class="system-meter"><div class="system-meter-top"><span>Disk</span><strong id="system-disk">-</strong></div><div class="bar"><div id="system-disk-bar"></div></div></div>
-            <p class="uptime">⏱ Uptime: <strong id="system-uptime">-</strong></p>
+    <div class="system-page-v0540f">
+        <section class="card system-health-card-v0540f" aria-labelledby="system-health-title">
+            <div class="section-heading-row system-section-heading-v0540f">
+                <div>
+                    <h2 id="system-health-title">🖥 System Health</h2>
+                    <p class="muted">Live resource usage from the SDRCC host.</p>
+                </div>
+                <span class="system-section-badge-v0540f">LIVE METRICS</span>
+            </div>
+            <div class="system-health-grid-v0540f">
+                <article class="system-health-item-v0540f is-loading" id="system-cpu-card">
+                    <div class="system-health-topline-v0540f"><span>CPU</span><span id="system-cpu-state">LOADING</span></div>
+                    <strong id="system-cpu">-</strong>
+                    <div class="bar" aria-hidden="true"><div id="system-cpu-bar"></div></div>
+                </article>
+                <article class="system-health-item-v0540f is-loading" id="system-ram-card">
+                    <div class="system-health-topline-v0540f"><span>RAM</span><span id="system-ram-state">LOADING</span></div>
+                    <strong id="system-ram">-</strong>
+                    <div class="bar" aria-hidden="true"><div id="system-ram-bar"></div></div>
+                </article>
+                <article class="system-health-item-v0540f is-loading" id="system-disk-card">
+                    <div class="system-health-topline-v0540f"><span>DISK</span><span id="system-disk-state">LOADING</span></div>
+                    <strong id="system-disk">-</strong>
+                    <div class="bar" aria-hidden="true"><div id="system-disk-bar"></div></div>
+                </article>
+                <article class="system-health-item-v0540f system-health-uptime-v0540f is-online" id="system-uptime-card">
+                    <div class="system-health-topline-v0540f"><span>UPTIME</span><span>ONLINE</span></div>
+                    <strong id="system-uptime">-</strong>
+                    <small>Since the last host restart</small>
+                </article>
+            </div>
         </section>
         <section class="card receiver-inventory-card compact-card" aria-labelledby="receiver-inventory-title">
-            <div class="section-heading-row">
-                <div><h2 id="receiver-inventory-title">📻 Receiver Inventory</h2><p class="muted">Read-only koppeling tussen fysieke dongel, Receiver Registry, runtime-alias en pluginrollen.</p></div>
+            <div class="section-heading-row system-section-heading-v0540f">
+                <div><h2 id="receiver-inventory-title">📻 Receiver Inventory</h2><p class="muted">Read-only link between physical receivers, Registry identity, runtime aliases and assigned roles.</p></div>
                 <span class="receiver-inventory-badge">REGISTRY AUTHORITY</span>
             </div>
-            <div id="receiver-inventory" class="receiver-inventory-grid" aria-live="polite"><div class="receiver-inventory-empty">Receiver Inventory laden...</div></div>
-            <p id="receiver-inventory-status" class="muted receiver-inventory-status">Bron: Receiver Registry en Receiver Runtime.</p>
+            <div id="receiver-inventory" class="receiver-inventory-grid" aria-live="polite"><div class="receiver-inventory-empty">Loading Receiver Inventory...</div></div>
+            <p id="receiver-inventory-status" class="muted receiver-inventory-status">Source: Receiver Registry and Receiver Runtime.</p>
         </section>
         <section class="card system-service-control-card compact-card" aria-labelledby="system-service-control-title">
-            <div class="section-heading-row">
+            <div class="section-heading-row system-section-heading-v0540f">
                 <div>
                     <h2 id="system-service-control-title">🧩 Service Control</h2>
-                    <p class="muted">Handmatige bediening van de continue AIS- en ADS-B-services.</p>
+                    <p class="muted">Manual control of the continuous AIS and ADS-B receivers.</p>
                 </div>
+                <span class="system-section-badge-v0540f">MANUAL CONTROL</span>
             </div>
             <div class="system-service-controls">
-                <div class="system-service-row">
-                    <div class="system-service-label">
-                        <strong>🚢 AIS</strong>
-                        <span id="ais-status-radio" class="muted">Status laden...</span>
+                <article class="system-service-row is-loading" id="system-service-ais">
+                    <div class="system-service-copy">
+                        <div class="system-service-label">
+                            <strong>🚢 AIS</strong>
+                            <span id="ais-status-radio" class="system-service-state">LOADING</span>
+                        </div>
+                        <small>AIS-Catcher maritime receiver</small>
                     </div>
-                    <button type="button" class="control-button" data-action="start_ais">▶ Start</button>
-                    <button type="button" class="control-button" data-action="stop_ais">■ Stop</button>
-                </div>
-                <div class="system-service-row">
-                    <div class="system-service-label">
-                        <strong>✈ ADS-B</strong>
-                        <span id="adsb-status-radio" class="muted">Status laden...</span>
+                    <div class="system-service-actions">
+                        <button type="button" class="control-button" data-action="start_ais">▶ Start</button>
+                        <button type="button" class="control-button" data-action="stop_ais">■ Stop</button>
                     </div>
-                    <button type="button" class="control-button" data-action="start_adsb">▶ Start</button>
-                    <button type="button" class="control-button" data-action="stop_adsb">■ Stop</button>
-                </div>
+                </article>
+                <article class="system-service-row is-loading" id="system-service-adsb">
+                    <div class="system-service-copy">
+                        <div class="system-service-label">
+                            <strong>✈ ADS-B</strong>
+                            <span id="adsb-status-radio" class="system-service-state">LOADING</span>
+                        </div>
+                        <small>readsb air-traffic receiver</small>
+                    </div>
+                    <div class="system-service-actions">
+                        <button type="button" class="control-button" data-action="start_adsb">▶ Start</button>
+                        <button type="button" class="control-button" data-action="stop_adsb">■ Stop</button>
+                    </div>
+                </article>
             </div>
         </section>
-        <section class="card system-mission-tools-card compact-card" data-control-scope="system" aria-labelledby="system-mission-tools-title">
-            <div class="section-heading-row">
-                <div>
-                    <h2 id="system-mission-tools-title">🛠 Mission Tools</h2>
-                    <p class="muted">TLE-beheer, simulatie en handmatig herstel van de Mission Engine.</p>
-                </div>
+        <details class="card system-maintenance-card-v0540f" data-control-scope="system">
+            <summary class="system-maintenance-summary-v0540f">
+                <span class="system-maintenance-copy-v0540f">
+                    <strong>🛠 Advanced Maintenance</strong>
+                    <small>Simulation, Mission Engine recovery and notification settings</small>
+                </span>
+                <span class="system-maintenance-badge-v0540f">CLOSED BY DEFAULT</span>
+            </summary>
+            <div class="system-maintenance-body-v0540f">
+                <section class="system-maintenance-group-v0540f" aria-labelledby="system-mission-tools-title">
+                    <div class="system-maintenance-heading-v0540f">
+                        <div>
+                            <h3 id="system-mission-tools-title">Mission Engine tools</h3>
+                            <p class="muted">Use only for simulation or recovery of a stalled Mission Engine.</p>
+                        </div>
+                        <span class="system-maintenance-warning-v0540f">OPERATOR ACTION</span>
+                    </div>
+                    <div class="system-mission-tools-grid">
+                        <button class="control-button" data-action="simulate_record">🛰 Simulate Recording</button>
+                        <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Reset Mission Engine</button>
+                    </div>
+                    <p class="control-result" id="system-control-result">No maintenance action started.</p>
+                </section>
+                <section class="system-maintenance-group-v0540f mission-sounds-panel" aria-labelledby="mission-sounds-title">
+                    <div class="mission-sounds-heading">
+                        <div>
+                            <h3 id="mission-sounds-title">Mission notifications</h3>
+                            <p class="muted">Sound alerts and dashboard event notifications.</p>
+                        </div>
+                        <label class="mission-sounds-toggle"><input id="mission-sounds-enabled" type="checkbox"><span>Sound enabled</span></label>
+                    </div>
+                    <label class="mission-sounds-volume" for="mission-sounds-volume"><span>Volume</span><input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35"><strong id="mission-sounds-volume-value">35%</strong></label>
+                    <button class="control-button" id="mission-sounds-test" type="button">🚀 Test start sound</button>
+                    <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
+                </section>
             </div>
-            <div class="system-mission-tools-grid">
-                <button class="control-button" data-action="simulate_record">🛰 Simulate Recording</button>
-                <button class="control-button mission-control-button danger" data-mission-action="reset">↩ Reset Mission</button>
-            </div>
-            <details class="advanced-controls system-mission-advanced">
-                <summary>⚙ Advanced</summary>
-                <p class="muted">Simulatie en reset zijn beheerfuncties. Gebruik Reset Mission alleen wanneer de Mission Engine handmatig moet worden teruggezet.</p>
-            </details>
-            <p class="control-result" id="system-control-result">No system action started.</p>
-        </section>
-        <section class="card mission-sounds-panel compact-card" aria-labelledby="mission-sounds-title">
-            <div class="mission-sounds-heading"><h2 id="mission-sounds-title">🔊 Mission Event Center</h2><label class="mission-sounds-toggle"><input id="mission-sounds-enabled" type="checkbox"><span>Sound enabled</span></label></div>
-            <label class="mission-sounds-volume" for="mission-sounds-volume"><span>Volume</span><input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35"><strong id="mission-sounds-volume-value">35%</strong></label>
-            <button class="control-button" id="mission-sounds-test" type="button">🚀 Test start sound</button>
-            <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
-        </section>
-        <section class="card system-events-card-v034">
-            <h2>📜 System and Mission Events</h2>
-            <p class="muted">Use the existing Logs tab for the full live log. Mission event audio and system health are grouped here.</p>
-        </section>
+        </details>
     </div>
 </section>
 
@@ -951,15 +996,15 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/dashboard.js?v=0.54.0e"></script>
-<script src="/static/js/receiver_inventory.js?v=0.50.0a"></script>
+<script src="/static/dashboard.js?v=0.54.0f"></script>
+<script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/mission_recordings.js?v=0.53.1-r2"></script>
 <script src="/static/js/radio.js?v=0.47.1a"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.35.4"></script>
 <script src="/static/js/mission_monitor.js?v=0.24.1"></script>
 <script src="/static/js/mission_state.js"></script>
-<script src="/static/js/mission_sounds.js?v=0.23.2c"></script>
+<script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.23.3a1"></script>

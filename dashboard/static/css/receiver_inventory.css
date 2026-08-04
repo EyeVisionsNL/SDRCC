@@ -1,16 +1,206 @@
+.receiver-inventory-card {
+    min-width: 0;
+}
 
-.receiver-inventory-card { grid-column: 1 / -1; }
-.receiver-inventory-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:14px; margin-top:12px; }
-.receiver-inventory-item { border:1px solid var(--border-color,rgba(255,255,255,.12)); border-radius:10px; padding:14px; background:rgba(255,255,255,.025); }
-.receiver-inventory-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px; }
-.receiver-inventory-head h3 { margin:0; font-size:1.05rem; }
-.receiver-inventory-serial { font-family:monospace; opacity:.9; }
-.receiver-inventory-state,.receiver-inventory-badge { display:inline-flex; border-radius:999px; padding:3px 8px; font-size:.72rem; font-weight:700; letter-spacing:.04em; background:rgba(80,160,255,.14); }
-.receiver-inventory-state[data-state="MISSION_ACTIVE"],.receiver-inventory-state[data-state="SERVICE_ACTIVE"] { background:rgba(55,190,120,.16); }
-.receiver-inventory-details { display:grid; grid-template-columns:minmax(110px,.7fr) 1.3fr; gap:6px 10px; margin:0; }
-.receiver-inventory-details dt { color:var(--muted-color,#9ca3af); }
-.receiver-inventory-details dd { margin:0; overflow-wrap:anywhere; }
-.receiver-inventory-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-.receiver-inventory-tag { border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:2px 7px; font-size:.75rem; }
-.receiver-inventory-empty { padding:14px; opacity:.75; }
-.receiver-inventory-status { margin-top:10px; }
+.receiver-inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.receiver-inventory-item {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #24364d;
+    border-radius: 9px;
+    background: linear-gradient(180deg, #07101f 0%, #020712 100%);
+    box-shadow: inset 3px 0 0 #38bdf8;
+}
+
+.receiver-inventory-item.is-mission-active {
+    border-color: rgba(239, 68, 68, .58);
+    box-shadow: inset 3px 0 0 #ef4444;
+    background: linear-gradient(180deg, rgba(239, 68, 68, .09) 0%, #020712 100%);
+}
+
+.receiver-inventory-item.is-service-active {
+    border-color: rgba(34, 197, 94, .48);
+    box-shadow: inset 3px 0 0 #22c55e;
+    background: linear-gradient(180deg, rgba(34, 197, 94, .08) 0%, #020712 100%);
+}
+
+.receiver-inventory-item.is-attention {
+    border-color: rgba(245, 158, 11, .55);
+    box-shadow: inset 3px 0 0 #f59e0b;
+    background: linear-gradient(180deg, rgba(245, 158, 11, .09) 0%, #020712 100%);
+}
+
+.receiver-inventory-item.is-unavailable {
+    border-color: rgba(239, 68, 68, .58);
+    box-shadow: inset 3px 0 0 #ef4444;
+}
+
+.receiver-inventory-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.receiver-inventory-head h3 {
+    margin: 0 0 3px;
+    color: #e2e8f0;
+    font-size: .92rem;
+}
+
+.receiver-inventory-serial {
+    color: #94a3b8;
+    font-family: monospace;
+    font-size: .68rem;
+}
+
+.receiver-inventory-state,
+.receiver-inventory-badge {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border: 1px solid rgba(56, 189, 248, .38);
+    border-radius: 999px;
+    background: rgba(14, 165, 233, .09);
+    color: #7dd3fc;
+    font-size: .59rem;
+    font-weight: 900;
+    letter-spacing: .05em;
+}
+
+.receiver-inventory-state::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #38bdf8;
+}
+
+.receiver-inventory-state.is-mission-active {
+    border-color: rgba(239, 68, 68, .55);
+    color: #fca5a5;
+}
+
+.receiver-inventory-state.is-mission-active::before { background: #ef4444; }
+
+.receiver-inventory-state.is-service-active {
+    border-color: rgba(34, 197, 94, .45);
+    color: #86efac;
+}
+
+.receiver-inventory-state.is-service-active::before { background: #22c55e; }
+
+.receiver-inventory-state.is-attention {
+    border-color: rgba(245, 158, 11, .55);
+    color: #fbbf24;
+}
+
+.receiver-inventory-state.is-attention::before { background: #f59e0b; }
+
+.receiver-inventory-state.is-unavailable {
+    border-color: rgba(239, 68, 68, .55);
+    color: #fca5a5;
+}
+
+.receiver-inventory-state.is-unavailable::before { background: #ef4444; }
+
+.receiver-inventory-details {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+}
+
+.receiver-inventory-details > div {
+    min-width: 0;
+    padding: 7px 8px;
+    border: 1px solid #1e2e43;
+    border-radius: 7px;
+    background: rgba(2, 6, 23, .55);
+}
+
+.receiver-inventory-details dt {
+    margin-bottom: 3px;
+    color: #64748b;
+    font-size: .59rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.receiver-inventory-details dd {
+    margin: 0;
+    overflow: hidden;
+    color: #e2e8f0;
+    font-size: .72rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.receiver-inventory-details .receiver-inventory-detail-wide {
+    grid-column: span 2;
+}
+
+.receiver-inventory-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 9px;
+}
+
+.receiver-inventory-tag {
+    padding: 2px 6px;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    color: #94a3b8;
+    font-size: .58rem;
+}
+
+.receiver-inventory-empty {
+    grid-column: 1 / -1;
+    padding: 14px;
+    border: 1px solid #24364d;
+    border-radius: 9px;
+    background: #020712;
+    color: #94a3b8;
+}
+
+.receiver-inventory-status {
+    margin: 9px 0 0 !important;
+    font-size: .68rem;
+}
+
+@media (max-width: 1050px) {
+    .receiver-inventory-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 650px) {
+    .receiver-inventory-details {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .receiver-inventory-details .receiver-inventory-detail-wide {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 430px) {
+    .receiver-inventory-details {
+        grid-template-columns: 1fr;
+    }
+
+    .receiver-inventory-details .receiver-inventory-detail-wide {
+        grid-column: auto;
+    }
+}

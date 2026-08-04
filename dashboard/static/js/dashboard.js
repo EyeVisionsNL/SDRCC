@@ -1,8 +1,8 @@
 import {getStatus} from "./api.js";
 import {setupTabs} from "./tabs.js";
 import {setupControls} from "./controls.js";
-import {updateSystem} from "./system.js";
-import {updateServices, updateServiceButtons} from "./services.js";
+import {updateSystem} from "./system.js?v=0.54.0f";
+import {updateServices, updateServiceButtons} from "./services.js?v=0.54.0f";
 import {updateMissionEngine, updateNextPass, updateCountdown, updateServerOffset} from "./mission.js?v=0.54.0e";
 import {updateLatestCapture, updateRecentCaptures} from "./capture.js";
 import {updateLiveLog, updateMissionTimeline} from "./timeline.js";

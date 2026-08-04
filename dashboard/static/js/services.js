@@ -1,11 +1,30 @@
 import {setStatus} from "./utils.js";
 
 export function updateServices(data) {
-    setStatus("ais-status", data.ais && data.ais.active);
-    setStatus("ais-status-radio", data.ais && data.ais.active);
+    const aisActive = Boolean(data.ais && data.ais.active);
+    const adsbActive = Boolean(data.adsb && data.adsb.active);
 
-    setStatus("adsb-status", data.adsb && data.adsb.active);
-    setStatus("adsb-status-radio", data.adsb && data.adsb.active);
+    setStatus("ais-status", aisActive);
+    setStatus("ais-status-radio", aisActive);
+    setStatus("adsb-status", adsbActive);
+    setStatus("adsb-status-radio", adsbActive);
+
+    setServiceState("system-service-ais", "ais-status-radio", aisActive);
+    setServiceState("system-service-adsb", "adsb-status-radio", adsbActive);
+}
+
+function setServiceState(cardId, stateId, active) {
+    const card = document.getElementById(cardId);
+    const state = document.getElementById(stateId);
+    const tone = active ? "is-running" : "is-stopped";
+
+    if (card) {
+        card.classList.remove("is-loading", "is-running", "is-stopped");
+        card.classList.add(tone);
+    }
+    if (state) {
+        state.className = `system-service-state ${tone}`;
+    }
 }
 
 export function updateServiceButtons(data) {

@@ -138,10 +138,10 @@
             audio.currentTime = 0;
             audio.volume = oldVolume;
             audioUnlocked = true;
-            setStatus(readEnabled() ? "Mission Event Center gereed." : "Mission Sounds staan uit.", readEnabled() ? "is-ready" : "is-muted");
+            setStatus(readEnabled() ? "Mission sounds ready." : "Mission sounds are off.", readEnabled() ? "is-ready" : "is-muted");
             return true;
         } catch (error) {
-            setStatus("Audio is nog geblokkeerd; gebruik de testknop.", "is-muted");
+            setStatus("Audio is still blocked; use the test button.", "is-muted");
             return false;
         }
     }
@@ -165,10 +165,10 @@
             audio.pause();
             audio.currentTime = 0;
             await audio.play();
-            if (test) setStatus("Startgeluid wordt afgespeeld.", "is-ready");
+            if (test) setStatus("Playing the mission start sound.", "is-ready");
         } catch (error) {
             console.error(`Mission sound '${name}' mislukt:`, error);
-            setStatus("Mission-geluid kon niet worden afgespeeld.", "is-error");
+            setStatus("The mission sound could not be played.", "is-error");
         }
     }
 
@@ -294,7 +294,7 @@
             enabled.checked = enabledValue;
             enabled.addEventListener("change", () => {
                 localStorage.setItem(STORAGE_ENABLED, String(enabled.checked));
-                setStatus(enabled.checked ? "Mission Sounds staan aan." : "Mission Sounds staan uit.", enabled.checked ? "is-ready" : "is-muted");
+                setStatus(enabled.checked ? "Mission sounds are on." : "Mission sounds are off.", enabled.checked ? "is-ready" : "is-muted");
             });
         }
 
@@ -312,13 +312,13 @@
             test.addEventListener("click", async () => {
                 audioUnlocked = true;
                 await playSound("start", { test: true });
-                showNotification({ icon: "🚀", title: "Mission Event Center", message: "Startgeluid en melding werken.", tone: "live" });
+                showNotification({ icon: "🚀", title: "Mission sound test", message: "Start sound and notification are working.", tone: "live" });
             });
         }
 
         document.addEventListener("pointerdown", unlockAudio, { once: true, passive: true });
         window.addEventListener("sdrcc:mission-state", event => handleMissionState(event.detail || {}));
-        setStatus(enabledValue ? "Klik eenmaal in het dashboard om audio te activeren." : "Mission Sounds staan uit.", enabledValue ? "" : "is-muted");
+        setStatus(enabledValue ? "Click once in the dashboard to enable audio." : "Mission sounds are off.", enabledValue ? "" : "is-muted");
     }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setupControls, { once: true });

@@ -230,7 +230,8 @@ def validate_integration_sources() -> None:
     check("mission-receiver-card-v034.is-recording" in control_css, "receiver card has recording accent")
     check("mission-receiver-card-v034.is-blocked" in control_css, "receiver card has blocked accent")
     check("mission_cards_v034.js" not in template, "obsolete duplicate card patch is no longer loaded")
-    check(template.count("v=0.54.0e") >= 3, "changed Mission Control assets are cache-busted")
+    cache_busts = template.count("v=0.54.0e") + template.count("v=0.54.0f")
+    check(cache_busts >= 3, "changed Mission Control assets are cache-busted")
 
 
 validate_queue_projection()
