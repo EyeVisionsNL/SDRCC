@@ -16,9 +16,8 @@
     <link rel="stylesheet" href="/static/css/timeline.css">
     <link rel="stylesheet" href="/static/css/mission.css">
     <link rel="stylesheet" href="/static/css/theme.css">
-    <link rel="stylesheet" href="/static/css/radio.css?v=0.47.1a">
-    <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.35.4">
-    <link rel="stylesheet" href="/static/css/mission_monitor.css?v=0.24.1">
+    <link rel="stylesheet" href="/static/css/radio.css?v=0.54.0g">
+    <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.54.0g">
     <link rel="stylesheet" href="/static/css/history.css">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
@@ -324,38 +323,33 @@
 </section>
 
 <section class="tab-page" id="tab-radio">
-    <div class="radio-page">
-        <section class="card receiver-overview-card">
-            <div class="section-heading-row">
-                <h2>📻 SDR Status</h2>
-                <span class="muted">Live status van beide SDR-ontvangers</span>
+    <div class="radio-page radio-page-v0540g">
+        <section class="card receiver-monitor-card radio-panel-v0540g is-observer">
+            <div class="section-heading-row radio-heading-v0540g">
+                <div>
+                    <h2>📡 Receiver Monitor</h2>
+                    <p class="muted">Quick operational view of traffic, frequency and receiver activity.</p>
+                </div>
+                <span id="receiver-monitor-updated" class="radio-status-v0540g">LOADING</span>
             </div>
-            <div id="radio-devices" class="receiver-card-grid">Laden...</div>
+            <div id="receiver-monitor-grid" class="receiver-monitor-grid">Loading receiver status...</div>
         </section>
 
-        <section class="card receiver-monitor-card">
-            <div class="section-heading-row">
-                <h2>📡 Receiver Monitor</h2>
-                <span id="receiver-monitor-updated" class="muted">Status laden...</span>
-            </div>
-            <div id="receiver-monitor-grid" class="receiver-monitor-grid">Laden...</div>
-        </section>
-
-        <section class="card runtime-diagnostics-card" aria-labelledby="receiver-runtime-title">
-            <div class="section-heading-row">
+        <section class="card runtime-diagnostics-card radio-panel-v0540g is-diagnostics" aria-labelledby="receiver-runtime-title">
+            <div class="section-heading-row radio-heading-v0540g">
                 <div class="runtime-diagnostics-heading-copy">
                     <h2 id="receiver-runtime-title">🧭 Receiver Runtime Diagnostics</h2>
-                    <small id="receiver-runtime-authority">Read-only observatie</small>
+                    <small id="receiver-runtime-authority">Read-only observation</small>
                 </div>
-                <span id="receiver-runtime-updated" class="muted">Status laden...</span>
+                <span id="receiver-runtime-updated" class="radio-status-v0540g">LOADING</span>
             </div>
             <div id="receiver-runtime-grid" class="runtime-diagnostics-grid" aria-live="polite">
-                Runtime status laden...
+                Loading runtime status...
             </div>
         </section>
 
-        <section class="card radio-card assignment-preview-card mission-assignment-card">
-            <div class="section-heading-row">
+        <section class="card radio-card assignment-preview-card mission-assignment-card radio-panel-v0540g is-authority">
+            <div class="section-heading-row radio-heading-v0540g">
                 <div>
                     <h2>🔀 Receiver Assignments</h2>
                     <p class="muted">One Assignment Authority for mission roles and continuous services.</p>
@@ -397,115 +391,80 @@
             <div id="assignment-policy-runtime" class="assignment-policy-runtime" aria-live="polite"></div>
         </section>
 
-
-        <section class="card radio-card rf-settings-card">
-            <div class="section-heading-row">
-                <div><h2>🎚 Weather / METEOR Settings</h2><p class="muted">RF- en SatDump-opties voor de volgende METEOR-missie.</p></div>
-            </div>
-            <form id="weather-rf-form" class="rf-settings-form">
-                <fieldset>
-                    <legend>Receiver</legend>
-                    <label>Gain-modus
-                        <select id="weather-gain-mode">
-                            <option value="auto">Automatisch</option>
-                            <option value="manual">Handmatig</option>
-                        </select>
-                    </label>
-                    <label>Tuner gain
-                        <select id="weather-gain-db"></select>
-                    </label>
-                    <label class="rf-check"><input id="weather-lna-agc" type="checkbox"> LNA AGC</label>
-                    <label class="rf-check"><input id="weather-dc-block" type="checkbox"> DC block</label>
-                    <label class="rf-check"><input id="weather-iq-swap" type="checkbox"> IQ swap</label>
-                </fieldset>
-                <fieldset>
-                    <legend>METEOR decoder</legend>
-                    <label class="rf-check"><input id="weather-fill-missing" type="checkbox"> Fill missing data</label>
-                    <label class="rf-check"><input id="weather-rs-usecheck" type="checkbox"> Use RS check</label>
-                    <p class="rf-settings-help">Fill missing data herstelt zwarte lijnen bij korte signaaluitval. Use RS check verwerpt data die de Reed-Solomon-controle niet doorstaat.</p>
-                </fieldset>
-                <button type="submit" class="control-button">Weather / METEOR-instellingen opslaan</button>
-            </form>
-            <p id="weather-rf-result" class="muted">Instellingen worden bij de volgende Weather-opname gebruikt.</p>
-        </section>
-
-        <section class="card mission-monitor-card">
-            <div class="section-heading-row">
-                <h2>🛰 Mission Monitor</h2>
-                <span id="mission-monitor-updated" class="muted">Loading...</span>
-            </div>
-            <div class="mission-monitor-layout">
-                <div class="mission-monitor-image-wrap">
-                    <a id="mission-monitor-image-link" class="mission-monitor-image-link" href="#" target="_blank" rel="noopener" aria-label="Open mission image full size" hidden><img id="mission-monitor-image" alt="Latest decoded satellite image"></a>
-                    <div id="mission-monitor-placeholder" class="mission-monitor-placeholder">
-                        <strong id="mission-monitor-placeholder-title">No active weather mission</strong>
-                        <span id="mission-monitor-placeholder-text">Waiting for the next mission...</span>
+        <div class="radio-settings-grid-v0540g">
+            <section class="card radio-card rf-settings-card radio-panel-v0540g is-weather">
+                <div class="section-heading-row radio-heading-v0540g">
+                    <div>
+                        <h2>🎚 Weather / METEOR Settings</h2>
+                        <p class="muted">RF and SatDump options for the next METEOR mission.</p>
                     </div>
+                    <span class="radio-status-v0540g is-planned">NEXT MISSION</span>
                 </div>
-                <div class="mission-monitor-info">
-                    <div class="mission-monitor-badges"><span id="mission-monitor-state" class="live-rf-state live-rf-state-idle">IDLE</span><span id="mission-monitor-source" class="mission-monitor-source">STANDBY</span></div>
-                    <h3 id="mission-monitor-title">No active weather mission</h3>
-                    <p id="mission-monitor-message" class="muted">Waiting for the next mission...</p>
-                    <div class="mission-monitor-metrics">
-                        <span>Images<strong id="mission-monitor-images">0</strong></span>
-                        <span>Frames<strong id="mission-monitor-frames">0</strong></span>
-                        <span>CADU bytes<strong id="mission-monitor-cadu">0</strong></span>
-                        <span>Peak SNR<strong id="mission-monitor-snr">--.-- dB</strong></span>
+                <form id="weather-rf-form" class="rf-settings-form">
+                    <fieldset>
+                        <legend>Receiver</legend>
+                        <label>Gain mode
+                            <select id="weather-gain-mode">
+                                <option value="auto">Automatic</option>
+                                <option value="manual">Manual</option>
+                            </select>
+                        </label>
+                        <label>Tuner gain
+                            <select id="weather-gain-db"></select>
+                        </label>
+                        <label class="rf-check"><input id="weather-lna-agc" type="checkbox"> LNA AGC</label>
+                        <label class="rf-check"><input id="weather-dc-block" type="checkbox"> DC block</label>
+                        <label class="rf-check"><input id="weather-iq-swap" type="checkbox"> IQ swap</label>
+                    </fieldset>
+                    <fieldset>
+                        <legend>METEOR decoder</legend>
+                        <label class="rf-check"><input id="weather-fill-missing" type="checkbox"> Fill missing data</label>
+                        <label class="rf-check"><input id="weather-rs-usecheck" type="checkbox"> Use RS check</label>
+                        <p class="rf-settings-help">Fill missing data repairs short signal gaps. Use RS check rejects data that fails Reed-Solomon validation.</p>
+                    </fieldset>
+                    <button type="submit" class="control-button">Save Weather / METEOR settings</button>
+                </form>
+                <p id="weather-rf-result" class="radio-settings-result-v0540g">Used by the next Weather recording.</p>
+            </section>
+
+            <section class="card radio-card iss-voice-settings-card-v0540g radio-panel-v0540g is-iss">
+                <div class="section-heading-row radio-heading-v0540g">
+                    <div>
+                        <h2>🎙 ISS Voice Settings</h2>
+                        <p class="muted">Receiver gain and real RF-power squelch for ISS audio.</p>
                     </div>
+                    <span class="radio-status-v0540g is-planned">437.800 MHz</span>
                 </div>
-            </div>
-        </section>
-
-        <section class="card live-rf-console-card">
-            <div class="section-heading-row">
-                <h2>📡 Live RF Console</h2>
-                <span id="live-rf-updated" class="muted">Waiting for telemetry...</span>
-            </div>
-
-            <div class="live-rf-summary">
-                <div class="live-rf-primary">
-                    <span id="live-rf-state" class="live-rf-state live-rf-state-idle">IDLE</span>
-                    <strong id="live-rf-satellite">No active weather mission</strong>
-                    <small id="live-rf-detail">SatDump telemetry appears here during a recording.</small>
-                </div>
-                <div class="live-rf-progress-wrap">
-                    <div class="live-rf-time-row">
-                        <span>Elapsed <strong id="live-rf-elapsed">00:00</strong></span>
-                        <span>Remaining <strong id="live-rf-remaining">--:--</strong></span>
-                    </div>
-                    <div class="live-rf-progress"><span id="live-rf-progress-bar"></span></div>
-                </div>
-            </div>
-
-            <div class="live-rf-metrics">
-                <div class="live-rf-metric live-rf-snr-metric">
-                    <span>Current SNR</span>
-                    <strong id="live-rf-snr">--.-- dB</strong>
-                    <div class="live-rf-snr-bar"><span id="live-rf-snr-bar"></span></div>
-                </div>
-                <div class="live-rf-metric"><span>Peak SNR</span><strong id="live-rf-peak-snr">--.-- dB</strong></div>
-                <div class="live-rf-metric"><span>BER</span><strong id="live-rf-ber">-----</strong></div>
-                <div class="live-rf-metric"><span>Frames</span><strong id="live-rf-frames">0</strong></div>
-                <div class="live-rf-metric"><span>Viterbi</span><strong id="live-rf-viterbi" class="telemetry-status">UNKNOWN</strong></div>
-                <div class="live-rf-metric"><span>Deframer</span><strong id="live-rf-deframer" class="telemetry-status">UNKNOWN</strong></div>
-            </div>
-
-            <div class="live-rf-details">
-                <span>Receiver<strong id="live-rf-receiver">-</strong></span>
-                <span>Serial number<strong id="live-rf-serial">-</strong></span>
-                <span>Frequency<strong id="live-rf-frequency">-</strong></span>
-                <span>Sample rate<strong id="live-rf-samplerate">-</strong></span>
-                <span>Gain<strong id="live-rf-gain">-</strong></span>
-                <span>DC / IQ<strong id="live-rf-processing">-</strong></span>
-                <span>CADU bytes<strong id="live-rf-cadu">0</strong></span>
-                <span>Images<strong id="live-rf-images">0</strong></span>
-            </div>
-        </section>
-
-
-
-        <div class="radio-legacy-state" hidden>
-            <span id="radio-sdr2-status"></span><span id="radio-sdr2-locked"></span><span id="radio-sdr2-profile"></span><span id="radio-sdr2-process"></span><span id="radio-sdr2-updated"></span>
+                <form id="iss-voice-settings-form" class="rf-settings-form iss-voice-settings-form-v0540g">
+                    <fieldset>
+                        <legend>Receiver</legend>
+                        <label>Gain mode
+                            <select id="iss-voice-gain-mode">
+                                <option value="auto">Automatic</option>
+                                <option value="manual">Manual</option>
+                            </select>
+                        </label>
+                        <label>Tuner gain
+                            <select id="iss-voice-gain-db"></select>
+                        </label>
+                        <div class="iss-voice-fixed-v0540g">
+                            <span>Mode<strong>NFM</strong></span>
+                            <span>Bandwidth<strong>25 kHz</strong></span>
+                        </div>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Audio squelch</legend>
+                        <label class="rf-check"><input id="iss-voice-squelch-enabled" type="checkbox"> Enable RF-power squelch</label>
+                        <label class="iss-squelch-slider-v0540g" for="iss-voice-squelch-threshold">
+                            <span>Signal threshold <strong id="iss-voice-squelch-value">-42 dBFS</strong></span>
+                            <input id="iss-voice-squelch-threshold" type="range" min="-65" max="-10" step="1" value="-42">
+                        </label>
+                        <p class="rf-settings-help">A higher threshold is stricter. Squelch gates receiver noise in both live audio and the final WAV; browser volume remains in Mission Operations.</p>
+                    </fieldset>
+                    <button type="submit" class="control-button">Save ISS Voice settings</button>
+                </form>
+                <p id="iss-voice-settings-result" class="radio-settings-result-v0540g">Used by the next ISS recording and live stream.</p>
+            </section>
         </div>
     </div>
 </section>
@@ -1000,9 +959,8 @@
 <script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/mission_recordings.js?v=0.53.1-r2"></script>
-<script src="/static/js/radio.js?v=0.47.1a"></script>
-<script src="/static/js/runtime_diagnostics.js?v=0.35.4"></script>
-<script src="/static/js/mission_monitor.js?v=0.24.1"></script>
+<script src="/static/js/radio.js?v=0.54.0g"></script>
+<script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>

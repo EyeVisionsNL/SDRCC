@@ -16,6 +16,8 @@ import wave
 
 import numpy as np
 
+from core.iss_voice_squelch import RfPowerSquelch
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RECORDINGS_ROOT = (PROJECT_ROOT / "data" / "recordings" / "iss_voice").resolve()
 MAX_IQ_BYTES = 2 * 240000 * 1200  # CU8, bounded to 20 minutes at current rate.
@@ -30,6 +32,8 @@ class DemodSpec:
     audio_sample_rate_hz: int
     deemphasis_us: float
     channel_bandwidth_hz: int
+    squelch_enabled: bool
+    squelch_threshold_dbfs: float
 
 
 def _inside_recordings(path: Path) -> Path:
@@ -44,6 +48,8 @@ def _inside_recordings(path: Path) -> Path:
 def build_spec(*, iq_path: str | Path, rf_sample_rate_hz: int,
                audio_sample_rate_hz: int, deemphasis_us: float = 75.0,
                channel_bandwidth_hz: int = 25000,
+               squelch_enabled: bool = False,
+               squelch_threshold_dbfs: float = -42.0,
                wav_path: str | Path | None = None) -> DemodSpec:
     iq = _inside_recordings(Path(iq_path))
     if not iq.is_file():
@@ -71,12 +77,18 @@ def build_spec(*, iq_path: str | Path, rf_sample_rate_hz: int,
     bandwidth = int(channel_bandwidth_hz)
     if bandwidth < 5000 or bandwidth > rf_rate // 2:
         raise ValueError("channel_bandwidth_hz buiten veilige grenzen")
+    threshold = float(squelch_threshold_dbfs)
+    if threshold < -65.0 or threshold > -10.0:
+        raise ValueError("squelch_threshold_dbfs buiten veilige grenzen")
 
     wav = _inside_recordings(Path(wav_path)) if wav_path else iq.with_name("audio.wav")
     if wav.parent != iq.parent:
         raise ValueError("WAV-bestand moet naast het IQ-bestand staan")
     metadata = iq.with_name("demodulation.json")
-    return DemodSpec(iq, wav, metadata, rf_rate, audio_rate, deemphasis, bandwidth)
+    return DemodSpec(
+        iq, wav, metadata, rf_rate, audio_rate, deemphasis, bandwidth,
+        bool(squelch_enabled), threshold,
+    )
 
 
 def _deemphasis(samples: np.ndarray, sample_rate: int, tau_us: float) -> np.ndarray:
@@ -109,8 +121,18 @@ def demodulate(spec: DemodSpec) -> dict[str, Any]:
     audio = discriminator[:usable].reshape(-1, factor).mean(axis=1, dtype=np.float32)
     audio = _deemphasis(audio, spec.audio_sample_rate_hz, spec.deemphasis_us)
 
-    # Remove DC and normalize conservatively. Silence remains silence.
+    # Remove DC, apply the optional RF-power squelch, then normalize. The gate
+    # uses the captured IQ level and therefore suppresses receiver noise rather
+    # than merely muting quiet speech samples.
     audio -= float(np.mean(audio))
+    squelch = RfPowerSquelch(
+        rf_sample_rate_hz=spec.rf_sample_rate_hz,
+        audio_sample_rate_hz=spec.audio_sample_rate_hz,
+        enabled=spec.squelch_enabled,
+        threshold_dbfs=spec.squelch_threshold_dbfs,
+    )
+    audio = squelch.process(complex_iq, audio)
+    squelch_status = squelch.status()
     peak = float(np.max(np.abs(audio))) if audio.size else 0.0
     scale = 0.90 / peak if peak > 1e-9 else 0.0
     pcm = np.clip(audio * scale, -1.0, 1.0)
@@ -126,7 +148,7 @@ def demodulate(spec: DemodSpec) -> dict[str, Any]:
     ended = datetime.now().astimezone()
     result = {
         "ok": True,
-        "version": "0.46.0d",
+        "version": "0.54.0g",
         "mode": "offline_nfm_demodulation",
         "automatic_execution": False,
         "receiver_claimed": False,
@@ -143,6 +165,9 @@ def demodulate(spec: DemodSpec) -> dict[str, Any]:
         "sample_width_bytes": 2,
         "deemphasis_us": spec.deemphasis_us,
         "channel_bandwidth_hz": spec.channel_bandwidth_hz,
+        "squelch_enabled": spec.squelch_enabled,
+        "squelch_threshold_dbfs": spec.squelch_threshold_dbfs,
+        "squelch": squelch_status,
         "decimation_factor": factor,
         "audio_frames": int(pcm16.size),
         "audio_duration_seconds": round(pcm16.size / spec.audio_sample_rate_hz, 6),
@@ -168,6 +193,8 @@ def demodulate_mission(mission_id: str, config: dict[str, Any]) -> dict[str, Any
         audio_sample_rate_hz=int(config["audio_sample_rate_hz"]),
         deemphasis_us=float(config.get("audio_deemphasis_us") or 75.0),
         channel_bandwidth_hz=int(config["channel_bandwidth_hz"]),
+        squelch_enabled=bool(config.get("squelch_enabled", False)),
+        squelch_threshold_dbfs=float(config.get("squelch_threshold_dbfs", -42.0)),
         wav_path=directory / str(config.get("audio_filename") or "audio.wav"),
     )
     return demodulate(spec)

@@ -14,7 +14,7 @@
     }
 
     function displayRole(role) {
-        const labels = {weather: "Weather", ais: "AIS", adsb: "ADS-B"};
+        const labels = {weather: "Weather / METEOR", ais: "AIS", adsb: "ADS-B", iss_voice: "ISS Voice"};
         return labels[String(role || "").toLowerCase()] || String(role || "-");
     }
 
@@ -32,22 +32,22 @@
     }
 
     function serviceText(services) {
-        if (!Array.isArray(services) || services.length === 0) return "Geen";
+        if (!Array.isArray(services) || services.length === 0) return "None";
 
         return services.map((service) => {
-            const name = service.service || service.role || "onbekend";
+            const name = service.service || service.role || "unknown";
             const state = service.state || "unknown";
             return `${name} (${state})`;
         }).join(", ");
     }
 
     function reservationText(receiver) {
-        if (!receiver || !receiver.reserved) return "Geen";
+        if (!receiver || !receiver.reserved) return "None";
 
         return receiver.reservation_owner
             || receiver.reservation?.mission_key
             || receiver.reservation?.mission_id
-            || "Gereserveerd";
+            || "Reserved";
     }
 
     function missionText(receiver, snapshot) {
@@ -57,14 +57,14 @@
             return mission.mission_id
                 || mission.satellite
                 || mission.name
-                || "Actieve missie";
+                || "Active mission";
         }
 
         if (receiver?.runtime_state === "MISSION_ACTIVE") {
-            return snapshot.active_mission_id || "Actieve missie";
+            return snapshot.active_mission_id || "Active mission";
         }
 
-        return snapshot.mission_phase || "Geen";
+        return snapshot.mission_phase || "None";
     }
 
     function assignmentVerification(snapshot) {
@@ -75,12 +75,12 @@
         const drift = Array.isArray(verification.drift) ? verification.drift : [];
         const roleText = ["weather", "ais", "adsb", "iss_voice"].map((role) => {
             const expected = configured[role] || "-";
-            const observed = runtime[role] || "niet actief / niet geverifieerd";
+            const observed = runtime[role] || "inactive / not verified";
             return `${displayRole(role)}: ${expected} → ${observed}`;
         }).join(" · ");
         const detail = drift.length
             ? drift.map((item) => `${displayRole(item.role)}: ${item.type}`).join(" · ")
-            : "Geen configuratiedrift waargenomen.";
+            : "No configuration drift observed.";
 
         return `
             <div class="runtime-assignment-verification is-${escapeHtml(status.toLowerCase())}">
@@ -118,15 +118,15 @@
                 </td>
                 <td>
                     <strong>${escapeHtml(missionText(receiver, snapshot))}</strong>
-                    <small>${receiver.observed_mission ? "Actieve missie" : "Geen actieve missie"}</small>
+                    <small>${receiver.observed_mission ? "Active mission" : "No active mission"}</small>
                 </td>
                 <td>
                     <strong>${escapeHtml(reservationText(receiver))}</strong>
-                    <small>${receiver.reserved ? "Receiver gereserveerd" : "Niet gereserveerd"}</small>
+                    <small>${receiver.reserved ? "Receiver reserved" : "Not reserved"}</small>
                 </td>
                 <td>
                     <strong>${escapeHtml(roles || "-")}</strong>
-                    <small>${Array.isArray(receiver.configured_roles) ? receiver.configured_roles.length : 0} rol(len)</small>
+                    <small>${Array.isArray(receiver.configured_roles) ? receiver.configured_roles.length : 0} role(s)</small>
                 </td>
                 <td>
                     <strong>${escapeHtml(serviceText(receiver.observed_services))}</strong>
@@ -143,7 +143,7 @@
 
         const receivers = snapshot?.receivers;
         if (!receivers || typeof receivers !== "object") {
-            throw new Error("Receiver Runtime bevat geen geldige receiverlijst.");
+            throw new Error("Receiver Runtime did not return a valid receiver list.");
         }
 
         const entries = Object.entries(receivers);
@@ -156,11 +156,11 @@
                             <tr>
                                 <th>SDR</th>
                                 <th>Authority</th>
-                                <th>Runtime-status</th>
-                                <th>Missie / fase</th>
-                                <th>Reservering</th>
-                                <th>Rollen</th>
-                                <th>Waargenomen services</th>
+                                <th>Runtime status</th>
+                                <th>Mission / phase</th>
+                                <th>Reservation</th>
+                                <th>Roles</th>
+                                <th>Observed services</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -170,14 +170,14 @@
                         </tbody>
                     </table>
                 </div>`
-            : '<div class="runtime-diagnostics-empty">Geen receivers waargenomen.</div>');
+            : '<div class="runtime-diagnostics-empty">No receivers observed.</div>');
 
         authority.textContent =
-            `Authority: ${snapshot.authority || "onbekend"} · read-only`;
+            `Authority: ${snapshot.authority || "unknown"} · read-only`;
 
         updated.textContent = snapshot.updated_at
-            ? `Bijgewerkt ${new Date(snapshot.updated_at).toLocaleString("nl-NL")}`
-            : "Bijgewerkt";
+            ? `UPDATED ${new Date(snapshot.updated_at).toLocaleTimeString("en-GB")}`
+            : "UPDATED";
 
         updated.classList.remove("runtime-diagnostics-error");
     }
@@ -190,18 +190,18 @@
         if (grid) {
             grid.innerHTML = `
                 <div class="runtime-diagnostics-empty runtime-diagnostics-error">
-                    Runtime Diagnostics niet beschikbaar:
+                    Runtime Diagnostics unavailable:
                     ${escapeHtml(error)}
                 </div>`;
         }
 
         if (updated) {
-            updated.textContent = "Bijwerken mislukt";
+            updated.textContent = "ERROR";
             updated.classList.add("runtime-diagnostics-error");
         }
 
         if (authority) {
-            authority.textContent = "Read-only observatie";
+            authority.textContent = "Read-only observation";
         }
     }
 

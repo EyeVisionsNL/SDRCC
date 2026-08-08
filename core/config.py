@@ -14,6 +14,13 @@ SCHEDULER_CONFIG = CONFIG_DIR / "scheduler.yaml"
 RECEIVERS_CONFIG = CONFIG_DIR / "receivers.yaml"
 _station_write_lock = threading.RLock()
 
+RTL_SDR_VALID_GAINS = (
+    0.0, 0.9, 1.4, 2.7, 3.7, 7.7, 8.7, 12.5, 14.4,
+    15.7, 16.6, 19.7, 20.7, 22.9, 25.4, 28.0, 29.7,
+    32.8, 33.8, 36.4, 37.2, 38.6, 40.2, 42.1, 43.4,
+    43.9, 44.5, 48.0, 49.6,
+)
+
 
 def load_yaml(path: Path):
     """Laad een YAML-bestand."""
@@ -47,6 +54,11 @@ def load_scheduler():
 def load_receivers():
     """Laad de statische Receiver Registry."""
     return load_yaml(RECEIVERS_CONFIG)
+
+
+def get_rtl_sdr_valid_gains():
+    """Return the shared tuner-gain vocabulary for the station RTL-SDRs."""
+    return list(RTL_SDR_VALID_GAINS)
 
 
 def get_scheduler_config():
@@ -281,12 +293,7 @@ def get_weather_rf_config():
         gain = float(raw_gain) if raw_gain is not None else 38.6
     except (TypeError, ValueError):
         gain = 38.6
-    valid_gains = [
-        0.0, 0.9, 1.4, 2.7, 3.7, 7.7, 8.7, 12.5, 14.4,
-        15.7, 16.6, 19.7, 20.7, 22.9, 25.4, 28.0, 29.7,
-        32.8, 33.8, 36.4, 37.2, 38.6, 40.2, 42.1, 43.4,
-        43.9, 44.5, 48.0, 49.6,
-    ]
+    valid_gains = get_rtl_sdr_valid_gains()
     if gain not in valid_gains:
         gain = min(valid_gains, key=lambda value: abs(value - gain))
     return {

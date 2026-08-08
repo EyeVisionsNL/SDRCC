@@ -1,120 +1,449 @@
-.receiver-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.radio-device{background:#07111f;border:1px solid #24364d;border-radius:10px;padding:13px}.receiver-card-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}.receiver-card-title strong{font-size:1.05rem;color:#e2e8f0}.receiver-badge{padding:4px 8px;border-radius:999px;background:#0f172a;border:1px solid #334155;color:#38bdf8;font-size:.75rem;font-weight:700}.receiver-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.receiver-detail-grid span{display:flex;flex-direction:column;gap:2px;padding:7px;background:#020712;border:1px solid #17263a;border-radius:7px;color:#8fa7c5;font-size:.74rem}.receiver-detail-grid strong{color:#fff;font-size:.85rem}.service-pill{display:inline-block;padding:8px 12px;border-radius:999px;background:#2d1b1b;color:#ff8b8b;font-weight:700;margin-bottom:12px}.service-pill.running{background:#0c2a1a;color:#25e07b}.radio-detail-list{display:grid;gap:8px}.radio-detail-list p{display:flex;justify-content:space-between;gap:12px;margin:0;padding:9px;background:#07111f;border:1px solid #24364d;border-radius:8px}.radio-detail-list span{color:#8fa7c5}.assignment-preview{display:grid;gap:8px;margin-top:12px}.assignment-preview div{display:flex;justify-content:space-between;padding:10px;background:#07111f;border:1px solid #24364d;border-radius:8px}.assignment-preview span{color:#8fa7c5}.fake-spectrum{height:150px;display:flex;align-items:end;gap:8px;padding:14px;background:linear-gradient(180deg,#07111f,#020712);border:1px solid #24364d;border-radius:10px}.fake-spectrum span{flex:1;display:block;background:linear-gradient(180deg,#21d4ff,#168cff);border-radius:4px 4px 0 0;box-shadow:0 0 12px rgba(33,212,255,.45)}@media(max-width:800px){.receiver-card-grid{grid-template-columns:1fr}.receiver-detail-grid{grid-template-columns:1fr 1fr}}
-
-.assignment-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.assignment-choice{display:flex;align-items:center;gap:10px;padding:10px;background:#07111f;border:1px solid #24364d;border-radius:8px;cursor:pointer}.assignment-choice:has(input:checked){border-color:#0ea5e9;box-shadow:0 0 0 1px #0ea5e9 inset}.assignment-choice input{accent-color:#0ea5e9}.assignment-choice span{display:flex;flex-direction:column}.assignment-choice small{color:#8fa7c5}.assignment-form button{grid-column:1/-1}.assignment-preview-card #receiver-assignment-result{min-height:1.2em;margin:8px 0 0}@media(max-width:700px){.assignment-form{grid-template-columns:1fr}}
-
-
-/* v0.14.2 SDR task status */
-.receiver-detail-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-.receiver-badge-locked{color:#facc15;border-color:#854d0e;background:#2a1f08}
-.receiver-badge-in-use{color:#38bdf8;border-color:#075985;background:#071b2a}
-.receiver-badge-available{color:#94a3b8;border-color:#334155;background:#0f172a}
-@media(max-width:1050px){.receiver-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:650px){.receiver-detail-grid{grid-template-columns:1fr}}
-
-.rf-settings-card{grid-column:span 1}.rf-settings-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.rf-settings-form label,.spectrum-controls label{display:flex;flex-direction:column;gap:6px;color:#8fa7c5}.rf-settings-form select,.spectrum-controls select{background:#07111f;color:#fff;border:1px solid #2b405b;border-radius:8px;padding:9px}.rf-settings-form .rf-check{flex-direction:row;align-items:center;padding:9px;background:#07111f;border:1px solid #24364d;border-radius:8px}.rf-settings-form button{grid-column:1/-1}.spectrum-card{grid-column:span 2}.spectrum-controls{display:grid;grid-template-columns:minmax(250px,1fr) auto;gap:10px;align-items:end;margin-bottom:12px}#weather-spectrum-canvas{display:block;width:100%;height:260px;background:#020712;border:1px solid #24364d;border-radius:10px}.spectrum-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.spectrum-metrics span{display:flex;flex-direction:column;gap:3px;padding:9px;background:#07111f;border:1px solid #24364d;border-radius:8px;color:#8fa7c5}.spectrum-metrics strong{color:#fff}@media(max-width:900px){.rf-settings-form,.spectrum-metrics{grid-template-columns:1fr 1fr}.spectrum-card{grid-column:1/-1}}@media(max-width:600px){.rf-settings-form,.spectrum-controls,.spectrum-metrics{grid-template-columns:1fr}}
-
-
-/* v0.15.0b Live RF Console */
-.live-rf-console-card{grid-column:1/-1}
-.live-rf-summary{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(320px,1.2fr);gap:14px;align-items:center;margin-bottom:12px}
-.live-rf-primary{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;padding:12px;background:#07111f;border:1px solid #24364d;border-radius:10px}
-.live-rf-primary strong{font-size:1.05rem;color:#fff}
-.live-rf-primary small{grid-column:2;color:#8fa7c5;overflow-wrap:anywhere}
-.live-rf-state{grid-row:1/3;display:inline-flex;align-items:center;justify-content:center;min-width:92px;padding:10px 12px;border-radius:999px;border:1px solid #334155;background:#0f172a;color:#94a3b8;font-size:.78rem;font-weight:800;letter-spacing:.06em}
-.live-rf-state-recording,.live-rf-state-active{background:#082f49;border-color:#0ea5e9;color:#67e8f9;box-shadow:0 0 16px rgba(14,165,233,.2)}
-.live-rf-state-complete,.live-rf-state-success{background:#0b2a18;border-color:#15803d;color:#4ade80}
-.live-rf-state-failed,.live-rf-state-error{background:#331111;border-color:#991b1b;color:#f87171}
-.live-rf-state-no-sync{background:#332508;border-color:#a16207;color:#facc15}
-.live-rf-time-row{display:flex;justify-content:space-between;gap:14px;margin-bottom:7px;color:#8fa7c5;font-size:.82rem}
-.live-rf-time-row strong{color:#fff;margin-left:4px}
-.live-rf-progress{height:12px;overflow:hidden;background:#020712;border:1px solid #24364d;border-radius:999px}
-.live-rf-progress span{display:block;width:0;height:100%;background:linear-gradient(90deg,#168cff,#21d4ff);transition:width .5s ease}
-.live-rf-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-bottom:10px}
-.live-rf-metric{display:flex;flex-direction:column;gap:4px;min-width:0;padding:11px;background:#07111f;border:1px solid #24364d;border-radius:9px;color:#8fa7c5}
-.live-rf-metric strong{color:#fff;font-size:1rem;overflow-wrap:anywhere}
-.live-rf-snr-metric{grid-column:span 2}
-.live-rf-snr-bar{height:7px;overflow:hidden;background:#020712;border:1px solid #24364d;border-radius:999px;margin-top:4px}
-.live-rf-snr-bar span{display:block;width:0;height:100%;background:linear-gradient(90deg,#ef4444,#facc15,#22c55e);transition:width .5s ease}
-.telemetry-status{font-size:.86rem!important}
-.telemetry-sync{color:#4ade80!important}
-.telemetry-nosync{color:#facc15!important}
-.telemetry-unknown{color:#94a3b8!important}
-.live-rf-details{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.live-rf-details span{display:flex;flex-direction:column;gap:3px;padding:9px;background:#020712;border:1px solid #17263a;border-radius:8px;color:#8fa7c5;font-size:.76rem}
-.live-rf-details strong{color:#fff;font-size:.86rem;overflow-wrap:anywhere}
-@media(max-width:1100px){.live-rf-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.live-rf-snr-metric{grid-column:span 1}.live-rf-details{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.live-rf-summary{grid-template-columns:1fr}.live-rf-metrics{grid-template-columns:1fr 1fr}.live-rf-details{grid-template-columns:1fr}.live-rf-primary{grid-template-columns:1fr}.live-rf-state{grid-row:auto}.live-rf-primary small{grid-column:auto}}
-
-/* v0.21.0a Receiver Monitor */
-.receiver-monitor-card{grid-column:1/-1}
-.receiver-monitor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.receiver-monitor-item{min-width:0;padding:14px;border:1px solid #24364d;border-radius:11px;background:linear-gradient(180deg,#07111f,#020712)}
-.receiver-monitor-item.role-ais{border-color:#0e7490}
-.receiver-monitor-item.role-adsb{border-color:#7c3aed}
-.receiver-monitor-item.role-weather{border-color:#15803d}
-.receiver-monitor-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-.receiver-monitor-heading>div:first-child{display:flex;flex-direction:column;gap:2px}
-.receiver-monitor-heading strong{color:#fff;font-size:1.08rem}
-.receiver-monitor-heading small{color:#64748b;font-size:.72rem}
-.receiver-monitor-badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
-.receiver-monitor-badges span{padding:4px 7px;border:1px solid #334155;border-radius:999px;background:#0f172a;color:#cbd5e1;font-size:.65rem;font-weight:800;letter-spacing:.04em}
-.receiver-monitor-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
-.receiver-monitor-metrics span{display:flex;flex-direction:column;gap:3px;min-width:0;padding:8px;border:1px solid #17263a;border-radius:8px;background:#020712;color:#8fa7c5;font-size:.7rem}
-.receiver-monitor-metrics strong{overflow:hidden;color:#f8fafc;font-size:.87rem;text-overflow:ellipsis;white-space:nowrap}
-.receiver-monitor-item p{margin:10px 0 0;color:#8fa7c5;font-size:.76rem;line-height:1.35}
-@media(max-width:1050px){.receiver-monitor-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:760px){.receiver-monitor-grid{grid-template-columns:1fr}}
-
-
-/* v0.23.4 Weather Planning */
-.weather-planning-divider {
-    height: 1px;
-    margin: 16px 0;
-    background: var(--border-color, rgba(255, 255, 255, 0.12));
+/* SDRCC v0.54.0g — Radio Control Status Clarity */
+.radio-page-v0540g {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 12px;
 }
-.weather-planning-form .elevation-input-wrap {
+
+.radio-page-v0540g .card {
+    margin: 0;
+}
+
+.radio-panel-v0540g {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border-color: #24364d;
+    background: linear-gradient(145deg, rgba(9, 20, 36, .98), rgba(3, 11, 24, .98));
+}
+
+.radio-panel-v0540g::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: #38bdf8;
+    content: "";
+}
+
+.radio-panel-v0540g.is-diagnostics::before { background: #a78bfa; }
+.radio-panel-v0540g.is-authority::before { background: #22c55e; }
+.radio-panel-v0540g.is-weather::before { background: #38bdf8; }
+.radio-panel-v0540g.is-iss::before { background: #8b5cf6; }
+
+.radio-heading-v0540g {
+    align-items: flex-start;
+    margin-bottom: 10px;
+    padding-bottom: 9px;
+}
+
+.radio-heading-v0540g > div:first-child {
+    min-width: 0;
+}
+
+.radio-heading-v0540g h2 {
+    color: #f8fafc;
+}
+
+.radio-heading-v0540g p {
+    margin: 3px 0 0;
+    font-size: .76rem;
+}
+
+.radio-status-v0540g,
+.assignment-authority-status {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border: 1px solid #38bdf8;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, .08);
+    color: #7dd3fc;
+    font-size: .61rem;
+    font-weight: 900;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+}
+
+.radio-status-v0540g.is-planned {
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, .1);
+    color: #93c5fd;
+}
+
+.radio-status-v0540g[data-state="error"],
+.radio-status-v0540g[data-state="drift"] {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, .08);
+    color: #fca5a5;
+}
+
+.assignment-authority-status[data-state="in_sync"] {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, .08);
+    color: #86efac;
+}
+
+.assignment-authority-status[data-state="drift"],
+.assignment-authority-status[data-state="unverified"] {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, .08);
+    color: #fcd34d;
+}
+
+.receiver-monitor-card,
+.runtime-diagnostics-card,
+.mission-assignment-card {
+    grid-column: 1 / -1;
+}
+
+.receiver-monitor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.receiver-monitor-item {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    padding: 11px;
+    border: 1px solid #24364d;
+    border-radius: 9px;
+    background: #020712;
+}
+
+.receiver-monitor-item::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: #64748b;
+    content: "";
+}
+
+.receiver-monitor-item.role-ais::before { background: #06b6d4; }
+.receiver-monitor-item.role-ads-b::before,
+.receiver-monitor-item.role-adsb::before { background: #8b5cf6; }
+.receiver-monitor-item.role-weather::before,
+.receiver-monitor-item.role-weather-meteor::before { background: #22c55e; }
+.receiver-monitor-item.role-iss-voice::before { background: #f59e0b; }
+.receiver-monitor-item.has-drift::before { background: #ef4444; }
+
+.receiver-monitor-heading {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.receiver-monitor-heading > div:first-child {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.receiver-monitor-heading strong {
+    color: #f8fafc;
+    font-size: 1rem;
+}
+
+.receiver-monitor-heading small {
+    color: #64748b;
+    font-size: .67rem;
+}
+
+.receiver-monitor-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.receiver-monitor-badges span {
+    padding: 3px 6px;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    background: #0f172a;
+    color: #cbd5e1;
+    font-size: .58rem;
+    font-weight: 850;
+    letter-spacing: .035em;
+}
+
+.receiver-monitor-authority {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 6px;
+}
+
+.receiver-monitor-authority span,
+.receiver-monitor-metrics span {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 7px;
+    border: 1px solid #17263a;
+    border-radius: 7px;
+    background: #07111f;
+    color: #7890af;
+    font-size: .61rem;
+}
+
+.receiver-monitor-authority strong,
+.receiver-monitor-metrics strong {
+    overflow: hidden;
+    color: #e2e8f0;
+    font-size: .72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.receiver-monitor-authority strong[data-state="drift"],
+.receiver-monitor-authority strong[data-state="unverified"] { color: #fcd34d; }
+.receiver-monitor-authority strong[data-state="verified"] { color: #86efac; }
+
+.receiver-monitor-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.receiver-monitor-item > p {
+    margin: 7px 0 0;
+    color: #8fa7c5;
+    font-size: .69rem;
+    line-height: 1.35;
+}
+
+.assignment-policy-form {
+    margin-top: 8px;
+}
+
+.assignment-policy-form fieldset {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 9px;
+    border: 1px solid #24364d;
+    border-radius: 9px;
+    background: #07111f;
+}
+
+.assignment-policy-form legend,
+.rf-settings-form legend {
+    padding: 0 7px;
+    color: #cbd5e1;
+    font-size: .76rem;
+    font-weight: 800;
+}
+
+.assignment-policy-form label,
+.rf-settings-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    color: #8fa7c5;
+    font-size: .72rem;
+}
+
+.assignment-policy-form select,
+.rf-settings-form select {
+    width: 100%;
+    min-height: 34px;
+    padding: 7px 8px;
+    border: 1px solid #2b405c;
+    border-radius: 7px;
+    background: #0a1728;
+    color: #f8fafc;
+}
+
+.assignment-policy-form button {
+    grid-column: 1 / -1;
+}
+
+#assignment-policy-result[hidden],
+.assignment-authority-drift[hidden] {
+    display: none;
+}
+
+#assignment-policy-result,
+.radio-settings-result-v0540g {
+    min-height: 1.1em;
+    margin: 7px 0 0;
+    color: #8fa7c5;
+    font-size: .69rem;
+}
+
+.assignment-authority-drift {
+    display: grid;
+    gap: 5px;
+    margin-top: 7px;
+    padding: 8px;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, .07);
+}
+
+.assignment-authority-drift div,
+.assignment-runtime-role {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.assignment-authority-drift strong { color: #fcd34d; font-size: .72rem; }
+.assignment-authority-drift span { color: #fde68a; font-size: .65rem; }
+
+.assignment-policy-runtime {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 7px;
+}
+
+.assignment-runtime-role {
+    padding: 7px 8px;
+    border: 1px solid #24364d;
+    border-radius: 7px;
+    background: #07111f;
+}
+
+.assignment-runtime-role span { color: #8fa7c5; font-size: .68rem; }
+.assignment-runtime-role strong { overflow: hidden; color: #e2e8f0; font-size: .73rem; text-overflow: ellipsis; white-space: nowrap; }
+.assignment-runtime-role small { color: #64748b; font-size: .58rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.assignment-runtime-role[data-state="verified"] small,
+.assignment-runtime-role[data-state="configured"] small { color: #86efac; }
+.assignment-runtime-role[data-state="drift"] small,
+.assignment-runtime-role[data-state="unverified"] small { color: #fcd34d; }
+
+.radio-settings-grid-v0540g {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+}
+
+.radio-settings-grid-v0540g > .card {
+    height: 100%;
+}
+
+.rf-settings-form {
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 8px;
 }
-.weather-planning-form input[type="number"] {
-    width: 110px;
+
+.rf-settings-form fieldset {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin: 0;
+    padding: 9px;
+    border: 1px solid #24364d;
+    border-radius: 9px;
+    background: #07111f;
 }
-.error-text {
-    color: #ff8c8c !important;
+
+.rf-settings-form .rf-check {
+    flex-direction: row;
+    align-items: center;
+    padding: 8px;
+    border: 1px solid #24364d;
+    border-radius: 7px;
+    background: #020712;
 }
 
+.rf-settings-form .rf-check input {
+    accent-color: #38bdf8;
+}
 
-/* v0.47.1a Mission Assignment & Restore Policy Foundation */
-.assignment-policy-form{margin-top:12px}.assignment-policy-form fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0;padding:12px;border:1px solid #24364d;border-radius:10px;background:#07111f}.assignment-policy-form legend{padding:0 8px;font-weight:700}.assignment-policy-form label{display:flex;flex-direction:column;gap:6px}.assignment-policy-form select{width:100%;padding:9px;border:1px solid #2b405c;border-radius:7px;background:#0a1728;color:inherit}.assignment-policy-form button{grid-column:1/-1}.assignment-policy-runtime{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.assignment-policy-runtime div{display:flex;flex-direction:column;gap:4px;padding:9px;border:1px solid #24364d;border-radius:8px;background:#07111f}.assignment-policy-runtime span{color:#8fa7c5;font-size:.82rem}.assignment-policy-runtime strong{font-size:.9rem}@media(max-width:700px){.assignment-policy-form fieldset,.assignment-policy-runtime{grid-template-columns:1fr}}
+.rf-settings-form .rf-settings-help {
+    grid-column: 1 / -1;
+    margin: 1px 0 0;
+    color: #7890af;
+    font-size: .67rem;
+    line-height: 1.38;
+}
 
-/* v0.47.1c Radio Control Cleanup */
-.mission-assignment-card{grid-column:span 2}
-@media(max-width:1350px){.mission-assignment-card{grid-column:1/-1}}
-@media(max-width:900px){.mission-assignment-card{grid-column:auto}}
+.rf-settings-form select:disabled,
+.rf-settings-form input:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
 
-/* v0.49.0a Receiver & Weather configuration */
-.runtime-diagnostics-card{padding-top:14px;padding-bottom:14px}.runtime-diagnostics-grid{gap:7px}.mission-assignment-card{grid-column:span 1}.mission-assignment-card .section-heading-row p{margin:3px 0 0}.assignment-policy-form{margin-top:8px}.assignment-policy-form fieldset{padding:9px;gap:8px}.assignment-policy-runtime{gap:6px;margin-top:8px}.assignment-policy-runtime div{padding:7px}.rf-settings-card{grid-column:span 1}.rf-settings-form{display:grid;grid-template-columns:1fr;gap:9px}.rf-settings-form fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0;padding:10px;border:1px solid #24364d;border-radius:10px;background:#07111f}.rf-settings-form legend{padding:0 7px;font-weight:700}.rf-settings-form .rf-settings-help{grid-column:1/-1;margin:2px 0 0;color:#8fa7c5;font-size:.78rem;line-height:1.4}.rf-settings-form>button{grid-column:auto}.spectrum-card{display:none!important}@media(max-width:1100px){.mission-assignment-card,.rf-settings-card{grid-column:1/-1}}@media(max-width:650px){.rf-settings-form fieldset{grid-template-columns:1fr}}
+.iss-voice-fixed-v0540g {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
 
-/* v0.54.0a Receiver Assignment Authority */
-.receiver-badge-drift,.receiver-badge-unverified{color:#facc15;border-color:#a16207;background:#2a1f08}
-.assignment-authority-status{padding:5px 9px;border:1px solid #334155;border-radius:999px;background:#0f172a;color:#94a3b8;font-size:.68rem;font-weight:800;letter-spacing:.05em}
-.assignment-authority-status[data-state="in_sync"]{border-color:#15803d;color:#4ade80;background:#0b2a18}
-.assignment-authority-status[data-state="drift"],.assignment-authority-status[data-state="unverified"]{border-color:#a16207;color:#facc15;background:#2a1f08}
-.receiver-assignments-form fieldset{grid-template-columns:repeat(2,minmax(0,1fr))}
-.assignment-policy-runtime{grid-template-columns:repeat(2,minmax(0,1fr))}
-.assignment-runtime-role small{color:#64748b;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
-.assignment-runtime-role[data-state="verified"] small,.assignment-runtime-role[data-state="configured"] small{color:#4ade80}
-.assignment-runtime-role[data-state="drift"] small,.assignment-runtime-role[data-state="unverified"] small{color:#facc15}
-.assignment-authority-drift{display:grid;gap:6px;margin-top:9px;padding:9px;border:1px solid #a16207;border-radius:8px;background:#2a1f08}
-.assignment-authority-drift[hidden]{display:none}
-.assignment-authority-drift div{display:flex;flex-direction:column;gap:2px}
-.assignment-authority-drift strong{color:#facc15;font-size:.78rem}
-.assignment-authority-drift span{color:#fde68a;font-size:.72rem}
-.receiver-monitor-item.has-drift{border-color:#a16207;box-shadow:0 0 0 1px rgba(250,204,21,.08) inset}
-.receiver-monitor-authority{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:9px}
-.receiver-monitor-authority span{display:flex;flex-direction:column;gap:2px;padding:7px;border:1px solid #17263a;border-radius:7px;background:#07111f;color:#8fa7c5;font-size:.65rem}
-.receiver-monitor-authority strong{overflow:hidden;color:#e2e8f0;font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}
-.receiver-monitor-authority strong[data-state="drift"],.receiver-monitor-authority strong[data-state="unverified"]{color:#facc15}
-.receiver-monitor-authority strong[data-state="verified"]{color:#4ade80}
-@media(max-width:700px){.receiver-assignments-form fieldset,.assignment-policy-runtime,.receiver-monitor-authority{grid-template-columns:1fr}}
+.iss-voice-fixed-v0540g span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 7px;
+    border: 1px solid #17263a;
+    border-radius: 7px;
+    background: #020712;
+    color: #7890af;
+    font-size: .63rem;
+}
+
+.iss-voice-fixed-v0540g strong {
+    color: #e2e8f0;
+    font-size: .75rem;
+}
+
+.iss-squelch-slider-v0540g {
+    grid-column: 1 / -1;
+    padding: 8px;
+    border: 1px solid #24364d;
+    border-radius: 7px;
+    background: #020712;
+}
+
+.iss-squelch-slider-v0540g > span {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.iss-squelch-slider-v0540g strong {
+    color: #c4b5fd;
+}
+
+.iss-squelch-slider-v0540g input[type="range"] {
+    width: 100%;
+    accent-color: #8b5cf6;
+}
+
+.spectrum-card { display: none !important; }
+
+@media (max-width: 1100px) {
+    .receiver-monitor-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .assignment-policy-form fieldset,
+    .assignment-policy-runtime { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 850px) {
+    .radio-settings-grid-v0540g,
+    .receiver-monitor-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+    .radio-heading-v0540g { flex-direction: column; }
+    .receiver-monitor-authority,
+    .receiver-monitor-metrics,
+    .assignment-policy-form fieldset,
+    .assignment-policy-runtime,
+    .rf-settings-form fieldset,
+    .iss-voice-fixed-v0540g { grid-template-columns: 1fr; }
+}

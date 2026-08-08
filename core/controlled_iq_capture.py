@@ -114,7 +114,7 @@ def execute_controlled_capture(
             frequency_hz=int(config["downlink_frequency_hz"]),
             sample_rate_hz=int(config["rf_sample_rate_hz"]),
             duration_seconds=duration,
-            gain_db=config.get("gain_db"),
+            gain_db=iss_voice.capture_gain_db(config),
             ppm=int(config.get("ppm") or 0),
         )
         capture = wideband_iq_recorder.execute_capture(

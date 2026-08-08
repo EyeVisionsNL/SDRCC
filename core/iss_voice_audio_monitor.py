@@ -17,11 +17,12 @@ import time
 
 import numpy as np
 
-from core import iss_voice_runtime
+from core import iss_voice, iss_voice_runtime
+from core.iss_voice_squelch import RfPowerSquelch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ROOT = (PROJECT_ROOT / "data" / "recordings" / "iss_voice").resolve()
-VERSION = "0.52.0"
+VERSION = "0.54.0g"
 AUDIO_SAMPLE_RATE = 48000
 DEEMPHASIS_US = 75.0
 READ_COMPLEX_SAMPLES = 24000       # 100 ms at the normal 240 kS/s rate
@@ -101,7 +102,9 @@ def _wav_stream_header(sample_rate: int) -> bytes:
 
 
 class _LiveNfmDemodulator:
-    def __init__(self, rf_sample_rate: int, audio_sample_rate: int = AUDIO_SAMPLE_RATE) -> None:
+    def __init__(self, rf_sample_rate: int, audio_sample_rate: int = AUDIO_SAMPLE_RATE,
+                 *, squelch_enabled: bool = False,
+                 squelch_threshold_dbfs: float = -42.0) -> None:
         if rf_sample_rate % audio_sample_rate != 0:
             raise ValueError("RF sample rate moet exact deelbaar zijn door 48 kHz")
         self.factor = rf_sample_rate // audio_sample_rate
@@ -116,6 +119,12 @@ class _LiveNfmDemodulator:
         self.dc_previous_input = 0.0
         self.dc_previous_output = 0.0
         self.level = 0.08
+        self.squelch = RfPowerSquelch(
+            rf_sample_rate_hz=rf_sample_rate,
+            audio_sample_rate_hz=audio_sample_rate,
+            enabled=squelch_enabled,
+            threshold_dbfs=squelch_threshold_dbfs,
+        )
 
     def process(self, raw: bytes) -> bytes:
         usable_bytes = len(raw) - (len(raw) % 2)
@@ -152,6 +161,8 @@ class _LiveNfmDemodulator:
         self.dc_previous_input = dc_in
         self.dc_previous_output = dc_out
 
+        audio = self.squelch.process(iq, audio)
+
         # Slow level tracking avoids loud jumps while retaining weak speech.
         block_peak = float(np.percentile(np.abs(audio), 98.0)) if audio.size else 0.0
         self.level = max(block_peak, self.level * 0.985, 0.015)
@@ -184,6 +195,7 @@ def get_status() -> dict[str, Any]:
     compatible = sample_rate > 0 and sample_rate % AUDIO_SAMPLE_RATE == 0
     available = bool(active and iq_exists and iq_bytes >= sample_rate * 2 * 0.25 and compatible)
     clients, total_clients, last_client_at = _client_snapshot()
+    settings = iss_voice.get_settings()
 
     return {
         "ok": True,
@@ -207,6 +219,8 @@ def get_status() -> dict[str, Any]:
         "observed_byte_rate": observed_byte_rate,
         "elapsed_seconds": round(elapsed, 3) if elapsed is not None else None,
         "streaming_enabled": True,
+        "squelch_enabled": settings["squelch_enabled"],
+        "squelch_threshold_dbfs": settings["squelch_threshold_dbfs"],
         "stream_url": f"/api/iss-voice/audio-stream?mission_id={mission_id}" if available else None,
         "stream_state": "STREAMING" if clients else ("READY" if available else "STANDBY"),
         "active_clients": clients,
@@ -228,10 +242,13 @@ def get_status() -> dict[str, Any]:
 class LiveWavStream:
     """Close-aware iterator with synchronous admission and client accounting."""
 
-    def __init__(self, mission_id: str, iq_path: Path, sample_rate: int) -> None:
+    def __init__(self, mission_id: str, iq_path: Path, sample_rate: int,
+                 *, squelch_enabled: bool, squelch_threshold_dbfs: float) -> None:
         self.mission_id = mission_id
         self.iq_path = iq_path
         self.sample_rate = sample_rate
+        self.squelch_enabled = bool(squelch_enabled)
+        self.squelch_threshold_dbfs = float(squelch_threshold_dbfs)
         self._closed = False
         _register_client()
         self._iterator = self._generate()
@@ -267,7 +284,11 @@ class LiveWavStream:
             pass
 
     def _generate(self) -> Iterator[bytes]:
-        demodulator = _LiveNfmDemodulator(self.sample_rate)
+        demodulator = _LiveNfmDemodulator(
+            self.sample_rate,
+            squelch_enabled=self.squelch_enabled,
+            squelch_threshold_dbfs=self.squelch_threshold_dbfs,
+        )
         byte_rate = self.sample_rate * 2
         chunk_bytes = READ_COMPLEX_SAMPLES * 2
         yield _wav_stream_header(AUDIO_SAMPLE_RATE)
@@ -311,4 +332,11 @@ def stream_wav(requested_mission_id: str) -> LiveWavStream:
         raise ValueError("Actieve RF sample rate is niet geschikt voor live audio")
     if iq_path is None or not iq_path.is_file():
         raise ValueError("Actief IQ-bestand is nog niet beschikbaar")
-    return LiveWavStream(mission_id, iq_path, sample_rate)
+    settings = iss_voice.get_settings()
+    return LiveWavStream(
+        mission_id,
+        iq_path,
+        sample_rate,
+        squelch_enabled=settings["squelch_enabled"],
+        squelch_threshold_dbfs=settings["squelch_threshold_dbfs"],
+    )

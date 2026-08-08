@@ -121,7 +121,7 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         spec = wideband_iq_recorder.build_spec(
             mission_id=mission_id, receiver_serial=device["serial"],
             frequency_hz=int(cfg["downlink_frequency_hz"]), sample_rate_hz=int(cfg["rf_sample_rate_hz"]),
-            duration_seconds=duration, gain_db=cfg.get("gain_db"), ppm=int(cfg.get("ppm") or 0),
+            duration_seconds=duration, gain_db=iss_voice.capture_gain_db(cfg), ppm=int(cfg.get("ppm") or 0),
         )
         output_dir = spec.output_directory
         iss_voice_runtime.update(
@@ -260,6 +260,9 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         "mission_id": mission_id, "satellite": target.get("name") or cfg.get("satellite_name"),
         "mission_type": "iss_voice", "plugin_id": "iss_voice", "frequency": int(cfg["downlink_frequency_hz"]),
         "sample_rate": int(cfg["rf_sample_rate_hz"]), "audio_sample_rate": int(cfg["audio_sample_rate_hz"]),
+        "gain_mode": cfg.get("gain_mode", "auto"), "gain_db": iss_voice.capture_gain_db(cfg),
+        "squelch_enabled": bool(cfg.get("squelch_enabled", False)),
+        "squelch_threshold_dbfs": float(cfg.get("squelch_threshold_dbfs", -42.0)),
         "mode": cfg.get("modulation", "NFM"), "pipeline": "wideband_iq_offline_fm",
         "receiver": device.get("number"), "receiver_id": device.get("id"), "receiver_serial": device.get("serial"),
         "output_path": str(output_dir) if output_dir else "", "created_at": started.strftime("%Y-%m-%d %H:%M:%S"),
@@ -295,5 +298,5 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     )
     if failure:
         raise failure
-    return {"ok": True, "version": "0.54.0d", "mission": history,
+    return {"ok": True, "version": "0.54.0g", "mission": history,
             "capture": capture, "audio": audio, "stopped_and_restored_services": stopped_services}

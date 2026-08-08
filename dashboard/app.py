@@ -802,6 +802,7 @@ def get_dashboard_data():
         "assignments": assignments,
         "receiver_authority": authority_snapshot,
         "weather_rf": config_core.get_weather_rf_config(),
+        "iss_voice_settings": iss_voice.get_settings(),
         "tle_present": tle.exists(),
         "system": system_stats.get_stats(),
         "logs": logs,
@@ -3367,6 +3368,48 @@ def api_weather_rf():
         return jsonify({"ok": True, "settings": settings, "message": "Weather / METEOR-instellingen opgeslagen."})
     except ValueError as error:
         return jsonify({"ok": False, "message": str(error)}), 400
+
+
+@app.route("/api/iss-voice/settings", methods=["GET", "POST"])
+def api_iss_voice_settings():
+    """Read and update bounded ISS receiver/audio settings without runtime authority."""
+    if request.method == "GET":
+        return jsonify({"ok": True, "settings": iss_voice.get_settings()})
+
+    mission = get_mission_data_for_status()
+    scheduler = mission_scheduler_core.get_scheduler_status()
+    mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
+    observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
+    blocked = (
+        bool(iss_voice_runtime.get_status().get("active"))
+        or mission_phase not in {"", "READY", "WAIT FOR PASS"}
+        or observer_phase in {"PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"}
+    )
+    if blocked:
+        return jsonify({
+            "ok": False,
+            "message": "ISS Voice settings are locked during an active mission.",
+        }), 409
+    try:
+        settings = iss_voice.set_settings(request.get_json(silent=True) or {})
+        write_log(
+            "ISS Voice settings changed: "
+            f"gain_mode={settings['gain_mode']} gain={settings['gain_db']} dB "
+            f"squelch={settings['squelch_enabled']} "
+            f"threshold={settings['squelch_threshold_dbfs']} dBFS"
+        )
+        return jsonify({
+            "ok": True,
+            "settings": settings,
+            "message": "ISS Voice settings saved for the next recording.",
+        })
+    except ValueError as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+    except OSError as error:
+        return jsonify({
+            "ok": False,
+            "message": f"ISS Voice settings could not be saved: {error}",
+        }), 500
 
 
 @app.route("/api/capture-status")
