@@ -44,7 +44,7 @@
 
 .radio-view-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr);
     gap: 18px;
 }
 
@@ -111,88 +111,238 @@
     border-color: rgba(255, 255, 255, 0.36);
 }
 
-.radio-view-ground-track,
-.radio-view-live-image-wrap {
+.radio-view-satellite-map-wrap {
     position: absolute;
     inset: 0;
 }
 
-.radio-view-ground-track {
+.radio-view-satellite-map-wrap {
     overflow: hidden;
-    background:
-        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
-    background-size: 34px 34px;
+    background: #07111f;
 }
 
-.radio-view-orbit-line {
+.radio-view-satellite-map {
+    display: block;
+    width: 100%;
+    height: calc(100% - 96px);
+    background: #07111f;
+}
+
+.radio-view-orbit-track,
+.radio-view-footprint {
+    fill: none;
+    stroke: var(--satellite-color);
+    vector-effect: non-scaling-stroke;
+}
+
+.radio-view-orbit-track {
+    stroke-width: 1.7;
+    opacity: 0.88;
+}
+
+.radio-view-orbit-track.is-past {
+    stroke-dasharray: 5 7;
+    opacity: 0.38;
+}
+
+.radio-view-orbit-track.is-selected {
+    stroke-width: 2.7;
+    opacity: 1;
+}
+
+.radio-view-footprint {
+    stroke-width: 1.1;
+    stroke-dasharray: 3 4;
+    opacity: 0.48;
+}
+
+.radio-view-footprint.is-selected {
+    stroke-width: 1.7;
+    opacity: 0.78;
+}
+
+.radio-view-map-marker {
+    cursor: pointer;
+    outline: none;
+}
+
+.radio-view-map-marker circle {
+    fill: var(--satellite-color);
+    stroke: #07111f;
+    stroke-width: 4;
+    vector-effect: non-scaling-stroke;
+}
+
+.radio-view-map-marker.is-selected circle {
+    stroke: #f8fafc;
+    stroke-width: 4.5;
+}
+
+.radio-view-map-marker.is-visible circle {
+    animation: radio-view-pulse 1.8s ease-out infinite;
+}
+
+.radio-view-map-marker text,
+.radio-view-home-marker text {
+    fill: #f8fafc;
+    font-size: 17px;
+    font-weight: 800;
+    paint-order: stroke;
+    stroke: #07111f;
+    stroke-linejoin: round;
+    stroke-width: 5px;
+}
+
+.radio-view-home-marker circle {
+    fill: #35e6a4;
+    stroke: #07111f;
+    stroke-width: 4;
+    vector-effect: non-scaling-stroke;
+}
+
+.radio-view-home-marker text {
+    fill: #5fffc2;
+}
+
+@keyframes radio-view-pulse {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
+    50% { filter: drop-shadow(0 0 7px var(--satellite-color)); }
+}
+
+.radio-view-station-label,
+.radio-view-satellite-selector,
+.radio-view-satellite-detail,
+.radio-view-map-source {
     position: absolute;
-    width: 145%;
-    height: 52%;
-    left: -22%;
-    top: 22%;
-    border: 2px dashed rgba(122, 190, 255, 0.6);
-    border-radius: 50%;
-    transform: rotate(-13deg);
+    z-index: 2;
 }
 
-.radio-view-station-marker,
-.radio-view-satellite-marker {
-    position: absolute;
-    z-index: 1;
-    font-size: 1.8rem;
-}
-
-.radio-view-station-marker {
-    left: 48%;
-    top: 57%;
-}
-
-.radio-view-satellite-marker {
-    left: 67%;
-    top: 26%;
-}
-
-.radio-view-ground-track-copy {
-    position: absolute;
-    left: 18px;
-    right: 18px;
-    bottom: 18px;
+.radio-view-station-label {
+    top: 12px;
+    left: 12px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 12px 14px;
+    gap: 2px;
+    padding: 8px 10px;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-    background: rgba(8, 13, 20, 0.82);
+    border-radius: 8px;
+    background: rgba(5, 12, 22, 0.82);
     backdrop-filter: blur(6px);
 }
 
-.radio-view-ground-track-copy span {
-    font-size: 0.84rem;
-    opacity: 0.75;
+.radio-view-station-label strong {
+    color: #5fffc2;
+    font-size: 0.76rem;
 }
 
-.radio-view-live-image-wrap {
+.radio-view-station-label span {
+    color: #9fb0c5;
+    font-size: 0.63rem;
+}
+
+.radio-view-satellite-selector {
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.radio-view-satellite-selector button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 70px;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(5, 12, 22, 0.82);
+    color: #cbd5e1;
+    cursor: pointer;
+    font-size: 0.67rem;
+    font-weight: 800;
+    text-align: left;
+    backdrop-filter: blur(6px);
+}
+
+.radio-view-satellite-selector button i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--satellite-color);
+    box-shadow: 0 0 7px var(--satellite-color);
+}
+
+.radio-view-satellite-selector button.is-active {
+    border-color: var(--satellite-color);
+    color: #fff;
+}
+
+.radio-view-satellite-selector button.is-unavailable {
+    cursor: not-allowed;
+    opacity: 0.42;
+}
+
+.radio-view-satellite-detail {
+    right: 12px;
+    bottom: 8px;
+    left: 12px;
     display: grid;
-    place-items: center;
-    background: rgba(0, 0, 0, 0.42);
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    background: rgba(5, 12, 22, 0.88);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
 }
 
-.radio-view-live-image {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+.radio-view-selected-satellite,
+.radio-view-next-pass {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 
-.radio-view-image-wait {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-    text-align: center;
-    background: rgba(10, 16, 24, 0.92);
+.radio-view-selected-satellite > span,
+.radio-view-next-pass > span {
+    color: #7dd3fc;
+    font-size: 0.57rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+}
+
+.radio-view-selected-satellite > span.is-visible {
+    color: #5fffc2;
+}
+
+.radio-view-selected-satellite strong,
+.radio-view-next-pass strong {
+    overflow: hidden;
+    color: #f8fafc;
+    font-size: 0.76rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.radio-view-selected-satellite small,
+.radio-view-next-pass small {
+    overflow: hidden;
+    color: #9fb0c5;
+    font-size: 0.63rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.radio-view-map-source {
+    right: 10px;
+    bottom: 91px;
+    color: rgba(194, 208, 224, 0.45);
+    font-size: 0.5rem;
+    pointer-events: none;
 }
 
 .hidden {
@@ -227,5 +377,23 @@
     .radio-view-frame-wrap,
     .radio-view-satellite-content {
         height: 390px;
+    }
+
+    .radio-view-satellite-detail {
+        grid-template-columns: 1fr;
+        gap: 7px;
+    }
+
+    .radio-view-next-pass {
+        padding-top: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .radio-view-satellite-map {
+        height: calc(100% - 132px);
+    }
+
+    .radio-view-map-source {
+        bottom: 127px;
     }
 }

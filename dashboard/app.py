@@ -56,6 +56,7 @@ from core import mission_queue as mission_queue_core
 from core import process_manager
 from core import profiles
 from core import satdump as satdump_core
+from core import satellite_view as satellite_view_core
 
 app = Flask(__name__)
 
@@ -1882,6 +1883,21 @@ def index():
 @app.route("/api/status")
 def api_status():
     return jsonify(get_dashboard_data())
+
+
+@app.route("/api/satellite-view")
+def api_satellite_view():
+    """Read-only live geometry for the Radio View world map."""
+    try:
+        snapshot = satellite_view_core.get_snapshot()
+        return jsonify(snapshot), (200 if snapshot.get("ok") else 503)
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "authority": satellite_view_core.AUTHORITY,
+            "error": str(error),
+            "satellites": [],
+        }), 503
 
 
 
