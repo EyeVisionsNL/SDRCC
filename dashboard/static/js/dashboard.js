@@ -9,7 +9,7 @@ import {updateLiveLog, updateMissionTimeline} from "./timeline.js";
 import {updateExecutionJournal} from "./execution_journal.js";
 import {updateSdr} from "./sdr.js";
 import {updateStatusbar} from "./statusbar.js";
-import {setupMissionHistory} from "./history.js";
+import {setupMissionHistory} from "./history.js?v=0.54.0m-r1";
 import {setupMissionAnalytics} from "./mission_analytics.js?v=0.54.0k-r1";
 import {
     updateScheduler,

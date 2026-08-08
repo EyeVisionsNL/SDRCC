@@ -17,7 +17,7 @@ function text(value, fallback = "-") {
 function number(value, fallback = "-") {
     if (value === null || value === undefined || value === "") return fallback;
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed.toLocaleString("nl-NL") : fallback;
+    return Number.isFinite(parsed) ? parsed.toLocaleString("en-GB") : fallback;
 }
 
 function duration(value) {
@@ -27,13 +27,28 @@ function duration(value) {
     const minutes = Math.floor((total % 3600) / 60);
     const seconds = total % 60;
 
-    if (hours > 0) return `${hours}u ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+    if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
     if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
     return `${seconds}s`;
 }
 
 function resultClass(result) {
     return `result-${String(result || "other").toLowerCase().replaceAll(" ", "-")}`;
+}
+
+function satelliteClass(value) {
+    const normalized = String(value || "").toUpperCase().replaceAll("_", " ").replaceAll("-", " ");
+    if (normalized.includes("METEOR") && (normalized.includes("M2 3") || normalized.includes("M2-3"))) return "is-meteor-3";
+    if (normalized.includes("METEOR") && (normalized.includes("M2 4") || normalized.includes("M2-4"))) return "is-meteor-4";
+    if (normalized.includes("ISS") || normalized.includes("ZARYA")) return "is-iss";
+    return "is-neutral";
+}
+
+function receiverLabel(value) {
+    const receiver = String(value || "").trim().toUpperCase();
+    if (["RECEIVER01", "SDR1", "RX01"].includes(receiver)) return "SDR1";
+    if (["RECEIVER02", "SDR2", "RX02"].includes(receiver)) return "SDR2";
+    return text(value);
 }
 
 function setText(id, value) {
@@ -71,7 +86,7 @@ function detailItem(label, value, options = {}) {
 function missionCard(mission) {
     const card = document.createElement("button");
     card.type = "button";
-    card.className = `history-mission ${resultClass(mission.result)}`;
+    card.className = `history-mission ${satelliteClass(mission.satellite)} ${resultClass(mission.result)}`;
     card.dataset.missionId = text(mission.mission_id, "");
     card.setAttribute("aria-pressed", mission.mission_id === selectedMissionId ? "true" : "false");
 
@@ -102,9 +117,9 @@ function missionCard(mission) {
     const metrics = document.createElement("div");
     metrics.className = "history-mission-metrics";
     metrics.append(
-        metric("Duur", duration(mission.duration_seconds)),
-        metric("Piek-SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
-        metric("Beelden", number(mission.image_count)),
+        metric("Duration", duration(mission.duration_seconds)),
+        metric("Peak SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
+        metric("Images", number(mission.image_count)),
         metric("Max elev.", mission.max_elevation == null ? "-" : `${mission.max_elevation}°`)
     );
 
@@ -124,6 +139,11 @@ function renderStatistics(statistics = {}) {
     setText("history-stat-duration", duration(statistics.average_duration_seconds));
     setText("history-stat-snr", statistics.best_peak_snr_db == null ? "-" : `${statistics.best_peak_snr_db} dB`);
     setText("history-stat-frames", number(statistics.total_frames, "0"));
+
+    const successCard = byId("history-stat-success")?.closest(".history-stat");
+    const successRate = Number(statistics.success_rate || 0);
+    successCard?.classList.toggle("is-warn", successRate >= 50 && successRate < 80);
+    successCard?.classList.toggle("is-bad", successRate < 50);
 }
 
 function renderMissions(missions = []) {
@@ -136,9 +156,9 @@ function renderMissions(missions = []) {
         selectedMissionId = null;
         const empty = document.createElement("div");
         empty.className = "history-empty";
-        empty.textContent = "Geen missies gevonden voor deze selectie.";
+        empty.textContent = "No missions found for this selection.";
         list.appendChild(empty);
-        renderEmptyDetail("Selecteer een missie om de details te bekijken.");
+        renderEmptyDetail("Select a mission to view its details.");
         return;
     }
 
@@ -153,10 +173,12 @@ function renderMissions(missions = []) {
     }
 }
 
-function renderEmptyDetail(message = "Selecteer een missie om de details te bekijken.") {
+function renderEmptyDetail(message = "Select a mission to view its details.") {
     const panel = byId("mission-history-detail");
     if (!panel) return;
     panel.innerHTML = "";
+    panel.classList.remove("is-meteor-3", "is-meteor-4", "is-iss");
+    panel.classList.add("is-neutral");
 
     const empty = document.createElement("div");
     empty.className = "history-detail-empty";
@@ -188,8 +210,8 @@ function qualityItem(label, value, displayValue = null, applicable = true) {
     name.textContent = label;
     const content = document.createElement("strong");
     content.textContent = !applicable
-        ? "N.v.t."
-        : (displayValue === null ? (value ? "OK" : "Niet bevestigd") : text(displayValue));
+        ? "N/A"
+        : (displayValue === null ? (value ? "OK" : "Not confirmed") : text(displayValue));
     body.append(name, content);
     item.appendChild(body);
     return item;
@@ -217,8 +239,8 @@ function fileItem(icon, label, info = {}) {
     title.textContent = label;
     const meta = document.createElement("small");
     meta.textContent = info.available
-        ? `${number(info.count, "0")} bestand(en) · ${formatBytes(info.bytes)}`
-        : "Niet beschikbaar";
+        ? `${number(info.count, "0")} file(s) · ${formatBytes(info.bytes)}`
+        : "Not available";
     body.append(title, meta);
     item.append(symbol, body);
     return item;
@@ -240,7 +262,7 @@ function eventTime(value) {
     if (!value) return "-";
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return text(value);
-    return parsed.toLocaleTimeString("nl-NL", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+    return parsed.toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
 }
 
 function missionEventItem(event) {
@@ -274,6 +296,8 @@ function renderMissionDetail(payload) {
     const panel = byId("mission-history-detail");
     if (!panel) return;
     panel.innerHTML = "";
+    panel.classList.remove("is-meteor-3", "is-meteor-4", "is-iss", "is-neutral");
+    panel.classList.add(satelliteClass(mission.satellite));
 
     const header = document.createElement("div");
     header.className = "history-detail-header";
@@ -295,9 +319,9 @@ function renderMissionDetail(payload) {
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.className = "history-delete-button";
-    deleteButton.title = "Complete missie verwijderen";
-    deleteButton.setAttribute("aria-label", `Missie ${text(mission.mission_id)} verwijderen`);
-    deleteButton.textContent = "🗑 Verwijderen";
+    deleteButton.title = "Delete complete mission";
+    deleteButton.setAttribute("aria-label", `Delete mission ${text(mission.mission_id)}`);
+    deleteButton.textContent = "🗑 Delete";
     deleteButton.addEventListener("click", () => deleteMission(mission, deleteButton));
 
     actions.append(result, deleteButton);
@@ -322,35 +346,35 @@ function renderMissionDetail(payload) {
         qualityItem("Receiver lock", quality.receiver_lock),
         qualityItem("Recording", quality.recording),
         qualityItem("Decoder", quality.decoder, null, decoderApplicable),
-        qualityItem("Beelden", Number(quality.images || 0) > 0, imagesApplicable ? number(quality.images, "0") : null, imagesApplicable),
-        qualityItem("Piek-SNR", quality.peak_snr_db != null, snrApplicable ? (quality.peak_snr_db == null ? "-" : `${quality.peak_snr_db} dB`) : null, snrApplicable)
+        qualityItem("Images", Number(quality.images || 0) > 0, imagesApplicable ? number(quality.images, "0") : null, imagesApplicable),
+        qualityItem("Peak SNR", quality.peak_snr_db != null, snrApplicable ? (quality.peak_snr_db == null ? "-" : `${quality.peak_snr_db} dB`) : null, snrApplicable)
     );
     qualityBlock.append(qualityHeading, qualityGrid);
 
     const overview = document.createElement("div");
     overview.className = "history-detail-overview";
     overview.append(
-        metric("Duur", duration(mission.duration_seconds)),
-        metric("Piek-SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
+        metric("Duration", duration(mission.duration_seconds)),
+        metric("Peak SNR", mission.peak_snr_db == null ? "-" : `${mission.peak_snr_db} dB`),
         metric("Frames", number(mission.frames)),
-        metric("CADU-bytes", number(mission.cadu_bytes)),
-        metric("Beelden", number(mission.image_count))
+        metric("CADU bytes", number(mission.cadu_bytes)),
+        metric("Images", number(mission.image_count))
     );
 
     const summary = document.createElement("div");
     summary.className = "history-detail-grid";
     summary.append(
-        detailItem("Receiver", mission.receiver),
-        detailItem("Frequentie", mission.frequency_mhz == null ? "-" : `${mission.frequency_mhz} MHz`),
+        detailItem("Receiver", receiverLabel(mission.receiver || mission.receiver_id)),
+        detailItem("Frequency", mission.frequency_mhz == null ? "-" : `${mission.frequency_mhz} MHz`),
         detailItem("Mode", mission.mode),
         detailItem("Pipeline", mission.pipeline, {code: true}),
-        detailItem("Gestart", mission.started_at),
-        detailItem("Beëindigd", mission.ended_at),
+        detailItem("Started", mission.started_at),
+        detailItem("Ended", mission.ended_at),
         detailItem("Status", mission.status),
         detailItem("Progress", mission.progress == null ? "-" : `${mission.progress}%`),
-        detailItem("Min. elevatie", mission.min_elevation == null ? "-" : `${mission.min_elevation}°`),
-        detailItem("Max. elevatie", mission.max_elevation == null ? "-" : `${mission.max_elevation}°`),
-        detailItem("Kwaliteit", quality.score == null ? "-" : `${quality.score}% · ${text(quality.grade)}`)
+        detailItem("Min. elevation", mission.min_elevation == null ? "-" : `${mission.min_elevation}°`),
+        detailItem("Max. elevation", mission.max_elevation == null ? "-" : `${mission.max_elevation}°`),
+        detailItem("Quality", quality.score == null ? "-" : `${quality.score}% · ${text(quality.grade)}`)
     );
 
     const filesGrid = document.createElement("div");
@@ -432,7 +456,7 @@ function renderMissionDetail(payload) {
     } else {
         const empty = document.createElement("div");
         empty.className = "history-preview-empty";
-        empty.textContent = "Geen afbeelding beschikbaar voor deze missie.";
+        empty.textContent = "No image available for this mission.";
         preview.appendChild(empty);
         gallery.appendChild(preview);
     }
@@ -444,20 +468,20 @@ function renderMissionDetail(payload) {
     } else {
         const empty = document.createElement("div");
         empty.className = "history-event-empty";
-        empty.textContent = "Geen bewaarde Event Bus-events voor deze missie.";
+        empty.textContent = "No stored Event Bus events for this mission.";
         eventList.appendChild(empty);
     }
 
     const technical = document.createElement("div");
     technical.className = "history-detail-grid";
     technical.append(
-        detailItem("Receiver-ID", mission.receiver_id),
-        detailItem("Serienummer", mission.receiver_serial),
-        detailItem("Aangemaakt", mission.created_at),
-        detailItem("Diagnostiek", diagnostics.available ? diagnostics.directory : "Niet beschikbaar", {wide: true, code: true}),
-        detailItem("Outputmap", mission.output_path, {wide: true, code: true}),
+        detailItem("Receiver ID", mission.receiver_id),
+        detailItem("Serial number", mission.receiver_serial),
+        detailItem("Created", mission.created_at),
+        detailItem("Diagnostics", diagnostics.available ? diagnostics.directory : "Not available", {wide: true, code: true}),
+        detailItem("Output directory", mission.output_path, {wide: true, code: true}),
         detailItem("Detail", mission.detail, {wide: true}),
-        detailItem("Fout", mission.error, {wide: true})
+        detailItem("Error", mission.error, {wide: true})
     );
 
     panel.append(
@@ -466,13 +490,13 @@ function renderMissionDetail(payload) {
         sectionTitle("Mission Summary"),
         overview,
         summary,
-        sectionTitle("Bestanden"),
+        sectionTitle("Files"),
         filesGrid,
         sectionTitle(`Mission Images (${imageFiles.length || files.images?.count || 0})`),
         gallery,
         sectionTitle("Mission Events"),
         eventList,
-        sectionTitle("Technische details"),
+        sectionTitle("Technical Details"),
         technical
     );
 }
@@ -482,17 +506,17 @@ async function deleteMission(mission, button) {
     const missionId = text(mission?.mission_id, "");
     if (!missionId) return;
 
-    const satellite = text(mission?.satellite, "Onbekende satelliet");
+    const satellite = text(mission?.satellite, "Unknown satellite");
     const confirmed = window.confirm(
-        `Complete missie verwijderen?\n\n${satellite}\n${missionId}\n\n` +
-        "Alle opnames, beelden, telemetrie en historiegegevens van deze missie worden definitief verwijderd."
+        `Delete complete mission?\n\n${satellite}\n${missionId}\n\n` +
+        "All recordings, images, telemetry and history data for this mission will be permanently deleted."
     );
     if (!confirmed) return;
 
-    const originalLabel = button?.textContent || "🗑 Verwijderen";
+    const originalLabel = button?.textContent || "🗑 Delete";
     if (button) {
         button.disabled = true;
-        button.textContent = "Verwijderen…";
+        button.textContent = "Deleting…";
     }
 
     try {
@@ -503,14 +527,14 @@ async function deleteMission(mission, button) {
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false) {
-            throw new Error(payload.error || "Missie verwijderen is mislukt");
+            throw new Error(payload.error || "Mission deletion failed");
         }
 
         selectedMissionId = null;
-        renderEmptyDetail("Missie verwijderd. Geschiedenis wordt bijgewerkt…");
+        renderEmptyDetail("Mission deleted. History is being refreshed…");
         await refreshMissionHistory();
     } catch (error) {
-        window.alert(`Missie kon niet worden verwijderd: ${error.message}`);
+        window.alert(`Mission could not be deleted: ${error.message}`);
         if (button) {
             button.disabled = false;
             button.textContent = originalLabel;
@@ -529,11 +553,11 @@ async function loadMissionDetail(missionId) {
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false || !payload.mission) {
-            throw new Error(payload.error || "Mission Detail API fout");
+            throw new Error(payload.error || "Mission Detail API error");
         }
         renderMissionDetail(payload);
     } catch (error) {
-        renderEmptyDetail(`Mission Detail kon niet worden geladen: ${error.message}`);
+        renderEmptyDetail(`Mission Detail could not be loaded: ${error.message}`);
     } finally {
         panel.removeAttribute("aria-busy");
     }
@@ -573,18 +597,18 @@ export async function refreshMissionHistory() {
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false) {
-            throw new Error(payload.error || "Mission History API fout");
+            throw new Error(payload.error || "Mission History API error");
         }
         renderStatistics(payload.statistics || {});
         renderMissions(payload.missions || []);
-        setText("history-count", `${payload.count || 0} van ${payload.total || 0} missies`);
+        setText("history-count", `${payload.count || 0} of ${payload.total || 0} missions`);
     } catch (error) {
         list.innerHTML = "";
         const message = document.createElement("div");
         message.className = "history-empty";
-        message.textContent = `Mission History kon niet worden geladen: ${error.message}`;
+        message.textContent = `Mission History could not be loaded: ${error.message}`;
         list.appendChild(message);
-        renderEmptyDetail("Mission Detail is niet beschikbaar.");
+        renderEmptyDetail("Mission Detail is not available.");
     }
 }
 

@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="/static/css/radio.css?v=0.54.0h-r2">
     <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.54.0g">
-    <link rel="stylesheet" href="/static/css/history.css">
+    <link rel="stylesheet" href="/static/css/history.css?v=0.54.0m-r1">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.54.0j-r1">
@@ -764,31 +764,31 @@
 
 <section class="tab-page" id="tab-history">
     <div class="history-page">
-        <section class="card">
+        <section class="card history-shell">
             <div class="history-header">
                 <div>
                     <h2>🗂 Mission History</h2>
-                    <p>Blijvend overzicht van afgeronde en geannuleerde satellietmissies.</p>
+                    <p>Permanent overview of completed and cancelled satellite missions.</p>
                 </div>
-                <button id="history-refresh" type="button" class="control-button history-refresh">↻ Vernieuwen</button>
+                <button id="history-refresh" type="button" class="control-button history-refresh">↻ Refresh</button>
             </div>
 
             <div class="history-stat-grid">
-                <div class="history-stat"><span>Missies</span><strong id="history-stat-total">0</strong></div>
-                <div class="history-stat"><span>Succes</span><strong id="history-stat-success">0%</strong></div>
-                <div class="history-stat"><span>Beelden</span><strong id="history-stat-images">0</strong></div>
-                <div class="history-stat"><span>Gem. duur</span><strong id="history-stat-duration">-</strong></div>
-                <div class="history-stat"><span>Beste SNR</span><strong id="history-stat-snr">-</strong></div>
-                <div class="history-stat"><span>Frames totaal</span><strong id="history-stat-frames">0</strong></div>
+                <div class="history-stat is-total"><span>Missions</span><strong id="history-stat-total">0</strong></div>
+                <div class="history-stat is-success"><span>Success</span><strong id="history-stat-success">0%</strong></div>
+                <div class="history-stat is-images"><span>Images</span><strong id="history-stat-images">0</strong></div>
+                <div class="history-stat is-duration"><span>Avg. duration</span><strong id="history-stat-duration">-</strong></div>
+                <div class="history-stat is-snr"><span>Best SNR</span><strong id="history-stat-snr">-</strong></div>
+                <div class="history-stat is-frames"><span>Total frames</span><strong id="history-stat-frames">0</strong></div>
             </div>
 
             <div class="history-toolbar">
-                <label>Zoeken
-                    <input id="history-search" type="search" placeholder="Satelliet, mission ID, receiver...">
+                <label>Search
+                    <input id="history-search" type="search" placeholder="Satellite, mission ID, receiver...">
                 </label>
-                <label>Resultaat
+                <label>Result
                     <select id="history-result-filter">
-                        <option value="">Alle resultaten</option>
+                        <option value="">All results</option>
                         <option value="SUCCESS">SUCCESS</option>
                         <option value="NO IMAGES">NO IMAGES</option>
                         <option value="NO SYNC">NO SYNC</option>
@@ -797,25 +797,25 @@
                         <option value="CANCELLED">CANCELLED</option>
                     </select>
                 </label>
-                <label>Aantal
+                <label>Count
                     <select id="history-limit">
-                        <option value="25">25 missies</option>
-                        <option value="50">50 missies</option>
-                        <option value="100" selected>100 missies</option>
-                        <option value="250">250 missies</option>
+                        <option value="25">25 missions</option>
+                        <option value="50">50 missions</option>
+                        <option value="100" selected>100 missions</option>
+                        <option value="250">250 missions</option>
                     </select>
                 </label>
             </div>
 
-            <p id="history-count" class="muted">Mission History laden...</p>
+            <p id="history-count" class="muted">Loading Mission History...</p>
             <div class="history-workspace">
                 <div class="history-list-column">
                     <div id="mission-history-list" class="history-list">
-                        <div class="history-empty">Mission History laden...</div>
+                        <div class="history-empty">Loading Mission History...</div>
                     </div>
                 </div>
                 <aside id="mission-history-detail" class="history-detail-panel" aria-live="polite">
-                    <div class="history-detail-empty">Selecteer een missie om de details te bekijken.</div>
+                    <div class="history-detail-empty">Select a mission to view its details.</div>
                 </aside>
             </div>
         </section>
@@ -1023,7 +1023,7 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/dashboard.js?v=0.54.0l-r1"></script>
+<script src="/static/dashboard.js?v=0.54.0m-r1"></script>
 <script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
 <script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
 <script src="/static/js/radio.js?v=0.54.0h-r2"></script>

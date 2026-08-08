@@ -102,7 +102,7 @@ def main() -> None:
     check("systemctl" not in "\n".join((system_js, services_js, inventory_js, sounds_js)), "System presentation code contains no service authority")
     check("Mission Event Center" not in sounds_js, "notification test no longer exposes the removed card name")
 
-    approved_loader_versions = ("v=0.54.0f", "v=0.54.0k-r1", "v=0.54.0l-r1")
+    approved_loader_versions = ("v=0.54.0f", "v=0.54.0k-r1", "v=0.54.0l-r1", "v=0.54.0m-r1")
     check(
         any(version in dashboard_loader for version in approved_loader_versions),
         "dashboard module cache bust uses an approved System-compatible version",

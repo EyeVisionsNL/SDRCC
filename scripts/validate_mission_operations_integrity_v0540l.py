@@ -56,8 +56,8 @@ def validate_static_contract() -> None:
     check(
         'mission_recordings.css?v=0.54.0l-r2' in template
         and 'mission_recordings.js?v=0.54.0l-r2' in template
-        and '/static/dashboard.js?v=0.54.0l-r1' in template
-        and '/static/js/dashboard.js?v=0.54.0l-r1' in dashboard_loader
+        and any(version in template for version in ('/static/dashboard.js?v=0.54.0l-r1', '/static/dashboard.js?v=0.54.0m-r1'))
+        and any(version in dashboard_loader for version in ('/static/js/dashboard.js?v=0.54.0l-r1', '/static/js/dashboard.js?v=0.54.0m-r1'))
         and './capture.js?v=0.54.0l-r1' in dashboard_module,
         "Mission Operations and compatibility assets use the v0.54.0l cache chain",
     )
