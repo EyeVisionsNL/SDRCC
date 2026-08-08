@@ -136,6 +136,7 @@ function runtimeForReceiver(receiver) {
     if (summary?.active && normalizeReceiver(summary.receiver, summary.receiver_id) === receiver) {
         return {
             active: true,
+            satellite: summary.satellite || summary.name || "",
             phase: summary.status || operationsSnapshot?.state || "ACTIVE",
             detail: summary.detail || "Mission active",
             progress: summary.progress,
@@ -148,6 +149,7 @@ function runtimeForReceiver(receiver) {
     if (iss.active && normalizeReceiver(iss.receiver_id, iss.receiver) === receiver) {
         return {
             active: true,
+            satellite: iss.satellite || "ISS (ZARYA)",
             phase: iss.phase || "ACTIVE",
             detail: iss.detail || "ISS Voice mission active",
             progress: iss.progress,
@@ -160,6 +162,7 @@ function runtimeForReceiver(receiver) {
     if (mission.active_job && missionReceiver(mission) === receiver) {
         return {
             active: true,
+            satellite: mission.active_job.satellite || mission.active_job.name || mission.satellite || "",
             phase: mission.phase || mission.state || mission.active_job.status || "ACTIVE",
             detail: mission.detail || mission.active_job.detail || "Mission active",
             progress: mission.progress ?? mission.active_job.progress,
@@ -175,6 +178,7 @@ function runtimeForReceiver(receiver) {
     if (activeStatus) {
         return {
             active: true,
+            satellite: pass.name || pass.satellite || "",
             phase: pass.live_mission_status || "ACTIVE",
             detail: `${pass.name || "Mission"} active on ${receiver}`,
             progress: null,
@@ -198,6 +202,14 @@ function phaseTone(phase) {
     if (["FAILED", "ERROR", "CANCELLED"].includes(normalized)) return "failed";
     if (["DECODING", "PROCESSING", "ARCHIVING", "DEMODULATING", "FINALIZING"].includes(normalized)) return "processing";
     return "active";
+}
+
+function satelliteTone(value) {
+    const normalized = String(value || "").toUpperCase().replaceAll("_", " ").replaceAll("-", " ");
+    if (normalized.includes("ISS")) return "is-iss";
+    if (normalized.includes("M2 3") || normalized.includes("M2-3")) return "is-meteor-3";
+    if (normalized.includes("M2 4") || normalized.includes("M2-4")) return "is-meteor-4";
+    return "is-neutral";
 }
 
 function blockedCopy(pass) {
@@ -224,10 +236,18 @@ function applyCardTone(receiver, tone) {
     }
 }
 
+function applySatelliteTone(receiver, satellite) {
+    const card = document.getElementById(ids[receiver].card);
+    if (!card) return;
+    card.classList.remove("is-meteor-3", "is-meteor-4", "is-iss", "is-neutral");
+    card.classList.add(satelliteTone(satellite));
+}
+
 function renderMissionCard(receiver) {
     const target = ids[receiver];
     const runtime = runtimeForReceiver(receiver);
     const pass = visiblePass[receiver];
+    const satellite = runtime?.satellite || pass?.name || pass?.satellite || "";
     let phase = "READY";
     let badge = "READY";
     let detail = pass ? "Receiver ready for the scheduled mission" : "No active mission";
@@ -260,6 +280,7 @@ function renderMissionCard(receiver) {
     const bar = document.getElementById(target.progress);
     if (bar) bar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
     applyCardTone(receiver, tone);
+    applySatelliteTone(receiver, satellite);
 }
 
 function renderMissionCards() {

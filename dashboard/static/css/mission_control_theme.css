@@ -1,0 +1,240 @@
+/* SDRCC v0.54.0n-r1 Mission Control visual clarity */
+#tab-mission {
+    --mission-control-cyan: #38bdf8;
+    --mission-control-meteor-3: #22d3ee;
+    --mission-control-meteor-4: #a78bfa;
+    --mission-control-iss: #fbbf24;
+    --mission-control-green: #22c55e;
+    --mission-control-amber: #f59e0b;
+    --mission-control-red: #ef4444;
+    --mission-control-purple: #a855f7;
+    --mission-control-slate: #94a3b8;
+}
+
+#tab-mission .mission-control-layout-v034 {
+    gap: 14px;
+    padding: 14px;
+}
+
+#tab-mission .mission-queue-card-v034,
+#tab-mission .controls-panel-v034,
+#tab-mission .mission-receiver-card-v034,
+#tab-mission .mission-timeline-panel-v034,
+#tab-mission .execution-journal-panel-v043 {
+    --panel-accent: var(--mission-control-cyan);
+    position: relative;
+    overflow: hidden;
+    border-color: color-mix(in srgb, var(--panel-accent) 32%, #334155);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 8%, transparent), transparent 50%);
+    box-shadow: inset 3px 0 0 var(--panel-accent);
+}
+
+#tab-mission .mission-queue-card-v034::after,
+#tab-mission .controls-panel-v034::after,
+#tab-mission .mission-receiver-card-v034::after,
+#tab-mission .mission-timeline-panel-v034::after,
+#tab-mission .execution-journal-panel-v043::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    width: 76px;
+    height: 76px;
+    top: -45px;
+    right: -23px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--panel-accent) 16%, transparent);
+    pointer-events: none;
+}
+
+#tab-mission .mission-queue-card-v034 > *,
+#tab-mission .controls-panel-v034 > *,
+#tab-mission .mission-receiver-card-v034 > *,
+#tab-mission .mission-timeline-panel-v034 > *,
+#tab-mission .execution-journal-panel-v043 > * {
+    position: relative;
+    z-index: 1;
+}
+
+#tab-mission .mission-queue-card-v034 { --panel-accent: var(--mission-control-cyan); }
+#tab-mission .controls-panel-v034 { --panel-accent: var(--mission-control-green); }
+#tab-mission .mission-timeline-panel-v034 { --panel-accent: var(--mission-control-cyan); }
+#tab-mission .execution-journal-panel-v043 { --panel-accent: var(--mission-control-purple); }
+
+#tab-mission .mission-queue-heading strong,
+#tab-mission .mission-timeline-panel-v034 > h2,
+#tab-mission .execution-journal-heading-v043 h2 {
+    color: color-mix(in srgb, var(--panel-accent) 76%, #f8fafc);
+}
+
+#tab-mission .mission-queue-heading > span,
+#tab-mission .execution-journal-authority-v043 {
+    border-color: color-mix(in srgb, var(--panel-accent) 55%, transparent);
+    background: color-mix(in srgb, var(--panel-accent) 8%, transparent);
+    color: color-mix(in srgb, var(--panel-accent) 82%, #f8fafc);
+}
+
+#tab-mission .controls-panel-v034 > h2 {
+    color: #86efac;
+}
+
+#tab-mission .control-section-v035 {
+    border-color: color-mix(in srgb, var(--mission-control-green) 24%, #24364d);
+    background: linear-gradient(145deg, rgba(34, 197, 94, .055), rgba(2, 7, 18, .72) 62%);
+}
+
+#tab-mission .control-section-heading-v035 strong {
+    color: #bbf7d0;
+}
+
+#tab-mission .mission-queue-item {
+    --satellite-accent: var(--mission-control-slate);
+    border-color: color-mix(in srgb, var(--satellite-accent) 34%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--satellite-accent) 8%, transparent), #020712 64%);
+    box-shadow: inset 3px 0 0 var(--satellite-accent);
+}
+
+#tab-mission .mission-queue-item:has(.mission-queue-title[title*="METEOR-M2 3"]),
+#tab-mission .mission-queue-item:has(.mission-queue-title[title*="METEOR-M2-3"]) {
+    --satellite-accent: var(--mission-control-meteor-3);
+}
+
+#tab-mission .mission-queue-item:has(.mission-queue-title[title*="METEOR-M2 4"]),
+#tab-mission .mission-queue-item:has(.mission-queue-title[title*="METEOR-M2-4"]) {
+    --satellite-accent: var(--mission-control-meteor-4);
+}
+
+#tab-mission .mission-queue-item:has(.mission-queue-title[title*="ISS"]) {
+    --satellite-accent: var(--mission-control-iss);
+}
+
+#tab-mission .mission-queue-item.is-blocked,
+#tab-mission .mission-queue-item.is-conflict {
+    border-color: color-mix(in srgb, var(--mission-control-amber) 62%, #334155);
+    background: linear-gradient(145deg, rgba(245, 158, 11, .10), #020712 64%);
+}
+
+#tab-mission .mission-queue-item.is-in-progress,
+#tab-mission .mission-queue-item.is-active,
+#tab-mission .mission-queue-item.is-recording {
+    border-color: color-mix(in srgb, var(--mission-control-red) 58%, #334155);
+    background: linear-gradient(145deg, rgba(239, 68, 68, .085), #020712 64%);
+}
+
+#tab-mission .mission-queue-title strong,
+#tab-mission .mission-queue-satellite-icon,
+#tab-mission .mission-queue-frequency {
+    color: color-mix(in srgb, var(--satellite-accent) 84%, #f8fafc);
+}
+
+#tab-mission .mission-receiver-card-v034 {
+    --panel-accent: var(--mission-control-slate);
+    border-color: color-mix(in srgb, var(--panel-accent) 36%, #334155);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 9%, transparent), transparent 50%);
+    box-shadow: inset 3px 0 0 var(--panel-accent);
+}
+
+#tab-mission .mission-receiver-card-v034.is-meteor-3 { --panel-accent: var(--mission-control-meteor-3); }
+#tab-mission .mission-receiver-card-v034.is-meteor-4 { --panel-accent: var(--mission-control-meteor-4); }
+#tab-mission .mission-receiver-card-v034.is-iss { --panel-accent: var(--mission-control-iss); }
+#tab-mission .mission-receiver-card-v034.is-neutral { --panel-accent: var(--mission-control-slate); }
+
+#tab-mission .mission-receiver-heading-v034 {
+    border-bottom-color: color-mix(in srgb, var(--panel-accent) 24%, #334155);
+}
+
+#tab-mission .mission-receiver-heading-v034 h2,
+#tab-mission .mission-next-pass-name-v034 {
+    color: color-mix(in srgb, var(--panel-accent) 78%, #f8fafc);
+}
+
+#tab-mission .mission-next-pass-label-v034,
+#tab-mission .mission-next-pass-label-v034.is-next {
+    color: var(--panel-accent);
+}
+
+#tab-mission .mission-receiver-state-v034 {
+    border-color: color-mix(in srgb, var(--panel-accent) 22%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 5%, transparent), #020712 70%);
+}
+
+#tab-mission .mission-next-pass-list-v034 > div {
+    border-bottom-color: color-mix(in srgb, var(--panel-accent) 13%, #26364b);
+}
+
+#tab-mission .mission-receiver-badge-v034 {
+    background: color-mix(in srgb, currentColor 7%, #0f172a);
+}
+
+#tab-mission .timeline-toolbar {
+    background: transparent;
+}
+
+#tab-mission .timeline-item {
+    --timeline-accent: var(--mission-control-slate);
+    border-color: color-mix(in srgb, var(--timeline-accent) 30%, #334155);
+    border-left-color: var(--timeline-accent);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--timeline-accent) 7%, transparent), #0f172a 62%);
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--timeline-accent) 78%, transparent);
+}
+
+#tab-mission .timeline-item.category-system { --timeline-accent: #64748b; }
+#tab-mission .timeline-item.category-scheduler { --timeline-accent: #3b82f6; }
+#tab-mission .timeline-item.category-preflight { --timeline-accent: var(--mission-control-green); }
+#tab-mission .timeline-item.category-mission { --timeline-accent: var(--mission-control-meteor-3); }
+#tab-mission .timeline-item.category-receiver { --timeline-accent: var(--mission-control-purple); }
+#tab-mission .timeline-item.category-satdump { --timeline-accent: #f97316; }
+#tab-mission .timeline-item.level-warning { --timeline-accent: var(--mission-control-amber); }
+#tab-mission .timeline-item.level-error { --timeline-accent: var(--mission-control-red); }
+
+#tab-mission .timeline-filter[aria-pressed="true"] {
+    border-color: var(--mission-control-cyan);
+    background: rgba(56, 189, 248, .11);
+    color: #bae6fd;
+}
+
+#tab-mission .execution-journal-summary-v043 > div {
+    --journal-accent: var(--mission-control-cyan);
+    position: relative;
+    overflow: hidden;
+    border-color: color-mix(in srgb, var(--journal-accent) 32%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--journal-accent) 8%, transparent), #020712 70%);
+    box-shadow: inset 3px 0 0 var(--journal-accent);
+}
+
+#tab-mission .execution-journal-summary-v043 > div:nth-child(1) { --journal-accent: var(--mission-control-cyan); }
+#tab-mission .execution-journal-summary-v043 > div:nth-child(2) { --journal-accent: var(--mission-control-iss); }
+#tab-mission .execution-journal-summary-v043 > div:nth-child(3) { --journal-accent: var(--mission-control-green); }
+#tab-mission .execution-journal-summary-v043 > div:nth-child(4) { --journal-accent: var(--mission-control-red); }
+#tab-mission .execution-journal-summary-v043 > div:nth-child(5) { --journal-accent: var(--mission-control-amber); }
+
+#tab-mission .execution-journal-summary-v043 strong {
+    color: var(--journal-accent);
+}
+
+#tab-mission .execution-journal-list-v043 {
+    border-color: color-mix(in srgb, var(--mission-control-purple) 24%, #24364d);
+    background: linear-gradient(145deg, rgba(168, 85, 247, .035), #020712 68%);
+}
+
+#tab-mission .execution-journal-entry-v043:has(.status-started),
+#tab-mission .execution-journal-entry-v043:has(.status-accepted) {
+    box-shadow: inset 3px 0 0 var(--mission-control-cyan);
+}
+
+#tab-mission .execution-journal-entry-v043:has(.status-finished) {
+    box-shadow: inset 3px 0 0 var(--mission-control-green);
+}
+
+#tab-mission .execution-journal-entry-v043:has(.status-failed) {
+    box-shadow: inset 3px 0 0 var(--mission-control-red);
+}
+
+#tab-mission .execution-journal-entry-v043:has(.status-cancelled) {
+    box-shadow: inset 3px 0 0 var(--mission-control-amber);
+}
+
+@media (max-width: 850px) {
+    #tab-mission .mission-control-layout-v034 {
+        padding: 10px;
+    }
+}

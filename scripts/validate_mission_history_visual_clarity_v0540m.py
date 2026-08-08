@@ -30,8 +30,8 @@ def main() -> None:
 
     check(
         'history.css?v=0.54.0m-r1' in template
-        and '/static/dashboard.js?v=0.54.0m-r1' in template
-        and '/static/js/dashboard.js?v=0.54.0m-r1' in loader
+        and any(version in template for version in ('/static/dashboard.js?v=0.54.0m-r1', '/static/dashboard.js?v=0.54.0n-r1'))
+        and any(version in loader for version in ('/static/js/dashboard.js?v=0.54.0m-r1', '/static/js/dashboard.js?v=0.54.0n-r1'))
         and './history.js?v=0.54.0m-r1' in dashboard,
         "Mission History assets use the complete v0.54.0m cache chain",
     )

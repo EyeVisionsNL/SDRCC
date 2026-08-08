@@ -3,7 +3,7 @@ import {setupTabs} from "./tabs.js";
 import {setupControls} from "./controls.js";
 import {updateSystem} from "./system.js?v=0.54.0f";
 import {updateServices, updateServiceButtons} from "./services.js?v=0.54.0f";
-import {updateMissionEngine, updateNextPass, updateCountdown, updateServerOffset} from "./mission.js?v=0.54.0e";
+import {updateMissionEngine, updateNextPass, updateCountdown, updateServerOffset} from "./mission.js?v=0.54.0n-r1";
 import {updateLatestCapture, updateRecentCaptures} from "./capture.js?v=0.54.0l-r1";
 import {updateLiveLog, updateMissionTimeline} from "./timeline.js";
 import {updateExecutionJournal} from "./execution_journal.js";
@@ -15,7 +15,7 @@ import {
     updateScheduler,
     updateSchedulerCountdown,
     updateSchedulerServerOffset
-} from "./scheduler.js";
+} from "./scheduler.js?v=0.54.0n-r1";
 
 async function refreshDashboard() {
     try {

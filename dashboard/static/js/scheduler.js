@@ -1,5 +1,5 @@
 import {setText} from "./utils.js";
-import {updateMissionQueueVisibility} from "./mission.js?v=0.54.0e";
+import {updateMissionQueueVisibility} from "./mission.js?v=0.54.0n-r1";
 
 let startEpoch = null;
 let serverOffsetSeconds = 0;
