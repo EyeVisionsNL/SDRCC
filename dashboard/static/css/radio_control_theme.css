@@ -1,0 +1,240 @@
+/* SDRCC v0.54.0o-r2 Radio Control visual clarity */
+#tab-radio {
+    --radio-control-cyan: #38bdf8;
+    --radio-control-meteor-3: #22d3ee;
+    --radio-control-meteor-4: #a78bfa;
+    --radio-control-iss: #fbbf24;
+    --radio-control-green: #22c55e;
+    --radio-control-amber: #f59e0b;
+    --radio-control-red: #ef4444;
+    --radio-control-purple: #a78bfa;
+    --radio-control-slate: #94a3b8;
+}
+
+#tab-radio .radio-page-v0540g {
+    gap: 14px;
+    padding: 14px;
+}
+
+#tab-radio .radio-panel-v0540g {
+    --panel-accent: var(--radio-control-cyan);
+    position: relative;
+    overflow: hidden;
+    border-color: color-mix(in srgb, var(--panel-accent) 34%, #334155);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 8%, transparent), rgba(3, 11, 24, .98) 56%);
+    box-shadow: inset 3px 0 0 var(--panel-accent), 0 0 15px rgba(0, 0, 0, .25);
+}
+
+#tab-radio .radio-panel-v0540g.is-observer { --panel-accent: var(--radio-control-cyan); }
+#tab-radio .radio-panel-v0540g.is-diagnostics { --panel-accent: var(--radio-control-purple); }
+#tab-radio .radio-panel-v0540g.is-authority { --panel-accent: var(--radio-control-green); }
+#tab-radio .radio-panel-v0540g.is-weather { --panel-accent: var(--radio-control-meteor-3); }
+#tab-radio .radio-panel-v0540g.is-iss { --panel-accent: var(--radio-control-iss); }
+
+#tab-radio .radio-panel-v0540g::before {
+    z-index: 0;
+    width: 3px;
+    background: var(--panel-accent);
+}
+
+#tab-radio .radio-panel-v0540g::after {
+    position: absolute;
+    z-index: 0;
+    width: 76px;
+    height: 76px;
+    top: -45px;
+    right: -23px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--panel-accent) 16%, transparent);
+    content: "";
+    pointer-events: none;
+}
+
+#tab-radio .radio-panel-v0540g > * {
+    position: relative;
+    z-index: 1;
+}
+
+#tab-radio .radio-heading-v0540g {
+    border-bottom-color: color-mix(in srgb, var(--panel-accent) 24%, #334155);
+}
+
+#tab-radio .radio-heading-v0540g h2 {
+    color: color-mix(in srgb, var(--panel-accent) 78%, #f8fafc);
+}
+
+#tab-radio .runtime-diagnostics-heading-copy small {
+    color: color-mix(in srgb, var(--panel-accent) 74%, #cbd5e1);
+}
+
+#tab-radio .radio-status-v0540g {
+    border-color: color-mix(in srgb, var(--panel-accent) 56%, transparent);
+    background: color-mix(in srgb, var(--panel-accent) 9%, transparent);
+    color: color-mix(in srgb, var(--panel-accent) 82%, #f8fafc);
+}
+
+#tab-radio .radio-status-v0540g[data-state="error"],
+#tab-radio .radio-status-v0540g[data-state="drift"] {
+    border-color: color-mix(in srgb, var(--radio-control-red) 62%, transparent);
+    background: rgba(239, 68, 68, .09);
+    color: #fca5a5;
+}
+
+#tab-radio .receiver-monitor-item {
+    --receiver-accent: var(--radio-control-slate);
+    border-color: color-mix(in srgb, var(--receiver-accent) 36%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--receiver-accent) 8%, transparent), #020712 64%);
+    box-shadow: inset 3px 0 0 var(--receiver-accent);
+}
+
+#tab-radio .receiver-monitor-item::before {
+    background: var(--receiver-accent);
+}
+
+#tab-radio .receiver-monitor-item.role-ais { --receiver-accent: var(--radio-control-cyan); }
+#tab-radio .receiver-monitor-item.role-ads-b,
+#tab-radio .receiver-monitor-item.role-adsb { --receiver-accent: var(--radio-control-purple); }
+#tab-radio .receiver-monitor-item.role-weather,
+#tab-radio .receiver-monitor-item.role-weather-meteor { --receiver-accent: var(--radio-control-meteor-3); }
+#tab-radio .receiver-monitor-item.role-iss-voice { --receiver-accent: var(--radio-control-iss); }
+#tab-radio .receiver-monitor-item.has-drift { --receiver-accent: var(--radio-control-red); }
+
+#tab-radio .receiver-monitor-heading strong {
+    color: color-mix(in srgb, var(--receiver-accent) 78%, #f8fafc);
+}
+
+#tab-radio .receiver-monitor-authority span,
+#tab-radio .receiver-monitor-metrics span {
+    border-color: color-mix(in srgb, var(--receiver-accent) 16%, #17263a);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--receiver-accent) 4%, transparent), #07111f 66%);
+}
+
+#tab-radio .receiver-monitor-badges span {
+    border-color: color-mix(in srgb, var(--receiver-accent) 38%, #334155);
+    background: color-mix(in srgb, var(--receiver-accent) 7%, #0f172a);
+    color: color-mix(in srgb, var(--receiver-accent) 72%, #e2e8f0);
+}
+
+#tab-radio .runtime-assignment-verification {
+    --verification-accent: var(--radio-control-purple);
+    border-color: color-mix(in srgb, var(--verification-accent) 38%, #29415f);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--verification-accent) 7%, transparent), #081525 64%);
+    box-shadow: inset 3px 0 0 var(--verification-accent);
+}
+
+#tab-radio .runtime-assignment-verification.is-in_sync { --verification-accent: var(--radio-control-green); }
+#tab-radio .runtime-assignment-verification.is-drift { --verification-accent: var(--radio-control-red); }
+#tab-radio .runtime-assignment-verification.is-unverified { --verification-accent: var(--radio-control-amber); }
+
+#tab-radio .runtime-assignment-verification > div strong {
+    color: color-mix(in srgb, var(--verification-accent) 80%, #f8fafc);
+}
+
+#tab-radio .runtime-diagnostics-table-wrap {
+    border-color: color-mix(in srgb, var(--radio-control-purple) 32%, #24364d);
+    background: linear-gradient(145deg, rgba(167, 139, 250, .045), #020b18 64%);
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--radio-control-purple) 72%, transparent);
+}
+
+#tab-radio .runtime-diagnostics-table thead th {
+    background: linear-gradient(180deg, rgba(167, 139, 250, .09), #071222);
+    color: #c4b5fd;
+}
+
+#tab-radio .runtime-diagnostics-table tbody tr:hover th,
+#tab-radio .runtime-diagnostics-table tbody tr:hover td {
+    background-color: rgba(167, 139, 250, .035);
+}
+
+#tab-radio .runtime-state-badge.is-service {
+    background: rgba(34, 197, 94, .07);
+}
+
+#tab-radio .runtime-state-badge.is-mission {
+    background: rgba(239, 68, 68, .07);
+}
+
+#tab-radio .runtime-state-badge.is-reserved {
+    background: rgba(245, 158, 11, .07);
+}
+
+#tab-radio .runtime-state-badge.is-idle {
+    background: rgba(56, 189, 248, .07);
+}
+
+#tab-radio .is-authority .assignment-policy-form fieldset,
+#tab-radio .is-authority .assignment-runtime-role {
+    border-color: color-mix(in srgb, var(--radio-control-green) 26%, #24364d);
+    background: linear-gradient(145deg, rgba(34, 197, 94, .055), #07111f 66%);
+}
+
+#tab-radio .is-authority .assignment-policy-form legend {
+    color: #bbf7d0;
+}
+
+#tab-radio .is-authority .assignment-policy-form select {
+    border-color: color-mix(in srgb, var(--radio-control-green) 34%, #2b405c);
+}
+
+#tab-radio .assignment-runtime-role {
+    --assignment-accent: var(--radio-control-slate);
+    box-shadow: inset 3px 0 0 var(--assignment-accent);
+}
+
+#tab-radio .assignment-runtime-role[data-state="verified"],
+#tab-radio .assignment-runtime-role[data-state="configured"] { --assignment-accent: var(--radio-control-green); }
+#tab-radio .assignment-runtime-role[data-state="drift"],
+#tab-radio .assignment-runtime-role[data-state="unverified"] { --assignment-accent: var(--radio-control-amber); }
+
+#tab-radio .rf-settings-form fieldset {
+    border-color: color-mix(in srgb, var(--panel-accent) 26%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 5%, transparent), #07111f 66%);
+}
+
+#tab-radio .rf-settings-form legend {
+    color: color-mix(in srgb, var(--panel-accent) 74%, #f8fafc);
+}
+
+#tab-radio .rf-settings-form select,
+#tab-radio .rf-settings-form input[type="number"] {
+    border-color: color-mix(in srgb, var(--panel-accent) 32%, #2b405c);
+}
+
+#tab-radio .rf-settings-form .rf-check,
+#tab-radio .iss-squelch-slider-v0540g,
+#tab-radio .iss-voice-fixed-v0540g span {
+    border-color: color-mix(in srgb, var(--panel-accent) 23%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 5%, transparent), #020712 66%);
+}
+
+#tab-radio .rf-settings-form .rf-check input,
+#tab-radio .iss-squelch-slider-v0540g input[type="range"] {
+    accent-color: var(--panel-accent);
+}
+
+#tab-radio .iss-voice-fixed-v0540g strong,
+#tab-radio .iss-squelch-slider-v0540g strong {
+    color: #fde68a;
+}
+
+#tab-radio .radio-panel-v0540g .control-button {
+    border-color: color-mix(in srgb, var(--panel-accent) 68%, #334155);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--panel-accent) 38%, #0f172a), color-mix(in srgb, var(--panel-accent) 18%, #07111f));
+    color: #f8fafc;
+}
+
+#tab-radio .radio-panel-v0540g .control-button:hover {
+    border-color: color-mix(in srgb, var(--panel-accent) 88%, #f8fafc);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--panel-accent) 50%, #0f172a), color-mix(in srgb, var(--panel-accent) 25%, #07111f));
+}
+
+#tab-radio .radio-panel-v0540g .control-button:disabled {
+    border-color: #475569;
+    background: #334155;
+}
+
+@media (max-width: 850px) {
+    #tab-radio .radio-page-v0540g {
+        padding: 10px;
+    }
+}

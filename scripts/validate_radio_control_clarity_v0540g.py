@@ -118,9 +118,29 @@ def main() -> None:
 
     validation = iss_voice.validate_config()
     check(validation["ok"], "existing ISS Voice configuration remains valid without new keys")
-    defaults = iss_voice.get_settings(validation["config"])
-    check(defaults["squelch_enabled"] is False, "squelch is compatibility-safe and disabled by default")
-    check(iss_voice.capture_gain_db(validation["config"]) is None, "automatic gain omits the rtl_sdr manual-gain argument")
+    compatibility_config = dict(validation["config"])
+    for field in ("gain_mode", "gain_db", "squelch_enabled", "squelch_threshold_dbfs"):
+        compatibility_config.pop(field, None)
+    compatibility_defaults = iss_voice.get_settings(compatibility_config)
+    check(
+        compatibility_defaults["squelch_enabled"] is False,
+        "squelch is compatibility-safe and disabled by default when unset",
+    )
+
+    auto_config = dict(validation["config"])
+    auto_config["gain_mode"] = "auto"
+    check(
+        iss_voice.capture_gain_db(auto_config) is None,
+        "automatic gain omits the rtl_sdr manual-gain argument",
+    )
+
+    manual_config = dict(validation["config"])
+    manual_config["gain_mode"] = "manual"
+    manual_config["gain_db"] = 37.2
+    check(
+        iss_voice.capture_gain_db(manual_config) == 37.2,
+        "manual gain retains the configured rtl_sdr gain argument",
+    )
 
     original_config_file = iss_voice.CONFIG_FILE
     try:
