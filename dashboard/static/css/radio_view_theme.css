@@ -1,0 +1,180 @@
+/* SDRCC v0.54.0p-r1 Radio View visual clarity */
+#tab-radio-view {
+    --radio-view-cyan: #38bdf8;
+    --radio-view-meteor-3: #22d3ee;
+    --radio-view-meteor-4: #a78bfa;
+    --radio-view-iss: #fbbf24;
+    --radio-view-green: #22c55e;
+    --radio-view-amber: #f59e0b;
+    --radio-view-red: #ef4444;
+    --radio-view-purple: #a78bfa;
+    --radio-view-slate: #94a3b8;
+    padding: 14px 14px 24px;
+}
+
+#tab-radio-view .radio-view-header,
+#tab-radio-view .radio-view-panel {
+    --panel-accent: var(--radio-view-cyan);
+    position: relative;
+    overflow: hidden;
+    border-color: color-mix(in srgb, var(--panel-accent) 34%, #334155);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 8%, transparent), transparent 52%);
+    box-shadow: inset 3px 0 0 var(--panel-accent);
+}
+
+#tab-radio-view .radio-view-header::after,
+#tab-radio-view .radio-view-panel::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    width: 76px;
+    height: 76px;
+    top: -45px;
+    right: -23px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--panel-accent) 16%, transparent);
+    pointer-events: none;
+}
+
+#tab-radio-view .radio-view-header > *,
+#tab-radio-view .radio-view-panel > * {
+    position: relative;
+    z-index: 1;
+}
+
+#tab-radio-view .radio-view-panel.is-adsb {
+    --panel-accent: var(--radio-view-purple);
+}
+
+#tab-radio-view .radio-view-panel.is-ais {
+    --panel-accent: var(--radio-view-cyan);
+}
+
+#tab-radio-view .radio-view-panel.is-satellite {
+    --panel-accent: var(--radio-view-meteor-3);
+}
+
+#tab-radio-view .radio-view-panel.is-satellite::after {
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--radio-view-meteor-3) 24%, transparent) 0 33%,
+        color-mix(in srgb, var(--radio-view-meteor-4) 24%, transparent) 33% 66%,
+        color-mix(in srgb, var(--radio-view-iss) 24%, transparent) 66% 100%);
+}
+
+#tab-radio-view .radio-view-header h2,
+#tab-radio-view .radio-view-panel-heading h2 {
+    color: color-mix(in srgb, var(--panel-accent) 78%, #f8fafc);
+}
+
+#tab-radio-view .radio-view-panel-heading {
+    padding-bottom: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-accent) 22%, #334155);
+}
+
+#tab-radio-view .radio-view-panel-heading p {
+    color: color-mix(in srgb, var(--panel-accent) 38%, #cbd5e1);
+    opacity: 1;
+}
+
+#tab-radio-view .radio-view-status,
+#tab-radio-view .radio-view-badge {
+    border-color: color-mix(in srgb, var(--panel-accent) 50%, #334155);
+    background: color-mix(in srgb, var(--panel-accent) 8%, #0f172a);
+    color: color-mix(in srgb, var(--panel-accent) 78%, #f8fafc);
+}
+
+#tab-radio-view .radio-view-badge.is-online,
+#tab-radio-view .radio-view-status.is-live {
+    border-color: color-mix(in srgb, var(--radio-view-green) 58%, #334155);
+    background: rgba(34, 197, 94, .08);
+    color: #86efac;
+}
+
+#tab-radio-view .radio-view-badge.is-offline {
+    border-color: color-mix(in srgb, var(--radio-view-red) 66%, #334155);
+    background: rgba(239, 68, 68, .09);
+    color: #fca5a5;
+}
+
+#tab-radio-view .radio-view-frame-wrap,
+#tab-radio-view .radio-view-satellite-content {
+    border-color: color-mix(in srgb, var(--panel-accent) 30%, #334155);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 5%, transparent), #020712 68%);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--panel-accent) 7%, transparent);
+}
+
+#tab-radio-view .radio-view-open-button {
+    border-color: color-mix(in srgb, var(--panel-accent) 58%, #334155);
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--panel-accent) 30%, #0f172a),
+        color-mix(in srgb, var(--panel-accent) 14%, #07111f));
+    color: #f8fafc;
+}
+
+#tab-radio-view .radio-view-open-button:hover {
+    border-color: color-mix(in srgb, var(--panel-accent) 86%, #f8fafc);
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--panel-accent) 42%, #0f172a),
+        color-mix(in srgb, var(--panel-accent) 22%, #07111f));
+}
+
+#tab-radio-view .radio-view-station-label {
+    border-color: color-mix(in srgb, var(--radio-view-green) 40%, #334155);
+    background: color-mix(in srgb, var(--radio-view-green) 5%, rgba(5, 12, 22, .90));
+    box-shadow: inset 3px 0 0 var(--radio-view-green);
+}
+
+#tab-radio-view .radio-view-satellite-selector button {
+    border-color: color-mix(in srgb, var(--satellite-color) 34%, #334155);
+    background: color-mix(in srgb, var(--satellite-color) 7%, rgba(5, 12, 22, .90));
+    color: color-mix(in srgb, var(--satellite-color) 66%, #e2e8f0);
+}
+
+#tab-radio-view .radio-view-satellite-selector button.is-active {
+    border-color: var(--satellite-color);
+    background: color-mix(in srgb, var(--satellite-color) 15%, rgba(5, 12, 22, .92));
+    color: #fff;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--satellite-color) 18%, transparent);
+}
+
+#tab-radio-view .radio-view-satellite-detail {
+    border-color: color-mix(in srgb, var(--radio-view-meteor-3) 32%, #334155);
+    background: rgba(5, 12, 22, .92);
+    box-shadow: inset 3px 0 0 var(--radio-view-meteor-3), 0 8px 24px rgba(0, 0, 0, .25);
+}
+
+#tab-radio-view .radio-view-selected-satellite > span {
+    color: var(--radio-view-meteor-3);
+}
+
+#tab-radio-view .radio-view-selected-satellite > span.is-visible {
+    color: #86efac;
+}
+
+#tab-radio-view .radio-view-next-pass {
+    padding-left: 12px;
+    border-left: 1px solid color-mix(in srgb, var(--radio-view-amber) 34%, #334155);
+}
+
+#tab-radio-view .radio-view-next-pass > span {
+    color: var(--radio-view-amber);
+}
+
+#tab-radio-view .radio-view-frame-error {
+    border: 1px solid color-mix(in srgb, var(--radio-view-red) 48%, #334155);
+    background: linear-gradient(145deg, rgba(239, 68, 68, .08), rgba(15, 20, 28, .97) 58%);
+    color: #fecaca;
+}
+
+@media (max-width: 760px) {
+    #tab-radio-view {
+        padding: 10px 10px 20px;
+    }
+
+    #tab-radio-view .radio-view-next-pass {
+        padding-top: 7px;
+        padding-left: 0;
+        border-top: 1px solid color-mix(in srgb, var(--radio-view-amber) 34%, #334155);
+        border-left: 0;
+    }
+}

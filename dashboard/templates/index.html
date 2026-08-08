@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
     <link rel="stylesheet" href="/static/css/mission_control_theme.css?v=0.54.0n-r1">
     <link rel="stylesheet" href="/static/css/radio_control_theme.css?v=0.54.0o-r2">
+    <link rel="stylesheet" href="/static/css/radio_view_theme.css?v=0.54.0p-r1">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0l-r2">
 </head>
 <body>
@@ -483,11 +484,11 @@
     </section>
 
     <div class="radio-view-grid">
-        <article class="card radio-view-panel">
+        <article class="card radio-view-panel is-adsb">
             <div class="radio-view-panel-heading">
                 <div>
                     <h2>✈ ADS-B Radar</h2>
-                    <p>Live tar1090-weergave</p>
+                    <p>Live tar1090 viewer</p>
                 </div>
                 <span id="radio-view-adsb-state" class="radio-view-badge">Checking...</span>
             </div>
@@ -498,11 +499,11 @@
             <a id="radio-view-adsb-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open full ADS-B Viewer ↗</a>
         </article>
 
-        <article class="card radio-view-panel">
+        <article class="card radio-view-panel is-ais">
             <div class="radio-view-panel-heading">
                 <div>
                     <h2>🚢 AIS Traffic</h2>
-                    <p>Live AIS-Catcher-weergave</p>
+                    <p>Live AIS-Catcher viewer</p>
                 </div>
                 <span id="radio-view-ais-state" class="radio-view-badge">Checking...</span>
             </div>
@@ -513,7 +514,7 @@
             <a id="radio-view-ais-open" class="radio-view-open-button" target="_blank" rel="noopener noreferrer">Open full AIS Viewer ↗</a>
         </article>
 
-        <article class="card radio-view-panel radio-view-satellite-panel">
+        <article class="card radio-view-panel radio-view-satellite-panel is-satellite">
             <div class="radio-view-panel-heading">
                 <div>
                     <h2>🛰 Satellite View</h2>
