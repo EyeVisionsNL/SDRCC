@@ -1,13 +1,7 @@
 export function updateLatestCapture(capture) {
     updateCaptureBlock(capture, "");
-
-    // Initialiseer het Beelden-tabblad één keer. Daarna bepaalt een handmatige
-    // thumbnailselectie welk beeld zichtbaar blijft tijdens dashboard-refreshes.
-    const imagesViewer = document.getElementById("capture-image-images");
-    if (!imagesViewer?.getAttribute("src")) {
-        updateCaptureBlock(capture, "-images");
-    }
-
+    // Mission Operations owns its selected result. Generic dashboard refreshes
+    // must not replace a user's audio or image selection.
     updateImagePipeline(capture);
 }
 
@@ -31,10 +25,6 @@ export function updateRecentCaptures(captures) {
             <span>${capture.satellite} · ${capture.product}</span><br>
             <small>${capture.modified} · ${capture.resolution}</small>
         `;
-
-        item.addEventListener("click", () => {
-            updateCaptureBlock(capture, "-images");
-        });
 
         box.appendChild(item);
     });

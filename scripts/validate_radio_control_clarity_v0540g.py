@@ -51,6 +51,7 @@ def main() -> None:
     squelch_source = read("core/iss_voice_squelch.py")
     offline_source = read("core/iss_voice_audio.py")
     live_source = read("core/iss_voice_audio_monitor.py")
+    shared_channel_source = read("core/iss_voice_channel.py")
     executor_source = read("core/iss_voice_executor.py")
     controlled_source = read("core/controlled_iq_capture.py")
 
@@ -95,9 +96,23 @@ def main() -> None:
     check("ISS Voice settings are locked during an active mission" in app_source, "ISS settings writes are blocked during missions")
     check("systemctl" not in config_source + squelch_source, "ISS settings and squelch add no service authority")
     check("receiver_manager" not in squelch_source and "subprocess" not in squelch_source, "squelch owns no receiver or process lifecycle")
-    check("RfPowerSquelch" in offline_source and "RfPowerSquelch" in live_source, "one squelch helper serves final and live audio")
-    check("squelch.process(complex_iq, audio)" in offline_source, "final WAV applies RF-power squelch")
-    check("self.squelch.process(iq, audio)" in live_source, "live WAV applies RF-power squelch")
+    legacy_squelch = "RfPowerSquelch" in offline_source and "RfPowerSquelch" in live_source
+    shared_squelch = (
+        "NfmChannelDecoder" in offline_source
+        and "NfmChannelDecoder" in live_source
+        and "RfPowerSquelch" in shared_channel_source
+    )
+    check(legacy_squelch or shared_squelch, "one squelch helper serves final and live audio")
+    check(
+        "squelch.process(complex_iq, audio)" in offline_source
+        or ("NfmChannelDecoder" in offline_source and "self.squelch.process(channel_iq, audio)" in shared_channel_source),
+        "final WAV applies RF-power squelch",
+    )
+    check(
+        "self.squelch.process(iq, audio)" in live_source
+        or ("NfmChannelDecoder" in live_source and "self.squelch.process(channel_iq, audio)" in shared_channel_source),
+        "live WAV applies RF-power squelch",
+    )
     check("iss_voice.capture_gain_db(cfg)" in executor_source, "automatic ISS missions honor managed tuner gain")
     check("iss_voice.capture_gain_db(config)" in controlled_source, "controlled ISS captures honor managed tuner gain")
 
@@ -151,7 +166,11 @@ def main() -> None:
     check(float(np.max(np.abs(strong_gate.process(strong_iq, audio)))) > 0.9, "squelch opens above the RF threshold")
     check(np.array_equal(bypass.process(quiet_iq, audio), audio), "disabled squelch is bit-for-bit transparent to float audio")
 
-    check("v=0.54.0g" in html and 'radio.js?v=0.54.0g' in html, "Radio assets use the release cache bust")
+    check(
+        "v=0.54.0g" in html
+        and any(version in html for version in ('radio.js?v=0.54.0g', 'radio.js?v=0.54.0h-r2')),
+        "Radio assets use an approved v0.54.0g/v0.54.0h cache bust",
+    )
     print("VALIDATION PASS: SDRCC v0.54.0g Radio Control Clarity and ISS Voice Squelch")
 
 

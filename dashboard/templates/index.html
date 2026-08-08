@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
-    <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.51.0">
+    <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0l-r2">
 </head>
 <body>
 <header class="topbar">
@@ -823,163 +823,190 @@
 </section>
 
 <section class="tab-page mission-operations-page" id="tab-images">
-    <section class="card mission-operations-header">
-        <div>
-            <h2>🛰️ Mission Operations</h2>
-            <p class="muted">Live mission workspace and post-mission result viewer. Read-only; existing mission authorities remain unchanged.</p>
-        </div>
-        <div class="mission-operations-mode">
-            <span id="mission-operations-mode-badge" class="mission-operations-badge result">RESULT</span>
-            <span id="mission-operations-updated" class="muted">Waiting for data...</span>
-        </div>
-    </section>
-
-    <div class="mission-operations-live-grid">
-        <section class="card mission-operations-status-card mission-operations-viewport-card">
-            <div class="mission-operations-section-title">
-                <h3>Live Mission</h3>
-                <span id="mission-operations-state" class="mission-operations-state">IDLE</span>
+    <div class="mission-operations-layout-v0540l">
+        <section class="card mission-operations-header">
+            <div>
+                <h2>🛰️ Mission Operations</h2>
+                <p class="muted">Live Weather and ISS workspace with a read-only result viewer.</p>
             </div>
-            <div class="mission-operations-primary">
-                <strong id="mission-operations-satellite">No active mission</strong>
-                <span id="mission-operations-detail" class="muted">Waiting for the next mission.</span>
-            </div>
-            <div class="mission-operations-progress-track"><div id="mission-operations-progress" class="mission-operations-progress-bar"></div></div>
-            <div class="mission-operations-console" data-version="0.53.1-r2">
-                <section class="mission-operations-console-group">
-                    <div class="mission-operations-console-heading"><span>Mission</span><strong id="mission-operations-mission-type">-</strong></div>
-                    <div class="mission-operations-console-grid">
-                        <div><span>Mission ID</span><strong id="mission-operations-mission-id">-</strong></div>
-                        <div><span>Elapsed</span><strong id="mission-operations-elapsed">00:00</strong></div>
-                        <div><span>Remaining</span><strong id="mission-operations-remaining">00:00</strong></div>
-                        <div><span>Scheduler</span><strong id="mission-operations-scheduler">-</strong></div>
-                    </div>
-                </section>
-                <section class="mission-operations-console-group">
-                    <div class="mission-operations-console-heading"><span>RF</span><strong id="mission-operations-rf-state">STANDBY</strong></div>
-                    <div class="mission-operations-console-grid">
-                        <div><span>Receiver</span><strong id="mission-operations-receiver">-</strong></div>
-                        <div><span>Frequency</span><strong id="mission-operations-frequency">-</strong></div>
-                        <div><span>Sample rate</span><strong id="mission-operations-sample-rate">-</strong></div>
-                        <div><span>Mode</span><strong id="mission-operations-rf-mode">-</strong></div>
-                        <div><span>Current SNR</span><strong id="mission-operations-snr">0.00 dB</strong></div>
-                        <div><span>Peak SNR</span><strong id="mission-operations-peak-snr">0.00 dB</strong></div>
-                    </div>
-                </section>
-                <section class="mission-operations-console-group">
-                    <div class="mission-operations-console-heading"><span>Recorder</span><strong id="mission-operations-recorder-state">STANDBY</strong></div>
-                    <div class="mission-operations-console-grid">
-                        <div><span>Type</span><strong id="mission-operations-recorder-type">-</strong></div>
-                        <div><span>Captured</span><strong id="mission-operations-recorder-bytes">0 B</strong></div>
-                        <div><span>Write rate</span><strong id="mission-operations-recorder-rate">-</strong></div>
-                        <div class="wide"><span>Output</span><strong id="mission-operations-output">-</strong></div>
-                    </div>
-                </section>
-                <section class="mission-operations-console-group">
-                    <div class="mission-operations-console-heading"><span>Decoder</span><strong id="mission-operations-decoder-state">STANDBY</strong></div>
-                    <div class="mission-operations-console-grid">
-                        <div><span>Pipeline</span><strong id="mission-operations-decoder-pipeline">-</strong></div>
-                        <div><span>Frames</span><strong id="mission-operations-frames">0</strong></div>
-                        <div><span>CADU</span><strong id="mission-operations-cadu">0 B</strong></div>
-                        <div><span>Images</span><strong id="mission-operations-images">0</strong></div>
-                    </div>
-                </section>
-                <section class="mission-operations-console-group">
-                    <div class="mission-operations-console-heading"><span>Runtime</span><strong id="mission-operations-authority">OBSERVER ONLY</strong></div>
-                    <div class="mission-operations-console-grid">
-                        <div><span>Receiver state</span><strong id="mission-operations-runtime-receiver">-</strong></div>
-                        <div><span>Scheduler mode</span><strong id="mission-operations-runtime-scheduler">-</strong></div>
-                        <div><span>Audio monitor</span><strong id="mission-operations-runtime-audio">-</strong></div>
-                        <div><span>Clients</span><strong id="mission-operations-runtime-clients">0</strong></div>
-                    </div>
-                </section>
+            <div class="mission-operations-mode">
+                <span id="mission-operations-mode-badge" class="mission-operations-badge standby">STANDBY</span>
+                <span id="mission-operations-updated" class="muted">Waiting for data...</span>
             </div>
         </section>
 
-        <section class="card mission-operations-preview-card mission-operations-viewport-card">
-            <div class="mission-operations-section-title">
-                <h3>Live / Latest Preview</h3>
-                <span id="mission-operations-preview-state" class="mission-operations-state">STANDBY</span>
-            </div>
-            <div id="mission-operations-preview-empty" class="mission-operations-preview-empty">No live or stored preview available.</div>
-            <img id="mission-operations-preview" class="mission-operations-preview hidden" src="" alt="Mission preview">
-            <p id="mission-operations-preview-meta" class="muted">-</p>
-        </section>
-    </div>
-
-    <section id="mission-operations-audio-monitor" class="card mission-operations-audio-monitor hidden">
-        <div class="mission-operations-section-title">
-            <h3>ISS Live Audio Monitor</h3>
-            <span id="mission-operations-audio-state" class="mission-operations-state">STANDBY</span>
-        </div>
-        <div class="mission-operations-audio-grid">
-            <div><span>IQ captured</span><strong id="mission-operations-audio-iq">0 B</strong></div>
-            <div><span>Observed rate</span><strong id="mission-operations-audio-rate">-</strong></div>
-            <div><span>RF sample rate</span><strong id="mission-operations-audio-sample-rate">-</strong></div>
-            <div><span>Transport</span><strong id="mission-operations-audio-transport">PCM WAV</strong></div>
-        </div>
-        <div class="mission-operations-audio-controls">
-            <button id="mission-operations-audio-play" type="button" disabled>▶ Live audio</button>
-            <label class="mission-operations-volume">Volume
-                <input id="mission-operations-audio-volume" type="range" min="0" max="1" step="0.05" value="0.85">
-            </label>
-            <span id="mission-operations-audio-connection" class="mission-operations-audio-connection">DISCONNECTED</span>
-            <span id="mission-operations-audio-detail" class="muted">Waiting for an active ISS Voice IQ recording.</span>
-            <audio id="mission-operations-live-audio" preload="none"></audio>
-        </div>
-    </section>
-
-    <div class="mission-operations-results-grid">
-        <section class="card mission-recordings-player mission-operations-result-card">
-            <div class="mission-operations-section-title">
-                <h3>Selected Result</h3>
-                <span id="mission-operations-selected-kind" class="mission-operations-state">NONE</span>
-            </div>
-            <div id="mission-recordings-audio-wrap" class="hidden">
-                <h3>ISS Voice recording</h3>
-                <audio id="mission-recordings-audio" controls preload="metadata"></audio>
-                <p id="mission-recordings-meta" class="muted">-</p>
-            </div>
-            <div id="capture-empty-images" class="capture-empty">Select an audio recording or weather image from Mission Results.</div>
-            <div id="capture-content-images" class="capture-content hidden">
-                <img id="capture-image-images" class="mission-recordings-preview" src="" alt="Mission image">
-                <div class="capture-meta">
-                    <p><strong id="capture-name-images">-</strong></p>
-                    <p>Satellite: <span id="capture-satellite-images">-</span></p>
-                    <p>Pipeline: <span id="capture-pipeline-images">-</span></p>
-                    <p>Product: <span id="capture-product-images">-</span></p>
-                    <p>Resolution: <span id="capture-resolution-images">-</span></p>
-                    <p>Modified: <span id="capture-modified-images">-</span></p>
-                    <p>Size: <span id="capture-size-images">-</span> KB</p>
+        <div class="mission-operations-live-grid">
+            <section id="mission-operations-live-card" class="card mission-operations-status-card mission-operations-viewport-card is-idle">
+                <div class="mission-operations-section-title">
+                    <div>
+                        <span class="mission-operations-eyebrow">LIVE WORKSPACE</span>
+                        <h3>Active Mission</h3>
+                    </div>
+                    <span id="mission-operations-state" class="mission-operations-state standby">IDLE</span>
                 </div>
-            </div>
-            <div class="mission-operations-summary">
-                <h3>Mission Summary</h3>
-                <div class="mission-operations-summary-grid">
-                    <div><span>Mission ID</span><strong id="mission-operations-result-id">-</strong></div>
-                    <div><span>Satellite</span><strong id="mission-operations-result-satellite">-</strong></div>
-                    <div><span>Receiver</span><strong id="mission-operations-result-receiver">-</strong></div>
-                    <div><span>Pipeline</span><strong id="mission-operations-result-pipeline">-</strong></div>
-                    <div><span>Result</span><strong id="mission-operations-result-status">-</strong></div>
-                    <div><span>Duration</span><strong id="mission-operations-result-duration">-</strong></div>
+                <div class="mission-operations-primary">
+                    <strong id="mission-operations-satellite">No active mission</strong>
+                    <span id="mission-operations-detail" class="muted">Live details appear when a Weather or ISS mission starts.</span>
                 </div>
+                <div id="mission-operations-idle" class="mission-operations-idle">
+                    <span class="mission-operations-idle-icon" aria-hidden="true">◌</span>
+                    <div>
+                        <strong>Mission receiver is standing by</strong>
+                        <span>Historical files remain available below.</span>
+                    </div>
+                </div>
+                <div id="mission-operations-progress-track" class="mission-operations-progress-track hidden"><div id="mission-operations-progress" class="mission-operations-progress-bar"></div></div>
+                <div id="mission-operations-console" class="mission-operations-console hidden" data-version="0.54.0l">
+                    <section class="mission-operations-console-group is-mission">
+                        <div class="mission-operations-console-heading"><span>Mission</span><strong id="mission-operations-mission-type">-</strong></div>
+                        <div class="mission-operations-console-grid">
+                            <div><span>Mission ID</span><strong id="mission-operations-mission-id">-</strong></div>
+                            <div><span>Elapsed</span><strong id="mission-operations-elapsed">00:00</strong></div>
+                            <div><span>Remaining</span><strong id="mission-operations-remaining">00:00</strong></div>
+                            <div><span>Scheduler phase</span><strong id="mission-operations-scheduler">-</strong></div>
+                        </div>
+                    </section>
+                    <section class="mission-operations-console-group is-rf">
+                        <div class="mission-operations-console-heading"><span>RF</span><strong id="mission-operations-rf-state">STANDBY</strong></div>
+                        <div class="mission-operations-console-grid">
+                            <div><span>Receiver</span><strong id="mission-operations-receiver">-</strong></div>
+                            <div><span>Frequency</span><strong id="mission-operations-frequency">-</strong></div>
+                            <div><span>Sample rate</span><strong id="mission-operations-sample-rate">-</strong></div>
+                            <div><span>Mode</span><strong id="mission-operations-rf-mode">-</strong></div>
+                            <div id="mission-operations-current-snr-cell"><span>Current SNR</span><strong id="mission-operations-snr">-</strong></div>
+                            <div id="mission-operations-peak-snr-cell"><span>Peak SNR</span><strong id="mission-operations-peak-snr">-</strong></div>
+                        </div>
+                    </section>
+                    <section id="mission-operations-recorder-group" class="mission-operations-console-group is-recorder">
+                        <div class="mission-operations-console-heading"><span id="mission-operations-recorder-heading">Recorder</span><strong id="mission-operations-recorder-state">STANDBY</strong></div>
+                        <div class="mission-operations-console-grid">
+                            <div><span>Type</span><strong id="mission-operations-recorder-type">-</strong></div>
+                            <div id="mission-operations-recorder-bytes-cell"><span>IQ captured</span><strong id="mission-operations-recorder-bytes">-</strong></div>
+                            <div id="mission-operations-recorder-rate-cell"><span>IQ write rate</span><strong id="mission-operations-recorder-rate">-</strong></div>
+                            <div class="wide output"><span>Output</span><strong id="mission-operations-output">-</strong></div>
+                        </div>
+                    </section>
+                    <section id="mission-operations-decoder-group" class="mission-operations-console-group is-decoder">
+                        <div class="mission-operations-console-heading"><span>Decoder</span><strong id="mission-operations-decoder-state">STANDBY</strong></div>
+                        <div class="mission-operations-console-grid">
+                            <div class="wide"><span>Pipeline</span><strong id="mission-operations-decoder-pipeline">-</strong></div>
+                            <div><span>Frames</span><strong id="mission-operations-frames">0</strong></div>
+                            <div><span>CADU</span><strong id="mission-operations-cadu">0 B</strong></div>
+                            <div><span>Images</span><strong id="mission-operations-images">0</strong></div>
+                        </div>
+                    </section>
+                    <section class="mission-operations-console-group is-runtime">
+                        <div class="mission-operations-console-heading"><span>Runtime</span><strong id="mission-operations-authority">OBSERVER ONLY</strong></div>
+                        <div class="mission-operations-console-grid">
+                            <div><span>Receiver state</span><strong id="mission-operations-runtime-receiver">-</strong></div>
+                            <div><span>Scheduler mode</span><strong id="mission-operations-runtime-scheduler">-</strong></div>
+                            <div class="wide"><span>Scheduler phase</span><strong id="mission-operations-runtime-phase">-</strong></div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <div class="mission-operations-live-secondary">
+                <section id="mission-operations-preview-card" class="card mission-operations-preview-card mission-operations-viewport-card">
+                    <div class="mission-operations-section-title">
+                        <div>
+                            <span class="mission-operations-eyebrow">WEATHER IMAGERY</span>
+                            <h3 id="mission-operations-preview-title">Latest Weather Image</h3>
+                        </div>
+                        <span id="mission-operations-preview-state" class="mission-operations-state standby">STANDBY</span>
+                    </div>
+                    <div id="mission-operations-preview-empty" class="mission-operations-preview-empty">No live or stored Weather image available.</div>
+                    <img id="mission-operations-preview" class="mission-operations-preview hidden" src="" alt="Weather mission preview">
+                    <p id="mission-operations-preview-meta" class="muted">-</p>
+                </section>
+
+                <section id="mission-operations-audio-monitor" class="card mission-operations-audio-monitor mission-operations-viewport-card hidden">
+                    <div class="mission-operations-section-title">
+                        <div>
+                            <span class="mission-operations-eyebrow">ISS VOICE</span>
+                            <h3>Live Audio</h3>
+                        </div>
+                        <span id="mission-operations-audio-state" class="mission-operations-state standby">STANDBY</span>
+                    </div>
+                    <div class="mission-operations-audio-hero">
+                        <span class="mission-operations-audio-icon" aria-hidden="true">◉</span>
+                        <div>
+                            <strong id="mission-operations-audio-connection" class="mission-operations-audio-connection">DISCONNECTED</strong>
+                            <span id="mission-operations-audio-detail" class="muted">Waiting for an active ISS Voice IQ recording.</span>
+                        </div>
+                    </div>
+                    <div class="mission-operations-audio-grid">
+                        <div><span>IQ captured</span><strong id="mission-operations-audio-iq">0 B</strong></div>
+                        <div><span>IQ write rate</span><strong id="mission-operations-audio-rate">-</strong></div>
+                        <div><span>RF sample rate</span><strong id="mission-operations-audio-sample-rate">-</strong></div>
+                        <div><span>Transport</span><strong id="mission-operations-audio-transport">PCM WAV</strong></div>
+                        <div><span>Audio listeners</span><strong id="mission-operations-audio-listeners">0 / 3</strong></div>
+                    </div>
+                    <div class="mission-operations-audio-controls">
+                        <button id="mission-operations-audio-play" class="control-button" type="button" disabled>▶ Live audio</button>
+                        <label class="mission-operations-volume">Browser volume
+                            <input id="mission-operations-audio-volume" type="range" min="0" max="1" step="0.05" value="0.85">
+                        </label>
+                        <audio id="mission-operations-live-audio" preload="none"></audio>
+                    </div>
+                </section>
             </div>
-        </section>
-        <section class="card mission-operations-results-card mission-operations-result-card">
-            <div class="mission-operations-section-title">
-                <h3>Mission Results</h3>
-                <span id="mission-operations-result-count" class="mission-operations-state">0 FILES</span>
-            </div>
-            <div id="mission-recordings-list" class="recording-list">Mission results loading...</div>
-            <div class="mission-operations-pipeline">
-                <h3>Weather image pipeline</h3>
-                <p>Satellite: <span id="image-pipeline-satellite" class="warn">-</span></p>
-                <p>Pipeline: <span id="image-pipeline-type" class="warn">-</span></p>
-                <p>Product: <span id="image-pipeline-product" class="warn">-</span></p>
-                <p>Status: <span id="image-pipeline-status" class="warn">standby</span></p>
-                <div id="recent-captures" class="recent-captures hidden"></div>
-            </div>
-        </section>
+        </div>
+
+        <div class="mission-operations-results-grid">
+            <section class="card mission-operations-results-card mission-operations-result-card">
+                <div class="mission-operations-section-title">
+                    <div>
+                        <span class="mission-operations-eyebrow">RECORDING LIBRARY</span>
+                        <h3>Mission Results</h3>
+                    </div>
+                    <span id="mission-operations-result-count" class="mission-operations-state info">0 FILES</span>
+                </div>
+                <div id="mission-recordings-list" class="recording-list">Mission results loading...</div>
+            </section>
+
+            <section class="card mission-recordings-player mission-operations-result-card">
+                <div class="mission-operations-section-title">
+                    <div>
+                        <span class="mission-operations-eyebrow">RESULT VIEWER</span>
+                        <h3>Selected Result</h3>
+                    </div>
+                    <span id="mission-operations-selected-kind" class="mission-operations-state standby">NONE</span>
+                </div>
+                <div id="mission-recordings-audio-wrap" class="hidden">
+                    <h3>ISS Voice recording</h3>
+                    <audio id="mission-recordings-audio" controls preload="metadata"></audio>
+                    <p id="mission-recordings-meta" class="muted">-</p>
+                </div>
+                <div id="capture-empty-images" class="capture-empty">Select an audio recording or Weather image from Mission Results.</div>
+                <div id="capture-content-images" class="capture-content hidden">
+                    <img id="capture-image-images" class="mission-recordings-preview" src="" alt="Mission image">
+                    <div class="capture-meta mission-operations-capture-meta">
+                        <p><strong id="capture-name-images">-</strong></p>
+                        <p>Satellite: <span id="capture-satellite-images">-</span></p>
+                        <p>Pipeline: <span id="capture-pipeline-images">-</span></p>
+                        <p>Product: <span id="capture-product-images">-</span></p>
+                        <p>Resolution: <span id="capture-resolution-images">-</span></p>
+                        <p>Modified: <span id="capture-modified-images">-</span></p>
+                        <p>Size: <span id="capture-size-images">-</span> KB</p>
+                    </div>
+                </div>
+                <div class="mission-operations-summary">
+                    <h3>Mission Summary</h3>
+                    <div class="mission-operations-summary-grid">
+                        <div><span>Mission ID</span><strong id="mission-operations-result-id">-</strong></div>
+                        <div><span>Satellite</span><strong id="mission-operations-result-satellite">-</strong></div>
+                        <div><span>Receiver</span><strong id="mission-operations-result-receiver">-</strong></div>
+                        <div><span>Pipeline</span><strong id="mission-operations-result-pipeline">-</strong></div>
+                        <div><span>Result</span><strong id="mission-operations-result-status">-</strong></div>
+                        <div><span>Duration</span><strong id="mission-operations-result-duration">-</strong></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <span id="mission-operations-runtime-audio" hidden>-</span>
+        <span id="mission-operations-runtime-clients" hidden>0</span>
     </div>
 </section>
 
@@ -996,10 +1023,9 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/dashboard.js?v=0.54.0k-r1"></script>
+<script src="/static/dashboard.js?v=0.54.0l-r1"></script>
 <script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
-<script src="/static/js/capture_live.js"></script>
-<script src="/static/js/mission_recordings.js?v=0.53.1-r2"></script>
+<script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
 <script src="/static/js/radio.js?v=0.54.0h-r2"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>

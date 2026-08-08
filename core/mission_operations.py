@@ -18,7 +18,7 @@ from core import mission_engine
 from core import mission_scheduler
 from core import receiver_manager
 
-VERSION = "0.54.0e"
+VERSION = "0.54.0l"
 AUTHORITY = "observer_only"
 
 
@@ -38,67 +38,100 @@ def _coalesce(*values: Any) -> Any:
     return None
 
 
+def _receiver_runtime_entry(receiver: dict[str, Any], receiver_id: Any) -> dict[str, Any]:
+    """Resolve one existing Receiver Manager projection without owning identity."""
+    key = str(receiver_id or "").strip()
+    if not key:
+        return {}
+    for mapping_name in ("receivers", "canonical_receivers"):
+        mapping = receiver.get(mapping_name)
+        if not isinstance(mapping, dict):
+            continue
+        direct = mapping.get(key)
+        if isinstance(direct, dict):
+            return direct
+        for entry in mapping.values():
+            if not isinstance(entry, dict):
+                continue
+            device = entry.get("device")
+            if not isinstance(device, dict):
+                continue
+            identities = {
+                str(device.get(identity) or "").strip()
+                for identity in ("id", "runtime_id", "registry_id", "canonical_id")
+            }
+            if key in identities:
+                return entry
+    return {}
+
+
 def _mission_summary(
     mission: dict[str, Any],
     rf: dict[str, Any],
     receiver: dict[str, Any],
 ) -> dict[str, Any] | None:
     active_job = mission.get("active_job")
-    last_result = mission.get("last_result")
     rf_active = bool(rf.get("active"))
-    source = active_job if isinstance(active_job, dict) else last_result
+    source = active_job if isinstance(active_job, dict) else {}
+    active_rf = rf if rf_active else {}
 
-    if not isinstance(source, dict) and not rf_active:
+    # Mission Operations is a live workspace. Historical results have their own
+    # bounded viewer below the live console and must never be projected back into
+    # the active mission. In particular, stale Live RF fields and an ISS
+    # last_result previously combined into a fictitious WEATHER/SATDUMP mission.
+    if not active_job and not rf_active:
         return None
-    source = source if isinstance(source, dict) else {}
 
     reservation = receiver.get("reservation")
     reserved_device = reservation.get("device") if isinstance(reservation, dict) else None
     configured = receiver.get("configured_receiver")
 
     summary = {
-        "mission_id": _coalesce(rf.get("mission_id"), source.get("mission_id")),
-        "active": bool(active_job or rf_active),
-        "satellite": _coalesce(rf.get("satellite"), source.get("satellite")),
+        "mission_id": _coalesce(active_rf.get("mission_id"), source.get("mission_id")),
+        "active": True,
+        "mission_type": _coalesce(source.get("mission_type"), source.get("plugin_id"), "weather"),
+        "plugin_id": _coalesce(source.get("plugin_id"), source.get("mission_type"), "weather"),
+        "satellite": _coalesce(active_rf.get("satellite"), source.get("satellite")),
         "receiver": _coalesce(
-            rf.get("receiver"),
+            active_rf.get("receiver"),
             source.get("receiver"),
             reserved_device.get("number") if isinstance(reserved_device, dict) else None,
             configured.get("number") if isinstance(configured, dict) else None,
         ),
+        "receiver_id": source.get("receiver_id"),
         "receiver_serial": _coalesce(
-            rf.get("serial"),
+            active_rf.get("serial"),
             source.get("receiver_serial"),
             reserved_device.get("serial") if isinstance(reserved_device, dict) else None,
             configured.get("serial") if isinstance(configured, dict) else None,
         ),
-        "frequency": _coalesce(rf.get("frequency_hz"), source.get("frequency")),
+        "frequency": _coalesce(active_rf.get("frequency_hz"), source.get("frequency")),
         "frequency_mhz": source.get("frequency_mhz"),
-        "sample_rate": _coalesce(rf.get("sample_rate"), source.get("sample_rate")),
+        "sample_rate": _coalesce(active_rf.get("sample_rate"), source.get("sample_rate")),
         "mode": source.get("mode"),
-        "pipeline": source.get("pipeline"),
-        "status": _coalesce(rf.get("state") if rf_active else None, source.get("status")),
-        "result": _coalesce(rf.get("result"), source.get("result")),
+        "pipeline": _coalesce(active_rf.get("pipeline"), source.get("pipeline")),
+        "status": _coalesce(active_rf.get("state"), source.get("status"), mission.get("state")),
+        "result": _coalesce(active_rf.get("result"), source.get("result")),
         "success": source.get("success"),
-        "detail": _coalesce(rf.get("detail"), source.get("detail")),
+        "detail": _coalesce(active_rf.get("detail"), source.get("detail")),
         "error": source.get("error"),
-        "started_at": _coalesce(rf.get("started_at"), source.get("started_at")),
-        "ended_at": _coalesce(rf.get("ended_at"), source.get("ended_at")),
+        "started_at": _coalesce(active_rf.get("started_at"), source.get("started_at")),
+        "ended_at": None,
         "duration_seconds": _coalesce(
-            rf.get("elapsed_seconds") if rf_active else None,
+            active_rf.get("elapsed_seconds"),
             source.get("duration_seconds"),
         ),
-        "remaining_seconds": rf.get("remaining_seconds"),
+        "remaining_seconds": _coalesce(active_rf.get("remaining_seconds"), source.get("remaining_seconds")),
         "progress": source.get("progress"),
-        "peak_snr_db": _coalesce(rf.get("peak_snr_db"), source.get("peak_snr_db")),
-        "snr_db": rf.get("snr_db"),
-        "ber": rf.get("ber"),
-        "viterbi": rf.get("viterbi"),
-        "deframer": rf.get("deframer"),
-        "frames": max(int(rf.get("frames") or 0), int(source.get("frames") or 0)),
-        "cadu_bytes": max(int(rf.get("cadu_bytes") or 0), int(source.get("cadu_bytes") or 0)),
-        "image_count": max(int(rf.get("image_count") or 0), int(source.get("image_count") or 0)),
-        "output_path": _coalesce(rf.get("output_path"), source.get("output_path")),
+        "peak_snr_db": _coalesce(active_rf.get("peak_snr_db"), source.get("peak_snr_db")),
+        "snr_db": active_rf.get("snr_db"),
+        "ber": active_rf.get("ber"),
+        "viterbi": active_rf.get("viterbi"),
+        "deframer": active_rf.get("deframer"),
+        "frames": max(int(active_rf.get("frames") or 0), int(source.get("frames") or 0)),
+        "cadu_bytes": max(int(active_rf.get("cadu_bytes") or 0), int(source.get("cadu_bytes") or 0)),
+        "image_count": max(int(active_rf.get("image_count") or 0), int(source.get("image_count") or 0)),
+        "output_path": _coalesce(active_rf.get("output_path"), source.get("output_path")),
         "receiver_status": (
             str(reservation.get("status")) if isinstance(reservation, dict) else "AVAILABLE"
         ),
@@ -138,17 +171,8 @@ def _console_snapshot(
         else summary.get("receiver_status") or "AVAILABLE"
     )
 
-    recorder_bytes = _coalesce(
-        summary.get("iq_bytes"),
-        audio_monitor.get("iq_bytes") if is_iss else None,
-        rf.get("recording_bytes"),
-        rf.get("bytes_written"),
-    )
-    recorder_rate = _coalesce(
-        summary.get("iq_byte_rate"),
-        audio_monitor.get("observed_byte_rate") if is_iss else None,
-        rf.get("byte_rate"),
-    )
+    recorder_bytes = audio_monitor.get("iq_bytes") if active and is_iss else None
+    recorder_rate = audio_monitor.get("observed_byte_rate") if active and is_iss else None
 
     return {
         "mission": {
@@ -157,44 +181,45 @@ def _console_snapshot(
             "mission_type": _coalesce(
                 summary.get("mission_type"),
                 summary.get("plugin_id"),
-                "weather" if summary.get("satellite") else None,
+                "weather" if active and summary.get("satellite") else None,
             ),
             "satellite": summary.get("satellite"),
-            "state": _coalesce(summary.get("status"), observer.get("phase"), "IDLE"),
-            "detail": _coalesce(summary.get("detail"), observer.get("detail")),
+            "state": _coalesce(summary.get("status"), "IDLE"),
+            "detail": summary.get("detail"),
             "elapsed_seconds": summary.get("duration_seconds"),
             "remaining_seconds": summary.get("remaining_seconds"),
             "started_at": summary.get("started_at"),
             "ended_at": summary.get("ended_at"),
         },
         "rf": {
-            "active": bool(rf.get("active") or iss.get("active")),
-            "receiver": _coalesce(summary.get("receiver"), summary.get("receiver_id")),
-            "receiver_serial": summary.get("receiver_serial"),
-            "receiver_state": receiver_state,
-            "frequency_hz": summary.get("frequency"),
-            "sample_rate_hz": summary.get("sample_rate"),
-            "mode": summary.get("mode"),
+            "active": active and bool(rf.get("active") or iss.get("active")),
+            "receiver": _coalesce(summary.get("receiver"), summary.get("receiver_id")) if active else None,
+            "receiver_serial": summary.get("receiver_serial") if active else None,
+            "receiver_state": receiver_state if active else "STANDBY",
+            "frequency_hz": summary.get("frequency") if active else None,
+            "sample_rate_hz": summary.get("sample_rate") if active else None,
+            "mode": summary.get("mode") if active else None,
             "snr_db": None if is_iss else summary.get("snr_db"),
             "peak_snr_db": None if is_iss else summary.get("peak_snr_db"),
             "signal_metrics_available": not is_iss,
         },
         "recorder": {
             "active": active and bool(summary.get("output_path")),
-            "type": "wideband_iq" if is_iss else "satdump",
+            "type": ("wideband_iq" if is_iss else "satdump") if active else None,
             "status": (
-                audio_monitor.get("stream_state")
+                _coalesce(iss.get("phase"), "STANDBY")
                 if is_iss
-                else _coalesce(rf.get("state"), summary.get("status"), "STANDBY")
+                else _coalesce(rf.get("state") if active else None, summary.get("status") if active else None, "STANDBY")
             ),
             "bytes": recorder_bytes,
             "byte_rate": recorder_rate,
-            "output_path": summary.get("output_path"),
+            "metrics_available": bool(active and is_iss),
+            "output_path": summary.get("output_path") if active else None,
         },
         "decoder": {
-            "applicable": not is_iss,
-            "pipeline": summary.get("pipeline"),
-            "status": "NOT APPLICABLE" if is_iss else _coalesce(summary.get("status"), "STANDBY"),
+            "applicable": bool(active and not is_iss),
+            "pipeline": summary.get("pipeline") if active and not is_iss else None,
+            "status": "NOT APPLICABLE" if active and is_iss else _coalesce(summary.get("status") if active else None, "STANDBY"),
             "frames": summary.get("frames"),
             "cadu_bytes": summary.get("cadu_bytes"),
             "image_count": summary.get("image_count"),
@@ -209,6 +234,7 @@ def _console_snapshot(
             "receiver_state": receiver_state,
             "audio_monitor_state": audio_monitor.get("stream_state"),
             "audio_clients": audio_monitor.get("active_clients"),
+            "audio_max_clients": audio_monitor.get("max_clients"),
             "generated_from_existing_owners": True,
         },
     }
@@ -224,13 +250,27 @@ def get_snapshot() -> dict[str, Any]:
     audio_monitor = iss_voice_audio_monitor.get_status()
     summary = _mission_summary(mission, rf, receiver)
     if bool(iss.get("active")):
+        iss_receiver_entry = _receiver_runtime_entry(receiver, iss.get("receiver_id"))
+        iss_receiver_device = (
+            iss_receiver_entry.get("device")
+            if isinstance(iss_receiver_entry.get("device"), dict)
+            else {}
+        )
+        iss_reservation = (
+            iss_receiver_entry.get("reservation")
+            if isinstance(iss_receiver_entry.get("reservation"), dict)
+            else {}
+        )
         summary = {
             "mission_id": iss.get("mission_id"),
             "active": True,
             "mission_type": "iss_voice",
             "plugin_id": "iss_voice",
             "satellite": iss.get("satellite") or "ISS (ZARYA)",
-            "receiver": str(iss.get("receiver_id") or "").upper() or None,
+            "receiver": _coalesce(
+                iss_receiver_device.get("number"),
+                str(iss.get("receiver_id") or "").upper() or None,
+            ),
             "receiver_id": iss.get("receiver_id"),
             "receiver_serial": iss.get("receiver_serial"),
             "frequency": iss.get("frequency_hz"),
@@ -249,7 +289,7 @@ def get_snapshot() -> dict[str, Any]:
             "remaining_seconds": iss.get("remaining_seconds"),
             "progress": iss.get("progress"),
             "output_path": iss.get("output_directory"),
-            "receiver_status": "ACTIVE",
+            "receiver_status": _coalesce(iss_reservation.get("status"), "ACTIVE"),
             "iq_bytes": audio_monitor.get("iq_bytes"),
             "iq_byte_rate": audio_monitor.get("observed_byte_rate"),
             "audio_monitor_state": audio_monitor.get("stream_state"),

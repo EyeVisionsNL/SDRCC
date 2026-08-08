@@ -4,7 +4,7 @@ import {setupControls} from "./controls.js";
 import {updateSystem} from "./system.js?v=0.54.0f";
 import {updateServices, updateServiceButtons} from "./services.js?v=0.54.0f";
 import {updateMissionEngine, updateNextPass, updateCountdown, updateServerOffset} from "./mission.js?v=0.54.0e";
-import {updateLatestCapture, updateRecentCaptures} from "./capture.js";
+import {updateLatestCapture, updateRecentCaptures} from "./capture.js?v=0.54.0l-r1";
 import {updateLiveLog, updateMissionTimeline} from "./timeline.js";
 import {updateExecutionJournal} from "./execution_journal.js";
 import {updateSdr} from "./sdr.js";

@@ -1,4 +1,4 @@
 const script = document.createElement("script");
 script.type = "module";
-script.src = "/static/js/dashboard.js?v=0.54.0k-r1";
+script.src = "/static/js/dashboard.js?v=0.54.0l-r1";
 document.head.appendChild(script);
