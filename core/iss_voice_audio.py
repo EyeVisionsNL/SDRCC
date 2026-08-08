@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
-"""Offline NFM audio demodulation for ISS Voice CU8 captures.
-
-This module reads an existing recording.iq and writes mono 16-bit PCM WAV.
-It owns no receiver, scheduler, mission, or service-control authority.
-"""
+"""Offline ISS NFM audio using the shared Doppler/channel decoder."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 import json
-import math
 import wave
 
-import numpy as np
+from core.iss_voice_channel import NfmChannelDecoder
+from core.iss_voice_doppler import build_tracker
 
-from core.iss_voice_squelch import RfPowerSquelch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RECORDINGS_ROOT = (PROJECT_ROOT / "data" / "recordings" / "iss_voice").resolve()
-MAX_IQ_BYTES = 2 * 240000 * 1200  # CU8, bounded to 20 minutes at current rate.
+MAX_IQ_BYTES = 2 * 240000 * 1200
+READ_COMPLEX_SAMPLES = 24000
 
 
 @dataclass(frozen=True)
@@ -59,101 +55,92 @@ def build_spec(*, iq_path: str | Path, rf_sample_rate_hz: int,
         raise ValueError("IQ-bestand moet een even aantal CU8-bytes bevatten")
     if size > MAX_IQ_BYTES:
         raise ValueError("IQ-bestand overschrijdt de veilige offline limiet")
-
-    rf_rate = int(rf_sample_rate_hz)
-    audio_rate = int(audio_sample_rate_hz)
-    if rf_rate < 100000 or rf_rate > 3200000:
-        raise ValueError("rf_sample_rate_hz buiten veilige grenzen")
-    if audio_rate < 8000 or audio_rate > 96000:
-        raise ValueError("audio_sample_rate_hz buiten veilige grenzen")
-    if rf_rate % audio_rate != 0:
-        raise ValueError("rf_sample_rate_hz moet exact deelbaar zijn door audio_sample_rate_hz")
-    decimation = rf_rate // audio_rate
-    if decimation < 2:
-        raise ValueError("audio sample rate moet lager zijn dan RF sample rate")
+    rf_rate, audio_rate = int(rf_sample_rate_hz), int(audio_sample_rate_hz)
+    if rf_rate < 100000 or rf_rate > 3200000 or rf_rate % audio_rate:
+        raise ValueError("RF/audio sample rates vormen geen geldige gehele decimatie")
+    bandwidth = int(channel_bandwidth_hz)
+    if bandwidth < 5000 or bandwidth >= audio_rate:
+        raise ValueError("channel_bandwidth_hz buiten veilige grenzen")
     deemphasis = float(deemphasis_us)
     if deemphasis <= 0 or deemphasis > 1000:
         raise ValueError("deemphasis_us buiten veilige grenzen")
-    bandwidth = int(channel_bandwidth_hz)
-    if bandwidth < 5000 or bandwidth > rf_rate // 2:
-        raise ValueError("channel_bandwidth_hz buiten veilige grenzen")
     threshold = float(squelch_threshold_dbfs)
     if threshold < -65.0 or threshold > -10.0:
         raise ValueError("squelch_threshold_dbfs buiten veilige grenzen")
-
     wav = _inside_recordings(Path(wav_path)) if wav_path else iq.with_name("audio.wav")
     if wav.parent != iq.parent:
         raise ValueError("WAV-bestand moet naast het IQ-bestand staan")
-    metadata = iq.with_name("demodulation.json")
     return DemodSpec(
-        iq, wav, metadata, rf_rate, audio_rate, deemphasis, bandwidth,
-        bool(squelch_enabled), threshold,
+        iq, wav, iq.with_name("demodulation.json"), rf_rate, audio_rate,
+        deemphasis, bandwidth, bool(squelch_enabled), threshold,
     )
 
 
-def _deemphasis(samples: np.ndarray, sample_rate: int, tau_us: float) -> np.ndarray:
-    tau = tau_us / 1_000_000.0
-    alpha = math.exp(-1.0 / (sample_rate * tau))
-    output = np.empty(samples.shape, dtype=np.float32)
-    previous = 0.0
-    one_minus = 1.0 - alpha
-    for index, value in enumerate(samples):
-        previous = alpha * previous + one_minus * float(value)
-        output[index] = previous
-    return output
+def _capture_start_epoch(spec: DemodSpec) -> float:
+    metadata_path = spec.iq_path.with_name("capture.json")
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        value = metadata.get("capture_started_at") or metadata.get("started_at")
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.astimezone()
+        return parsed.timestamp()
+    except (FileNotFoundError, OSError, ValueError, TypeError, json.JSONDecodeError):
+        duration = spec.iq_path.stat().st_size / 2.0 / spec.rf_sample_rate_hz
+        return spec.iq_path.stat().st_mtime - duration
 
 
-def demodulate(spec: DemodSpec) -> dict[str, Any]:
+def demodulate(spec: DemodSpec, *, config: dict[str, Any],
+               doppler_offset_provider: Callable[[float], float] | None = None,
+               doppler_metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     started = datetime.now().astimezone()
-    raw = np.fromfile(spec.iq_path, dtype=np.uint8)
-    i = (raw[0::2].astype(np.float32) - 127.5) / 127.5
-    q = (raw[1::2].astype(np.float32) - 127.5) / 127.5
-    complex_iq = i + 1j * q
-
-    # Quadrature discriminator: phase difference between adjacent IQ samples.
-    discriminator = np.angle(complex_iq[1:] * np.conj(complex_iq[:-1])).astype(np.float32)
-
-    # Boxcar low-pass followed by exact integer decimation (240 kHz -> 48 kHz = 5).
-    factor = spec.rf_sample_rate_hz // spec.audio_sample_rate_hz
-    usable = (discriminator.size // factor) * factor
-    if usable < factor:
-        raise RuntimeError("Te weinig IQ-samples voor demodulatie")
-    audio = discriminator[:usable].reshape(-1, factor).mean(axis=1, dtype=np.float32)
-    audio = _deemphasis(audio, spec.audio_sample_rate_hz, spec.deemphasis_us)
-
-    # Remove DC, apply the optional RF-power squelch, then normalize. The gate
-    # uses the captured IQ level and therefore suppresses receiver noise rather
-    # than merely muting quiet speech samples.
-    audio -= float(np.mean(audio))
-    squelch = RfPowerSquelch(
+    tracker = None
+    if doppler_offset_provider is None:
+        tracker = build_tracker(config)
+        doppler_offset_provider = tracker.offset_hz
+        doppler_metadata = dict(tracker.metadata)
+    decoder = NfmChannelDecoder(
         rf_sample_rate_hz=spec.rf_sample_rate_hz,
         audio_sample_rate_hz=spec.audio_sample_rate_hz,
-        enabled=spec.squelch_enabled,
-        threshold_dbfs=spec.squelch_threshold_dbfs,
+        channel_bandwidth_hz=spec.channel_bandwidth_hz,
+        deemphasis_us=spec.deemphasis_us,
+        capture_start_epoch=_capture_start_epoch(spec),
+        doppler_offset_provider=doppler_offset_provider,
+        squelch_enabled=spec.squelch_enabled,
+        squelch_threshold_dbfs=spec.squelch_threshold_dbfs,
     )
-    audio = squelch.process(complex_iq, audio)
-    squelch_status = squelch.status()
-    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
-    scale = 0.90 / peak if peak > 1e-9 else 0.0
-    pcm = np.clip(audio * scale, -1.0, 1.0)
-    pcm16 = (pcm * 32767.0).astype("<i2")
 
+    frames = 0
     spec.wav_path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(spec.wav_path), "wb") as wav:
-        wav.setnchannels(1)
-        wav.setsampwidth(2)
-        wav.setframerate(spec.audio_sample_rate_hz)
-        wav.writeframes(pcm16.tobytes())
+    with wave.open(str(spec.wav_path), "wb") as output, spec.iq_path.open("rb") as iq_handle:
+        output.setnchannels(1)
+        output.setsampwidth(2)
+        output.setframerate(spec.audio_sample_rate_hz)
+        while True:
+            raw = iq_handle.read(READ_COMPLEX_SAMPLES * 2)
+            if not raw:
+                break
+            pcm = decoder.process_pcm16(raw)
+            if pcm:
+                output.writeframesraw(pcm)
+                frames += len(pcm) // 2
 
     ended = datetime.now().astimezone()
+    processing = decoder.status()
     result = {
         "ok": True,
-        "version": "0.54.0g",
+        "version": "0.54.0h",
         "mode": "offline_nfm_demodulation",
         "automatic_execution": False,
         "receiver_claimed": False,
         "service_control_used": False,
-        "doppler_correction_enabled": False,
+        "doppler_correction_enabled": True,
+        "doppler": {**(doppler_metadata or {}), **{
+            key: processing[key] for key in (
+                "doppler_offset_hz", "doppler_min_hz", "doppler_max_hz"
+            )
+        }},
+        "channel_filter_enabled": True,
         "iq_path": str(spec.iq_path),
         "iq_bytes": int(spec.iq_path.stat().st_size),
         "wav_path": str(spec.wav_path),
@@ -165,13 +152,19 @@ def demodulate(spec: DemodSpec) -> dict[str, Any]:
         "sample_width_bytes": 2,
         "deemphasis_us": spec.deemphasis_us,
         "channel_bandwidth_hz": spec.channel_bandwidth_hz,
+        "channel_filter_cutoff_hz": processing["channel_filter_cutoff_hz"],
+        "channel_filter_taps": processing["channel_filter_taps"],
         "squelch_enabled": spec.squelch_enabled,
         "squelch_threshold_dbfs": spec.squelch_threshold_dbfs,
-        "squelch": squelch_status,
-        "decimation_factor": factor,
-        "audio_frames": int(pcm16.size),
-        "audio_duration_seconds": round(pcm16.size / spec.audio_sample_rate_hz, 6),
-        "input_peak": peak,
+        "squelch": processing["squelch"],
+        "decimation_factor": processing["decimation_factor"],
+        "audio_frames": frames,
+        "audio_duration_seconds": round(frames / spec.audio_sample_rate_hz, 6),
+        "signal_metrics": {
+            key: processing[key] for key in (
+                "wideband_power", "channel_power", "channel_to_wideband_db"
+            )
+        },
         "started_at": started.isoformat(timespec="seconds"),
         "ended_at": ended.isoformat(timespec="seconds"),
         "elapsed_seconds": round((ended - started).total_seconds(), 3),
@@ -182,7 +175,9 @@ def demodulate(spec: DemodSpec) -> dict[str, Any]:
     return result
 
 
-def demodulate_mission(mission_id: str, config: dict[str, Any]) -> dict[str, Any]:
+def demodulate_mission(mission_id: str, config: dict[str, Any], *,
+                       doppler_offset_provider: Callable[[float], float] | None = None,
+                       doppler_metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     mission = str(mission_id or "").strip()
     if not mission or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-" for c in mission):
         raise ValueError("Ongeldige mission_id")
@@ -197,4 +192,7 @@ def demodulate_mission(mission_id: str, config: dict[str, Any]) -> dict[str, Any
         squelch_threshold_dbfs=float(config.get("squelch_threshold_dbfs", -42.0)),
         wav_path=directory / str(config.get("audio_filename") or "audio.wav"),
     )
-    return demodulate(spec)
+    return demodulate(
+        spec, config=config, doppler_offset_provider=doppler_offset_provider,
+        doppler_metadata=doppler_metadata,
+    )

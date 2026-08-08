@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only ISS Voice foundation configuration for SDRCC v0.46.0a.
+"""Validated ISS Voice configuration and bounded operator settings.
 
 This module exposes validated metadata only. It deliberately does not reserve a
 receiver, launch rtl_sdr/rtl_fm, alter Mission Queue, or start a mission.
@@ -204,6 +204,25 @@ def validate_config() -> dict[str, Any]:
         errors.append("rf_sample_rate_hz is te laag voor brede capture")
     if int(config.get("doppler_guard_hz") or 0) < 10000:
         errors.append("doppler_guard_hz moet minimaal 10000 Hz zijn")
+    rf_rate = int(config.get("rf_sample_rate_hz") or 0)
+    audio_rate = int(config.get("audio_sample_rate_hz") or 0)
+    bandwidth = int(config.get("channel_bandwidth_hz") or 0)
+    guard = int(config.get("doppler_guard_hz") or 0)
+    if audio_rate <= 0 or rf_rate % audio_rate:
+        errors.append("RF sample rate moet exact deelbaar zijn door audio sample rate")
+    if bandwidth < 5000 or bandwidth >= audio_rate:
+        errors.append("channel_bandwidth_hz past niet in de gedecimeerde IQ-keten")
+    if 2 * (guard + bandwidth / 2.0) >= rf_rate:
+        errors.append("RF sample rate bevat onvoldoende ruimte voor Doppler plus kanaalfilter")
+    try:
+        from core.iss_voice_channel import NfmChannelDecoder
+        from core.iss_voice_doppler import IssDopplerTracker
+        if not callable(getattr(NfmChannelDecoder, "process_pcm16", None)):
+            errors.append("gedeelde ISS NFM-kanaaldecoder ontbreekt")
+        if not callable(getattr(IssDopplerTracker, "offset_hz", None)):
+            errors.append("ISS Dopplerimplementatie ontbreekt")
+    except (ImportError, AttributeError) as exc:
+        errors.append(f"ISS Doppler/kanaalimplementatie kan niet worden geladen: {exc}")
     settings = get_settings(config)
     if settings["gain_mode"] == "manual" and settings["gain_db"] not in settings["valid_gains"]:
         errors.append("gain_db wordt niet door de RTL-SDR ondersteund")
@@ -217,7 +236,7 @@ def get_status() -> dict[str, Any]:
     validation = validate_config()
     return {
         "ok": validation["ok"],
-        "version": "0.54.0g",
+        "version": "0.54.0h",
         "foundation_only": False,
         "backend_only": False,
         "read_only": False,
@@ -226,5 +245,12 @@ def get_status() -> dict[str, Any]:
         "receiver_claim_enabled": bool((validation.get("config") or {}).get("receiver_claim_enabled")),
         "offline_demodulation_enabled": bool((validation.get("config") or {}).get("offline_demodulation_enabled")),
         "settings": get_settings(validation.get("config") or {}) if validation.get("config") else None,
+        "processing": {
+            "doppler_correction_enabled": bool((validation.get("config") or {}).get("doppler_tracking")),
+            "doppler_method": "TLE range-rate digital NCO",
+            "channel_filter_enabled": True,
+            "channel_bandwidth_hz": int((validation.get("config") or {}).get("channel_bandwidth_hz") or 0),
+            "shared_live_offline_decoder": True,
+        },
         "validation": validation,
     }

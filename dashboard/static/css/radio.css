@@ -1,4 +1,4 @@
-/* SDRCC v0.54.0g — Radio Control Status Clarity */
+/* SDRCC v0.54.0h — RF Receive Chain Integrity */
 .radio-page-v0540g {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
@@ -382,6 +382,16 @@
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
+}
+
+.rf-settings-form input[type="number"] {
+    width: 100%;
+    min-height: 34px;
+    padding: 7px 8px;
+    border: 1px solid #2b405c;
+    border-radius: 7px;
+    background: #0a1728;
+    color: #f8fafc;
 }
 
 .iss-voice-fixed-v0540g span {

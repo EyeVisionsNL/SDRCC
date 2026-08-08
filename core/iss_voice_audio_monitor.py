@@ -10,19 +10,18 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator
-import math
+import json
 import struct
 import threading
 import time
 
-import numpy as np
-
 from core import iss_voice, iss_voice_runtime
-from core.iss_voice_squelch import RfPowerSquelch
+from core.iss_voice_channel import NfmChannelDecoder
+from core.iss_voice_doppler import build_tracker
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ROOT = (PROJECT_ROOT / "data" / "recordings" / "iss_voice").resolve()
-VERSION = "0.54.0g"
+VERSION = "0.54.0h"
 AUDIO_SAMPLE_RATE = 48000
 DEEMPHASIS_US = 75.0
 READ_COMPLEX_SAMPLES = 24000       # 100 ms at the normal 240 kS/s rate
@@ -34,6 +33,7 @@ _clients_lock = threading.RLock()
 _active_clients = 0
 _total_clients = 0
 _last_client_at: str | None = None
+_last_processing: dict[str, Any] = {}
 
 
 def _inside_root(value: str | Path | None) -> Path | None:
@@ -101,76 +101,6 @@ def _wav_stream_header(sample_rate: int) -> bytes:
     ))
 
 
-class _LiveNfmDemodulator:
-    def __init__(self, rf_sample_rate: int, audio_sample_rate: int = AUDIO_SAMPLE_RATE,
-                 *, squelch_enabled: bool = False,
-                 squelch_threshold_dbfs: float = -42.0) -> None:
-        if rf_sample_rate % audio_sample_rate != 0:
-            raise ValueError("RF sample rate moet exact deelbaar zijn door 48 kHz")
-        self.factor = rf_sample_rate // audio_sample_rate
-        if self.factor < 2:
-            raise ValueError("Ongeldige decimatiefactor")
-        self.audio_sample_rate = audio_sample_rate
-        self.previous_iq: complex | None = None
-        self.decimation_carry = np.empty(0, dtype=np.float32)
-        tau = DEEMPHASIS_US / 1_000_000.0
-        self.deemphasis_alpha = math.exp(-1.0 / (audio_sample_rate * tau))
-        self.deemphasis_previous = 0.0
-        self.dc_previous_input = 0.0
-        self.dc_previous_output = 0.0
-        self.level = 0.08
-        self.squelch = RfPowerSquelch(
-            rf_sample_rate_hz=rf_sample_rate,
-            audio_sample_rate_hz=audio_sample_rate,
-            enabled=squelch_enabled,
-            threshold_dbfs=squelch_threshold_dbfs,
-        )
-
-    def process(self, raw: bytes) -> bytes:
-        usable_bytes = len(raw) - (len(raw) % 2)
-        if usable_bytes < 4:
-            return b""
-        values = np.frombuffer(raw[:usable_bytes], dtype=np.uint8)
-        i = (values[0::2].astype(np.float32) - 127.5) / 127.5
-        q = (values[1::2].astype(np.float32) - 127.5) / 127.5
-        iq = i + 1j * q
-        if self.previous_iq is not None:
-            iq = np.concatenate((np.asarray([self.previous_iq], dtype=np.complex64), iq))
-        self.previous_iq = complex(iq[-1])
-        discriminator = np.angle(iq[1:] * np.conj(iq[:-1])).astype(np.float32)
-        if self.decimation_carry.size:
-            discriminator = np.concatenate((self.decimation_carry, discriminator))
-        usable = (discriminator.size // self.factor) * self.factor
-        self.decimation_carry = discriminator[usable:].copy()
-        if usable == 0:
-            return b""
-        audio = discriminator[:usable].reshape(-1, self.factor).mean(axis=1, dtype=np.float32)
-
-        # Stateful de-emphasis and gentle DC blocking.
-        alpha = self.deemphasis_alpha
-        previous = self.deemphasis_previous
-        dc_in = self.dc_previous_input
-        dc_out = self.dc_previous_output
-        for idx in range(audio.size):
-            previous = alpha * previous + (1.0 - alpha) * float(audio[idx])
-            high_pass = previous - dc_in + 0.995 * dc_out
-            dc_in = previous
-            dc_out = high_pass
-            audio[idx] = high_pass
-        self.deemphasis_previous = previous
-        self.dc_previous_input = dc_in
-        self.dc_previous_output = dc_out
-
-        audio = self.squelch.process(iq, audio)
-
-        # Slow level tracking avoids loud jumps while retaining weak speech.
-        block_peak = float(np.percentile(np.abs(audio), 98.0)) if audio.size else 0.0
-        self.level = max(block_peak, self.level * 0.985, 0.015)
-        gain = min(18.0, 0.55 / self.level)
-        pcm = np.tanh(audio * gain * 1.35)
-        return (np.clip(pcm, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
-
-
 def get_status() -> dict[str, Any]:
     runtime = iss_voice_runtime.get_status()
     active = bool(runtime.get("active"))
@@ -196,6 +126,9 @@ def get_status() -> dict[str, Any]:
     available = bool(active and iq_exists and iq_bytes >= sample_rate * 2 * 0.25 and compatible)
     clients, total_clients, last_client_at = _client_snapshot()
     settings = iss_voice.get_settings()
+    config = iss_voice.get_config()
+    with _clients_lock:
+        processing = dict(_last_processing)
 
     return {
         "ok": True,
@@ -221,6 +154,15 @@ def get_status() -> dict[str, Any]:
         "streaming_enabled": True,
         "squelch_enabled": settings["squelch_enabled"],
         "squelch_threshold_dbfs": settings["squelch_threshold_dbfs"],
+        "nominal_frequency_hz": int(config["downlink_frequency_hz"]),
+        "doppler_correction_enabled": bool(config.get("doppler_tracking")),
+        "doppler_offset_hz": processing.get("doppler_offset_hz"),
+        "corrected_frequency_hz": (
+            int(config["downlink_frequency_hz"]) + float(processing["doppler_offset_hz"])
+            if processing.get("doppler_offset_hz") is not None else None
+        ),
+        "channel_filter_enabled": True,
+        "channel_bandwidth_hz": int(config["channel_bandwidth_hz"]),
         "stream_url": f"/api/iss-voice/audio-stream?mission_id={mission_id}" if available else None,
         "stream_state": "STREAMING" if clients else ("READY" if available else "STANDBY"),
         "active_clients": clients,
@@ -243,12 +185,15 @@ class LiveWavStream:
     """Close-aware iterator with synchronous admission and client accounting."""
 
     def __init__(self, mission_id: str, iq_path: Path, sample_rate: int,
-                 *, squelch_enabled: bool, squelch_threshold_dbfs: float) -> None:
+                 *, config: dict[str, Any], capture_start_epoch: float,
+                 doppler_offset_provider, doppler_metadata: dict[str, Any]) -> None:
         self.mission_id = mission_id
         self.iq_path = iq_path
         self.sample_rate = sample_rate
-        self.squelch_enabled = bool(squelch_enabled)
-        self.squelch_threshold_dbfs = float(squelch_threshold_dbfs)
+        self.config = dict(config)
+        self.capture_start_epoch = float(capture_start_epoch)
+        self.doppler_offset_provider = doppler_offset_provider
+        self.doppler_metadata = dict(doppler_metadata)
         self._closed = False
         _register_client()
         self._iterator = self._generate()
@@ -284,11 +229,6 @@ class LiveWavStream:
             pass
 
     def _generate(self) -> Iterator[bytes]:
-        demodulator = _LiveNfmDemodulator(
-            self.sample_rate,
-            squelch_enabled=self.squelch_enabled,
-            squelch_threshold_dbfs=self.squelch_threshold_dbfs,
-        )
         byte_rate = self.sample_rate * 2
         chunk_bytes = READ_COMPLEX_SAMPLES * 2
         yield _wav_stream_header(AUDIO_SAMPLE_RATE)
@@ -296,6 +236,17 @@ class LiveWavStream:
             current_size = self.iq_path.stat().st_size
             start_offset = max(0, current_size - int(byte_rate * START_BUFFER_SECONDS))
             start_offset -= start_offset % 2
+            demodulator = NfmChannelDecoder(
+                rf_sample_rate_hz=self.sample_rate,
+                audio_sample_rate_hz=int(self.config["audio_sample_rate_hz"]),
+                channel_bandwidth_hz=int(self.config["channel_bandwidth_hz"]),
+                deemphasis_us=float(self.config.get("audio_deemphasis_us") or DEEMPHASIS_US),
+                capture_start_epoch=self.capture_start_epoch,
+                doppler_offset_provider=self.doppler_offset_provider,
+                initial_sample_index=start_offset // 2,
+                squelch_enabled=bool(self.config.get("squelch_enabled", False)),
+                squelch_threshold_dbfs=float(self.config.get("squelch_threshold_dbfs", -42.0)),
+            )
             handle.seek(start_offset)
             last_data = time.monotonic()
             while not self._closed:
@@ -304,7 +255,10 @@ class LiveWavStream:
                 raw = handle.read(chunk_bytes)
                 if raw:
                     last_data = time.monotonic()
-                    pcm = demodulator.process(raw)
+                    pcm = demodulator.process_pcm16(raw)
+                    with _clients_lock:
+                        global _last_processing
+                        _last_processing = {**self.doppler_metadata, **demodulator.status()}
                     if pcm:
                         yield pcm
                     continue
@@ -332,11 +286,28 @@ def stream_wav(requested_mission_id: str) -> LiveWavStream:
         raise ValueError("Actieve RF sample rate is niet geschikt voor live audio")
     if iq_path is None or not iq_path.is_file():
         raise ValueError("Actief IQ-bestand is nog niet beschikbaar")
-    settings = iss_voice.get_settings()
+    config = iss_voice.get_config()
+    tracker = build_tracker(config)
+    capture_start = runtime.get("capture_started_at") or runtime.get("started_at")
+    if not capture_start:
+        try:
+            capture_metadata = json.loads(
+                iq_path.with_name("capture.json").read_text(encoding="utf-8")
+            )
+            capture_start = capture_metadata.get("capture_started_at") or capture_metadata.get("started_at")
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            capture_start = None
+    if not capture_start:
+        raise ValueError("Capture starttijd ontbreekt; Dopplertracking kan niet veilig starten")
+    parsed_start = datetime.fromisoformat(str(capture_start).replace("Z", "+00:00"))
+    if parsed_start.tzinfo is None:
+        parsed_start = parsed_start.astimezone()
     return LiveWavStream(
         mission_id,
         iq_path,
         sample_rate,
-        squelch_enabled=settings["squelch_enabled"],
-        squelch_threshold_dbfs=settings["squelch_threshold_dbfs"],
+        config=config,
+        capture_start_epoch=parsed_start.timestamp(),
+        doppler_offset_provider=tracker.offset_hz,
+        doppler_metadata=tracker.metadata,
     )

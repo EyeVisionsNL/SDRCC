@@ -3335,12 +3335,17 @@ def api_weather_planning():
         return jsonify({"ok": False, "message": "Weather Planning is geblokkeerd tijdens een missie."}), 409
     try:
         settings = weather_planning_core.set_config(payload)
-        write_log("Mission Planner pass-window profiles updated")
+        profiles = settings["profiles"]
+        write_log(
+            "Mission Planner satellite profiles updated: "
+            f"M2-3={profiles['meteor_m2_3']['frequency_hz']} Hz "
+            f"M2-4={profiles['meteor_m2_4']['frequency_hz']} Hz"
+        )
         return jsonify({
             "ok": True,
             "settings": settings,
             "tle": tle.get_status(),
-            "message": "Pass-window settings saved. New Mission Queue entries use them immediately.",
+            "message": "Satellite plans saved. New Mission Queue entries use them immediately.",
         })
     except ValueError as error:
         return jsonify({"ok": False, "message": str(error)}), 400

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Persistent per-satellite Mission Planner pass-window configuration.
+"""Persistent per-satellite Mission Planner configuration.
 
 The historic module name is retained as a compatibility layer. Planning values
-are owned by the existing satellite/profile configuration files; this module
-only validates and updates those values atomically.
+and operator-selected METEOR downlinks are owned by the existing
+satellite/profile configuration files; this module validates and updates those
+values atomically.
 """
 
 from __future__ import annotations
@@ -27,6 +28,10 @@ DEFAULT_CLOSE_ELEVATION = 10.0
 MIN_ALLOWED_ELEVATION = 0.0
 MIN_ALLOWED_PEAK_ELEVATION = 5.0
 MAX_ALLOWED_ELEVATION = 90.0
+PRIMARY_FREQUENCY_HZ = 137_900_000
+SECONDARY_FREQUENCY_HZ = 137_100_000
+MIN_CUSTOM_FREQUENCY_HZ = 136_000_000
+MAX_CUSTOM_FREQUENCY_HZ = 138_000_000
 
 PROFILE_DEFINITIONS = {
     "meteor_m2_3": {
@@ -155,6 +160,54 @@ def _normalize_profile(raw: dict[str, Any], *, profile_id: str) -> dict[str, flo
     }
 
 
+def _frequency(value: Any, *, label: str) -> int:
+    try:
+        frequency = int(round(float(value)))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{label} frequency must be a number") from exc
+    if not MIN_CUSTOM_FREQUENCY_HZ <= frequency <= MAX_CUSTOM_FREQUENCY_HZ:
+        raise ValueError(f"{label} frequency must be between 136 and 138 MHz")
+    return frequency
+
+
+def _frequency_choice(frequency_hz: int) -> str:
+    if frequency_hz == PRIMARY_FREQUENCY_HZ:
+        return "primary"
+    if frequency_hz == SECONDARY_FREQUENCY_HZ:
+        return "secondary"
+    return "custom"
+
+
+def _normalize_frequency(
+    raw: dict[str, Any],
+    *,
+    profile_id: str,
+    current: dict[str, Any],
+) -> dict[str, Any]:
+    """Resolve Primary, Secondary or Custom while supporting cached clients."""
+    label = PROFILE_DEFINITIONS[profile_id]["label"]
+    choice_value = raw.get("frequency_choice")
+    frequency_value = raw.get("frequency_hz")
+    if choice_value is None and frequency_value is None:
+        return {
+            "frequency_choice": str(current["frequency_choice"]),
+            "frequency_hz": int(current["frequency_hz"]),
+        }
+    choice = str(choice_value or _frequency_choice(_frequency(
+        frequency_value,
+        label=label,
+    ))).strip().lower()
+    if choice == "primary":
+        frequency = PRIMARY_FREQUENCY_HZ
+    elif choice == "secondary":
+        frequency = SECONDARY_FREQUENCY_HZ
+    elif choice == "custom":
+        frequency = _frequency(frequency_value, label=label)
+    else:
+        raise ValueError(f"{label} frequency choice must be primary, secondary or custom")
+    return {"frequency_choice": choice, "frequency_hz": frequency}
+
+
 def _station_default() -> float:
     station = _read_yaml(STATION_FILE)
     planning = station.get("weather_planning") or {}
@@ -207,12 +260,24 @@ def _profile_from_data(
         _with_defaults(stored, float(fallback_peak)),
         profile_id=profile_id,
     )
-    return {
+    result = {
         "profile_id": profile_id,
         **definition,
         **values,
         "source": f"{definition['config_file']}:planning",
     }
+    if profile_id != "iss_voice":
+        frequency = _frequency(
+            root.get("frequency"),
+            label=definition["label"],
+        )
+        result.update({
+            "frequency_choice": _frequency_choice(frequency),
+            "frequency_hz": frequency,
+            "frequency_mhz": round(frequency / 1_000_000.0, 6),
+            "frequency_source": f"{definition['config_file']}:frequency",
+        })
+    return result
 
 
 def get_config(*, synchronize: bool = False) -> dict[str, Any]:
@@ -242,6 +307,7 @@ def get_config(*, synchronize: bool = False) -> dict[str, Any]:
         )
         return {
             "version": "0.54.0d",
+            "rf_profile_version": "0.54.0h-r2",
             "scope": "per_satellite",
             "profiles": profiles,
             # Compatibility field for older read-only clients.
@@ -249,6 +315,12 @@ def get_config(*, synchronize: bool = False) -> dict[str, Any]:
             "minimum_allowed": MIN_ALLOWED_PEAK_ELEVATION,
             "maximum_allowed": MAX_ALLOWED_ELEVATION,
             "angle_minimum_allowed": MIN_ALLOWED_ELEVATION,
+            "frequency_options": {
+                "primary": PRIMARY_FREQUENCY_HZ,
+                "secondary": SECONDARY_FREQUENCY_HZ,
+                "custom_minimum": MIN_CUSTOM_FREQUENCY_HZ,
+                "custom_maximum": MAX_CUSTOM_FREQUENCY_HZ,
+            },
             "satellites_updated": 0,
         }
 
@@ -275,7 +347,7 @@ def get_profile(reference: str) -> dict[str, Any]:
 
 def _apply_profile(
     profile_id: str,
-    values: dict[str, float],
+    values: dict[str, Any],
     satellites_data: dict[str, Any],
     iss_data: dict[str, Any],
 ) -> None:
@@ -300,6 +372,7 @@ def _apply_profile(
         raise ValueError(f"Satellite {definition['satellite_name']} has invalid configuration")
     root["planning"] = stored
     root["min_elevation"] = values["minimum_peak_elevation"]
+    root["frequency"] = int(values["frequency_hz"])
 
 
 def set_config(payload: dict[str, Any]) -> dict[str, Any]:
@@ -309,7 +382,7 @@ def set_config(payload: dict[str, Any]) -> dict[str, Any]:
     with _LOCK:
         current = get_config()["profiles"]
         requested = payload.get("profiles")
-        updates: dict[str, dict[str, float]] = {}
+        updates: dict[str, dict[str, Any]] = {}
         if isinstance(requested, dict):
             unknown = sorted(set(requested) - set(PROFILE_DEFINITIONS))
             if unknown:
@@ -317,6 +390,12 @@ def set_config(payload: dict[str, Any]) -> dict[str, Any]:
             for profile_id in PROFILE_DEFINITIONS:
                 raw = requested.get(profile_id, current[profile_id])
                 updates[profile_id] = _normalize_profile(raw, profile_id=profile_id)
+                if profile_id != "iss_voice":
+                    updates[profile_id].update(_normalize_frequency(
+                        raw,
+                        profile_id=profile_id,
+                        current=current[profile_id],
+                    ))
         elif "minimum_elevation" in payload:
             # Compatibility for an older cached dashboard: apply its formerly
             # global value to every profile without changing begin/close angles.
@@ -335,6 +414,11 @@ def set_config(payload: dict[str, Any]) -> dict[str, Any]:
                     },
                     profile_id=profile_id,
                 )
+                if profile_id != "iss_voice":
+                    updates[profile_id].update({
+                        "frequency_choice": profile["frequency_choice"],
+                        "frequency_hz": profile["frequency_hz"],
+                    })
         else:
             raise ValueError("No planning profiles were supplied")
 

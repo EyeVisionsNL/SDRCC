@@ -16,12 +16,12 @@
     <link rel="stylesheet" href="/static/css/timeline.css">
     <link rel="stylesheet" href="/static/css/mission.css">
     <link rel="stylesheet" href="/static/css/theme.css">
-    <link rel="stylesheet" href="/static/css/radio.css?v=0.54.0g">
+    <link rel="stylesheet" href="/static/css/radio.css?v=0.54.0h-r2">
     <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.54.0g">
     <link rel="stylesheet" href="/static/css/history.css">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.23.3a1">
-    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.24.0">
+    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.54.0h-r2">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.25.2">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
@@ -425,13 +425,14 @@
                     <button type="submit" class="control-button">Save Weather / METEOR settings</button>
                 </form>
                 <p id="weather-rf-result" class="radio-settings-result-v0540g">Used by the next Weather recording.</p>
+                <p class="rf-settings-help">Satellite downlink selection is managed per satellite in Mission Planner.</p>
             </section>
 
             <section class="card radio-card iss-voice-settings-card-v0540g radio-panel-v0540g is-iss">
                 <div class="section-heading-row radio-heading-v0540g">
                     <div>
                         <h2>🎙 ISS Voice Settings</h2>
-                        <p class="muted">Receiver gain and real RF-power squelch for ISS audio.</p>
+                        <p class="muted">Receiver gain, automatic orbital Doppler and filtered NFM audio.</p>
                     </div>
                     <span class="radio-status-v0540g is-planned">437.800 MHz</span>
                 </div>
@@ -448,8 +449,9 @@
                             <select id="iss-voice-gain-db"></select>
                         </label>
                         <div class="iss-voice-fixed-v0540g">
-                            <span>Mode<strong>NFM</strong></span>
-                            <span>Bandwidth<strong>25 kHz</strong></span>
+                            <span>Downlink<strong>437.800 MHz</strong></span>
+                            <span>Doppler<strong>Automatic · TLE</strong></span>
+                            <span>Channel filter<strong>25 kHz · active</strong></span>
                         </div>
                     </fieldset>
                     <fieldset>
@@ -560,13 +562,23 @@
 
         <section class="card mission-planner-settings">
             <div class="mission-planner-settings-copy">
-                <h2>Pass-window settings</h2>
-                <p class="muted">Each satellite has its own peak gate, rising start angle and falling close angle. Values use the configured station location.</p>
+                <h2>Satellite planning settings</h2>
+                <p class="muted">Each satellite has its own downlink selection, peak gate, rising start angle and falling close angle. Values use the configured station location.</p>
             </div>
             <form id="mission-planner-settings-form" class="mission-planner-settings-form">
                 <div class="mission-planner-profile-grid">
-                    <fieldset class="mission-planner-profile" data-planning-profile="meteor_m2_3">
+                    <fieldset class="mission-planner-profile is-meteor" data-planning-profile="meteor_m2_3">
                         <legend>METEOR-M2 3</legend>
+                        <label class="mission-planner-frequency-choice">Downlink
+                            <select data-frequency-choice>
+                                <option value="primary">Primary · 137.900 MHz</option>
+                                <option value="secondary">Secondary · 137.100 MHz</option>
+                                <option value="custom">Custom frequency</option>
+                            </select>
+                        </label>
+                        <label class="mission-planner-custom-frequency" hidden>Custom frequency
+                            <span class="mission-planner-input"><input data-frequency-custom type="number" min="136" max="138" step="0.0001"><span>MHz</span></span>
+                        </label>
                         <label>Minimum peak
                             <span class="mission-planner-input"><input data-planning-field="minimum_peak_elevation" type="number" min="5" max="90" step="0.1" required><span>°</span></span>
                         </label>
@@ -577,8 +589,18 @@
                             <span class="mission-planner-input"><input data-planning-field="close_elevation" type="number" min="0" max="90" step="0.1" required><span>°</span></span>
                         </label>
                     </fieldset>
-                    <fieldset class="mission-planner-profile" data-planning-profile="meteor_m2_4">
+                    <fieldset class="mission-planner-profile is-meteor" data-planning-profile="meteor_m2_4">
                         <legend>METEOR-M2 4</legend>
+                        <label class="mission-planner-frequency-choice">Downlink
+                            <select data-frequency-choice>
+                                <option value="primary">Primary · 137.900 MHz</option>
+                                <option value="secondary">Secondary · 137.100 MHz</option>
+                                <option value="custom">Custom frequency</option>
+                            </select>
+                        </label>
+                        <label class="mission-planner-custom-frequency" hidden>Custom frequency
+                            <span class="mission-planner-input"><input data-frequency-custom type="number" min="136" max="138" step="0.0001"><span>MHz</span></span>
+                        </label>
                         <label>Minimum peak
                             <span class="mission-planner-input"><input data-planning-field="minimum_peak_elevation" type="number" min="5" max="90" step="0.1" required><span>°</span></span>
                         </label>
@@ -603,7 +625,7 @@
                     </fieldset>
                 </div>
                 <div class="mission-planner-settings-actions">
-                    <button type="submit" class="control-button">Save pass windows</button>
+                    <button type="submit" class="control-button">Save satellite plans</button>
                 </div>
             </form>
         </section>
@@ -959,13 +981,13 @@
 <script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/mission_recordings.js?v=0.53.1-r2"></script>
-<script src="/static/js/radio.js?v=0.54.0g"></script>
+<script src="/static/js/radio.js?v=0.54.0h-r2"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.23.3a1"></script>
-<script src="/static/js/mission_planner.js?v=0.54.0d"></script>
+<script src="/static/js/mission_planner.js?v=0.54.0h-r2"></script>
 </body>
 </html>

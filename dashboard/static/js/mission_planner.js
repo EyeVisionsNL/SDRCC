@@ -62,7 +62,30 @@
                 const value = Number(profile[input.dataset.planningField]);
                 if (Number.isFinite(value)) input.value = String(value);
             });
+            const choice = group.querySelector("[data-frequency-choice]");
+            const custom = group.querySelector("[data-frequency-custom]");
+            if (choice && custom) {
+                const frequency = Number(profile.frequency_mhz);
+                choice.value = ["primary", "secondary", "custom"].includes(profile.frequency_choice)
+                    ? profile.frequency_choice
+                    : (frequency === 137.9 ? "primary" : frequency === 137.1 ? "secondary" : "custom");
+                if (Number.isFinite(frequency)) custom.value = frequency.toFixed(4);
+                updateFrequencyControl(group);
+            }
         });
+    }
+
+    function updateFrequencyControl(group) {
+        const choice = group.querySelector("[data-frequency-choice]");
+        const custom = group.querySelector("[data-frequency-custom]");
+        const customLabel = group.querySelector(".mission-planner-custom-frequency");
+        if (!choice || !custom || !customLabel) return;
+        const isCustom = choice.value === "custom";
+        customLabel.hidden = !isCustom;
+        custom.required = isCustom;
+        if (!isCustom) {
+            custom.value = choice.value === "secondary" ? "137.1000" : "137.9000";
+        }
     }
 
     function render(payload) {
@@ -132,6 +155,21 @@
             if (values.close_elevation > values.minimum_peak_elevation) {
                 throw new Error(`${group.querySelector("legend")?.textContent || "Profile"}: close angle exceeds minimum peak.`);
             }
+            const frequencyChoice = group.querySelector("[data-frequency-choice]");
+            const customFrequency = group.querySelector("[data-frequency-custom]");
+            if (frequencyChoice && customFrequency) {
+                const choice = frequencyChoice.value;
+                const frequencyMhz = choice === "primary"
+                    ? 137.9
+                    : choice === "secondary"
+                        ? 137.1
+                        : Number(customFrequency.value);
+                if (!Number.isFinite(frequencyMhz) || frequencyMhz < 136 || frequencyMhz > 138) {
+                    throw new Error(`${group.querySelector("legend")?.textContent || "Profile"}: custom frequency must be between 136 and 138 MHz.`);
+                }
+                values.frequency_choice = choice;
+                values.frequency_hz = Math.round(frequencyMhz * 1000000);
+            }
             profiles[group.dataset.planningProfile] = values;
         });
         return profiles;
@@ -144,7 +182,7 @@
         const button = form.querySelector('button[type="submit"]');
         state.busy = true;
         if (button) button.disabled = true;
-        setMessage("Saving pass-window settings...");
+        setMessage("Saving satellite plans...");
         try {
             const profiles = collectProfiles(form);
             const response = await fetch("/api/weather-planning", {
@@ -157,7 +195,7 @@
             state.formDirty = false;
             renderSettings(payload.settings?.profiles || {});
             renderTleStatus(payload.tle || {});
-            setMessage(payload.message || "Pass-window settings saved.");
+            setMessage(payload.message || "Satellite plans saved.");
             window.dispatchEvent(new CustomEvent("sdrcc:weather-planning-changed", {detail: payload.settings}));
             await loadPlanner({quiet: true});
         } catch (error) {
@@ -197,6 +235,12 @@
 
     const form = byId("mission-planner-settings-form");
     form?.addEventListener("input", () => { state.formDirty = true; });
+    form?.querySelectorAll("[data-frequency-choice]").forEach(control => {
+        control.addEventListener("change", () => {
+            updateFrequencyControl(control.closest("[data-planning-profile]"));
+            state.formDirty = true;
+        });
+    });
     form?.addEventListener("submit", savePassWindows);
     byId("mission-planner-refresh")?.addEventListener("click", refreshTleAndPlanning);
     window.addEventListener("sdrcc:weather-planning-changed", () => loadPlanner({quiet: true}));

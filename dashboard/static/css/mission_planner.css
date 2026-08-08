@@ -17,11 +17,15 @@
 .mission-planner-settings-copy h2 { margin-bottom: 6px; }
 .mission-planner-settings-form { display: grid; gap: 14px; }
 .mission-planner-settings-form label { display: grid; gap: 6px; font-size: .82rem; opacity: .9; }
+.mission-planner-settings-form select { width: 100%; min-width: 0; }
 .mission-planner-input { display: flex; align-items: center; gap: 8px; }
 .mission-planner-input input { width: 100%; min-width: 80px; }
 .mission-planner-profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .mission-planner-profile { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 14px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; min-width: 0; }
 .mission-planner-profile legend { padding: 0 7px; font-weight: 800; color: #e2e8f0; }
+.mission-planner-profile.is-meteor .mission-planner-frequency-choice,
+.mission-planner-profile.is-meteor .mission-planner-custom-frequency { grid-column: 1 / -1; }
+.mission-planner-custom-frequency[hidden] { display: none; }
 .mission-planner-settings-actions { display: flex; justify-content: flex-end; }
 .mission-planner-table-card { overflow: hidden; }
 .mission-planner-table-wrap { overflow-x: auto; }

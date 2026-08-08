@@ -298,5 +298,5 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     )
     if failure:
         raise failure
-    return {"ok": True, "version": "0.54.0g", "mission": history,
+    return {"ok": True, "version": "0.54.0h", "mission": history,
             "capture": capture, "audio": audio, "stopped_and_restored_services": stopped_services}
