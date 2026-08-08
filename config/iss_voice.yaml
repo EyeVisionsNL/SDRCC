@@ -31,4 +31,8 @@ iss_voice:
   planning:
     minimum_peak_elevation: 40.0
     begin_elevation: 10.0
-    close_elevation: 35.0
+    close_elevation: 40.0
+  gain_mode: manual
+  gain_db: 20.7
+  squelch_enabled: false
+  squelch_threshold_dbfs: -47.0
