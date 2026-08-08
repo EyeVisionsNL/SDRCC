@@ -21,8 +21,8 @@
     <link rel="stylesheet" href="/static/css/history.css">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
-    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.54.0h-r2">
-    <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.25.2">
+    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.54.0j-r1">
+    <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.51.0">
@@ -573,10 +573,10 @@
         </section>
 
         <div class="mission-planner-summary">
-            <article class="card"><span>Planned passes</span><strong id="mission-planner-pass-count">-</strong></article>
-            <article class="card"><span>Receiver conflicts</span><strong id="mission-planner-conflict-count">-</strong></article>
-            <article class="card"><span>Skipped missions</span><strong id="mission-planner-skipped-count">-</strong></article>
-            <article class="card"><span>Planning window</span><strong id="mission-planner-window">48 hours</strong></article>
+            <article class="card mission-planner-summary-card is-passes"><span>Planned passes</span><strong id="mission-planner-pass-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-conflicts"><span>Receiver conflicts</span><strong id="mission-planner-conflict-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-skipped"><span>Skipped missions</span><strong id="mission-planner-skipped-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-window"><span>Planning window</span><strong id="mission-planner-window">48 hours</strong></article>
         </div>
 
         <section class="card mission-planner-settings">
@@ -683,12 +683,12 @@
         </section>
 
         <section class="mission-analytics-summary" aria-label="Mission summary">
-            <article class="card mission-analytics-stat"><span>Total missions</span><strong id="analytics-total">-</strong><small id="analytics-completed">- completed</small></article>
-            <article class="card mission-analytics-stat"><span>Success rate</span><strong id="analytics-success-rate">-</strong><small id="analytics-success-count">- successful</small></article>
-            <article class="card mission-analytics-stat"><span>Average peak SNR</span><strong id="analytics-average-snr">-</strong><small id="analytics-best-snr">Best: -</small></article>
-            <article class="card mission-analytics-stat"><span>Average elevation</span><strong id="analytics-average-elevation">-</strong><small>Maximum pass elevation</small></article>
-            <article class="card mission-analytics-stat"><span>Total images</span><strong id="analytics-total-images">-</strong><small id="analytics-average-duration">Average duration: -</small></article>
-            <article class="card mission-analytics-stat"><span>Total frames</span><strong id="analytics-total-frames">-</strong><small id="analytics-total-cadu">CADU: -</small></article>
+            <article class="card mission-analytics-stat is-total"><span>Total missions</span><strong id="analytics-total">-</strong><small id="analytics-completed">- completed</small></article>
+            <article class="card mission-analytics-stat is-success"><span>Success rate</span><strong id="analytics-success-rate">-</strong><small id="analytics-success-count">- successful</small></article>
+            <article class="card mission-analytics-stat is-snr"><span>Average peak SNR</span><strong id="analytics-average-snr">-</strong><small id="analytics-best-snr">Best: -</small></article>
+            <article class="card mission-analytics-stat is-elevation"><span>Average elevation</span><strong id="analytics-average-elevation">-</strong><small>Maximum pass elevation</small></article>
+            <article class="card mission-analytics-stat is-images"><span>Total images</span><strong id="analytics-total-images">-</strong><small id="analytics-average-duration">Average duration: -</small></article>
+            <article class="card mission-analytics-stat is-frames"><span>Total frames</span><strong id="analytics-total-frames">-</strong><small id="analytics-total-cadu">CADU: -</small></article>
         </section>
 
         <div class="mission-analytics-grid">
@@ -996,7 +996,7 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/dashboard.js?v=0.54.0f"></script>
+<script src="/static/dashboard.js?v=0.54.0k-r1"></script>
 <script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
 <script src="/static/js/capture_live.js"></script>
 <script src="/static/js/mission_recordings.js?v=0.53.1-r2"></script>
@@ -1007,6 +1007,6 @@
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.54.0i-r2"></script>
-<script src="/static/js/mission_planner.js?v=0.54.0h-r2"></script>
+<script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
 </body>
 </html>

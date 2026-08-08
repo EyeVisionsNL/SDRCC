@@ -102,9 +102,14 @@ def main() -> None:
     check("systemctl" not in "\n".join((system_js, services_js, inventory_js, sounds_js)), "System presentation code contains no service authority")
     check("Mission Event Center" not in sounds_js, "notification test no longer exposes the removed card name")
 
-    check("v=0.54.0f" in dashboard_loader, "dashboard module cache bust is updated")
+    approved_loader_versions = ("v=0.54.0f", "v=0.54.0k-r1")
+    check(
+        any(version in dashboard_loader for version in approved_loader_versions),
+        "dashboard module cache bust uses an approved v0.54.0f/v0.54.0k version",
+    )
     check('system.js?v=0.54.0f' in dashboard_js and 'services.js?v=0.54.0f' in dashboard_js, "System JavaScript module cache busts are updated")
-    check(html.count("v=0.54.0f") >= 5, "System assets use the v0.54.0f cache bust")
+    system_cache_busts = html.count("v=0.54.0f") + html.count("v=0.54.0k-r1")
+    check(system_cache_busts >= 5, "System assets use an approved v0.54.0f/v0.54.0k cache bust")
 
     print("VALIDATION PASS: SDRCC v0.54.0f System Status Clarity")
 

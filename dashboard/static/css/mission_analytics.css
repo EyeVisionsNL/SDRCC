@@ -1,5 +1,12 @@
-/* v0.25.2 - Mission Analytics Trends */
+/* SDRCC v0.54.0k Mission Analytics visual clarity */
 .mission-analytics-layout {
+    --analytics-cyan: #38bdf8;
+    --analytics-green: #22c55e;
+    --analytics-amber: #f59e0b;
+    --analytics-red: #ef4444;
+    --analytics-purple: #a78bfa;
+    --analytics-yellow: #fbbf24;
+    --analytics-slate: #94a3b8;
     display: grid;
     gap: 14px;
     padding: 14px;
@@ -7,9 +14,11 @@
 
 .mission-analytics-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: 18px;
+    gap: 20px;
+    border-left: 3px solid var(--analytics-cyan);
+    background: linear-gradient(105deg, rgba(56, 189, 248, .08), transparent 36%);
 }
 
 .mission-analytics-header h2,
@@ -43,24 +52,56 @@
 }
 
 .mission-analytics-stat {
+    --stat-accent: var(--analytics-cyan);
+    position: relative;
     min-width: 0;
+    overflow: hidden;
     padding: 14px;
+    border-color: color-mix(in srgb, var(--stat-accent) 38%, #334155);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--stat-accent) 10%, transparent), transparent 62%);
+    box-shadow: inset 3px 0 0 var(--stat-accent);
 }
+
+.mission-analytics-stat::after {
+    content: "";
+    position: absolute;
+    width: 62px;
+    height: 62px;
+    top: -34px;
+    right: -18px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--stat-accent) 15%, transparent);
+}
+
+.mission-analytics-stat.is-total,
+.mission-analytics-stat.is-frames { --stat-accent: var(--analytics-cyan); }
+.mission-analytics-stat.is-success { --stat-accent: var(--analytics-green); }
+.mission-analytics-stat.is-success.is-warn { --stat-accent: var(--analytics-amber); }
+.mission-analytics-stat.is-success.is-bad { --stat-accent: var(--analytics-red); }
+.mission-analytics-stat.is-snr { --stat-accent: var(--analytics-purple); }
+.mission-analytics-stat.is-elevation { --stat-accent: var(--analytics-yellow); }
+.mission-analytics-stat.is-images { --stat-accent: var(--analytics-green); }
 
 .mission-analytics-stat span,
 .mission-analytics-stat small {
+    position: relative;
+    z-index: 1;
     display: block;
     color: #94a3b8;
 }
 
 .mission-analytics-stat span {
-    font-size: .78rem;
     margin-bottom: 7px;
+    font-size: .76rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
 }
 
 .mission-analytics-stat strong {
+    position: relative;
+    z-index: 1;
     display: block;
-    color: #e2e8f0;
+    color: var(--stat-accent);
     font-size: 1.45rem;
     line-height: 1.1;
     overflow-wrap: anywhere;
@@ -80,23 +121,36 @@
 
 .mission-analytics-panel {
     min-width: 0;
+    background: linear-gradient(150deg, rgba(56, 189, 248, .025), transparent 44%);
 }
 
 .mission-analytics-panel-heading {
     margin-bottom: 12px;
 }
 
-.mission-analytics-cards {
+.mission-analytics-cards,
+.mission-analytics-breakdown,
+.mission-analytics-trend-list,
+.mission-analytics-timeline {
     display: grid;
-    gap: 10px;
+    gap: 9px;
 }
 
 .mission-analytics-performance {
-    border: 1px solid #334155;
-    border-radius: 10px;
-    background: #0f172a;
+    --performance-accent: var(--analytics-cyan);
     padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--performance-accent) 34%, #334155);
+    border-radius: 10px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--performance-accent) 7%, transparent), #0f172a 55%);
+    box-shadow: inset 3px 0 0 var(--performance-accent);
 }
+
+.mission-analytics-performance.is-receiver.is-rate-good { --performance-accent: var(--analytics-green); }
+.mission-analytics-performance.is-receiver.is-rate-warn { --performance-accent: var(--analytics-amber); }
+.mission-analytics-performance.is-receiver.is-rate-bad { --performance-accent: var(--analytics-red); }
+.mission-analytics-performance.is-satellite.is-meteor-3 { --performance-accent: #22d3ee; }
+.mission-analytics-performance.is-satellite.is-meteor-4 { --performance-accent: var(--analytics-purple); }
+.mission-analytics-performance.is-satellite.is-iss { --performance-accent: var(--analytics-yellow); }
 
 .mission-analytics-performance-title {
     display: flex;
@@ -107,7 +161,7 @@
 }
 
 .mission-analytics-performance-title > strong {
-    color: #e2e8f0;
+    color: var(--performance-accent);
     font-size: 1rem;
     overflow-wrap: anywhere;
 }
@@ -117,7 +171,8 @@
     border-radius: 999px;
     padding: 3px 8px;
     font-size: .75rem;
-    font-weight: 700;
+    font-weight: 800;
+    background: color-mix(in srgb, currentColor 7%, transparent);
 }
 
 .mission-analytics-rate.good { color: #4ade80; }
@@ -132,7 +187,7 @@
 
 .mission-analytics-performance-grid span {
     min-width: 0;
-    color: #94a3b8;
+    color: #8fa7c5;
     font-size: .72rem;
 }
 
@@ -145,16 +200,20 @@
 }
 
 .mission-analytics-breakdown {
-    display: grid;
     gap: 11px;
 }
 
 .mission-analytics-breakdown-row {
+    --breakdown-accent: var(--analytics-cyan);
     display: grid;
     grid-template-columns: minmax(110px, .8fr) minmax(150px, 1.5fr) 58px;
     align-items: center;
     gap: 12px;
 }
+
+.mission-analytics-breakdown-row.is-good { --breakdown-accent: var(--analytics-green); }
+.mission-analytics-breakdown-row.is-warn { --breakdown-accent: var(--analytics-amber); }
+.mission-analytics-breakdown-row.is-bad { --breakdown-accent: var(--analytics-red); }
 
 .mission-analytics-breakdown-row > div:first-child {
     min-width: 0;
@@ -166,7 +225,7 @@
 }
 
 .mission-analytics-breakdown-row strong {
-    color: #e2e8f0;
+    color: var(--breakdown-accent);
     font-size: .82rem;
     overflow-wrap: anywhere;
 }
@@ -178,24 +237,26 @@
 }
 
 .mission-analytics-breakdown-row b {
-    color: #cbd5e1;
+    color: var(--breakdown-accent);
     font-size: .78rem;
     text-align: right;
 }
 
-.mission-analytics-bar {
-    height: 8px;
+.mission-analytics-bar,
+.mission-analytics-trend-bar {
     overflow: hidden;
     border-radius: 999px;
     background: #162237;
 }
 
-.mission-analytics-bar span {
+.mission-analytics-bar { height: 8px; }
+.mission-analytics-bar span,
+.mission-analytics-trend-bar span {
     height: 100%;
     min-width: 2px;
     border-radius: inherit;
-    background: #38bdf8;
 }
+.mission-analytics-bar span { background: var(--breakdown-accent); }
 
 .mission-analytics-empty {
     padding: 28px 16px;
@@ -212,26 +273,6 @@
     font-size: .78rem;
 }
 
-@media (max-width: 1200px) {
-    .mission-analytics-summary { grid-template-columns: repeat(3, minmax(135px, 1fr)); }
-}
-
-@media (max-width: 850px) {
-    .mission-analytics-header,
-    .mission-analytics-header-actions { align-items: stretch; flex-direction: column; text-align: left; }
-    .mission-analytics-grid { grid-template-columns: 1fr; }
-    .mission-analytics-summary { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
-}
-
-@media (max-width: 560px) {
-    .mission-analytics-summary { grid-template-columns: 1fr; }
-    .mission-analytics-performance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .mission-analytics-breakdown-row { grid-template-columns: 1fr 50px; }
-    .mission-analytics-breakdown-row .mission-analytics-bar { grid-column: 1 / -1; grid-row: 2; }
-}
-
-
-/* v0.25.2 - compact mission trend visualisations */
 .mission-analytics-trends {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -239,20 +280,27 @@
     align-items: start;
 }
 
-.mission-analytics-trend-list,
-.mission-analytics-timeline {
-    display: grid;
-    gap: 9px;
+.mission-analytics-trend-row,
+.mission-analytics-timeline-row {
+    --satellite-accent: var(--analytics-cyan);
+    border: 1px solid color-mix(in srgb, var(--satellite-accent) 30%, #334155);
+    border-radius: 9px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--satellite-accent) 6%, transparent), #0f172a 58%);
+    box-shadow: inset 2px 0 0 var(--satellite-accent);
 }
+
+.mission-analytics-trend-row.is-meteor-3,
+.mission-analytics-timeline-row.is-meteor-3 { --satellite-accent: #22d3ee; }
+.mission-analytics-trend-row.is-meteor-4,
+.mission-analytics-timeline-row.is-meteor-4 { --satellite-accent: var(--analytics-purple); }
+.mission-analytics-trend-row.is-iss,
+.mission-analytics-timeline-row.is-iss { --satellite-accent: var(--analytics-yellow); }
 
 .mission-analytics-trend-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 6px 12px;
     padding: 10px;
-    border: 1px solid #334155;
-    border-radius: 9px;
-    background: #0f172a;
 }
 
 .mission-analytics-trend-label {
@@ -272,13 +320,13 @@
 
 .mission-analytics-trend-label span {
     margin-top: 3px;
-    color: #94a3b8;
+    color: #8fa7c5;
     font-size: .7rem;
 }
 
 .mission-analytics-trend-value {
-    color: #cbd5e1;
-    font-weight: 700;
+    color: var(--satellite-accent);
+    font-weight: 800;
     font-size: .82rem;
     text-align: right;
 }
@@ -286,17 +334,11 @@
 .mission-analytics-trend-bar {
     grid-column: 1 / -1;
     height: 7px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: #162237;
 }
 
 .mission-analytics-trend-bar span {
     display: block;
-    height: 100%;
-    min-width: 2px;
-    border-radius: inherit;
-    background: #38bdf8;
+    background: var(--satellite-accent);
 }
 
 .mission-analytics-timeline-row {
@@ -305,9 +347,6 @@
     gap: 10px;
     align-items: center;
     padding: 10px;
-    border: 1px solid #334155;
-    border-radius: 9px;
-    background: #0f172a;
 }
 
 .mission-analytics-timeline-row > div {
@@ -327,13 +366,17 @@
 
 .mission-analytics-timeline-row div span {
     margin-top: 3px;
-    color: #94a3b8;
+    color: #8fa7c5;
     font-size: .7rem;
 }
 
 .mission-analytics-timeline-row b {
-    font-size: .72rem;
+    padding: 3px 7px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: .68rem;
     text-align: right;
+    background: color-mix(in srgb, currentColor 7%, transparent);
 }
 
 .mission-analytics-timeline-dot {
@@ -358,5 +401,20 @@
 }
 
 @media (max-width: 1200px) {
+    .mission-analytics-summary { grid-template-columns: repeat(3, minmax(135px, 1fr)); }
     .mission-analytics-trends { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 850px) {
+    .mission-analytics-header,
+    .mission-analytics-header-actions { align-items: stretch; flex-direction: column; text-align: left; }
+    .mission-analytics-grid { grid-template-columns: 1fr; }
+    .mission-analytics-summary { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+}
+
+@media (max-width: 560px) {
+    .mission-analytics-summary { grid-template-columns: 1fr; }
+    .mission-analytics-performance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mission-analytics-breakdown-row { grid-template-columns: 1fr 50px; }
+    .mission-analytics-breakdown-row .mission-analytics-bar { grid-column: 1 / -1; grid-row: 2; }
 }

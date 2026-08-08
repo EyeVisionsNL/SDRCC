@@ -48,17 +48,42 @@ function setText(id, value) {
     if (element) element.textContent = value;
 }
 
+function satelliteClass(value) {
+    const normalized = String(value || "").trim().toUpperCase();
+    if (/M2[- ]?3/.test(normalized)) return "is-meteor-3";
+    if (/M2[- ]?4/.test(normalized)) return "is-meteor-4";
+    if (normalized.includes("ISS")) return "is-iss";
+    return "is-other";
+}
+
+function breakdownClass(value) {
+    const normalized = String(value || "").trim().toUpperCase();
+    if (["SUCCESS", "GOOD", "VERY GOOD", "EXCELLENT"].includes(normalized)) return "is-good";
+    if (["NO SYNC", "NO SIGNAL", "NO IMAGES", "UNRATED", "FAIR"].includes(normalized)) return "is-warn";
+    if (["FAILED", "POOR", "BAD"].includes(normalized)) return "is-bad";
+    return "is-neutral";
+}
+
+function setSuccessSummaryClass(value) {
+    const card = document.getElementById("analytics-success-rate")?.closest(".mission-analytics-stat");
+    if (!card) return;
+    const rate = Number(value);
+    card.classList.remove("is-good", "is-warn", "is-bad");
+    card.classList.add(rate >= 80 ? "is-good" : rate >= 50 ? "is-warn" : "is-bad");
+}
+
 function performanceCard(item, kind) {
     const name = item?.name || "Unknown";
     const missions = Number(item?.missions || 0);
     const successRate = Number(item?.success_rate || 0);
     const className = successRate >= 80 ? "good" : successRate >= 50 ? "warn" : "bad";
+    const identityClass = kind === "satellite" ? satelliteClass(name) : "";
     const elevation = kind === "satellite"
         ? `<span>Avg. elevation<strong>${degrees(item?.average_max_elevation)}</strong></span>`
         : `<span>Avg. quality<strong>${number(item?.average_quality_score, 1)}</strong></span>`;
 
     return `
-        <article class="mission-analytics-performance">
+        <article class="mission-analytics-performance is-${kind} is-rate-${className} ${identityClass}">
             <div class="mission-analytics-performance-title">
                 <strong>${escapeHtml(name)}</strong>
                 <span class="mission-analytics-rate ${className}">${percent(successRate)}</span>
@@ -107,7 +132,7 @@ function renderBreakdown(id, values, total) {
         .map(([label, count]) => {
             const ratio = Math.max(0, Math.min(100, Number(count) / denominator * 100));
             return `
-                <div class="mission-analytics-breakdown-row">
+                <div class="mission-analytics-breakdown-row ${breakdownClass(label)}">
                     <div><strong>${escapeHtml(label)}</strong><span>${number(count)} mission${Number(count) === 1 ? "" : "s"}</span></div>
                     <div class="mission-analytics-bar"><span style="width:${ratio.toFixed(1)}%"></span></div>
                     <b>${percent(ratio)}</b>
@@ -120,7 +145,7 @@ function missionLabel(mission) {
     const timestamp = mission?.started_at || mission?.created_at || "";
     const date = timestamp ? new Date(timestamp.replace(" ", "T")) : null;
     const dateLabel = date && !Number.isNaN(date.getTime())
-        ? date.toLocaleDateString(undefined, {month: "short", day: "numeric"})
+        ? date.toLocaleDateString("en-GB", {month: "short", day: "numeric"})
         : "Unknown date";
     return `${dateLabel} · ${mission?.satellite || "Unknown satellite"}`;
 }
@@ -150,7 +175,7 @@ function renderMetricTrend(id, missions, field, formatter) {
     container.innerHTML = rows.map(({mission, value}) => {
         const width = Math.max(2, Math.min(100, value / maximum * 100));
         return `
-            <div class="mission-analytics-trend-row">
+            <div class="mission-analytics-trend-row ${satelliteClass(mission?.satellite)}">
                 <div class="mission-analytics-trend-label">
                     <strong>${escapeHtml(missionLabel(mission))}</strong>
                     <span>${escapeHtml(mission?.receiver || "Unknown receiver")}</span>
@@ -173,7 +198,7 @@ function renderOutcomeTimeline(id, missions) {
     container.innerHTML = rows.map(mission => {
         const result = String(mission?.result || mission?.status || "OTHER").toUpperCase();
         return `
-            <div class="mission-analytics-timeline-row">
+            <div class="mission-analytics-timeline-row ${satelliteClass(mission?.satellite)}">
                 <span class="mission-analytics-timeline-dot ${resultClass(result)}" aria-hidden="true"></span>
                 <div>
                     <strong>${escapeHtml(missionLabel(mission))}</strong>
@@ -202,6 +227,7 @@ function render(stats) {
     setText("analytics-completed", `${number(stats.completed || 0)} completed`);
     setText("analytics-success-rate", percent(stats.success_rate));
     setText("analytics-success-count", `${number(stats.success || 0)} successful`);
+    setSuccessSummaryClass(stats.success_rate);
     setText("analytics-average-snr", db(stats.average_peak_snr_db));
     setText("analytics-best-snr", `Best: ${db(stats.best_peak_snr_db)}`);
     setText("analytics-average-elevation", degrees(stats.average_max_elevation));

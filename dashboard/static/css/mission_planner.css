@@ -1,44 +1,152 @@
-/* SDRCC v0.24.0 Mission Planner */
-.mission-planner-layout { display: grid; gap: 16px; }
+/* SDRCC v0.54.0j Mission Planner visual clarity */
+.mission-planner-layout {
+    --planner-cyan: #38bdf8;
+    --planner-green: #22c55e;
+    --planner-amber: #f59e0b;
+    --planner-red: #ef4444;
+    --planner-purple: #a78bfa;
+    display: grid;
+    gap: 16px;
+}
 #mission-sdr2-next-countdown { color: #22c55e; font-size: 1.1rem; }
-.mission-planner-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.mission-planner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border-left: 3px solid var(--planner-cyan);
+    background: linear-gradient(105deg, rgba(56,189,248,.08), transparent 36%);
+}
 .mission-planner-header h2 { margin-bottom: 4px; }
 .mission-planner-header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .mission-planner-tle-status { display: inline-flex; align-items: center; min-height: 34px; padding: 0 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; font-size: .75rem; font-weight: 800; }
-.mission-planner-tle-status.is-current { color: #68e09a; border-color: rgba(104,224,154,.45); }
-.mission-planner-tle-status.is-stale { color: #ffbb5c; border-color: rgba(255,187,92,.55); }
-.mission-planner-tle-status.is-invalid { color: #ff7474; border-color: rgba(255,116,116,.55); }
+.mission-planner-tle-status.is-current { color: #86efac; border-color: rgba(34,197,94,.48); background: rgba(34,197,94,.07); }
+.mission-planner-tle-status.is-stale { color: #fbbf24; border-color: rgba(245,158,11,.55); background: rgba(245,158,11,.07); }
+.mission-planner-tle-status.is-invalid { color: #fca5a5; border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.07); }
 .mission-planner-summary { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 12px; }
-.mission-planner-summary article { padding: 16px; }
+.mission-planner-summary-card {
+    --summary-accent: #64748b;
+    position: relative;
+    overflow: hidden;
+    padding: 16px;
+    border-color: color-mix(in srgb, var(--summary-accent) 38%, #334155);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--summary-accent) 10%, transparent), transparent 62%);
+    box-shadow: inset 3px 0 0 var(--summary-accent);
+}
+.mission-planner-summary-card::after {
+    content: "";
+    position: absolute;
+    width: 66px;
+    height: 66px;
+    top: -36px;
+    right: -20px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--summary-accent) 14%, transparent);
+}
+.mission-planner-summary-card.is-passes { --summary-accent: var(--planner-cyan); }
+.mission-planner-summary-card.is-conflicts,
+.mission-planner-summary-card.is-skipped { --summary-accent: var(--planner-green); }
+.mission-planner-summary-card.is-conflicts.has-alert,
+.mission-planner-summary-card.is-skipped.has-alert { --summary-accent: var(--planner-amber); }
+.mission-planner-summary-card.is-window { --summary-accent: var(--planner-purple); }
 .mission-planner-summary span { display: block; opacity: .72; font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; }
-.mission-planner-summary strong { display: block; margin-top: 6px; font-size: 1.35rem; }
+.mission-planner-summary strong { display: block; margin-top: 6px; color: var(--summary-accent); font-size: 1.35rem; }
 .mission-planner-settings { display: grid; gap: 16px; }
 .mission-planner-settings-copy { max-width: 900px; }
 .mission-planner-settings-copy h2 { margin-bottom: 6px; }
 .mission-planner-settings-form { display: grid; gap: 14px; }
 .mission-planner-settings-form label { display: grid; gap: 6px; font-size: .82rem; opacity: .9; }
-.mission-planner-settings-form select { width: 100%; min-width: 0; }
+.mission-planner-settings-form select,
+.mission-planner-settings-form input {
+    min-height: 34px;
+    border: 1px solid #3a4b63;
+    border-radius: 6px;
+    outline: none;
+    background: #0b1423;
+    color: #e2e8f0;
+    color-scheme: dark;
+}
+.mission-planner-settings-form select { width: 100%; min-width: 0; padding: 0 9px; }
+.mission-planner-settings-form input { padding: 0 8px; }
+.mission-planner-settings-form select:focus,
+.mission-planner-settings-form input:focus {
+    border-color: var(--profile-accent, var(--planner-cyan));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--profile-accent, var(--planner-cyan)) 18%, transparent);
+}
 .mission-planner-input { display: flex; align-items: center; gap: 8px; }
 .mission-planner-input input { width: 100%; min-width: 80px; }
 .mission-planner-profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.mission-planner-profile { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 14px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; min-width: 0; }
-.mission-planner-profile legend { padding: 0 7px; font-weight: 800; color: #e2e8f0; }
+.mission-planner-profile {
+    --profile-accent: #94a3b8;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    min-width: 0;
+    margin: 0;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--profile-accent) 34%, #334155);
+    border-radius: 10px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--profile-accent) 7%, transparent), rgba(2,7,18,.22) 60%);
+    box-shadow: inset 3px 0 0 var(--profile-accent);
+}
+.mission-planner-profile[data-planning-profile="meteor_m2_3"] { --profile-accent: #22d3ee; }
+.mission-planner-profile[data-planning-profile="meteor_m2_4"] { --profile-accent: var(--planner-purple); }
+.mission-planner-profile[data-planning-profile="iss_voice"] { --profile-accent: #fbbf24; }
+.mission-planner-profile legend { padding: 0 7px; color: var(--profile-accent); font-weight: 900; }
 .mission-planner-profile.is-meteor .mission-planner-frequency-choice,
 .mission-planner-profile.is-meteor .mission-planner-custom-frequency { grid-column: 1 / -1; }
 .mission-planner-custom-frequency[hidden] { display: none; }
 .mission-planner-settings-actions { display: flex; justify-content: flex-end; }
-.mission-planner-table-card { overflow: hidden; }
+.mission-planner-settings-actions .control-button { width: auto; min-width: 220px; }
+.mission-planner-table-card { overflow: hidden; padding-top: 0; }
 .mission-planner-table-wrap { overflow-x: auto; }
 .mission-planner-table { width: 100%; border-collapse: collapse; min-width: 1050px; }
-.mission-planner-table th, .mission-planner-table td { padding: 12px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.08); vertical-align: top; }
-.mission-planner-table th { font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; opacity: .68; }
-.mission-planner-table td:first-child strong, .mission-planner-table td:first-child span { display: block; }
-.mission-planner-table td:first-child span { margin-top: 3px; opacity: .66; font-size: .8rem; }
-.mission-planner-state { display: inline-flex; padding: 4px 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; font-size: .72rem; font-weight: 800; white-space: nowrap; }
-.mission-planner-state.is-target, .mission-planner-state.is-active { border-color: rgba(93, 201, 255, .55); }
-.mission-planner-state.is-eligible { border-color: rgba(104, 224, 154, .45); }
-.mission-planner-state.is-conflict, .mission-planner-state.is-blocked { border-color: rgba(255, 187, 92, .55); }
-.mission-planner-state.is-skipped { opacity: .65; }
+.mission-planner-table th,
+.mission-planner-table td { padding: 12px 10px; text-align: left; border-bottom: 1px solid rgba(148,163,184,.14); vertical-align: middle; }
+.mission-planner-table th { background: rgba(2,7,18,.34); color: #9fb5d1; font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; }
+.mission-planner-row { transition: background .15s ease; }
+.mission-planner-row:hover td { background: rgba(56,189,248,.035); }
+.mission-planner-row.is-target td { background: rgba(56,189,248,.07); }
+.mission-planner-row.is-target td:first-child { box-shadow: inset 3px 0 0 var(--planner-green); }
+.mission-planner-row.is-active td { background: rgba(239,68,68,.07); }
+.mission-planner-row.is-active td:first-child { box-shadow: inset 3px 0 0 var(--planner-red); }
+.mission-planner-row.is-conflict td,
+.mission-planner-row.is-blocked td { background: rgba(245,158,11,.07); }
+.mission-planner-row.is-conflict td:first-child,
+.mission-planner-row.is-blocked td:first-child { box-shadow: inset 3px 0 0 var(--planner-amber); }
+.mission-planner-row.is-skipped { opacity: .58; }
+.mission-planner-satellite-cell { display: flex; align-items: center; gap: 9px; }
+.mission-planner-satellite-marker { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; box-shadow: 0 0 8px rgba(148,163,184,.5); }
+.mission-planner-row.is-meteor-3 .mission-planner-satellite-marker { background: #22d3ee; box-shadow: 0 0 9px rgba(34,211,238,.62); }
+.mission-planner-row.is-meteor-4 .mission-planner-satellite-marker { background: var(--planner-purple); box-shadow: 0 0 9px rgba(167,139,250,.62); }
+.mission-planner-row.is-iss .mission-planner-satellite-marker { background: #fbbf24; box-shadow: 0 0 9px rgba(251,191,36,.62); }
+.mission-planner-satellite-copy { min-width: 0; }
+.mission-planner-satellite-copy strong,
+.mission-planner-satellite-copy > span { display: block; }
+.mission-planner-satellite-copy strong { color: #f1f5f9; }
+.mission-planner-satellite-copy > span { margin-top: 3px; color: #8fa7c5; font-size: .76rem; }
+.mission-planner-window-cell strong,
+.mission-planner-window-cell small { display: block; white-space: nowrap; }
+.mission-planner-window-cell strong { color: #e2e8f0; }
+.mission-planner-window-cell small { margin-top: 4px; color: #8fa7c5; font-size: .7rem; }
+.mission-planner-frequency { color: #7dd3fc; font-weight: 700; white-space: nowrap; }
+.mission-planner-receiver { color: #dbeafe; font-weight: 700; }
+.mission-planner-reason { color: #b3c2d6; line-height: 1.35; }
+.mission-planner-quality,
+.mission-planner-state { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; font-size: .68rem; font-weight: 850; white-space: nowrap; }
+.mission-planner-quality::before,
+.mission-planner-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.mission-planner-quality.is-fair { color: #fbbf24; border-color: rgba(245,158,11,.46); background: rgba(245,158,11,.07); }
+.mission-planner-quality.is-good { color: #7dd3fc; border-color: rgba(56,189,248,.46); background: rgba(56,189,248,.07); }
+.mission-planner-quality.is-very-good { color: #86efac; border-color: rgba(34,197,94,.46); background: rgba(34,197,94,.07); }
+.mission-planner-quality.is-excellent { color: #c4b5fd; border-color: rgba(167,139,250,.52); background: rgba(167,139,250,.08); }
+.mission-planner-quality.is-unknown { color: #94a3b8; }
+.mission-planner-state.is-target { color: #7dd3fc; border-color: rgba(56,189,248,.55); background: rgba(56,189,248,.08); }
+.mission-planner-state.is-active { color: #fca5a5; border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.08); }
+.mission-planner-state.is-eligible { color: #86efac; border-color: rgba(34,197,94,.46); background: rgba(34,197,94,.07); }
+.mission-planner-state.is-conflict,
+.mission-planner-state.is-blocked { color: #fbbf24; border-color: rgba(245,158,11,.55); background: rgba(245,158,11,.08); }
+.mission-planner-state.is-skipped { color: #94a3b8; opacity: .75; }
 .mission-planner-empty { text-align: center !important; padding: 30px !important; opacity: .7; }
 .mission-planner-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; }
 
@@ -64,4 +172,5 @@
 
 @media (max-width: 620px) {
     .mission-planner-profile { grid-template-columns: 1fr; }
+    .mission-planner-settings-actions .control-button { width: 100%; min-width: 0; }
 }

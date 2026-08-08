@@ -31,8 +31,47 @@
     function eligibility(item) {
         const label = String(item.decision || "ELIGIBLE").toUpperCase();
         const reason = String(item.decision_reason || "Pass meets its satellite planning policy.");
-        const cls = String(item.decision_class || "eligible").toLowerCase();
+        const rawClass = String(item.decision_class || "eligible").toLowerCase();
+        const cls = ["target", "active", "eligible", "conflict", "blocked", "skipped"].includes(rawClass)
+            ? rawClass
+            : "eligible";
         return {label, reason, cls};
+    }
+
+    function satelliteClass(item) {
+        const name = String(item.name || "").toUpperCase();
+        if (name.includes("ISS")) return "iss";
+        if (name.includes("M2 3") || name.includes("M2-3")) return "meteor-3";
+        if (name.includes("M2 4") || name.includes("M2-4")) return "meteor-4";
+        return "other";
+    }
+
+    function qualityDisplay(item) {
+        const raw = String(item.quality?.label || "-").trim();
+        const normalized = raw.toUpperCase();
+        const labels = {
+            "MATIG": ["FAIR", "fair"],
+            "FAIR": ["FAIR", "fair"],
+            "GOED": ["GOOD", "good"],
+            "GOOD": ["GOOD", "good"],
+            "ZEER GOED": ["VERY GOOD", "very-good"],
+            "VERY GOOD": ["VERY GOOD", "very-good"],
+            "UITSTEKEND": ["EXCELLENT", "excellent"],
+            "EXCELLENT": ["EXCELLENT", "excellent"],
+        };
+        const [label, cls] = labels[normalized] || [raw || "-", "unknown"];
+        return {label, cls};
+    }
+
+    function updateSummaryCard(id, value, alertWhenPositive = false) {
+        const node = byId(id);
+        if (!node) return;
+        node.textContent = String(value);
+        const card = node.closest("article");
+        if (!card || !alertWhenPositive) return;
+        const hasAlert = Number(value) > 0;
+        card.classList.toggle("has-alert", hasAlert);
+        card.classList.toggle("is-clear", !hasAlert);
     }
 
     function renderTleStatus(tle) {
@@ -92,9 +131,9 @@
         const queue = Array.isArray(payload.queue) ? payload.queue : [];
         renderSettings(payload.planning_profiles || payload.planning_policy?.profiles || {});
         renderTleStatus(payload.tle_status || {});
-        byId("mission-planner-pass-count").textContent = String(queue.length);
-        byId("mission-planner-conflict-count").textContent = String(payload.conflicts || 0);
-        byId("mission-planner-skipped-count").textContent = String(payload.skipped || 0);
+        updateSummaryCard("mission-planner-pass-count", queue.length);
+        updateSummaryCard("mission-planner-conflict-count", payload.conflicts || 0, true);
+        updateSummaryCard("mission-planner-skipped-count", payload.skipped || 0, true);
         byId("mission-planner-window").textContent = `${payload.hours_ahead || 48} hours`;
 
         const body = byId("mission-planner-table-body");
@@ -111,19 +150,20 @@
             const frequency = Number(item.frequency_mhz);
             const begin = Number(item.begin_elevation);
             const close = Number(item.close_elevation);
-            const quality = item.quality?.label || "-";
+            const quality = qualityDisplay(item);
+            const satellite = satelliteClass(item);
             const windowAngles = Number.isFinite(begin) && Number.isFinite(close)
                 ? `${begin.toFixed(1)}° rising · ${close.toFixed(1)}° falling`
                 : "-";
-            return `<tr class="mission-planner-row is-${escapeHtml(result.cls)}">
-                <td><strong>${escapeHtml(item.name || "Unknown satellite")}</strong><span>${escapeHtml(item.mode || item.pipeline || "-")}</span></td>
-                <td><strong>${escapeHtml(formatDateTime(item.start))} → ${escapeHtml(formatTime(item.end))}</strong><small>${escapeHtml(windowAngles)}</small></td>
+            return `<tr class="mission-planner-row is-${escapeHtml(result.cls)} is-${escapeHtml(satellite)}">
+                <td class="mission-planner-satellite-cell"><span class="mission-planner-satellite-marker" aria-hidden="true"></span><span class="mission-planner-satellite-copy"><strong>${escapeHtml(item.name || "Unknown satellite")}</strong><span>${escapeHtml(item.mode || item.pipeline || "-")}</span></span></td>
+                <td class="mission-planner-window-cell"><strong>${escapeHtml(formatDateTime(item.start))} → ${escapeHtml(formatTime(item.end))}</strong><small>${escapeHtml(windowAngles)}</small></td>
                 <td>${Number.isFinite(elevation) ? `${elevation.toFixed(1)}°` : "-"}</td>
-                <td>${Number.isFinite(frequency) ? `${frequency.toFixed(3)} MHz` : "-"}</td>
-                <td>${escapeHtml(receiver)}</td>
-                <td>${escapeHtml(quality)}</td>
+                <td class="mission-planner-frequency">${Number.isFinite(frequency) ? `${frequency.toFixed(3)} MHz` : "-"}</td>
+                <td class="mission-planner-receiver">${escapeHtml(receiver)}</td>
+                <td><span class="mission-planner-quality is-${escapeHtml(quality.cls)}">${escapeHtml(quality.label)}</span></td>
                 <td><span class="mission-planner-state is-${escapeHtml(result.cls)}">${escapeHtml(result.label)}</span></td>
-                <td>${escapeHtml(result.reason)}</td>
+                <td class="mission-planner-reason">${escapeHtml(result.reason)}</td>
             </tr>`;
         }).join("");
     }

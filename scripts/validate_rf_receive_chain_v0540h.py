@@ -218,8 +218,12 @@ def main() -> int:
           "Mission Planner exposes Primary, Secondary and Custom per METEOR satellite")
     check("Automatic · TLE" in html and "25 kHz · active" in html,
           "ISS processing state is operator-visible")
-    check("mission_planner.js?v=0.54.0h-r2" in html and "mission_planner.css?v=0.54.0h-r2" in html,
-          "Mission Planner assets use the v0.54.0h-r2 cache bust")
+    planner_cache_versions = ("0.54.0h-r2", "0.54.0j-r1")
+    check(any(
+        f"mission_planner.js?v={version}" in html
+        and f"mission_planner.css?v={version}" in html
+        for version in planner_cache_versions
+    ), "Mission Planner assets use an approved v0.54.0h/v0.54.0j cache bust")
     print("VALIDATION PASS: SDRCC v0.54.0h-r2 RF Receive Chain Integrity")
     return 0
 
