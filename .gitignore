@@ -50,3 +50,5 @@ backups/
 
 # Local installer rollback backups
 .rollback/
+# Local rtl_sdr test capture
+/test
