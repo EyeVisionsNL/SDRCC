@@ -176,6 +176,17 @@ def get_plugin_handover_services(plugin_id: str) -> list[str]:
     return list(plugin.get("handover_services") or plugin.get("services") or [])
 
 
+def get_plugin_lifecycle_services(plugin_id: str) -> list[str]:
+    """Return services operated by the normal plugin Start/Stop controls.
+
+    Companion or maintenance services can still be part of
+    ``handover_services`` so Receiver Manager releases the hardware safely.
+    They are deliberately excluded here and must never be started as a side
+    effect of normal plugin operation.
+    """
+    return get_plugin_services(plugin_id)
+
+
 def get_plugin_capabilities(plugin_id: str) -> list[str]:
     """Return capabilities declared by a plugin."""
     plugin = get_plugin(plugin_id)

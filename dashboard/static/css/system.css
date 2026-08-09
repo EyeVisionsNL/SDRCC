@@ -215,6 +215,19 @@
     box-shadow: inset 3px 0 0 #64748b;
 }
 
+.system-service-row.is-starting,
+.system-service-row.is-partial {
+    border-color: rgba(245, 158, 11, .48);
+    box-shadow: inset 3px 0 0 #f59e0b;
+    background: linear-gradient(180deg, rgba(245, 158, 11, .08) 0%, #020712 100%);
+}
+
+.system-service-row.is-attention {
+    border-color: rgba(239, 68, 68, .52);
+    box-shadow: inset 3px 0 0 #ef4444;
+    background: linear-gradient(180deg, rgba(239, 68, 68, .08) 0%, #020712 100%);
+}
+
 .system-service-copy {
     min-width: 0;
 }
@@ -272,6 +285,22 @@
 .system-service-state.is-stopped {
     color: #94a3b8;
 }
+
+.system-service-state.is-starting,
+.system-service-state.is-partial {
+    border-color: rgba(245, 158, 11, .45);
+    color: #fbbf24;
+}
+
+.system-service-state.is-starting::before,
+.system-service-state.is-partial::before { background: #f59e0b; }
+
+.system-service-state.is-attention {
+    border-color: rgba(239, 68, 68, .48);
+    color: #fca5a5;
+}
+
+.system-service-state.is-attention::before { background: #ef4444; }
 
 .system-service-actions {
     display: grid;
@@ -364,6 +393,18 @@
     border: 1px solid #24364d;
     border-radius: 9px;
     background: linear-gradient(180deg, #07101f 0%, #020712 100%);
+}
+
+.system-maintenance-service-v0540q {
+    grid-column: 1 / -1;
+}
+
+.system-maintenance-service-v0540q .system-service-row {
+    background: rgba(2, 7, 18, .58);
+}
+
+.system-maintenance-service-v0540q .control-result {
+    margin: 10px 0 0;
 }
 
 .system-maintenance-heading-v0540f {

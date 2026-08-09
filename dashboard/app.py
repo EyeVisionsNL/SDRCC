@@ -63,6 +63,7 @@ app = Flask(__name__)
 LOG_FILE = PROJECT_ROOT / "logs" / "sdrcc.log"
 SDRCC_SCRIPT = PROJECT_ROOT / "scripts" / "sdrcc.py"
 RECEIVER_ROLE_HELPER = Path("/usr/local/sbin/sdrcc-apply-receiver-roles")
+AIS_CONTROL_SERVICE = "ais-catcher-control.service"
 
 IMAGE_DIRS = [
     PROJECT_ROOT / "data" / "images",
@@ -85,6 +86,18 @@ SERVICE_ACTIONS = {
         "plugin_id": "ais",
         "systemctl": "restart",
     },
+    "start_ais_control": {
+        "label": "AIS-Catcher Control starten",
+        "plugin_id": "ais",
+        "systemctl": "start",
+        "maintenance_service": AIS_CONTROL_SERVICE,
+    },
+    "stop_ais_control": {
+        "label": "AIS-Catcher Control stoppen",
+        "plugin_id": "ais",
+        "systemctl": "stop",
+        "maintenance_service": AIS_CONTROL_SERVICE,
+    },
     "start_adsb": {
         "label": "ADS-B starten",
         "plugin_id": "adsb",
@@ -101,6 +114,9 @@ SERVICE_ACTIONS = {
         "systemctl": "restart",
     },
 }
+
+SERVICE_STARTING_GRACE_SECONDS = 20.0
+SERVICE_LIFECYCLE_TIMEOUT_SECONDS = 20.0
 
 SCHEDULER_ACTIONS = {
     "scheduler_auto": {
@@ -226,11 +242,251 @@ def service_state(service_name):
     active_text = active_result.stdout.strip()
     enabled_text = enabled_result.stdout.strip()
 
+    details = {}
+    try:
+        details_result = subprocess.run(
+            [
+                "systemctl",
+                "show",
+                service_name,
+                "--property=MainPID",
+                "--property=ActiveEnterTimestampMonotonic",
+            ],
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+        for line in details_result.stdout.splitlines():
+            key, separator, value = line.partition("=")
+            if separator:
+                details[key.strip()] = value.strip()
+    except (OSError, subprocess.SubprocessError):
+        details = {}
+
+    try:
+        main_pid = int(details.get("MainPID") or 0)
+    except (TypeError, ValueError):
+        main_pid = 0
+    try:
+        active_enter_monotonic = (
+            int(details.get("ActiveEnterTimestampMonotonic") or 0) / 1_000_000
+        )
+    except (TypeError, ValueError):
+        active_enter_monotonic = 0.0
+    active_age_seconds = (
+        max(0.0, time.monotonic() - active_enter_monotonic)
+        if active_text == "active" and active_enter_monotonic > 0
+        else None
+    )
+    started_epoch = (
+        time.time() - active_age_seconds
+        if active_age_seconds is not None
+        else None
+    )
+
     return {
         "service": service_name,
         "active": active_text == "active",
         "state": active_text if active_text else "unknown",
         "enabled": enabled_text if enabled_text else "unknown",
+        "main_pid": main_pid,
+        "active_age_seconds": (
+            round(active_age_seconds, 1)
+            if active_age_seconds is not None
+            else None
+        ),
+        "started_epoch": started_epoch,
+    }
+
+
+def _service_group_names(plugin_id):
+    """Return only services owned by normal plugin Start/Stop controls."""
+    names = plugin_registry.get_plugin_lifecycle_services(plugin_id)
+    if not names:
+        names = plugin_registry.get_plugin_services(plugin_id)
+    return list(dict.fromkeys(str(name).strip() for name in names if str(name).strip()))
+
+
+def _observe_service_group(plugin_id):
+    return {
+        service_name: service_state(service_name)
+        for service_name in _service_group_names(plugin_id)
+    }
+
+
+def _primary_service_state(plugin_id, service_states):
+    primary_services = plugin_registry.get_plugin_services(plugin_id)
+    primary_name = primary_services[0] if primary_services else None
+    if primary_name and primary_name in service_states:
+        primary = service_states[primary_name]
+    else:
+        primary = next(iter(service_states.values()), {
+            "service": primary_name,
+            "active": False,
+            "state": "unknown",
+            "enabled": "unknown",
+        })
+
+    # Dashboard service observations expose systemd's MainPID as ``main_pid``.
+    # Receiver Authority predates that observer contract and consumes ``pid``.
+    # Keep the observer field and add the compatibility alias at this boundary,
+    # otherwise every active AIS/readsb process is incorrectly checked as PID 0.
+    normalized = dict(primary or {})
+    if not normalized.get("pid"):
+        normalized["pid"] = normalized.get("main_pid") or 0
+    return normalized
+
+
+def _derive_service_lifecycle(plugin_id, service_states, authority_role, metrics=None):
+    """Project service observations into a display-only lifecycle state."""
+    names = _service_group_names(plugin_id)
+    members = [
+        dict(service_states.get(name) or {
+            "service": name,
+            "active": False,
+            "state": "unknown",
+            "enabled": "unknown",
+        })
+        for name in names
+    ]
+    primary = _primary_service_state(plugin_id, service_states)
+    active_members = [item for item in members if item.get("active")]
+    active_count = len(active_members)
+    member_count = len(members)
+    active_ages = [
+        float(item["active_age_seconds"])
+        for item in active_members
+        if item.get("active_age_seconds") is not None
+    ]
+    newly_started = bool(active_ages) and min(active_ages) <= SERVICE_STARTING_GRACE_SECONDS
+    runtime_verified = bool((authority_role or {}).get("runtime_verified"))
+    autostart_disabled = bool(members) and all(
+        str(item.get("enabled") or "").lower() == "disabled"
+        for item in members
+    )
+    metrics = dict(metrics or {})
+
+    lifecycle_state = "ATTENTION"
+    detail = "Service lifecycle could not be verified."
+    if plugin_id == "ais":
+        if active_count == 0:
+            if autostart_disabled:
+                lifecycle_state = "STOPPED"
+                detail = "AIS-Catcher receiver service is stopped."
+            else:
+                lifecycle_state = "ATTENTION"
+                detail = "AIS-Catcher is stopped, but its autostart state requires attention."
+        elif active_count < member_count:
+            lifecycle_state = "PARTIAL"
+            detail = (
+                f"{active_count}/{member_count} operational AIS services active."
+            )
+        elif not autostart_disabled:
+            lifecycle_state = "ATTENTION"
+            detail = "AIS-Catcher is active, but its autostart is not disabled."
+        elif runtime_verified:
+            lifecycle_state = "RUNNING"
+            detail = "AIS-Catcher active; receiver serial verified."
+        elif newly_started:
+            lifecycle_state = "STARTING"
+            detail = "AIS-Catcher is active; receiver verification is starting."
+        else:
+            lifecycle_state = "ATTENTION"
+            detail = "AIS-Catcher is active, but the receiver serial is not verified."
+    else:
+        runtime_files_fresh = bool(metrics.get("runtime_files_fresh"))
+        if active_count == 0:
+            lifecycle_state = "STOPPED"
+            detail = "readsb is stopped."
+        elif runtime_verified and runtime_files_fresh:
+            lifecycle_state = "RUNNING"
+            detail = "readsb active; receiver serial and current runtime files verified."
+        elif newly_started:
+            lifecycle_state = "STARTING"
+            detail = "readsb is active; receiver and runtime-file verification is starting."
+        else:
+            lifecycle_state = "ATTENTION"
+            detail = "readsb is active, but receiver or runtime-file verification failed."
+
+    can_start = active_count == 0
+    if plugin_id == "ais" and lifecycle_state == "PARTIAL":
+        can_start = True
+    can_stop = active_count > 0
+
+    return {
+        "plugin_id": plugin_id,
+        "service": primary.get("service"),
+        "active": bool(primary.get("active")),
+        "state": primary.get("state"),
+        "enabled": primary.get("enabled"),
+        "lifecycle_state": lifecycle_state,
+        "healthy": lifecycle_state == "RUNNING",
+        "detail": detail,
+        "members": members,
+        "member_count": member_count,
+        "active_member_count": active_count,
+        "all_members_active": bool(members) and active_count == member_count,
+        "autostart_disabled": autostart_disabled,
+        "runtime_verified": runtime_verified,
+        "runtime_files_fresh": bool(metrics.get("runtime_files_fresh")),
+        "metrics": metrics,
+        "can_start": can_start,
+        "can_stop": can_stop,
+        "read_only_status": True,
+    }
+
+
+def get_service_lifecycle_snapshot(plugin_id, *, service_states=None, authority_snapshot=None):
+    states = service_states or _observe_service_group(plugin_id)
+    primary = _primary_service_state(plugin_id, states)
+    authority = authority_snapshot or receiver_authority.get_snapshot(
+        service_states={plugin_id: primary},
+        use_cache=False,
+    )
+    authority_role = ((authority.get("roles") or {}).get(plugin_id) or {})
+    metrics = None
+    if plugin_id == "adsb":
+        metrics = receiver_monitor.get_adsb_metrics(
+            bool(primary.get("active")),
+            service_started_epoch=primary.get("started_epoch"),
+        )
+    return _derive_service_lifecycle(
+        plugin_id,
+        states,
+        authority_role,
+        metrics,
+    )
+
+
+def get_ais_control_snapshot(*, observed=None):
+    """Observe the optional AIS-Catcher configuration interface.
+
+    This maintenance service is not part of the normal AIS lifecycle.  It is
+    exposed separately so operators can start it temporarily without teaching
+    Start AIS to launch it automatically.
+    """
+    state = dict(observed or service_state(AIS_CONTROL_SERVICE))
+    active = bool(state.get("active"))
+    enabled = str(state.get("enabled") or "unknown").lower()
+    if active:
+        lifecycle_state = "RUNNING"
+        detail = "AIS-Catcher Control configuration interface is active on port 8110."
+    elif enabled == "disabled":
+        lifecycle_state = "STOPPED"
+        detail = "AIS-Catcher Control is stopped and disabled at boot."
+    else:
+        lifecycle_state = "ATTENTION"
+        detail = "AIS-Catcher Control is stopped, but its autostart state requires attention."
+    return {
+        **state,
+        "service": AIS_CONTROL_SERVICE,
+        "lifecycle_state": lifecycle_state,
+        "detail": detail,
+        "can_start": not active,
+        "can_stop": active,
+        "autostart_disabled": enabled == "disabled",
+        "maintenance_only": True,
+        "read_only_status": True,
     }
 
 
@@ -670,8 +926,11 @@ def get_dashboard_data():
     next_pass = serialize_pass(raw_next_pass)
     devices = device_manager.get_devices()
 
-    ais = service_state("ais-catcher.service")
-    adsb = service_state("readsb.service")
+    ais_service_states = _observe_service_group("ais")
+    adsb_service_states = _observe_service_group("adsb")
+    ais_control = get_ais_control_snapshot()
+    ais_primary = _primary_service_state("ais", ais_service_states)
+    adsb_primary = _primary_service_state("adsb", adsb_service_states)
     logs = read_log_lines()
     latest_capture = find_latest_capture()
     captures = recent_captures()
@@ -690,6 +949,7 @@ def get_dashboard_data():
     iss_runtime = iss_voice_runtime.get_status()
     iss_active = bool(iss_runtime.get("active"))
     authority_snapshot = receiver_authority.get_snapshot(
+        service_states={"ais": ais_primary, "adsb": adsb_primary},
         mission_status=mission,
         weather_runtime=live_rf_status,
         iss_runtime=iss_runtime,
@@ -700,6 +960,21 @@ def get_dashboard_data():
     ais_runtime = authority_roles.get("ais") or {}
     adsb_runtime = authority_roles.get("adsb") or {}
     iss_verified_runtime = authority_roles.get("iss_voice") or {}
+    ais = _derive_service_lifecycle(
+        "ais",
+        ais_service_states,
+        ais_runtime,
+    )
+    adsb_metrics = receiver_monitor.get_adsb_metrics(
+        bool(adsb_primary.get("active")),
+        service_started_epoch=adsb_primary.get("started_epoch"),
+    )
+    adsb = _derive_service_lifecycle(
+        "adsb",
+        adsb_service_states,
+        adsb_runtime,
+        adsb_metrics,
+    )
 
     for device in devices:
         device_id = device.get("id")
@@ -798,6 +1073,7 @@ def get_dashboard_data():
         "sdr2": sdr2,
         "next_pass": next_pass,
         "ais": ais,
+        "ais_control": ais_control,
         "adsb": adsb,
         "devices": devices,
         "assignments": assignments,
@@ -814,6 +1090,127 @@ def get_dashboard_data():
         "scheduler": scheduler,
         "actions": [{"id": action_id, "label": data["label"]} for action_id, data in ACTIONS.items()],
     }
+
+
+def _service_action_steps(plugin_id, systemctl_action):
+    stop_order = _service_group_names(plugin_id)
+    start_order = list(reversed(stop_order))
+    if systemctl_action == "stop":
+        return [("stop", service) for service in stop_order]
+    if systemctl_action == "start":
+        return [("start", service) for service in start_order]
+    if systemctl_action == "restart":
+        return [
+            *[("stop", service) for service in stop_order],
+            *[("start", service) for service in start_order],
+        ]
+    return []
+
+
+def _restore_service_group(plugin_id, previous_states):
+    """Best-effort restore after a failed multi-service operation."""
+    restored = []
+    stop_order = _service_group_names(plugin_id)
+    for service in stop_order:
+        if bool((previous_states.get(service) or {}).get("active")):
+            continue
+        result = run_systemctl("stop", service)
+        reached = result.returncode == 0 and wait_for_service(service, "inactive", 15)
+        restored.append({
+            "operation": "stop",
+            "service": service,
+            "returncode": result.returncode,
+            "state_reached": reached,
+        })
+    for service in reversed(stop_order):
+        if not bool((previous_states.get(service) or {}).get("active")):
+            continue
+        result = run_systemctl("start", service)
+        reached = result.returncode == 0 and wait_for_service(service, "active", 15)
+        restored.append({
+            "operation": "start",
+            "service": service,
+            "returncode": result.returncode,
+            "state_reached": reached,
+        })
+    return restored
+
+
+def _wait_for_plugin_lifecycle(plugin_id, expected_state, timeout=SERVICE_LIFECYCLE_TIMEOUT_SECONDS):
+    deadline = time.monotonic() + timeout
+    latest = None
+    while time.monotonic() < deadline:
+        latest = get_service_lifecycle_snapshot(plugin_id)
+        if latest.get("lifecycle_state") == expected_state:
+            return latest
+        time.sleep(0.5)
+    return latest or get_service_lifecycle_snapshot(plugin_id)
+
+
+def handle_maintenance_service_action(action_id, action):
+    """Run one explicitly allow-listed maintenance service action.
+
+    The existing dashboard systemctl adapter remains the executor.  Starting
+    the optional control interface is blocked while Receiver Manager owns the
+    assigned AIS receiver; stopping it is always allowed so a mission can
+    release the hardware.
+    """
+    plugin_id = str(action["plugin_id"]).strip().lower()
+    systemctl_action = str(action["systemctl"]).strip().lower()
+    target = str(action.get("maintenance_service") or "").strip()
+    label = action["label"]
+
+    if target != AIS_CONTROL_SERVICE or systemctl_action not in {"start", "stop"}:
+        return jsonify({
+            "ok": False,
+            "message": "Unsupported maintenance service action.",
+        }), 400
+
+    block = receiver_manager.service_action_block(plugin_id, systemctl_action)
+    if block is not None:
+        message = block.get("message") or (
+            f"{label} geweigerd: receiver is niet beschikbaar."
+        )
+        write_log(f"{label}: geblokkeerd door Receiver Manager - {message}")
+        return jsonify({
+            "ok": False,
+            "message": message,
+            "receiver_handover_block": block,
+            "authority": "receiver_manager",
+        }), 409
+
+    before = get_ais_control_snapshot()
+    expected_unit_state = "active" if systemctl_action == "start" else "inactive"
+    write_log(f"{label}: systemctl {systemctl_action} {target}")
+    result = run_systemctl(systemctl_action, target)
+    state_reached = (
+        result.returncode == 0
+        and wait_for_service(target, expected_unit_state, 15)
+    )
+    after = get_ais_control_snapshot()
+    if result.returncode != 0 or not state_reached:
+        message = (result.stderr or result.stdout or "requested state was not reached").strip()
+        write_log(f"{label}: mislukt - {message}")
+        return jsonify({
+            "ok": False,
+            "message": f"{label} failed: {message}",
+            "before": before,
+            "after": after,
+            "service": target,
+            "authority": "existing_dashboard_systemctl_path",
+        }), 500
+
+    write_log(f"{label}: {after['lifecycle_state']}")
+    return jsonify({
+        "ok": True,
+        "message": f"{label} completed. Status: {after['lifecycle_state']}",
+        "before": before,
+        "after": after,
+        "service": target,
+        "automatic_restart_performed": False,
+        "autostart_changed": False,
+        "authority": "existing_dashboard_systemctl_path",
+    })
 
 
 def handle_service_action(action_id, action):
@@ -858,43 +1255,116 @@ def handle_service_action(action_id, action):
             "execution_plan_delegation": delegation,
         }), 409
 
-    before = service_state(service)
-    write_log(f"{label}: service was {before['state']}")
-
-    result = run_systemctl(systemctl_action, service)
-
-    if result.stdout.strip():
-        for line in result.stdout.strip().splitlines():
-            write_log(line)
-
-    if result.stderr.strip():
-        for line in result.stderr.strip().splitlines():
-            write_log("ERROR: " + line)
-
-    after = service_state(service)
-
-    if result.returncode == 0:
-        write_log(f"{label}: service is nu {after['state']}")
+    service_group = _service_group_names(plugin_id)
+    if service not in service_group:
+        message = (
+            f"{label} rejected: delegated target {service!r} is not part of "
+            f"the registered lifecycle group."
+        )
+        write_log(message)
         return jsonify({
-            "ok": True,
-            "message": f"{label} uitgevoerd. Status: {after['state']}",
+            "ok": False,
+            "message": message,
+            "execution_plan_delegation": delegation,
+        }), 409
+
+    steps = _service_action_steps(plugin_id, systemctl_action)
+    if not steps:
+        return jsonify({
+            "ok": False,
+            "message": f"Unsupported service action: {systemctl_action}",
+            "execution_plan_delegation": delegation,
+        }), 400
+
+    before_states = _observe_service_group(plugin_id)
+    before = get_service_lifecycle_snapshot(
+        plugin_id,
+        service_states=before_states,
+    )
+    write_log(
+        f"{label}: lifecycle was {before['lifecycle_state']} "
+        f"({', '.join(service_group)})"
+    )
+
+    action_results = []
+    for operation, target in steps:
+        write_log(f"{label}: systemctl {operation} {target}")
+        result = run_systemctl(operation, target)
+        stdout = (result.stdout or "").strip()
+        stderr = (result.stderr or "").strip()
+        if stdout:
+            for line in stdout.splitlines():
+                write_log(line)
+        if stderr:
+            for line in stderr.splitlines():
+                write_log("ERROR: " + line)
+
+        expected_unit_state = "active" if operation == "start" else "inactive"
+        state_reached = (
+            result.returncode == 0
+            and wait_for_service(target, expected_unit_state, 15)
+        )
+        action_results.append({
+            "operation": operation,
+            "service": target,
+            "returncode": result.returncode,
+            "state_reached": state_reached,
+            "stdout": stdout,
+            "stderr": stderr,
+        })
+        if result.returncode != 0 or not state_reached:
+            write_log(f"{label}: group operation failed at {operation} {target}")
+            restore_results = _restore_service_group(plugin_id, before_states)
+            receiver_authority.invalidate_cache()
+            after = get_service_lifecycle_snapshot(plugin_id)
+            return jsonify({
+                "ok": False,
+                "message": (
+                    f"{label} failed at {target}; previous service states were restored."
+                ),
+                "before": before,
+                "after": after,
+                "service_group": service_group,
+                "service_actions": action_results,
+                "restore_actions": restore_results,
+                "execution_plan_delegation": delegation,
+                "execution_plan_consumption": delegation,
+            }), 500
+
+    receiver_authority.invalidate_cache()
+    expected_lifecycle = "STOPPED" if systemctl_action == "stop" else "RUNNING"
+    after = _wait_for_plugin_lifecycle(plugin_id, expected_lifecycle)
+    if after.get("lifecycle_state") != expected_lifecycle:
+        write_log(
+            f"{label}: service action complete, lifecycle requires attention "
+            f"({after.get('lifecycle_state')})"
+        )
+        return jsonify({
+            "ok": False,
+            "message": (
+                f"{label} completed, but runtime verification reports "
+                f"{after.get('lifecycle_state')}. No automatic restart was performed."
+            ),
             "before": before,
             "after": after,
+            "service_group": service_group,
+            "service_actions": action_results,
             "execution_plan_delegation": delegation,
             "execution_plan_consumption": delegation,
-        })
+        }), 503
 
-    write_log(f"{label}: mislukt met returncode {result.returncode}")
+    write_log(f"{label}: lifecycle is now {after['lifecycle_state']}")
     return jsonify({
-        "ok": False,
-        "message": f"{label} mislukt. Status: {after['state']}",
+        "ok": True,
+        "message": f"{label} completed. Status: {after['lifecycle_state']}",
         "before": before,
         "after": after,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
+        "service_group": service_group,
+        "service_actions": action_results,
+        "automatic_restart_performed": False,
         "execution_plan_delegation": delegation,
         "execution_plan_consumption": delegation,
-    }), 500
+    })
 
 
 def wait_for_profile_stopped(profile_name, timeout=15):
@@ -3463,6 +3933,8 @@ def api_action():
 
     try:
         if action_id in SERVICE_ACTIONS:
+            if action.get("maintenance_service"):
+                return handle_maintenance_service_action(action_id, action)
             return handle_service_action(action_id, action)
 
         if action_id in SCHEDULER_ACTIONS:

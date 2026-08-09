@@ -1,0 +1,264 @@
+/* SDRCC v0.54.0r-r1 System visual clarity */
+#tab-system {
+    --system-theme-cyan: #38bdf8;
+    --system-theme-purple: #a78bfa;
+    --system-theme-amber: #f59e0b;
+    --system-theme-green: #22c55e;
+    --system-theme-red: #ef4444;
+    --system-theme-slate: #94a3b8;
+}
+
+#tab-system .system-page-v0540f {
+    gap: 14px;
+    padding: 14px;
+}
+
+#tab-system .system-health-card-v0540f,
+#tab-system .receiver-inventory-card,
+#tab-system .system-service-control-card,
+#tab-system .system-maintenance-card-v0540f {
+    --panel-accent: var(--system-theme-cyan);
+    --panel-corner-accent: var(--panel-accent);
+    position: relative;
+    overflow: hidden;
+    border-color: color-mix(in srgb, var(--panel-accent) 34%, #334155);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel-accent) 8%, transparent), transparent 54%);
+    box-shadow: inset 3px 0 0 var(--panel-accent), 0 0 15px rgba(0, 0, 0, .25);
+}
+
+#tab-system .system-health-card-v0540f {
+    --panel-accent: var(--system-theme-cyan);
+}
+
+#tab-system .receiver-inventory-card {
+    --panel-accent: var(--system-theme-purple);
+}
+
+#tab-system .system-service-control-card {
+    --panel-accent: var(--system-theme-cyan);
+    --panel-corner-accent: var(--system-theme-purple);
+    box-shadow: inset 3px 0 0 var(--system-theme-cyan), inset -3px 0 0 var(--system-theme-purple), 0 0 15px rgba(0, 0, 0, .25);
+}
+
+#tab-system .system-maintenance-card-v0540f {
+    --panel-accent: var(--system-theme-amber);
+}
+
+#tab-system .system-health-card-v0540f::after,
+#tab-system .receiver-inventory-card::after,
+#tab-system .system-service-control-card::after,
+#tab-system .system-maintenance-card-v0540f::after {
+    position: absolute;
+    z-index: 0;
+    width: 76px;
+    height: 76px;
+    top: -45px;
+    right: -23px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--panel-corner-accent) 16%, transparent);
+    content: "";
+    pointer-events: none;
+}
+
+#tab-system .system-health-card-v0540f > *,
+#tab-system .receiver-inventory-card > *,
+#tab-system .system-service-control-card > *,
+#tab-system .system-maintenance-card-v0540f > * {
+    position: relative;
+    z-index: 1;
+}
+
+#tab-system .system-section-heading-v0540f {
+    padding-bottom: 11px;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-accent) 23%, #334155);
+}
+
+#tab-system .system-section-heading-v0540f h2,
+#tab-system .system-maintenance-copy-v0540f strong {
+    color: color-mix(in srgb, var(--panel-accent) 78%, #f8fafc);
+}
+
+#tab-system .system-section-heading-v0540f p,
+#tab-system .system-maintenance-copy-v0540f small {
+    color: color-mix(in srgb, var(--panel-accent) 34%, #cbd5e1);
+}
+
+#tab-system .system-section-badge-v0540f,
+#tab-system .receiver-inventory-badge,
+#tab-system .system-maintenance-badge-v0540f {
+    border-color: color-mix(in srgb, var(--panel-accent) 54%, #334155);
+    background: color-mix(in srgb, var(--panel-accent) 9%, #0f172a);
+    color: color-mix(in srgb, var(--panel-accent) 82%, #f8fafc);
+}
+
+/* Identity stays cyan; only the right rail and badge communicate health. */
+#tab-system .system-health-item-v0540f {
+    --health-identity: var(--system-theme-cyan);
+    --health-status: var(--system-theme-slate);
+    border-color: color-mix(in srgb, var(--health-identity) 34%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--health-identity) 8%, transparent), #020712 66%);
+    box-shadow: inset 3px 0 0 var(--health-identity), inset -3px 0 0 var(--health-status);
+}
+
+#tab-system .system-health-item-v0540f.is-ok,
+#tab-system .system-health-item-v0540f.is-online {
+    --health-status: var(--system-theme-green);
+}
+
+#tab-system .system-health-item-v0540f.is-warn {
+    --health-status: var(--system-theme-amber);
+}
+
+#tab-system .system-health-item-v0540f.is-bad {
+    --health-status: var(--system-theme-red);
+}
+
+#tab-system .system-health-topline-v0540f > span:first-child,
+#tab-system .system-health-item-v0540f > strong {
+    color: color-mix(in srgb, var(--health-identity) 76%, #f8fafc);
+}
+
+#tab-system .system-health-item-v0540f .bar {
+    border-color: color-mix(in srgb, var(--health-identity) 28%, #334155);
+}
+
+/* Receiver identity remains purple; runtime state is a separate right rail. */
+#tab-system .receiver-inventory-item {
+    --receiver-identity: var(--system-theme-purple);
+    --receiver-status: var(--system-theme-slate);
+    border-color: color-mix(in srgb, var(--receiver-identity) 34%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--receiver-identity) 8%, transparent), #020712 66%);
+    box-shadow: inset 3px 0 0 var(--receiver-identity), inset -3px 0 0 var(--receiver-status);
+}
+
+#tab-system .receiver-inventory-item.is-service-active {
+    --receiver-status: var(--system-theme-green);
+}
+
+#tab-system .receiver-inventory-item.is-attention {
+    --receiver-status: var(--system-theme-amber);
+}
+
+#tab-system .receiver-inventory-item.is-mission-active,
+#tab-system .receiver-inventory-item.is-unavailable {
+    --receiver-status: var(--system-theme-red);
+}
+
+#tab-system .receiver-inventory-head h3 {
+    color: color-mix(in srgb, var(--receiver-identity) 78%, #f8fafc);
+}
+
+#tab-system .receiver-inventory-details > div {
+    border-color: color-mix(in srgb, var(--receiver-identity) 18%, #1e2e43);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--receiver-identity) 4%, transparent), rgba(2, 6, 23, .72) 68%);
+}
+
+#tab-system .receiver-inventory-tag {
+    border-color: color-mix(in srgb, var(--receiver-identity) 28%, #334155);
+    background: color-mix(in srgb, var(--receiver-identity) 5%, #0f172a);
+    color: color-mix(in srgb, var(--receiver-identity) 48%, #cbd5e1);
+}
+
+/* AIS and ADS-B keep their own identity while state remains independent. */
+#tab-system .system-service-row {
+    --service-identity: var(--system-theme-cyan);
+    --service-status: var(--system-theme-slate);
+    border-color: color-mix(in srgb, var(--service-identity) 38%, #24364d);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--service-identity) 8%, transparent), #020712 66%);
+    box-shadow: inset 3px 0 0 var(--service-identity), inset -3px 0 0 var(--service-status);
+}
+
+#tab-system #system-service-ais {
+    --service-identity: var(--system-theme-cyan);
+}
+
+#tab-system #system-service-adsb {
+    --service-identity: var(--system-theme-purple);
+}
+
+#tab-system #system-service-ais-control {
+    --service-identity: var(--system-theme-amber);
+}
+
+#tab-system .system-service-row.is-running {
+    --service-status: var(--system-theme-green);
+}
+
+#tab-system .system-service-row.is-starting,
+#tab-system .system-service-row.is-partial {
+    --service-status: var(--system-theme-amber);
+}
+
+#tab-system .system-service-row.is-attention {
+    --service-status: var(--system-theme-red);
+}
+
+#tab-system .system-service-label strong {
+    color: color-mix(in srgb, var(--service-identity) 78%, #f8fafc);
+}
+
+#tab-system .system-service-row .control-button,
+#tab-system .system-maintenance-group-v0540f .control-button {
+    border-color: color-mix(in srgb, var(--service-identity, var(--system-theme-amber)) 68%, #334155);
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--service-identity, var(--system-theme-amber)) 38%, #0f172a),
+        color-mix(in srgb, var(--service-identity, var(--system-theme-amber)) 18%, #07111f));
+    color: #f8fafc;
+}
+
+#tab-system .system-service-row .control-button:hover,
+#tab-system .system-maintenance-group-v0540f .control-button:hover {
+    border-color: color-mix(in srgb, var(--service-identity, var(--system-theme-amber)) 88%, #f8fafc);
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--service-identity, var(--system-theme-amber)) 50%, #0f172a),
+        color-mix(in srgb, var(--service-identity, var(--system-theme-amber)) 25%, #07111f));
+}
+
+#tab-system .system-service-row .control-button:disabled,
+#tab-system .system-maintenance-group-v0540f .control-button:disabled {
+    border-color: #334155;
+    background: #172033;
+    color: #64748b;
+}
+
+/* Advanced Maintenance uses one warning identity throughout. */
+#tab-system .system-maintenance-summary-v0540f {
+    border-bottom-color: color-mix(in srgb, var(--system-theme-amber) 24%, #334155);
+}
+
+#tab-system .system-maintenance-summary-v0540f::after {
+    color: var(--system-theme-amber);
+}
+
+#tab-system .system-maintenance-card-v0540f[open] .system-maintenance-badge-v0540f {
+    border-color: color-mix(in srgb, var(--system-theme-amber) 56%, #334155);
+    background: rgba(245, 158, 11, .09);
+    color: #fbbf24;
+}
+
+#tab-system .system-maintenance-body-v0540f {
+    border-top-color: color-mix(in srgb, var(--system-theme-amber) 24%, #334155);
+}
+
+#tab-system .system-maintenance-group-v0540f {
+    --service-identity: var(--system-theme-amber);
+    border-color: color-mix(in srgb, var(--system-theme-amber) 32%, #24364d);
+    background: linear-gradient(145deg, rgba(245, 158, 11, .065), #020712 68%);
+    box-shadow: inset 3px 0 0 var(--system-theme-amber);
+}
+
+#tab-system .system-maintenance-heading-v0540f h3,
+#tab-system .system-maintenance-group-v0540f .mission-sounds-heading h3 {
+    color: #fcd34d;
+}
+
+#tab-system .system-maintenance-group-v0540f input[type="checkbox"],
+#tab-system .system-maintenance-group-v0540f input[type="range"] {
+    accent-color: var(--system-theme-amber);
+}
+
+@media (max-width: 850px) {
+    #tab-system .system-page-v0540f {
+        padding: 10px;
+    }
+}

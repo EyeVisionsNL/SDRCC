@@ -27,7 +27,11 @@ check(
     "Mission Control theme is loaded with the v0.54.0n-r1 cache key",
 )
 check(
-    '/static/dashboard.js?v=0.54.0n-r1' in template
+    any(version in template for version in (
+        '/static/dashboard.js?v=0.54.0n-r1',
+        '/static/dashboard.js?v=0.54.0q-r1',
+        '/static/dashboard.js?v=0.54.0q-r3',
+    ))
     and './mission.js?v=0.54.0n-r1' in dashboard_js,
     "changed presentation modules are cache-busted",
 )

@@ -33,6 +33,9 @@ READSB_STATS_FILES = (
     Path("/run/dump1090-fa/stats.json"),
 )
 
+READSB_AIRCRAFT_MAX_AGE_SECONDS = 5.0
+READSB_STATS_MAX_AGE_SECONDS = 15.0
+
 AIS_SHIPS_URLS = (
     "http://127.0.0.1:8100/ships.json",
     "http://localhost:8100/ships.json",
@@ -53,6 +56,43 @@ def _read_json_file(paths: tuple[Path, ...]) -> tuple[Any | None, str | None]:
         except (OSError, ValueError, TypeError):
             continue
     return None, None
+
+
+def _runtime_file_observation(
+    source: str | None,
+    *,
+    max_age_seconds: float,
+    service_started_epoch: float | None,
+) -> dict[str, Any]:
+    """Describe whether one decoder file belongs to the current live runtime."""
+    result = {
+        "source": source,
+        "exists": False,
+        "age_seconds": None,
+        "fresh": False,
+        "updated_after_service_start": None,
+    }
+    if not source:
+        return result
+
+    try:
+        modified = Path(source).stat().st_mtime
+    except OSError:
+        return result
+
+    age = max(0.0, time.time() - modified)
+    updated_after_start = (
+        None
+        if service_started_epoch is None
+        else modified + 1.0 >= float(service_started_epoch)
+    )
+    result.update({
+        "exists": True,
+        "age_seconds": round(age, 1),
+        "fresh": age <= max_age_seconds and updated_after_start is not False,
+        "updated_after_service_start": updated_after_start,
+    })
+    return result
 
 
 def _read_json_url(urls: tuple[str, ...], timeout: float = 0.45) -> tuple[Any | None, str | None]:
@@ -243,7 +283,11 @@ def get_ais_metrics(service_active: bool) -> dict[str, Any]:
     return result
 
 
-def get_adsb_metrics(service_active: bool) -> dict[str, Any]:
+def get_adsb_metrics(
+    service_active: bool,
+    *,
+    service_started_epoch: float | None = None,
+) -> dict[str, Any]:
     result = {
         "available": False,
         "service_active": bool(service_active),
@@ -252,6 +296,9 @@ def get_adsb_metrics(service_active: bool) -> dict[str, Any]:
         "messages_per_second": None,
         "max_range_nm": None,
         "source": None,
+        "runtime_files": {},
+        "runtime_files_fresh": False,
+        "runtime_ready": False,
         "detail": "readsb metrics niet beschikbaar",
     }
     if not service_active:
@@ -260,6 +307,22 @@ def get_adsb_metrics(service_active: bool) -> dict[str, Any]:
 
     payload, source = _read_json_file(READSB_AIRCRAFT_FILES)
     stats_payload, stats_source = _read_json_file(READSB_STATS_FILES)
+    runtime_files = {
+        "aircraft": _runtime_file_observation(
+            source,
+            max_age_seconds=READSB_AIRCRAFT_MAX_AGE_SECONDS,
+            service_started_epoch=service_started_epoch,
+        ),
+        "statistics": _runtime_file_observation(
+            stats_source,
+            max_age_seconds=READSB_STATS_MAX_AGE_SECONDS,
+            service_started_epoch=service_started_epoch,
+        ),
+    }
+    result["runtime_files"] = runtime_files
+    result["runtime_files_fresh"] = all(
+        item.get("fresh") is True for item in runtime_files.values()
+    )
     if not isinstance(payload, dict):
         result["detail"] = "ADS-B-service actief; aircraft.json niet gevonden"
         return result
@@ -297,6 +360,7 @@ def get_adsb_metrics(service_active: bool) -> dict[str, Any]:
         "max_range_nm": round(max(ranges), 1) if ranges else None,
         "source": source,
         "stats_source": stats_source,
+        "runtime_ready": bool(result["runtime_files_fresh"]),
         "detail": f"{len(active_aircraft)} vliegtuigen gezien in de laatste 60 seconden",
     })
     return result

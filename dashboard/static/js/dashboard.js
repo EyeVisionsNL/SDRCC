@@ -2,13 +2,13 @@ import {getStatus} from "./api.js";
 import {setupTabs} from "./tabs.js";
 import {setupControls} from "./controls.js";
 import {updateSystem} from "./system.js?v=0.54.0f";
-import {updateServices, updateServiceButtons} from "./services.js?v=0.54.0f";
+import {updateServices, updateServiceButtons} from "./services.js?v=0.54.0q-r3";
 import {updateMissionEngine, updateNextPass, updateCountdown, updateServerOffset} from "./mission.js?v=0.54.0n-r1";
 import {updateLatestCapture, updateRecentCaptures} from "./capture.js?v=0.54.0l-r1";
 import {updateLiveLog, updateMissionTimeline} from "./timeline.js";
 import {updateExecutionJournal} from "./execution_journal.js";
 import {updateSdr} from "./sdr.js";
-import {updateStatusbar} from "./statusbar.js";
+import {updateStatusbar} from "./statusbar.js?v=0.54.0q-r1";
 import {setupMissionHistory} from "./history.js?v=0.54.0m-r1";
 import {setupMissionAnalytics} from "./mission_analytics.js?v=0.54.0k-r1";
 import {

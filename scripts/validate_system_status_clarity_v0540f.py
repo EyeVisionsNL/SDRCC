@@ -102,12 +102,20 @@ def main() -> None:
     check("systemctl" not in "\n".join((system_js, services_js, inventory_js, sounds_js)), "System presentation code contains no service authority")
     check("Mission Event Center" not in sounds_js, "notification test no longer exposes the removed card name")
 
-    approved_loader_versions = ("v=0.54.0f", "v=0.54.0k-r1", "v=0.54.0l-r1", "v=0.54.0m-r1", "v=0.54.0n-r1")
+    approved_loader_versions = ("v=0.54.0f", "v=0.54.0k-r1", "v=0.54.0l-r1", "v=0.54.0m-r1", "v=0.54.0n-r1", "v=0.54.0q-r1", "v=0.54.0q-r3")
     check(
         any(version in dashboard_loader for version in approved_loader_versions),
         "dashboard module cache bust uses an approved System-compatible version",
     )
-    check('system.js?v=0.54.0f' in dashboard_js and 'services.js?v=0.54.0f' in dashboard_js, "System JavaScript module cache busts are updated")
+    check(
+        'system.js?v=0.54.0f' in dashboard_js
+        and any(version in dashboard_js for version in (
+            'services.js?v=0.54.0f',
+            'services.js?v=0.54.0q-r1',
+            'services.js?v=0.54.0q-r3',
+        )),
+        "System JavaScript module cache busts are updated",
+    )
     system_cache_busts = sum(html.count(version) for version in approved_loader_versions)
     check(system_cache_busts >= 5, "System assets use approved compatibility cache busts")
 

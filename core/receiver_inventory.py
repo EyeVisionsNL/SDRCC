@@ -211,7 +211,7 @@ def get_snapshot() -> dict[str, Any]:
             "plugins": plugin_items,
             "runtime_state": state,
             "observed_runtime_state": observed.get("runtime_state"),
-            "available": not reserved,
+            "available": not reserved and not active_services,
             "reserved": reserved,
             "reservation": deepcopy(observed.get("reservation")),
             "active_services": active_services,

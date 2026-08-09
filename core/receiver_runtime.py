@@ -113,7 +113,11 @@ def _service_observations(
     for role in plugin_registry.get_plugin_roles():
         if assignments.get(role) != receiver_id:
             continue
-        for service_name in plugin_registry.get_plugin_services(role):
+        # Runtime availability must include every process that Receiver Manager
+        # has to stop before a mission.  This is intentionally broader than the
+        # normal Start/Stop lifecycle: for AIS it also observes the optional
+        # AIS-Catcher Control maintenance interface.
+        for service_name in plugin_registry.get_plugin_handover_services(role):
             item = deepcopy(service_reader(service_name))
             item["role"] = role
             observations.append(item)

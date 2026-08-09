@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/layout.css">
     <link rel="stylesheet" href="/static/css/cards.css">
-    <link rel="stylesheet" href="/static/css/system.css?v=0.54.0f">
+    <link rel="stylesheet" href="/static/css/system.css?v=0.54.0q-r1">
     <link rel="stylesheet" href="/static/css/receiver_inventory.css?v=0.54.0f">
     <link rel="stylesheet" href="/static/css/capture.css">
     <link rel="stylesheet" href="/static/css/log.css">
@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="/static/css/mission_control_theme.css?v=0.54.0n-r1">
     <link rel="stylesheet" href="/static/css/radio_control_theme.css?v=0.54.0o-r2">
     <link rel="stylesheet" href="/static/css/radio_view_theme.css?v=0.54.0p-r1">
+    <link rel="stylesheet" href="/static/css/system_theme.css?v=0.54.0r-r1">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0l-r2">
 </head>
 <body>
@@ -263,7 +264,7 @@
                             <strong>🚢 AIS</strong>
                             <span id="ais-status-radio" class="system-service-state">LOADING</span>
                         </div>
-                        <small>AIS-Catcher maritime receiver</small>
+                        <small id="ais-service-detail">AIS-Catcher receiver and serial verification</small>
                     </div>
                     <div class="system-service-actions">
                         <button type="button" class="control-button" data-action="start_ais">▶ Start</button>
@@ -276,7 +277,7 @@
                             <strong>✈ ADS-B</strong>
                             <span id="adsb-status-radio" class="system-service-state">LOADING</span>
                         </div>
-                        <small>readsb air-traffic receiver</small>
+                        <small id="adsb-service-detail">readsb receiver and runtime verification</small>
                     </div>
                     <div class="system-service-actions">
                         <button type="button" class="control-button" data-action="start_adsb">▶ Start</button>
@@ -289,11 +290,34 @@
             <summary class="system-maintenance-summary-v0540f">
                 <span class="system-maintenance-copy-v0540f">
                     <strong>🛠 Advanced Maintenance</strong>
-                    <small>Simulation, Mission Engine recovery and notification settings</small>
+                    <small>Temporary service controls, simulation, recovery and notification settings</small>
                 </span>
                 <span class="system-maintenance-badge-v0540f">CLOSED BY DEFAULT</span>
             </summary>
             <div class="system-maintenance-body-v0540f">
+                <section class="system-maintenance-group-v0540f system-maintenance-service-v0540q" data-control-scope="ais-control" aria-labelledby="ais-control-maintenance-title">
+                    <div class="system-maintenance-heading-v0540f">
+                        <div>
+                            <h3 id="ais-control-maintenance-title">AIS-Catcher Control</h3>
+                            <p class="muted">Temporary configuration interface on port 8110. It is not started with normal AIS reception.</p>
+                        </div>
+                        <span class="system-maintenance-warning-v0540f">MAINTENANCE ONLY</span>
+                    </div>
+                    <article class="system-service-row is-loading" id="system-service-ais-control">
+                        <div class="system-service-copy">
+                            <div class="system-service-label">
+                                <strong>⚙ Control interface</strong>
+                                <span id="ais-control-status-radio" class="system-service-state">LOADING</span>
+                            </div>
+                            <small id="ais-control-service-detail">Checking AIS-Catcher Control...</small>
+                        </div>
+                        <div class="system-service-actions">
+                            <button type="button" class="control-button" data-action="start_ais_control">▶ Start</button>
+                            <button type="button" class="control-button" data-action="stop_ais_control">■ Stop</button>
+                        </div>
+                    </article>
+                    <p class="control-result" id="ais-control-result">No AIS-Catcher Control action started.</p>
+                </section>
                 <section class="system-maintenance-group-v0540f" aria-labelledby="system-mission-tools-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
@@ -1026,7 +1050,7 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/dashboard.js?v=0.54.0n-r1"></script>
+<script src="/static/dashboard.js?v=0.54.0q-r3"></script>
 <script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
 <script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
 <script src="/static/js/radio.js?v=0.54.0h-r2"></script>

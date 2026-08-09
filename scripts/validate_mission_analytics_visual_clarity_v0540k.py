@@ -30,8 +30,8 @@ def main() -> None:
 
     check(
         'mission_analytics.css?v=0.54.0k-r1' in template
-        and any(version in template for version in ('/static/dashboard.js?v=0.54.0k-r1', '/static/dashboard.js?v=0.54.0l-r1', '/static/dashboard.js?v=0.54.0m-r1', '/static/dashboard.js?v=0.54.0n-r1'))
-        and any(version in loader for version in ('/static/js/dashboard.js?v=0.54.0k-r1', '/static/js/dashboard.js?v=0.54.0l-r1', '/static/js/dashboard.js?v=0.54.0m-r1', '/static/js/dashboard.js?v=0.54.0n-r1'))
+        and any(version in template for version in ('/static/dashboard.js?v=0.54.0k-r1', '/static/dashboard.js?v=0.54.0l-r1', '/static/dashboard.js?v=0.54.0m-r1', '/static/dashboard.js?v=0.54.0n-r1', '/static/dashboard.js?v=0.54.0q-r1', '/static/dashboard.js?v=0.54.0q-r3'))
+        and any(version in loader for version in ('/static/js/dashboard.js?v=0.54.0k-r1', '/static/js/dashboard.js?v=0.54.0l-r1', '/static/js/dashboard.js?v=0.54.0m-r1', '/static/js/dashboard.js?v=0.54.0n-r1', '/static/js/dashboard.js?v=0.54.0q-r1', '/static/js/dashboard.js?v=0.54.0q-r3'))
         and './mission_analytics.js?v=0.54.0k-r1' in dashboard,
         "Mission Analytics assets remain cache-busted through an approved module chain",
     )
