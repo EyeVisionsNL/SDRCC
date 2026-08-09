@@ -2,7 +2,7 @@
 
 .tabs {
     display: grid;
-    grid-template-columns: repeat(9, minmax(0, 1fr));
+    grid-template-columns: repeat(10, minmax(0, 1fr));
     gap: 8px;
     padding: 10px 14px;
     background:
@@ -96,6 +96,10 @@
 
 .tab-button[data-tab="radio-view"] {
     --tab-accent: #a78bfa;
+}
+
+.tab-button[data-tab="traffic-voice"] {
+    --tab-accent: #fb7185;
 }
 
 .tab-button[data-tab="mission"] {

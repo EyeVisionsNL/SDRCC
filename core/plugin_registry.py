@@ -111,6 +111,32 @@ _REGISTRY = {
             "settings": True,
         },
     },
+    "traffic_voice": {
+        "id": "traffic_voice",
+        "label": "Traffic Voice Monitor",
+        "description": (
+            "Selectable Marine Voice + AIS or Airband Voice + ADS-B "
+            "receive workspace."
+        ),
+        "assignment_role": "traffic_voice",
+        "category": "terrestrial",
+        "status": "planned",
+        "receiver_type": "rtl_sdr",
+        "executor": None,
+        "services": [],
+        "handover_services": [],
+        "capabilities": [
+            "audio_receive",
+            "channel_scan",
+            "channel_activity",
+            "traffic_context",
+        ],
+        "dashboard": {
+            "assignment": False,
+            "live_status": True,
+            "settings": True,
+        },
+    },
     "meshcore": {
         "id": "meshcore",
         "label": "MeshCore",

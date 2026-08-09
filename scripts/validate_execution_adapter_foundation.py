@@ -122,7 +122,8 @@ def validate_runtime_contract() -> dict[str, object]:
         "weather": "satdump",
         "ais": "service",
         "adsb": "service",
-        "iss_voice": "null",
+        "iss_voice": "wideband_iq",
+        "traffic_voice": "null",
         "meshcore": "null",
     }
     actual = {

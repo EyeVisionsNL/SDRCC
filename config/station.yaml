@@ -10,6 +10,7 @@ assignments:
   ais: sdr1
   adsb: sdr2
   iss_voice: sdr2
+  traffic_voice: sdr2
 weather_rf:
   gain_mode: manual
   gain_db: 28.0

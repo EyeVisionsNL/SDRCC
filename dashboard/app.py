@@ -58,6 +58,7 @@ from core import process_manager
 from core import profiles
 from core import satdump as satdump_core
 from core import satellite_view as satellite_view_core
+from core import traffic_voice as traffic_voice_core
 
 app = Flask(__name__)
 
@@ -2453,6 +2454,24 @@ def api_plugins():
     )
     payload["validation"] = validation
     return jsonify(payload)
+
+
+@app.route("/api/traffic-voice", methods=["GET"])
+def api_traffic_voice():
+    """Expose the read-only Traffic Voice Monitor foundation."""
+    try:
+        snapshot = traffic_voice_core.get_snapshot()
+        return jsonify(snapshot), 200 if snapshot.get("ok") else 500
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "version": "0.55.0a",
+            "source": "traffic_voice_foundation",
+            "read_only": True,
+            "foundation_only": True,
+            "execution_enabled": False,
+            "error": str(error),
+        }), 500
 
 
 @app.route("/api/plugin-runtime", methods=["GET"])

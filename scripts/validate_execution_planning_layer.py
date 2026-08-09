@@ -29,6 +29,11 @@ EXPECTED = {
         "target_type": "systemd_service",
     },
     "iss_voice": {
+        "adapter_type": "wideband_iq",
+        "launch_type": "bounded_process",
+        "target_type": "wideband_iq_capture",
+    },
+    "traffic_voice": {
         "adapter_type": "null",
         "launch_type": "none",
         "target_type": "none",
@@ -107,7 +112,7 @@ def runtime_validation() -> dict:
     assert catalog["read_only"] is True
     assert catalog["planning_only"] is True
     assert catalog["foundation_only"] is True
-    assert catalog["plugin_count"] == 5
+    assert catalog["plugin_count"] == len(EXPECTED)
 
     actual = {}
     for plan in catalog["plans"]:
@@ -139,7 +144,11 @@ def runtime_validation() -> dict:
     adsb = execution_factory.build_plan("adsb")
     assert adsb["targets"] == ["readsb.service"]
 
-    null_plan = execution_factory.build_plan("iss_voice")
+    voice_plan = execution_factory.build_plan("iss_voice")
+    assert voice_plan["targets"] == ["ISS (ZARYA)"]
+    assert "bounded_capture_duration" in voice_plan["requirements"]
+
+    null_plan = execution_factory.build_plan("traffic_voice")
     assert null_plan["targets"] == []
     assert null_plan["requirements"] == ["execution_backend_required"]
 
@@ -158,10 +167,13 @@ def runtime_validation() -> dict:
 
     manager = plugin_manager.get_snapshot(include_planned=True)
     assert manager["ok"] is True
-    assert manager["manager_version"] == "0.42.0c"
+    assert manager["manager_version"] == "0.49.0c2"
     assert manager["source_status"]["planning"] is True
     assert manager["summary"]["execution_plans_valid"] is True
-    assert manager["summary"]["execution_planning_only"] is True
+    assert manager["summary"]["execution_planning_only"] is False
+    assert manager["summary"]["execution_enabled_plugins"] == [
+        "weather", "ais", "adsb",
+    ]
     assert manager["planning_source"] == "execution_factory"
     assert manager["planning_authority"] == "description_only"
     assert manager["planning"]["plans"] == catalog["plans"] or (

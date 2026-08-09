@@ -1,0 +1,34 @@
+version: 1
+traffic_voice:
+  foundation_only: true
+  execution_enabled: false
+  selected_mode: marine_ais
+  receiver_policy: opposite_context_receiver
+  backend:
+    name: rtlsdr_airband
+    audio_transport: local_udp_pcm
+    activity_source: channel_statistics
+  spectrum:
+    mode: channel_activity
+    fft_enabled: false
+  speaker_context:
+    label: possible_speaker
+    certainty: probabilistic
+    asr_enabled: false
+  modes:
+    marine_ais:
+      label: Marine Voice + AIS
+      voice_profile: marine_voice
+      modulation: nfm
+      context_plugin: ais
+      inactive_plugin: adsb
+      channel_bank: marine_nl
+      channels: []
+    airband_adsb:
+      label: Airband Voice + ADS-B
+      voice_profile: airband_voice
+      modulation: am
+      context_plugin: adsb
+      inactive_plugin: ais
+      channel_bank: airband_nl
+      channels: []

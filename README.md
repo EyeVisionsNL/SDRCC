@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Ontwikkelstatus: v0.47.x</strong><br>
+  <strong>Ontwikkelstatus: v0.55.x</strong><br>
   Ubuntu 26.04 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb
 </p>
 
@@ -40,6 +40,7 @@ Receiver-toewijzingen en standaardcontexten zijn via **Radio Control** instelbaa
 - Receiver Manager met reservering, context, service-observatie en hersteldoel.
 - Live Event Timeline en read-only Execution Journal.
 - AIS- en ADS-B-monitoring met live statistieken en ingebedde viewers.
+- Traffic Voice Monitor-foundation voor Marine Voice + AIS of Airband Voice + ADS-B; uitvoering blijft in v0.55.0a uitgeschakeld.
 - Live RF Console, decodertelemetrie en idle Spectrum Scan.
 - Mission History, Mission Analytics, image pipeline en live logging.
 - Handmatige serviceregeling en veilige missiehulpmiddelen op het tabblad **System**.
@@ -82,6 +83,10 @@ Tijdens Weather-opnames toont de Live RF Console decodertelemetrie. Wanneer de r
 Gezamenlijk overzicht van ADS-B, AIS en de eerstvolgende satellietpassage.
 
 ![Radio View](docs/screenshots/radio-view.png)
+
+### Traffic Voice Monitor
+
+Read-only foundation voor één gekozen luisterstand tegelijk: **Marine Voice + AIS** of **Airband Voice + ADS-B**. De pagina valideert receiver-scheiding, configuratie en autoriteitsgrenzen. Audio, scanning en servicebesturing worden in v0.55.0a nog niet gestart.
 
 ### Mission Planner
 
@@ -204,6 +209,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/api/status
 | `GET /api/receiver-contexts` | Toewijzingen en standaardcontexten |
 | `GET /api/receiver-runtime` | Read-only receiver-runtime |
 | `GET /api/receiver-monitor` | AIS-, ADS-B- en missiestatistieken |
+| `GET /api/traffic-voice` | Read-only Traffic Voice-foundation en receiverprojectie |
 | `GET /api/live-rf` | Live decoder- en RF-telemetrie |
 | `GET /api/execution-journal` | Read-only execution lifecycle |
 | `GET /api/mission-history` | Opgeslagen missies en resultaten |
@@ -244,4 +250,4 @@ python3 -m compileall -q core dashboard scripts
 
 ## Status
 
-SDRCC is actief in ontwikkeling. De huidige v0.47.x-lijn richt zich op flexibele receiver assignments, meerdere mission types, execution plans, runtime-observatie en gecontroleerde plugin-uitvoering.
+SDRCC is actief in ontwikkeling. De huidige v0.55.x-lijn bouwt de Traffic Voice Monitor gecontroleerd op bovenop de bestaande receiver-, plugin- en handoverautoriteit.

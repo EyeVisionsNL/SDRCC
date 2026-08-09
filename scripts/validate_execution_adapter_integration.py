@@ -19,7 +19,8 @@ EXPECTED_ADAPTERS = {
     "weather": "satdump",
     "ais": "service",
     "adsb": "service",
-    "iss_voice": "null",
+    "iss_voice": "wideband_iq",
+    "traffic_voice": "null",
     "meshcore": "null",
 }
 
@@ -116,7 +117,7 @@ def validate_runtime_contract() -> dict[str, Any]:
             f"Plugin Manager-bronnen ongeldig: {manager.get('source_status')}"
         )
 
-    if manager.get("manager_version") not in {"0.42.0b", "0.42.0c"}:
+    if manager.get("manager_version") != "0.49.0c2":
         raise RuntimeError(
             f"Onverwachte manager_version: {manager.get('manager_version')!r}"
         )
@@ -133,8 +134,10 @@ def validate_runtime_contract() -> dict[str, Any]:
         raise RuntimeError("Plugin Manager summary ontbreekt")
     if summary.get("execution_adapters_valid") is not True:
         raise RuntimeError("Execution adapter validity ontbreekt in summary")
-    if summary.get("execution_foundation_only") is not True:
-        raise RuntimeError("Foundation-only bescherming ontbreekt in summary")
+    if summary.get("execution_foundation_only") is not False:
+        raise RuntimeError("Actuele delegated execution-status ontbreekt in summary")
+    if summary.get("execution_enabled_plugins") != ["weather", "ais", "adsb"]:
+        raise RuntimeError("Onverwachte lijst met execution-enabled plugins")
 
     embedded = manager.get("execution")
     if embedded != factory:
@@ -172,10 +175,11 @@ def validate_runtime_contract() -> dict[str, Any]:
             raise RuntimeError(f"{plugin_id}: execution discovery ontbreekt")
         actual[str(plugin_id)] = str(execution.get("adapter_type"))
 
-        if execution.get("executable") is not False:
-            raise RuntimeError(f"{plugin_id}: adapter is onverwacht executable")
-        if execution.get("foundation_only") is not True:
-            raise RuntimeError(f"{plugin_id}: foundation_only ontbreekt")
+        delegated = plugin_id in {"weather", "ais", "adsb"}
+        if execution.get("executable") is not delegated:
+            raise RuntimeError(f"{plugin_id}: executable-delegatie klopt niet")
+        if execution.get("foundation_only") is delegated:
+            raise RuntimeError(f"{plugin_id}: foundation_only-status klopt niet")
         if execution.get("metadata_valid") is not True:
             raise RuntimeError(f"{plugin_id}: metadata ongeldig")
         if execution.get("validation_errors") != []:
@@ -192,7 +196,7 @@ def validate_runtime_contract() -> dict[str, Any]:
         item.get("plugin_id")
         for item in active_only.get("plugins", [])
     ]
-    if active_ids != ["weather", "ais", "adsb"]:
+    if active_ids != ["weather", "ais", "adsb", "iss_voice"]:
         raise RuntimeError(
             f"include_planned=False levert onverwachte plugins: {active_ids}"
         )

@@ -12,6 +12,7 @@ STATION_CONFIG = CONFIG_DIR / "station.yaml"
 SATELLITES_CONFIG = CONFIG_DIR / "satellites.yaml"
 SCHEDULER_CONFIG = CONFIG_DIR / "scheduler.yaml"
 RECEIVERS_CONFIG = CONFIG_DIR / "receivers.yaml"
+TRAFFIC_VOICE_CONFIG = CONFIG_DIR / "traffic_voice.yaml"
 _station_write_lock = threading.RLock()
 
 RTL_SDR_VALID_GAINS = (
@@ -54,6 +55,20 @@ def load_scheduler():
 def load_receivers():
     """Laad de statische Receiver Registry."""
     return load_yaml(RECEIVERS_CONFIG)
+
+
+def load_traffic_voice():
+    """Load the Traffic Voice Monitor configuration."""
+    return load_yaml(TRAFFIC_VOICE_CONFIG)
+
+
+def get_traffic_voice_config():
+    """Return the configured Traffic Voice section without runtime state."""
+    data = load_traffic_voice()
+    traffic_voice = data.get("traffic_voice", {}) if isinstance(data, dict) else {}
+    if not isinstance(traffic_voice, dict):
+        raise ValueError("traffic_voice must be a YAML mapping")
+    return traffic_voice
 
 
 def get_rtl_sdr_valid_gains():
@@ -122,7 +137,14 @@ def save_station(data):
 
 def get_assignment_roles():
     """Return the supported receiver-assignment roles in stable UI order."""
-    return ("weather", "ais", "adsb", "iss_voice", "meshcore")
+    return (
+        "weather",
+        "ais",
+        "adsb",
+        "iss_voice",
+        "traffic_voice",
+        "meshcore",
+    )
 
 
 def _configured_receiver_ids():
@@ -141,6 +163,7 @@ def get_assignment_defaults():
         "ais": first,
         "adsb": second,
         "iss_voice": None,
+        "traffic_voice": second,
         "meshcore": None,
     }
 
