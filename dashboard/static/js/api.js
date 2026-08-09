@@ -1,5 +1,5 @@
 export async function getStatus() {
-    const response = await fetch("/api/status");
+    const response = await fetch("/api/status?include_logs=0", {cache: "no-store"});
     if (!response.ok) {
         throw new Error("Status API fout");
     }

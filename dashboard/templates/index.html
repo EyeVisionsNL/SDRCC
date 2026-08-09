@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="/static/css/system.css?v=0.54.0q-r1">
     <link rel="stylesheet" href="/static/css/receiver_inventory.css?v=0.54.0f">
     <link rel="stylesheet" href="/static/css/capture.css">
-    <link rel="stylesheet" href="/static/css/log.css">
+    <link rel="stylesheet" href="/static/css/log.css?v=0.54.0t-r1">
     <link rel="stylesheet" href="/static/css/controls.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/timeline.css">
     <link rel="stylesheet" href="/static/css/mission.css">
@@ -1029,9 +1029,34 @@
 </section>
 
 <section class="tab-page" id="tab-logs">
-    <section class="card log-panel-full">
-        <h2>📜 Live Log</h2>
-        <pre id="live-log">Log laden...</pre>
+    <section class="card log-workspace">
+        <header class="log-heading">
+            <div>
+                <h2>📜 Logs</h2>
+                <p>Read-only technical output from SDRCC and receiver services.</p>
+            </div>
+            <span id="log-live-state" class="log-live-state">LIVE</span>
+        </header>
+
+        <div class="log-toolbar">
+            <div class="log-source-switcher" role="group" aria-label="Log source">
+                <button type="button" class="log-source-button active" data-log-source="sdrcc" aria-pressed="true">SDRCC</button>
+                <button type="button" class="log-source-button" data-log-source="ais" aria-pressed="false">AIS</button>
+                <button type="button" class="log-source-button" data-log-source="adsb" aria-pressed="false">ADS-B</button>
+            </div>
+            <label class="log-search-field">
+                <span>Search</span>
+                <input id="log-search" type="search" placeholder="Filter loaded log lines" autocomplete="off">
+            </label>
+            <button id="log-refresh" type="button" class="log-refresh-button">↻ Refresh</button>
+        </div>
+
+        <div class="log-meta" aria-live="polite">
+            <span id="log-count">0 lines</span>
+            <span id="log-updated">Open Logs to load data.</span>
+        </div>
+
+        <pre id="live-log" tabindex="0" aria-label="Selected log output">No log lines available.</pre>
     </section>
 </section>
 </main>
@@ -1041,7 +1066,7 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/dashboard.js?v=0.54.0q-r3"></script>
+<script src="/static/dashboard.js?v=0.54.0t-r1"></script>
 <script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
 <script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
 <script src="/static/js/radio.js?v=0.54.0h-r2"></script>

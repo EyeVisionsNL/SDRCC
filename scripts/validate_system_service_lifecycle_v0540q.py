@@ -395,10 +395,10 @@ def validate_presentation_contracts() -> None:
         "maintenance buttons use the independent Control status",
     )
     check(
-        "dashboard.js?v=0.54.0q-r3" in template
-        and "dashboard.js?v=0.54.0q-r3" in dashboard_loader
+        any(version in template for version in ("dashboard.js?v=0.54.0q-r3", "dashboard.js?v=0.54.0t-r1"))
+        and any(version in dashboard_loader for version in ("dashboard.js?v=0.54.0q-r3", "dashboard.js?v=0.54.0t-r1"))
         and "services.js?v=0.54.0q-r3" in dashboard_module,
-        "q-r3 dashboard and service modules have complete cache busting",
+        "q-r3 service module remains cache-busted through an approved dashboard chain",
     )
     check(".system-service-row.is-partial" in stylesheet, "PARTIAL has an attention presentation")
     check(".system-service-row.is-attention" in stylesheet, "ATTENTION has a failure presentation")

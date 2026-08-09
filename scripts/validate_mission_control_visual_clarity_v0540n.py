@@ -31,6 +31,7 @@ check(
         '/static/dashboard.js?v=0.54.0n-r1',
         '/static/dashboard.js?v=0.54.0q-r1',
         '/static/dashboard.js?v=0.54.0q-r3',
+        '/static/dashboard.js?v=0.54.0t-r1',
     ))
     and './mission.js?v=0.54.0n-r1' in dashboard_js,
     "changed presentation modules are cache-busted",

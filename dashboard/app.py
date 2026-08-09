@@ -17,6 +17,7 @@ from core import weather_planning as weather_planning_core
 from core import downloader as tle_downloader
 from core import event_bus
 from core import live_rf
+from core import log_sources
 from core import config as config_core
 from core import controlled_iq_capture
 from core import iss_voice
@@ -515,16 +516,10 @@ def serialize_pass(pass_data):
 
 
 def read_log_lines(limit=120):
-    if not LOG_FILE.exists():
-        return ["Logbestand bestaat nog niet."]
-
-    try:
-        lines = LOG_FILE.read_text(errors="ignore").splitlines()
-        if not lines:
-            return ["Logbestand is leeg."]
-        return lines[-limit:]
-    except Exception as error:
-        return [f"Log lezen mislukt: {error}"]
+    payload = log_sources.read_source("sdrcc", limit)
+    if payload.get("ok"):
+        return payload.get("lines") or ["Log file is empty."]
+    return [str(payload.get("error") or "Unable to read log file.")]
 
 
 def detect_image_size(path):
@@ -920,7 +915,7 @@ def get_mission_data_for_status():
     return mission
 
 
-def get_dashboard_data():
+def get_dashboard_data(include_logs=True):
     sdr2 = state.get_sdr2_state()
     raw_next_pass = passes.get_next_pass()
     next_pass = serialize_pass(raw_next_pass)
@@ -931,7 +926,7 @@ def get_dashboard_data():
     ais_control = get_ais_control_snapshot()
     ais_primary = _primary_service_state("ais", ais_service_states)
     adsb_primary = _primary_service_state("adsb", adsb_service_states)
-    logs = read_log_lines()
+    logs = read_log_lines() if include_logs else []
     latest_capture = find_latest_capture()
     captures = recent_captures()
     mission = get_mission_data_for_status()
@@ -2352,7 +2347,26 @@ def index():
 
 @app.route("/api/status")
 def api_status():
-    return jsonify(get_dashboard_data())
+    include_logs = str(request.args.get("include_logs", "1")).strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    return jsonify(get_dashboard_data(include_logs=include_logs))
+
+
+@app.route("/api/logs")
+def api_logs():
+    """Read one fixed log source without controlling or mutating its service."""
+
+    payload = log_sources.read_source(
+        request.args.get("source", "sdrcc"),
+        request.args.get("limit", log_sources.DEFAULT_LIMIT),
+    )
+    if payload.get("ok"):
+        return jsonify(payload)
+    status_code = 400 if payload.get("error") == "Unknown log source." else 503
+    return jsonify(payload), status_code
 
 
 @app.route("/api/satellite-view")
