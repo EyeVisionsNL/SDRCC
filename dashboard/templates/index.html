@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="/static/css/radio_view_theme.css?v=0.54.0p-r1">
     <link rel="stylesheet" href="/static/css/system_theme.css?v=0.54.0r-r1">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0s-r1">
+    <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.54.0u-r1">
 </head>
 <body>
 <header class="topbar">
@@ -53,19 +54,19 @@
 </header>
 
 <nav class="tabs">
-    <button class="tab-button active" data-tab="mission">🛰 Mission Control</button>
-    <button class="tab-button" data-tab="system">🖥 System</button>
+    <button class="tab-button active" data-tab="system">🖥 System</button>
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
     <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>
+    <button class="tab-button" data-tab="mission">🛰 Mission Control</button>
     <button class="tab-button" data-tab="mission-planner">🗓 Mission Planner</button>
-    <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>
-    <button class="tab-button" data-tab="history">🗂 Mission History</button>
     <button class="tab-button" data-tab="images">🛰️ Mission Operations</button>
+    <button class="tab-button" data-tab="history">🗂 Mission History</button>
+    <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>
     <button class="tab-button" data-tab="logs">📜 Logs</button>
 </nav>
 
 <main>
-<section class="tab-page active" id="tab-mission">
+<section class="tab-page" id="tab-mission">
     <div class="mission-control-layout-v034">
         <aside class="mission-sidebar-v034">
             <section class="card mission-queue-card-v034">
@@ -208,7 +209,7 @@
     </div>
 </section>
 
-<section class="tab-page" id="tab-system">
+<section class="tab-page active" id="tab-system">
     <div class="system-page-v0540f">
         <section class="card system-health-card-v0540f" aria-labelledby="system-health-title">
             <div class="section-heading-row system-section-heading-v0540f">

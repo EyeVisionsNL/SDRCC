@@ -1,0 +1,143 @@
+/* SDRCC v0.54.0u - workflow navigation theme */
+
+.tabs {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 14px;
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(8, 15, 28, 0.98)),
+        #0f172a;
+    border-bottom: 1px solid #334155;
+    box-shadow: 0 10px 24px rgba(2, 6, 23, 0.2);
+}
+
+.tab-button {
+    --tab-accent: #38bdf8;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+    overflow: hidden;
+    padding: 10px 11px;
+    color: #b9c8da;
+    background: linear-gradient(180deg, #202d42 0%, #172236 100%);
+    border: 1px solid #31435a;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        0 4px 12px rgba(2, 6, 23, 0.18);
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
+    transition: border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.tab-button::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    background: var(--tab-accent);
+    opacity: 0.48;
+    transition: height 160ms ease, opacity 160ms ease;
+}
+
+.tab-button:hover {
+    color: #f8fafc;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--tab-accent) 13%, #24344b),
+        #19253a
+    );
+    border-color: color-mix(in srgb, var(--tab-accent) 62%, #334155);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 6px 16px rgba(2, 6, 23, 0.26);
+    transform: translateY(-1px);
+}
+
+.tab-button:focus-visible {
+    outline: 2px solid var(--tab-accent);
+    outline-offset: 2px;
+}
+
+.tab-button.active {
+    color: #ffffff;
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--tab-accent) 40%, #0b1424),
+        color-mix(in srgb, var(--tab-accent) 21%, #111c30)
+    );
+    border-color: var(--tab-accent);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 0 0 1px color-mix(in srgb, var(--tab-accent) 25%, transparent),
+        0 7px 18px color-mix(in srgb, var(--tab-accent) 18%, rgba(2, 6, 23, 0.45));
+    transform: none;
+}
+
+.tab-button.active::before {
+    height: 3px;
+    opacity: 1;
+}
+
+.tab-button[data-tab="system"] {
+    --tab-accent: #38bdf8;
+}
+
+.tab-button[data-tab="radio"] {
+    --tab-accent: #22d3ee;
+}
+
+.tab-button[data-tab="radio-view"] {
+    --tab-accent: #a78bfa;
+}
+
+.tab-button[data-tab="mission"] {
+    --tab-accent: #22c55e;
+}
+
+.tab-button[data-tab="mission-planner"] {
+    --tab-accent: #f59e0b;
+}
+
+.tab-button[data-tab="images"] {
+    --tab-accent: #2dd4bf;
+}
+
+.tab-button[data-tab="history"] {
+    --tab-accent: #60a5fa;
+}
+
+.tab-button[data-tab="mission-analytics"] {
+    --tab-accent: #c084fc;
+}
+
+.tab-button[data-tab="logs"] {
+    --tab-accent: #94a3b8;
+}
+
+@media (max-width: 1100px) {
+    .tabs {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 620px) {
+    .tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        padding: 9px 10px;
+    }
+
+    .tab-button {
+        min-height: 42px;
+        padding: 9px 8px;
+        font-size: 0.82rem;
+    }
+}

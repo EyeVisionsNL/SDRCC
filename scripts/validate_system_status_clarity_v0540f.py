@@ -49,8 +49,8 @@ def main() -> None:
     duplicates = [value for value, count in Counter(parser.ids).items() if count > 1]
     check(not duplicates, "System redesign introduces no duplicate element IDs")
 
-    system_start = html.index('<section class="tab-page" id="tab-system">')
-    radio_start = html.index('<section class="tab-page" id="tab-radio">')
+    system_start = html.index('id="tab-system"')
+    radio_start = html.index('id="tab-radio"')
     system_html = html[system_start:radio_start]
 
     required_sections = (

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 
-ROOT = Path('/home/eyevisions/SDRCC')
+ROOT = Path(__file__).resolve().parents[1]
 html = (ROOT / 'dashboard/templates/index.html').read_text(encoding='utf-8')
 radio_css = (ROOT / 'dashboard/static/css/radio.css').read_text(encoding='utf-8')
 system_css = (ROOT / 'dashboard/static/css/system.css').read_text(encoding='utf-8')
@@ -9,9 +9,9 @@ controls_js = (ROOT / 'dashboard/static/js/controls.js').read_text(encoding='utf
 api_js = (ROOT / 'dashboard/static/js/api.js').read_text(encoding='utf-8')
 services_js = (ROOT / 'dashboard/static/js/services.js').read_text(encoding='utf-8')
 
-system_start = html.index('<section class="tab-page" id="tab-system">')
-radio_start = html.index('<section class="tab-page" id="tab-radio">')
-radio_view_start = html.index('<section class="tab-page" id="tab-radio-view">')
+system_start = html.index('id="tab-system"')
+radio_start = html.index('id="tab-radio"')
+radio_view_start = html.index('id="tab-radio-view"')
 system_html = html[system_start:radio_start]
 radio_html = html[radio_start:radio_view_start]
 
@@ -23,10 +23,12 @@ checks = [
     ('old runtime service card removed', 'Receiver Runtime & Service Control' not in html),
     ('service status ids are unique', html.count('id="ais-status-radio"') == 1 and html.count('id="adsb-status-radio"') == 1),
     ('service actions are unique', all(html.count(f'data-action="{action}"') == 1 for action in actions)),
-    ('Mission Assignments retained', 'Mission Assignments & Receiver Defaults' in radio_html and 'mission-assignment-weather' in radio_html),
-    ('Receiver Defaults retained', 'receiver-default-sdr1' in radio_html and 'receiver-default-sdr2' in radio_html),
+    ('Receiver Assignments retained', 'Receiver Assignments' in radio_html and 'receiver-assignment-weather' in radio_html),
+    ('current assignment selectors retained', all(token in radio_html for token in (
+        'receiver-assignment-weather', 'receiver-assignment-ais',
+        'receiver-assignment-adsb', 'receiver-assignment-iss-voice'))),
     ('RF settings retained', 'id="weather-rf-form"' in radio_html),
-    ('assignment card widened', '.mission-assignment-card{grid-column:span 2}' in radio_css),
+    ('assignment card remains full width', '.mission-assignment-card {' in radio_css and 'grid-column: 1 / -1;' in radio_css),
     ('System service CSS present', '.system-service-controls' in system_css and '.system-service-row' in system_css),
     ('service dispatcher unchanged', 'button.dataset.action' in controls_js and 'runActionApi(actionId)' in controls_js),
     ('service API unchanged', 'fetch("/api/action"' in api_js and 'JSON.stringify({action: actionId})' in api_js),

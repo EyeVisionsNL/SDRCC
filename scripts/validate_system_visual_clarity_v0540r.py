@@ -45,8 +45,8 @@ def main() -> None:
     dashboard_js = read("dashboard/static/js/dashboard.js")
     api_js = read("dashboard/static/js/api.js")
 
-    system_start = template.index('<section class="tab-page" id="tab-system">')
-    radio_start = template.index('<section class="tab-page" id="tab-radio">')
+    system_start = template.index('id="tab-system"')
+    radio_start = template.index('id="tab-radio"')
     system_html = template[system_start:radio_start]
 
     check(
