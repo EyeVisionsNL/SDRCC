@@ -1,4 +1,4 @@
-/* SDRCC v0.54.0l-r2 Mission Operations integrity and theme completion */
+/* SDRCC v0.54.0s-r1 Mission Operations layout alignment */
 .mission-operations-page:not(.active) {
     display: none !important;
 }
@@ -15,32 +15,6 @@
     display: grid;
     gap: 14px;
     padding: 14px;
-}
-
-.mission-operations-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    border-left: 3px solid var(--operations-cyan);
-    background: linear-gradient(105deg, rgba(56, 189, 248, .08), transparent 36%);
-}
-
-.mission-operations-header h2 {
-    margin: 0 0 5px;
-    color: #7dd3fc;
-}
-
-.mission-operations-header p {
-    margin: 0;
-}
-
-.mission-operations-mode {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-    text-align: right;
 }
 
 .mission-operations-badge,
@@ -120,18 +94,10 @@
 .mission-operations-live-grid,
 .mission-operations-results-grid {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
+    align-items: stretch;
     min-width: 0;
-}
-
-.mission-operations-live-grid {
-    grid-template-columns: minmax(0, 1.08fr) minmax(390px, .92fr);
-    align-items: stretch;
-}
-
-.mission-operations-results-grid {
-    grid-template-columns: minmax(320px, .72fr) minmax(0, 1.28fr);
-    align-items: stretch;
 }
 
 .mission-operations-viewport-card,
@@ -717,12 +683,6 @@
 }
 
 @media (max-width: 850px) {
-    .mission-operations-header,
-    .mission-operations-mode {
-        align-items: stretch;
-        flex-direction: column;
-        text-align: left;
-    }
     .mission-operations-console {
         grid-template-columns: 1fr;
     }

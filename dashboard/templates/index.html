@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="/static/css/radio_control_theme.css?v=0.54.0o-r2">
     <link rel="stylesheet" href="/static/css/radio_view_theme.css?v=0.54.0p-r1">
     <link rel="stylesheet" href="/static/css/system_theme.css?v=0.54.0r-r1">
-    <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0l-r2">
+    <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0s-r1">
 </head>
 <body>
 <header class="topbar">
@@ -851,17 +851,6 @@
 
 <section class="tab-page mission-operations-page" id="tab-images">
     <div class="mission-operations-layout-v0540l">
-        <section class="card mission-operations-header">
-            <div>
-                <h2>🛰️ Mission Operations</h2>
-                <p class="muted">Live Weather and ISS workspace with a read-only result viewer.</p>
-            </div>
-            <div class="mission-operations-mode">
-                <span id="mission-operations-mode-badge" class="mission-operations-badge standby">STANDBY</span>
-                <span id="mission-operations-updated" class="muted">Waiting for data...</span>
-            </div>
-        </section>
-
         <div class="mission-operations-live-grid">
             <section id="mission-operations-live-card" class="card mission-operations-status-card mission-operations-viewport-card is-idle">
                 <div class="mission-operations-section-title">
@@ -1032,6 +1021,8 @@
             </section>
         </div>
 
+        <span id="mission-operations-mode-badge" hidden>STANDBY</span>
+        <span id="mission-operations-updated" hidden>Waiting for data...</span>
         <span id="mission-operations-runtime-audio" hidden>-</span>
         <span id="mission-operations-runtime-clients" hidden>0</span>
     </div>

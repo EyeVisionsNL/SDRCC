@@ -54,7 +54,7 @@ def validate_static_contract() -> None:
     }
     check(required_ids.issubset(set(ids)), "live, audio and result presentation hooks are present")
     check(
-        'mission_recordings.css?v=0.54.0l-r2' in template
+        any(version in template for version in ('mission_recordings.css?v=0.54.0l-r2', 'mission_recordings.css?v=0.54.0s-r1'))
         and 'mission_recordings.js?v=0.54.0l-r2' in template
         and any(version in template for version in ('/static/dashboard.js?v=0.54.0l-r1', '/static/dashboard.js?v=0.54.0m-r1', '/static/dashboard.js?v=0.54.0n-r1', '/static/dashboard.js?v=0.54.0q-r1', '/static/dashboard.js?v=0.54.0q-r3'))
         and any(version in dashboard_loader for version in ('/static/js/dashboard.js?v=0.54.0l-r1', '/static/js/dashboard.js?v=0.54.0m-r1', '/static/js/dashboard.js?v=0.54.0n-r1', '/static/js/dashboard.js?v=0.54.0q-r1', '/static/js/dashboard.js?v=0.54.0q-r3'))
