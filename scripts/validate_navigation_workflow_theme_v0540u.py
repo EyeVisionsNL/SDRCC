@@ -102,7 +102,7 @@ def main() -> None:
         and 'button.classList.add("active")' in tabs_js,
         "existing tab switching path is retained",
     )
-    check("SDR Control Center" in template and "Mission Control · Satellite Reception · Air Traffic · Maritime" in template, "banner content remains present")
+    check("SDRCC – Flexible Ground Station" in template and "Listen · Decode · Analyze · Share" in template, "current banner content remains present")
 
     print("PASS: v0.54.0u workflow navigation theme validation complete")
 

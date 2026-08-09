@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SDR Control Center</title>
+    <title>SDRCC – Flexible Ground Station</title>
     <link rel="icon" type="image/png" href="/static/assets/sdrcc.png">
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/layout.css">
@@ -31,25 +31,72 @@
     <link rel="stylesheet" href="/static/css/system_theme.css?v=0.54.0r-r1">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0s-r1">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.54.0u-r1">
+    <link rel="stylesheet" href="/static/css/header_theme.css?v=0.54.0v-r2">
 </head>
 <body>
+<div
+    id="sdrcc-startup-splash"
+    class="startup-splash"
+    role="status"
+    aria-label="Starting SDRCC Flexible Ground Station"
+    hidden
+>
+    <div class="startup-splash-orbit" aria-hidden="true"></div>
+    <div class="startup-splash-content">
+        <div class="startup-splash-logo-frame">
+            <img src="/static/assets/sdrcc.png" alt="">
+        </div>
+        <h1>SDRCC <span>–</span> Flexible Ground Station</h1>
+        <p>Listen · Decode · Analyze · Share</p>
+        <div class="startup-splash-progress" aria-hidden="true"><span></span></div>
+    </div>
+</div>
+
 <header class="topbar">
+    <svg class="topbar-space-art" viewBox="0 0 760 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <path class="topbar-earth" d="M248 188 Q 470 74 780 158"></path>
+        <path class="topbar-earth-glow" d="M262 188 Q 478 88 770 158"></path>
+        <ellipse class="topbar-orbit" cx="548" cy="98" rx="268" ry="64" transform="rotate(-9 548 98)"></ellipse>
+        <g class="topbar-satellite" transform="translate(545 48) rotate(-12)">
+            <rect class="topbar-satellite-panel" x="-62" y="-10" width="45" height="20" rx="2"></rect>
+            <rect class="topbar-satellite-panel" x="17" y="-10" width="45" height="20" rx="2"></rect>
+            <rect class="topbar-satellite-body" x="-17" y="-15" width="34" height="30" rx="5"></rect>
+            <path class="topbar-satellite-dish" d="M-4 -17 Q 0 -31 15 -29 Q 9 -18 -4 -17 Z"></path>
+        </g>
+    </svg>
     <div class="brand-block">
         <img
             class="brand-logo"
             src="/static/assets/sdrcc.png"
-            alt="SDRCC-logo"
+            alt="SDRCC logo"
         >
         <div class="brand-copy">
             <div class="brand-title-row">
-                <h1>SDR Control Center</h1>
+                <h1>SDRCC <span aria-hidden="true">–</span> Flexible Ground Station</h1>
             </div>
-            <p>Mission Control · Satellite Reception · Air Traffic · Maritime</p>
+            <p>Listen · Decode · Analyze · Share</p>
         </div>
     </div>
-    <div class="topbar-status">
-        <span class="status-dot"></span>
-        <span>LIVE</span>
+    <div class="topbar-actions">
+        <a
+            class="github-project-link"
+            href="https://github.com/EyeVisionsNL/SDRCC"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View the SDRCC project on GitHub (opens in a new tab)"
+        >
+            <svg class="github-project-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.78.62-3.37-1.21-3.37-1.21-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .08 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05A9.35 9.35 0 0 1 12 7.11c.85 0 1.69.12 2.49.34 1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.25 10.25 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"></path>
+            </svg>
+            <span class="github-project-copy">
+                <strong>View project on GitHub</strong>
+                <small>EyeVisionsNL / SDRCC</small>
+            </span>
+        </a>
+        <div class="topbar-status" aria-label="Dashboard live status">
+            <span class="status-dot"></span>
+            <span>LIVE</span>
+        </div>
     </div>
 </header>
 
@@ -1067,6 +1114,7 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
+<script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
 <script src="/static/dashboard.js?v=0.54.0t-r1"></script>
 <script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
 <script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
