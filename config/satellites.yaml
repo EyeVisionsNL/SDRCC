@@ -5,7 +5,7 @@ satellites:
     mode: LRPT
     pipeline: meteor_m2-x_lrpt
     decoder: satdump
-    sample_rate: 1000000
+    sample_rate: 1024000
     min_elevation: 40.0
     priority: 1
     planning:
@@ -18,7 +18,7 @@ satellites:
     mode: LRPT
     pipeline: meteor_m2-x_lrpt
     decoder: satdump
-    sample_rate: 1000000
+    sample_rate: 1024000
     min_elevation: 30.0
     priority: 1
     planning:
