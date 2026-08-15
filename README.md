@@ -44,6 +44,8 @@ Receiver-toewijzingen en standaardcontexten zijn via **Radio Control** instelbaa
 - Live RF Console, decodertelemetrie en idle Spectrum Scan.
 - Mission History, Mission Analytics, image pipeline en live logging.
 - Handmatige serviceregeling en veilige missiehulpmiddelen op het tabblad **System**.
+- Compacte ruimtebanner waarin de bestaande satelliet ook op brede desktops volledig zichtbaar blijft.
+- Traffic Voice-panelen volgen hetzelfde SDRCC-thema met gekleurde hoekornamenten; Maritime blijft ook geselecteerd blauw, Aviation paars en de gedeelde actieve receiver roze.
 
 ## Dashboard
 
