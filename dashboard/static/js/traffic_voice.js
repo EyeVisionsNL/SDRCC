@@ -31,6 +31,52 @@
             .replace(/\b\w/g, letter => letter.toUpperCase());
     }
 
+    function receiverSoftwareLabel(backend) {
+        const name = String(backend?.name || "").trim();
+        const version = String(backend?.version || "").trim();
+        const product = name.toLowerCase() === "rtlsdr_airband"
+            ? "RTLSDR-Airband"
+            : displayToken(name);
+        const capability = name.toLowerCase() === "rtlsdr_airband" ? " · AM/NFM" : "";
+        return (product + (version ? " " + version : "") + capability).trim();
+    }
+
+    function renderAisMatch(payload) {
+        const match = payload.ais_match || {};
+        const detail = byId("traffic-voice-ais-match-detail");
+        const button = byId("traffic-voice-show-ais-vessel");
+        const statusMessages = {
+            not_applicable: "AIS correlation is available in Marine Voice + AIS.",
+            no_validated_atis: "Waiting for validated Marine ATIS.",
+            no_callsign: "Validated ATIS has no AIS callsign projection.",
+            source_unavailable: "AIS-Catcher ships.json is currently unavailable.",
+            not_found: "No exact live AIS callsign match.",
+            ambiguous: "Multiple exact AIS callsign matches; no vessel selected.",
+            not_validated: "Exact AIS callsign found, but AIS-Catcher has not validated it.",
+            stale: "Exact AIS callsign found, but its position is stale.",
+            invalid_position: "Exact AIS callsign found without a usable live position.",
+        };
+
+        if (button) {
+            button.hidden = !match.matched;
+            button.dataset.mmsi = match.matched ? String(match.mmsi || "") : "";
+        }
+        if (!detail) return;
+        if (!match.matched) {
+            detail.textContent = statusMessages[match.status] || "No verified AIS vessel match.";
+            return;
+        }
+
+        const values = ["AIS MATCHED", "MMSI " + match.mmsi];
+        if (Number.isFinite(Number(match.distance_nm))) {
+            values.push(Number(match.distance_nm).toFixed(1) + " NM");
+        }
+        if (Number.isFinite(Number(match.last_signal_seconds))) {
+            values.push(Number(match.last_signal_seconds).toFixed(0) + " s old");
+        }
+        detail.textContent = values.join(" · ");
+    }
+
     function selectedMode(payload) {
         return (Array.isArray(payload.modes) ? payload.modes : [])
             .find(mode => mode.selected) || {};
@@ -57,7 +103,7 @@
         const state = card.querySelector("[data-traffic-mode-state]");
         if (state) {
             state.textContent = mode.execution_enabled
-                ? (mode.selected ? "ACTIVE MODE" : "AVAILABLE")
+                ? (mode.selected ? (running ? "ACTIVE MODE" : "SELECTED · STOPPED") : "AVAILABLE")
                 : "PLANNED";
         }
         const modulation = card.querySelector("[data-traffic-mode-modulation]");
@@ -280,13 +326,15 @@
 
         if (status) {
             status.textContent = payload.ok
-                ? (selected.id === "airband_adsb" ? "AIRBAND READY" : "MARINE READY")
+                ? "MARINE + AIRBAND READY"
                 : "ATTENTION";
             status.classList.toggle("is-foundation", Boolean(payload.ok));
             status.classList.toggle("is-attention", !payload.ok);
         }
         if (serviceBadge) {
-            serviceBadge.textContent = running ? "VOICE RUNNING" : "VOICE STOPPED";
+            serviceBadge.textContent = running
+                ? (selected.id === "airband_adsb" ? "AIRBAND RUNNING" : "MARINE RUNNING")
+                : "VOICE STOPPED";
             serviceBadge.classList.toggle("is-valid", running);
             serviceBadge.classList.toggle("is-offline", !running);
         }
@@ -299,7 +347,7 @@
         text("traffic-voice-selected-mode", selected.label || displayToken(payload.selected_mode));
         text("traffic-voice-voice-receiver", receiverLabel(assignment.voice_receiver));
         text("traffic-voice-context-receiver", receiverLabel(assignment.context_receiver));
-        text("traffic-voice-backend", (displayToken((payload.backend || {}).name) + " " + ((payload.backend || {}).version || "")).trim());
+        text("traffic-voice-backend", receiverSoftwareLabel(payload.backend || {}));
         text("traffic-voice-execution", payload.execution_enabled ? "EXECUTION ENABLED" : "EXECUTION DISABLED");
 
         const strongest = payload.strongest_channel || {};
@@ -311,6 +359,7 @@
                 : "-",
         );
         text("traffic-voice-possible-speaker", payload.possible_speaker || "NOT INFERRED");
+        renderAisMatch(payload);
 
         const assignmentValid = Boolean(assignment.separated && assignment.matches_policy);
         if (assignmentBadge) {
@@ -350,11 +399,13 @@
 
     function renderError(error) {
         const status = byId("traffic-voice-status");
+        const mapButton = byId("traffic-voice-show-ais-vessel");
         if (status) {
             status.textContent = "UNAVAILABLE";
             status.classList.remove("is-foundation");
             status.classList.add("is-attention");
         }
+        if (mapButton) mapButton.hidden = true;
         text("traffic-voice-contract-message", "Traffic Voice API unavailable: " + error.message);
     }
 
@@ -439,6 +490,15 @@
         });
     }
 
+    function showAisVessel() {
+        const button = byId("traffic-voice-show-ais-vessel");
+        const mmsi = String(button?.dataset.mmsi || "");
+        const opened = window.sdrccRadioView?.openAisVessel(mmsi, 14);
+        if (!opened) {
+            text("traffic-voice-action-message", "AIS map could not open this vessel.");
+        }
+    }
+
     function initialize() {
         document.querySelector('.tab-button[data-tab="traffic-voice"]')
             ?.addEventListener("click", () => window.setTimeout(() => refresh(true), 0));
@@ -448,6 +508,8 @@
             ?.addEventListener("click", () => runAction("start_airband"));
         byId("traffic-voice-stop")
             ?.addEventListener("click", () => runAction("stop"));
+        byId("traffic-voice-show-ais-vessel")
+            ?.addEventListener("click", showAisVessel);
         byId("traffic-voice-apply-settings")
             ?.addEventListener("click", () => applySettings());
         byId("traffic-voice-open-squelch")?.addEventListener("click", async () => {

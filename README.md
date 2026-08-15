@@ -40,7 +40,7 @@ Receiver-toewijzingen en standaardcontexten zijn via **Radio Control** instelbaa
 - Receiver Manager met reservering, context, service-observatie en hersteldoel.
 - Live Event Timeline en read-only Execution Journal.
 - AIS- en ADS-B-monitoring met live statistieken en ingebedde viewers.
-- Uitvoerbare Traffic Voice Monitor voor Marine Voice + AIS en Airband Voice + ADS-B, met dynamische receiverkeuze, lokale live-audio, kanaalactiviteit en passieve Marine ATIS-identificatie.
+- Uitvoerbare Traffic Voice Monitor voor Marine Voice + AIS en Airband Voice + ADS-B, met dynamische receiverkeuze, lokale live-audio, kanaalactiviteit, passieve Marine ATIS-identificatie en exacte live AIS-schipkoppeling.
 - Live RF Console, decodertelemetrie en idle Spectrum Scan.
 - Mission History, Mission Analytics, image pipeline en live logging.
 - Handmatige serviceregeling en veilige missiehulpmiddelen op het tabblad **System**.
@@ -86,7 +86,7 @@ Gezamenlijk overzicht van ADS-B, AIS en de eerstvolgende satellietpassage.
 
 ### Traffic Voice Monitor
 
-**Marine Voice + AIS** en **Airband Voice + ADS-B** zijn uitvoerbaar. SDRCC leidt de voice-receiver bij iedere start af als de receiver tegenover de actuele AIS- of ADS-B-toewijzing en schakelt NFM/AM via dezelfde gepinde RTLSDR-Airband-backend. Een directe moduswissel is transactioneel; `Stop Voice` herstelt daarna nog steeds de servicestatus en Traffic Voice-assignment van vóór de eerste start. De pagina biedt live PCM-audio, vaste kanaalkeuze en kanaalscanning zonder een tweede SDR-eigenaar. Een begrensde observer decodeert geldige Marine ATIS-bursts uit een kopie van dezelfde audiobridge en toont de laatst gevalideerde roepletters bij `Possible speaker`; AIS-koppeling en kaartmarkering blijven een afzonderlijke vervolgstap.
+**Marine Voice + AIS** en **Airband Voice + ADS-B** zijn uitvoerbaar. SDRCC leidt de voice-receiver bij iedere start af als de receiver tegenover de actuele AIS- of ADS-B-toewijzing en schakelt NFM/AM via dezelfde gepinde RTLSDR-Airband-backend. Een directe moduswissel is transactioneel; `Stop Voice` herstelt daarna nog steeds de servicestatus en Traffic Voice-assignment van vóór de eerste start. De pagina biedt live PCM-audio, vaste kanaalkeuze en kanaalscanning zonder een tweede SDR-eigenaar. Een begrensde observer decodeert geldige Marine ATIS-bursts uit een kopie van dezelfde audiobridge. Alleen één exacte, door AIS-Catcher gevalideerde roepnaammatch met een recente positie wordt als schip getoond. `Show on AIS map` opent dat MMSI in de bestaande AIS-Catcher-kaart; SDRCC maakt geen tweede kaart of AIS-databron.
 
 ### Mission Planner
 

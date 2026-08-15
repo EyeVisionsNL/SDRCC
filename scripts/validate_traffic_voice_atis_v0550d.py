@@ -106,7 +106,7 @@ def validate_source_contract() -> None:
         '"atis_decoder": "audio_bridge_read_only_observer"' in traffic,
         "Traffic Voice reports read-only ATIS authority",
     )
-    require('VERSION = "0.55.0d"' in traffic, "Traffic Voice version is 0.55.0d")
+    require('VERSION = "0.55.0e"' in traffic, "Traffic Voice version is 0.55.0e")
 
 
 def validate_decoder() -> None:
@@ -137,7 +137,7 @@ def validate_decoder() -> None:
 def main() -> int:
     validate_source_contract()
     validate_decoder()
-    print("VALIDATION PASS: SDRCC v0.55.0d passive Traffic Voice ATIS foundation")
+    print("VALIDATION PASS: SDRCC v0.55.0e passive Traffic Voice ATIS regression")
     return 0
 
 

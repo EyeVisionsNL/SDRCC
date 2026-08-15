@@ -40,10 +40,13 @@ AIS_SHIPS_URLS = (
     "http://127.0.0.1:8100/ships.json",
     "http://localhost:8100/ships.json",
 )
+AIS_VESSEL_MAX_AGE_SECONDS = 30.0
 
 _rate_lock = threading.RLock()
 _rate_state: dict[str, tuple[float, int]] = {}
 _ais_journal_cache: tuple[float, float | None] = (0.0, None)
+_ais_ships_lock = threading.RLock()
+_ais_ships_cache: tuple[float, Any | None, str | None] = (0.0, None, None)
 _AIS_RATE_RE = re.compile(r"rate:\s*([0-9]+(?:\.[0-9]+)?)\s*msg/s", re.IGNORECASE)
 
 
@@ -236,6 +239,118 @@ def _first_number(item: dict[str, Any], names: tuple[str, ...]) -> float | None:
     return None
 
 
+def _read_ais_ships() -> tuple[Any | None, str | None]:
+    """Read AIS-Catcher through the monitor's shared, short-lived cache."""
+
+    global _ais_ships_cache
+
+    now = time.monotonic()
+    with _ais_ships_lock:
+        cached_at, cached_payload, cached_source = _ais_ships_cache
+        if now - cached_at <= 1.0:
+            return cached_payload, cached_source
+        payload, source = _read_json_url(AIS_SHIPS_URLS)
+        _ais_ships_cache = (now, payload, source)
+        return payload, source
+
+
+def _normalized_callsign(value: Any) -> str:
+    return str(value or "").strip().upper()
+
+
+def _bounded_text(value: Any, limit: int) -> str | None:
+    text = str(value or "").strip()
+    return text[:limit] if text else None
+
+
+def _valid_mmsi(value: Any) -> str | None:
+    if isinstance(value, bool):
+        return None
+    text = str(value or "").strip()
+    if text.endswith(".0"):
+        text = text[:-2]
+    return text if len(text) == 9 and text.isdigit() else None
+
+
+def match_ais_callsign(
+    callsign: str | None,
+    *,
+    payload: Any | None = None,
+    max_age_seconds: float = AIS_VESSEL_MAX_AGE_SECONDS,
+) -> dict[str, Any]:
+    """Return one exact, fresh AIS-Catcher vessel match without guessing."""
+
+    normalized = _normalized_callsign(callsign)
+    result: dict[str, Any] = {
+        "matched": False,
+        "status": "no_callsign" if not normalized else "not_found",
+        "callsign": normalized or None,
+        "max_age_seconds": float(max_age_seconds),
+        "source": None,
+    }
+    if not normalized:
+        return result
+
+    source = "provided_payload"
+    if payload is None:
+        payload, source = _read_ais_ships()
+    result["source"] = source
+    if payload is None:
+        result["status"] = "source_unavailable"
+        return result
+
+    ships = _extract_list(payload, ("ships", "vessels", "targets", "data"))
+    candidates = [ship for ship in ships if _normalized_callsign(ship.get("callsign")) == normalized]
+    result["candidate_count"] = len(candidates)
+    if not candidates:
+        return result
+    if len(candidates) != 1:
+        result["status"] = "ambiguous"
+        return result
+
+    ship = candidates[0]
+    validated = _safe_number(ship.get("validated"))
+    age = _first_number(ship, ("last_signal", "last_signal_seconds", "age"))
+    latitude = _first_number(ship, ("lat", "latitude"))
+    longitude = _first_number(ship, ("lon", "longitude"))
+    mmsi = _valid_mmsi(ship.get("mmsi"))
+    if validated != 1:
+        result["status"] = "not_validated"
+        return result
+    if age is None or age < 0 or age > float(max_age_seconds):
+        result["status"] = "stale"
+        result["last_signal_seconds"] = round(age, 1) if age is not None else None
+        return result
+    if (
+        latitude is None
+        or longitude is None
+        or not -90.0 <= latitude <= 90.0
+        or not -180.0 <= longitude <= 180.0
+        or mmsi is None
+    ):
+        result["status"] = "invalid_position"
+        return result
+
+    result.update({
+        "matched": True,
+        "status": "matched",
+        "mmsi": mmsi,
+        "shipname": _bounded_text(ship.get("shipname"), 80),
+        "eni": _bounded_text(ship.get("eni"), 20),
+        "latitude": round(latitude, 6),
+        "longitude": round(longitude, 6),
+        "distance_nm": _first_number(ship, ("distance_nm", "distance", "range_nm", "distanceNmi")),
+        "bearing_deg": _first_number(ship, ("bearing", "bearing_deg")),
+        "speed_knots": _first_number(ship, ("speed", "sog")),
+        "course_deg": _first_number(ship, ("cog", "course")),
+        "heading_deg": _first_number(ship, ("heading",)),
+        "destination": _bounded_text(ship.get("destination"), 80),
+        "last_signal_seconds": round(age, 1),
+        "validated": True,
+    })
+    return result
+
+
 def get_ais_metrics(service_active: bool) -> dict[str, Any]:
     result = {
         "available": False,
@@ -250,7 +365,7 @@ def get_ais_metrics(service_active: bool) -> dict[str, Any]:
         result["detail"] = "AIS-service staat uit"
         return result
 
-    payload, source = _read_json_url(AIS_SHIPS_URLS)
+    payload, source = _read_ais_ships()
     if payload is None:
         result["detail"] = "AIS-service actief; ships.json niet bereikbaar op poort 8100"
         return result

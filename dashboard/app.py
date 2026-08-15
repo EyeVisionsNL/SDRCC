@@ -2467,7 +2467,7 @@ def api_traffic_voice():
     except Exception as error:
         return jsonify({
             "ok": False,
-            "version": "0.55.0d",
+            "version": "0.55.0e",
             "source": "traffic_voice",
             "read_only": False,
             "foundation_only": False,

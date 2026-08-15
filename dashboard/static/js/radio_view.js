@@ -68,6 +68,25 @@
         });
     }
 
+    function openAisVessel(mmsi, zoom = 14) {
+        const vesselMmsi = String(mmsi || "").trim();
+        if (!/^\d{9}$/.test(vesselMmsi)) return false;
+
+        const url = new URL(buildViewerUrls().ais);
+        url.searchParams.set("mmsi", vesselMmsi);
+        url.searchParams.set("zoom", String(Math.max(3, Math.min(18, Number(zoom) || 14))));
+
+        const link = document.createElement("a");
+        link.href = url.toString();
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.hidden = true;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        return true;
+    }
+
     async function fetchJson(url) {
         const response = await fetch(url, { cache: "no-store" });
         const payload = await response.json();
@@ -379,6 +398,8 @@
             if (byId("tab-radio-view")?.classList.contains("active")) updateSatelliteView();
         }, 10000);
     }
+
+    window.sdrccRadioView = Object.freeze({openAisVessel});
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", initialize, { once: true });

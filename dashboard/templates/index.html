@@ -32,7 +32,7 @@
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0s-r1">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.54.0u-r1">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.54.0v-r2">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.55.0c-r3">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.55.0e-r5">
 </head>
 <body>
 <div
@@ -635,7 +635,6 @@
     </div>
 </section>
 
-
 <section class="tab-page" id="tab-traffic-voice">
     <div class="traffic-voice-page">
         <section class="card traffic-voice-header">
@@ -658,7 +657,7 @@
                         <span>MARITIME</span>
                         <h3>Marine Voice + AIS</h3>
                     </div>
-                    <strong data-traffic-mode-state>ACTIVE MODE</strong>
+                    <strong data-traffic-mode-state>SELECTED · STOPPED</strong>
                 </div>
                 <dl>
                     <div><dt>Voice</dt><dd data-traffic-mode-modulation>NFM</dd></div>
@@ -715,7 +714,7 @@
                 <div><dt>Selected mode</dt><dd id="traffic-voice-selected-mode">-</dd></div>
                 <div><dt>Voice receiver</dt><dd id="traffic-voice-voice-receiver">-</dd></div>
                 <div><dt>Context receiver</dt><dd id="traffic-voice-context-receiver">-</dd></div>
-                <div><dt>Backend</dt><dd id="traffic-voice-backend">-</dd></div>
+                <div><dt>Receiver software</dt><dd id="traffic-voice-backend">-</dd></div>
             </dl>
             <div class="traffic-voice-controls">
                 <button id="traffic-voice-stop" type="button" class="traffic-voice-button is-stop">Stop Voice</button>
@@ -754,7 +753,12 @@
                 <div><span>Gain / squelch</span><strong id="traffic-voice-rf-settings">-</strong></div>
                 <div><span>Strongest channel</span><strong id="traffic-voice-active-channel">-</strong></div>
                 <div><span>Signal / SNR</span><strong id="traffic-voice-signal">-</strong></div>
-                <div><span>Possible speaker</span><strong id="traffic-voice-possible-speaker">NOT INFERRED</strong></div>
+                <div class="traffic-voice-speaker-metric">
+                    <span>Possible speaker</span>
+                    <strong id="traffic-voice-possible-speaker">NOT INFERRED</strong>
+                    <small id="traffic-voice-ais-match-detail">Waiting for validated Marine ATIS.</small>
+                    <button id="traffic-voice-show-ais-vessel" type="button" class="traffic-voice-map-button" hidden>Show on full AIS map ↗</button>
+                </div>
             </div>
             <p id="traffic-voice-contract-message" class="traffic-voice-contract-message" aria-live="polite">Loading Traffic Voice contract...</p>
         </section>
@@ -1252,8 +1256,8 @@
 <script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
-<script src="/static/js/radio_view.js?v=0.54.0i-r2"></script>
+<script src="/static/js/radio_view.js?v=0.55.0e-r3"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
-<script src="/static/js/traffic_voice.js?v=0.55.0c-r3"></script>
+<script src="/static/js/traffic_voice.js?v=0.55.0e-r5"></script>
 </body>
 </html>
