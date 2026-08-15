@@ -12,8 +12,8 @@ assignments:
   iss_voice: sdr2
   traffic_voice: sdr2
 weather_rf:
-  gain_mode: manual
-  gain_db: 28.0
+  gain_mode: auto
+  gain_db: 12.5
   dc_block: true
   iq_swap: false
   lna_agc: false

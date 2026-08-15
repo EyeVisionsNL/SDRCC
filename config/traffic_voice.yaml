@@ -19,7 +19,7 @@ traffic_voice:
     stats_file: /run/sdrcc-traffic-voice/channel-stats.prom
     gain_db: 20.7
     correction_ppm: 0
-    squelch_snr_db: 2.0
+    squelch_snr_db: 2.5
     open_squelch: false
   spectrum:
     mode: channel_activity
@@ -35,10 +35,10 @@ traffic_voice:
       modulation: nfm
       context_plugin: ais
       inactive_plugin: adsb
-      channel_bank: coen_rotterdam
+      channel_bank: rotterdam_port
       execution_enabled: true
       tuning_mode: fixed
-      selected_channel_id: v60_waalh
+      selected_channel_id: v61_botlek
       channels:
       - id: ch16_nood
         label: CH16_NOOD
@@ -127,10 +127,10 @@ traffic_voice:
       modulation: am
       context_plugin: adsb
       inactive_plugin: ais
-      channel_bank: coen_zestienhoven
-      execution_enabled: false
+      channel_bank: rotterdam_aviation
+      execution_enabled: true
       tuning_mode: scan
-      selected_channel_id: rtm_tower
+      selected_channel_id: neth_info
       channels:
       - id: mil_tower
         label: MIL_TOWE

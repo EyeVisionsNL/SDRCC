@@ -40,7 +40,7 @@ Receiver-toewijzingen en standaardcontexten zijn via **Radio Control** instelbaa
 - Receiver Manager met reservering, context, service-observatie en hersteldoel.
 - Live Event Timeline en read-only Execution Journal.
 - AIS- en ADS-B-monitoring met live statistieken en ingebedde viewers.
-- Uitvoerbare Traffic Voice Monitor voor Marine Voice + AIS, met dynamische receiverkeuze, lokale live-audio en kanaalactiviteit. Airband Voice + ADS-B blijft gepland.
+- Uitvoerbare Traffic Voice Monitor voor Marine Voice + AIS en Airband Voice + ADS-B, met dynamische receiverkeuze, lokale live-audio, kanaalactiviteit en passieve Marine ATIS-identificatie.
 - Live RF Console, decodertelemetrie en idle Spectrum Scan.
 - Mission History, Mission Analytics, image pipeline en live logging.
 - Handmatige serviceregeling en veilige missiehulpmiddelen op het tabblad **System**.
@@ -86,7 +86,7 @@ Gezamenlijk overzicht van ADS-B, AIS en de eerstvolgende satellietpassage.
 
 ### Traffic Voice Monitor
 
-**Marine Voice + AIS** is uitvoerbaar: SDRCC leidt de voice-receiver bij iedere start af als de receiver tegenover de actuele AIS-toewijzing, stopt de inactieve ADS-B-context en start de gepinde RTLSDR-Airband-backend. De pagina biedt live PCM-audio en 15-seconden kanaalstatistieken zonder een tweede SDR-eigenaar. **Airband Voice + ADS-B** blijft zichtbaar als geplande volgende modus.
+**Marine Voice + AIS** en **Airband Voice + ADS-B** zijn uitvoerbaar. SDRCC leidt de voice-receiver bij iedere start af als de receiver tegenover de actuele AIS- of ADS-B-toewijzing en schakelt NFM/AM via dezelfde gepinde RTLSDR-Airband-backend. Een directe moduswissel is transactioneel; `Stop Voice` herstelt daarna nog steeds de servicestatus en Traffic Voice-assignment van vóór de eerste start. De pagina biedt live PCM-audio, vaste kanaalkeuze en kanaalscanning zonder een tweede SDR-eigenaar. Een begrensde observer decodeert geldige Marine ATIS-bursts uit een kopie van dezelfde audiobridge en toont de laatst gevalideerde roepletters bij `Possible speaker`; AIS-koppeling en kaartmarkering blijven een afzonderlijke vervolgstap.
 
 ### Mission Planner
 
@@ -171,6 +171,7 @@ Belangrijke uitgangspunten:
 | `ais-catcher.service` | Continue AIS-ontvangst |
 | `ais-catcher-control.service` | Bestaand gecontroleerd AIS-servicepad |
 | `readsb.service` | Continue ADS-B-ontvangst |
+| `sdrcc-traffic-voice.service` | Geselecteerde Marine NFM- of Airband AM-ontvangst |
 
 Status controleren:
 
@@ -178,6 +179,7 @@ Status controleren:
 systemctl status sdrcc.service --no-pager -l
 systemctl status ais-catcher.service --no-pager -l
 systemctl status readsb.service --no-pager -l
+systemctl status sdrcc-traffic-voice.service --no-pager -l
 ```
 
 ## Dashboard starten
@@ -209,7 +211,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/api/status
 | `GET /api/receiver-contexts` | Toewijzingen en standaardcontexten |
 | `GET /api/receiver-runtime` | Read-only receiver-runtime |
 | `GET /api/receiver-monitor` | AIS-, ADS-B- en missiestatistieken |
-| `GET /api/traffic-voice` | Read-only Traffic Voice-foundation en receiverprojectie |
+| `GET /api/traffic-voice` | Traffic Voice-configuratie, receiverprojectie en live status |
+| `POST /api/traffic-voice/action` | Begrensde Start, Switch, Stop en receiverinstellingen |
 | `GET /api/live-rf` | Live decoder- en RF-telemetrie |
 | `GET /api/execution-journal` | Read-only execution lifecycle |
 | `GET /api/mission-history` | Opgeslagen missies en resultaten |

@@ -36,7 +36,20 @@
             .find(mode => mode.selected) || {};
     }
 
-    function renderMode(mode) {
+    function channelFrequencyLabel(channel) {
+        const carrier = Number(channel.frequency_mhz);
+        const designator = Number(channel.channel_mhz);
+        if (
+            Number.isFinite(designator)
+            && Number.isFinite(carrier)
+            && Math.abs(designator - carrier) >= 0.0005
+        ) {
+            return designator.toFixed(3) + " MHz · tune " + carrier.toFixed(6) + " MHz";
+        }
+        return Number.isFinite(carrier) ? carrier.toFixed(3) + " MHz" : "-";
+    }
+
+    function renderMode(mode, running) {
         const card = document.querySelector('[data-traffic-mode="' + mode.id + '"]');
         if (!card) return;
         card.classList.toggle("is-selected", Boolean(mode.selected));
@@ -51,10 +64,16 @@
         const context = card.querySelector("[data-traffic-mode-context]");
         const receiver = card.querySelector("[data-traffic-mode-receiver]");
         const bank = card.querySelector("[data-traffic-mode-bank]");
+        const activityState = card.querySelector("[data-traffic-mode-activity-state]");
         if (modulation) modulation.textContent = mode.modulation || "-";
         if (context) context.textContent = String(mode.context_plugin || "-").toUpperCase();
         if (receiver) receiver.textContent = receiverLabel(mode.derived_voice_receiver);
         if (bank) bank.textContent = displayToken(mode.channel_bank) + " · " + mode.channel_count;
+        if (activityState) {
+            activityState.textContent = mode.selected
+                ? (running ? "LIVE ACTIVITY" : "SELECTED · STOPPED")
+                : (running ? "STANDBY" : "AVAILABLE");
+        }
     }
 
     function populateSelect(select, values, signature, previousSignature, formatter) {
@@ -83,8 +102,8 @@
         const tuningMode = byId("traffic-voice-tuning-mode");
         const squelch = byId("traffic-voice-squelch");
 
-        const nextChannelSignature = channels
-            .map(item => item.id + ":" + item.frequency_mhz).join("|");
+        const nextChannelSignature = String(settings.mode_id || "") + "|" + channels
+            .map(item => item.id + ":" + item.frequency_mhz + ":" + (item.channel_mhz || "")).join("|");
         channelSignature = populateSelect(
             channelSelect,
             channels,
@@ -92,7 +111,7 @@
             channelSignature,
             item => ({
                 value: String(item.id),
-                label: String(item.label) + " · " + Number(item.frequency_mhz).toFixed(3) + " MHz",
+                label: String(item.label) + " · " + channelFrequencyLabel(item),
             }),
         );
         const nextGainSignature = gains.join("|");
@@ -139,12 +158,14 @@
         );
     }
 
-    function renderActivity(payload) {
-        const container = byId("traffic-voice-channel-activity");
+    function renderChannelBank(mode, payload) {
+        const container = document.querySelector(
+            '[data-traffic-channel-bank="' + mode.id + '"]',
+        );
         if (!container) return;
-        const mode = selectedMode(payload);
         const configured = Array.isArray(mode.channels) ? mode.channels : [];
-        const measured = Array.isArray((payload.activity || {}).channels)
+        const selected = Boolean(mode.selected);
+        const measured = selected && Array.isArray((payload.activity || {}).channels)
             ? payload.activity.channels : [];
         const measurements = new Map(
             measured.map(item => [Number(item.frequency_mhz).toFixed(6), item]),
@@ -163,35 +184,46 @@
             const row = document.createElement("button");
             row.type = "button";
             row.className = "traffic-voice-channel";
-            row.classList.toggle("is-possible-active", Boolean(live.possible_active));
+            row.disabled = !selected || actionBusy || !payload.ok;
+            row.classList.toggle("is-possible-active", selected && Boolean(live.possible_active));
             row.classList.toggle(
                 "is-selected",
-                settings.tuning_mode === "fixed" && settings.selected_channel_id === channel.id,
+                selected && settings.tuning_mode === "fixed" && settings.selected_channel_id === channel.id,
             );
-            row.title = "Listen on " + channel.label;
-            row.addEventListener("click", () => selectFixedChannel(channel.id));
+            row.title = selected
+                ? "Listen on " + channel.label
+                : "Select this Voice mode before tuning a channel";
+            if (selected) row.addEventListener("click", () => selectFixedChannel(channel.id));
 
             const copy = document.createElement("div");
             copy.className = "traffic-voice-channel-copy";
             const label = document.createElement("strong");
             label.textContent = channel.label || String(channel.frequency_mhz) + " MHz";
             const frequency = document.createElement("span");
-            frequency.textContent = Number(channel.frequency_mhz).toFixed(3) + " MHz";
+            frequency.textContent = channelFrequencyLabel(channel);
             copy.append(label, frequency);
 
             const meter = document.createElement("div");
             meter.className = "traffic-voice-channel-meter";
             const fill = document.createElement("i");
             const snr = Number(live.snr_db);
-            fill.style.width = (Number.isFinite(snr) ? Math.max(3, Math.min(100, snr * 5)) : 3) + "%";
+            fill.style.width = selected
+                ? (Number.isFinite(snr) ? Math.max(3, Math.min(100, snr * 5)) : 3) + "%"
+                : "0%";
             meter.append(fill);
 
             const value = document.createElement("span");
             value.className = "traffic-voice-channel-value";
-            value.textContent = Number.isFinite(snr) ? snr.toFixed(1) + " dB SNR" : "not measured";
+            value.textContent = selected
+                ? (Number.isFinite(snr) ? snr.toFixed(1) + " dB SNR" : "not measured")
+                : "available";
             row.append(copy, meter, value);
             container.append(row);
         });
+    }
+
+    function renderActivity(payload, modes) {
+        modes.forEach(mode => renderChannelBank(mode, payload));
     }
 
     function stopAudio() {
@@ -247,7 +279,9 @@
         const running = Boolean((payload.service || {}).active);
 
         if (status) {
-            status.textContent = payload.ok ? "MARINE READY" : "ATTENTION";
+            status.textContent = payload.ok
+                ? (selected.id === "airband_adsb" ? "AIRBAND READY" : "MARINE READY")
+                : "ATTENTION";
             status.classList.toggle("is-foundation", Boolean(payload.ok));
             status.classList.toggle("is-attention", !payload.ok);
         }
@@ -257,17 +291,15 @@
             serviceBadge.classList.toggle("is-offline", !running);
         }
 
-        modes.forEach(renderMode);
+        modes.forEach(mode => renderMode(mode, running));
         renderSettings(payload, running);
-        renderActivity(payload);
+        renderActivity(payload, modes);
         renderAudio(payload);
 
         text("traffic-voice-selected-mode", selected.label || displayToken(payload.selected_mode));
         text("traffic-voice-voice-receiver", receiverLabel(assignment.voice_receiver));
         text("traffic-voice-context-receiver", receiverLabel(assignment.context_receiver));
-        text("traffic-voice-receiver-policy", displayToken(payload.receiver_policy));
         text("traffic-voice-backend", (displayToken((payload.backend || {}).name) + " " + ((payload.backend || {}).version || "")).trim());
-        text("traffic-voice-speaker-label", displayToken((payload.speaker_context || {}).label));
         text("traffic-voice-execution", payload.execution_enabled ? "EXECUTION ENABLED" : "EXECUTION DISABLED");
 
         const strongest = payload.strongest_channel || {};
@@ -282,21 +314,37 @@
 
         const assignmentValid = Boolean(assignment.separated && assignment.matches_policy);
         if (assignmentBadge) {
-            assignmentBadge.textContent = assignmentValid ? "ASSIGNMENT VALID" : "ASSIGNMENT ATTENTION";
-            assignmentBadge.classList.toggle("is-valid", assignmentValid);
-            assignmentBadge.classList.toggle("is-attention", !assignmentValid);
+            assignmentBadge.textContent = running
+                ? (assignmentValid ? "ASSIGNMENT VALID" : "ASSIGNMENT ATTENTION")
+                : "ASSIGNED ON START";
+            assignmentBadge.classList.toggle("is-valid", running && assignmentValid);
+            assignmentBadge.classList.toggle("is-attention", running && !assignmentValid);
         }
         if (message) {
             const errors = ((payload.validation || {}).errors || []).filter(Boolean);
+            const context = String(selected.context_plugin || "traffic context").toUpperCase();
             message.textContent = payload.ok
-                ? "Marine Voice uses the receiver opposite AIS. Settings restart only the existing Voice service; mission handover stays with Receiver Manager."
+                ? (selected.label || "Traffic Voice") + " uses the receiver opposite " + context
+                    + ". Switching and settings reuse the existing Voice service; mission handover stays with Receiver Manager."
                 : errors.join(" · ") || "Traffic Voice validation failed.";
             message.classList.toggle("is-error", !payload.ok);
         }
 
         const start = byId("traffic-voice-start");
+        const startAirband = byId("traffic-voice-start-airband");
         const stop = byId("traffic-voice-stop");
-        if (start) start.disabled = actionBusy || running || !payload.ok;
+        if (start) {
+            start.textContent = running && selected.id === "airband_adsb"
+                ? "Switch to Marine + AIS"
+                : "Start Marine + AIS";
+            start.disabled = actionBusy || !payload.ok || (running && selected.id === "marine_ais");
+        }
+        if (startAirband) {
+            startAirband.textContent = running && selected.id === "marine_ais"
+                ? "Switch to Airband + ADS-B"
+                : "Start Airband + ADS-B";
+            startAirband.disabled = actionBusy || !payload.ok || (running && selected.id === "airband_adsb");
+        }
         if (stop) stop.disabled = actionBusy || !running;
     }
 
@@ -331,6 +379,7 @@
         actionBusy = true;
         const pending = {
             start_marine: "Starting Marine + AIS transaction…",
+            start_airband: "Starting Airband + ADS-B transaction…",
             stop: "Stopping Voice and restoring the previous topology…",
             apply_settings: "Applying receiver settings…",
         };
@@ -395,6 +444,8 @@
             ?.addEventListener("click", () => window.setTimeout(() => refresh(true), 0));
         byId("traffic-voice-start")
             ?.addEventListener("click", () => runAction("start_marine"));
+        byId("traffic-voice-start-airband")
+            ?.addEventListener("click", () => runAction("start_airband"));
         byId("traffic-voice-stop")
             ?.addEventListener("click", () => runAction("stop"));
         byId("traffic-voice-apply-settings")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the current dynamic Marine Voice backend configuration atomically."""
+"""Render the selected Traffic Voice backend configuration atomically."""
 
 from __future__ import annotations
 

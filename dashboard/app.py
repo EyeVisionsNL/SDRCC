@@ -2460,15 +2460,15 @@ def api_plugins():
 
 @app.route("/api/traffic-voice", methods=["GET"])
 def api_traffic_voice():
-    """Expose Marine Voice configuration and observed runtime."""
+    """Expose Traffic Voice configuration and observed runtime."""
     try:
         snapshot = traffic_voice_core.get_snapshot()
         return jsonify(snapshot), 200 if snapshot.get("ok") else 500
     except Exception as error:
         return jsonify({
             "ok": False,
-            "version": "0.55.0b",
-            "source": "traffic_voice_marine",
+            "version": "0.55.0d",
+            "source": "traffic_voice",
             "read_only": False,
             "foundation_only": False,
             "execution_enabled": True,
@@ -2478,19 +2478,26 @@ def api_traffic_voice():
 
 @app.route("/api/traffic-voice/action", methods=["POST"])
 def api_traffic_voice_action():
-    """Run the Marine topology transaction via existing service authority."""
+    """Run bounded Traffic Voice transactions via existing service authority."""
     payload = request.get_json(silent=True) or {}
     action = str(payload.get("action") or "").strip().lower()
-    if action not in {"start_marine", "stop", "apply_settings"}:
+    if action not in {"start_marine", "start_airband", "stop", "apply_settings"}:
         return jsonify({
             "ok": False,
             "message": f"Niet-ondersteunde Traffic Voice-actie: {action or '<leeg>'}.",
-            "supported_actions": ["start_marine", "stop", "apply_settings"],
+            "supported_actions": ["start_marine", "start_airband", "stop", "apply_settings"],
         }), 400
     try:
         if action == "start_marine":
             traffic_voice_audio.ensure_listener()
             result = traffic_voice_controller.start_marine(
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+            )
+        elif action == "start_airband":
+            traffic_voice_audio.ensure_listener()
+            result = traffic_voice_controller.start_airband(
                 service_state=service_state,
                 service_action=run_systemctl,
                 wait_for_service=wait_for_service,

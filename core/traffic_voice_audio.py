@@ -17,6 +17,7 @@ import time
 from typing import Any, Iterator
 
 from core import config
+from core import traffic_voice_atis
 
 
 MAX_CLIENTS = 3
@@ -82,6 +83,13 @@ def _listen() -> None:
                 pcm = float32_to_pcm16(payload)
                 if not pcm:
                     continue
+                # ATIS receives a copy through a bounded in-process queue.
+                # This bridge remains the sole UDP listener and never waits
+                # for the read-only decoder observer.
+                try:
+                    traffic_voice_atis.observe_float32(payload)
+                except Exception as error:  # noqa: BLE001 - optional observer fails open
+                    traffic_voice_atis.report_observer_error(error)
                 with _lock:
                     _sequence += 1
                     _chunks.append((_sequence, pcm))
@@ -131,6 +139,7 @@ def get_status() -> dict[str, Any]:
             "udp_bytes_received": _bytes,
             "last_packet_age_seconds": round(age, 2) if age is not None else None,
             "listener_error": _listener_error,
+            "observers": ["traffic_voice_atis"],
             "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         }
 

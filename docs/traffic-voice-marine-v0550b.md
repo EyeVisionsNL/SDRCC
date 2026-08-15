@@ -70,11 +70,11 @@ Receiver Manager blocks a settings change during an active handover.
 
 The source is `RT-950PRO_CPS_ChannelListChirpData_laatste.csv`.
 
-- `coen_rotterdam` contains the 27 local Marine favourites from CH16_NOOD
+- `rotterdam_port` contains the 27 local Marine favourites from CH16_NOOD
   through V19_HCC, including Botlek, Waalhaven, Vlaardingen, Roeiers and
   Boluda. RTLSDR-Airband scans five frequencies per second, so a silent full
   bank takes approximately 5.4 seconds per cycle.
-- `coen_zestienhoven` contains 13 AM favourites: Rotterdam Tower, Delivery
+- `rotterdam_aviation` contains 13 AM favourites: Rotterdam Tower, Delivery
   and Approach, emergency, helicopter and SAR channels, plus the three
   military entries around 139–141 MHz.
 - Airband remains configured but non-executable in v0.55.0b.

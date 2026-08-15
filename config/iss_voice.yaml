@@ -33,6 +33,6 @@ iss_voice:
     begin_elevation: 10.0
     close_elevation: 40.0
   gain_mode: manual
-  gain_db: 20.7
+  gain_db: 7.7
   squelch_enabled: false
   squelch_threshold_dbfs: -47.0

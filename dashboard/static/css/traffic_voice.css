@@ -1,4 +1,4 @@
-/* SDRCC v0.55.0b - Marine Voice execution */
+/* SDRCC v0.55.0c-r3 - balanced Marine and Airband workspaces */
 
 #tab-traffic-voice {
     --traffic-accent: #fb7185;
@@ -93,14 +93,16 @@
     border-color: rgba(251, 113, 133, 0.48);
 }
 
-.traffic-voice-mode-grid,
-.traffic-voice-workspace-grid {
+.traffic-voice-mode-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
 }
 
 .traffic-voice-mode {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
     position: relative;
     margin: 0;
     overflow: hidden;
@@ -158,7 +160,7 @@
 }
 
 .traffic-voice-mode dl,
-.traffic-voice-contract-list {
+.traffic-voice-runtime-summary {
     display: grid;
     gap: 0;
     margin: 15px 0 0;
@@ -175,7 +177,7 @@
 }
 
 .traffic-voice-mode dt,
-.traffic-voice-contract-list dt,
+.traffic-voice-runtime-summary dt,
 .traffic-voice-signal-metrics span {
     color: #71859f;
     font-size: 0.68rem;
@@ -185,7 +187,7 @@
 }
 
 .traffic-voice-mode dd,
-.traffic-voice-contract-list dd {
+.traffic-voice-runtime-summary dd {
     margin: 4px 0 0;
     color: #e5edf7;
     font-size: 0.82rem;
@@ -193,10 +195,31 @@
     overflow-wrap: anywhere;
 }
 
-.traffic-voice-signal-card,
-.traffic-voice-contract-card {
+.traffic-voice-shared-workspace {
     min-width: 0;
     margin: 0;
+}
+
+.traffic-voice-mode-actions {
+    display: flex;
+    min-height: 45px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 13px;
+    padding-top: 11px;
+    border-top: 1px solid #26364b;
+}
+
+.traffic-voice-mode-actions > span {
+    color: #71859f;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.055em;
+}
+
+.traffic-voice-mode.is-selected .traffic-voice-mode-actions > span {
+    color: #fda4af;
 }
 
 .traffic-voice-section-heading {
@@ -242,6 +265,17 @@
     background: #07111f;
     border: 1px solid #22334a;
     border-radius: 9px;
+}
+
+.traffic-voice-runtime-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 0;
+    border-bottom: 1px solid #26364b;
+}
+
+.traffic-voice-runtime-summary > div {
+    min-width: 0;
+    padding: 12px 12px 12px 0;
 }
 
 .traffic-voice-controls > span {
@@ -317,6 +351,11 @@
     border-color: rgba(74, 222, 128, 0.52);
 }
 
+.traffic-voice-button.is-airband {
+    color: #bae6fd;
+    border-color: rgba(56, 189, 248, 0.56);
+}
+
 .traffic-voice-button.is-stop {
     color: #fecdd3;
     border-color: rgba(251, 113, 133, 0.52);
@@ -361,6 +400,12 @@
     border-radius: 9px;
 }
 
+.traffic-voice-mode .traffic-voice-channel-activity {
+    height: 248px;
+    min-height: 248px;
+    flex: 1;
+}
+
 .traffic-voice-channel-activity > p {
     margin: auto;
     color: #71859f;
@@ -392,8 +437,13 @@
     border-color: rgba(34, 211, 238, 0.68);
 }
 
-.traffic-voice-channel:hover {
+.traffic-voice-channel:not(:disabled):hover {
     border-color: rgba(251, 113, 133, 0.5);
+}
+
+.traffic-voice-channel:disabled {
+    cursor: default;
+    opacity: 0.72;
 }
 
 .traffic-voice-channel-copy {
@@ -478,19 +528,6 @@
     font-size: 0.78rem;
 }
 
-.traffic-voice-contract-list > div {
-    display: grid;
-    grid-template-columns: minmax(125px, 0.8fr) minmax(0, 1.2fr);
-    gap: 14px;
-    padding: 11px 0;
-    border-bottom: 1px solid #213047;
-}
-
-.traffic-voice-contract-list dd {
-    margin: 0;
-    text-align: right;
-}
-
 .traffic-voice-contract-message {
     margin: 14px 0 0;
     padding: 10px 12px;
@@ -510,6 +547,7 @@
 
 @media (max-width: 1080px) {
     .traffic-voice-mode dl,
+    .traffic-voice-runtime-summary,
     .traffic-voice-signal-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -520,8 +558,7 @@
 }
 
 @media (max-width: 820px) {
-    .traffic-voice-mode-grid,
-    .traffic-voice-workspace-grid {
+    .traffic-voice-mode-grid {
         grid-template-columns: 1fr;
     }
 
@@ -552,6 +589,7 @@
     }
 
     .traffic-voice-mode dl,
+    .traffic-voice-runtime-summary,
     .traffic-voice-signal-metrics {
         grid-template-columns: 1fr;
     }

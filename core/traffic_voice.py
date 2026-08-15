@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Marine Voice configuration, runtime projection and backend rendering."""
+"""Traffic Voice configuration, runtime projection and backend rendering."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from core import config as config_core
 from core import plugin_registry, receiver_registry
 
 
-VERSION = "0.55.0b"
+VERSION = "0.55.0d"
 SCHEMA_VERSION = 1
 MODE_ORDER = ("marine_ais", "airband_adsb")
 MODE_CONTRACTS = {
@@ -83,8 +83,8 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
         errors.append("foundation_only must be false")
     if settings.get("execution_enabled") is not True:
         errors.append("execution_enabled must be true")
-    if settings.get("selected_mode") != "marine_ais":
-        errors.append("selected_mode must remain marine_ais in v0.55.0b")
+    if settings.get("selected_mode") not in MODE_ORDER:
+        errors.append("selected_mode must be marine_ais or airband_adsb")
     if settings.get("receiver_policy") != "opposite_context_receiver":
         errors.append("receiver_policy must be opposite_context_receiver")
     if not str(settings.get("channel_source") or "").strip():
@@ -113,7 +113,7 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
         if port <= 0 or port > 65535:
             errors.append("backend.audio_port is invalid")
         if int(backend.get("audio_sample_rate_hz") or 0) != 16000:
-            errors.append("backend.audio_sample_rate_hz must be 16000 for the pinned NFM build")
+            errors.append("backend.audio_sample_rate_hz must be 16000 for the pinned AM/NFM build")
         valid_gains = config_core.get_rtl_sdr_valid_gains()
         try:
             gain_db = float(backend.get("gain_db"))
@@ -151,9 +151,8 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
         for field, expected in MODE_CONTRACTS[mode_id].items():
             if str(mode.get(field) or "").strip().lower() != expected:
                 errors.append(f"modes.{mode_id}.{field} must be {expected}")
-        enabled = mode.get("execution_enabled")
-        if enabled is not (mode_id == "marine_ais"):
-            errors.append(f"modes.{mode_id}.execution_enabled is invalid")
+        if mode.get("execution_enabled") is not True:
+            errors.append(f"modes.{mode_id}.execution_enabled must be true")
         channels = mode.get("channels")
         if not isinstance(channels, list):
             errors.append(f"modes.{mode_id}.channels must be a list")
@@ -202,16 +201,24 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
     return {"ok": not errors, "schema_version": SCHEMA_VERSION, "errors": errors}
 
 
-def get_receiver_settings(payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Return the single editable Marine receiver-settings projection."""
+def get_receiver_settings(
+    payload: dict[str, Any] | None = None,
+    *,
+    mode_id: str | None = None,
+) -> dict[str, Any]:
+    """Return the editable settings projection for one Traffic Voice mode."""
     raw = config_core.load_traffic_voice() if payload is None else deepcopy(payload)
     settings = raw.get("traffic_voice", {}) if isinstance(raw, dict) else {}
     backend = settings.get("backend", {}) if isinstance(settings, dict) else {}
-    marine = (settings.get("modes", {}) or {}).get("marine_ais", {})
-    channels = deepcopy(marine.get("channels") or [])
+    selected_mode = str(mode_id or settings.get("selected_mode") or "").strip()
+    if selected_mode not in MODE_ORDER:
+        raise ValueError("Onbekende Traffic Voice-modus")
+    mode = (settings.get("modes", {}) or {}).get(selected_mode, {})
+    channels = deepcopy(mode.get("channels") or [])
     return {
-        "tuning_mode": str(marine.get("tuning_mode") or "scan").lower(),
-        "selected_channel_id": str(marine.get("selected_channel_id") or ""),
+        "mode_id": selected_mode,
+        "tuning_mode": str(mode.get("tuning_mode") or "scan").lower(),
+        "selected_channel_id": str(mode.get("selected_channel_id") or ""),
         "gain_db": float(backend.get("gain_db") or 0.0),
         "squelch_snr_db": float(backend.get("squelch_snr_db") or 0.0),
         "open_squelch": backend.get("open_squelch") is True,
@@ -224,10 +231,11 @@ def normalize_receiver_settings(
     changes: dict[str, Any],
     *,
     payload: dict[str, Any] | None = None,
+    mode_id: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(changes, dict):
         raise ValueError("Traffic Voice-instellingen moeten een mapping zijn")
-    current = get_receiver_settings(payload)
+    current = get_receiver_settings(payload, mode_id=mode_id)
     tuning_mode = str(changes.get("tuning_mode", current["tuning_mode"])).strip().lower()
     if tuning_mode not in {"scan", "fixed"}:
         raise ValueError("Afstemmodus moet scan of fixed zijn")
@@ -236,7 +244,7 @@ def normalize_receiver_settings(
     ).strip()
     channel_ids = {str(item.get("id") or "") for item in current["channels"]}
     if selected_channel_id not in channel_ids:
-        raise ValueError("Onbekend Marine Voice-kanaal")
+        raise ValueError("Onbekend kanaal voor de geselecteerde Traffic Voice-modus")
     try:
         gain_db = float(changes.get("gain_db", current["gain_db"]))
     except (TypeError, ValueError) as error:
@@ -255,6 +263,7 @@ def normalize_receiver_settings(
     if not isinstance(open_squelch, bool):
         raise ValueError("Open squelch moet true of false zijn")
     return {
+        "mode_id": current["mode_id"],
         "tuning_mode": tuning_mode,
         "selected_channel_id": selected_channel_id,
         "gain_db": gain_db,
@@ -270,17 +279,32 @@ def save_receiver_settings(changes: dict[str, Any]) -> dict[str, Any]:
     candidate = deepcopy(raw)
     settings = candidate["traffic_voice"]
     backend = settings["backend"]
-    marine = settings["modes"]["marine_ais"]
+    mode = settings["modes"][normalized["mode_id"]]
     backend["gain_db"] = normalized["gain_db"]
     backend["squelch_snr_db"] = normalized["squelch_snr_db"]
     backend["open_squelch"] = normalized["open_squelch"]
-    marine["tuning_mode"] = normalized["tuning_mode"]
-    marine["selected_channel_id"] = normalized["selected_channel_id"]
+    mode["tuning_mode"] = normalized["tuning_mode"]
+    mode["selected_channel_id"] = normalized["selected_channel_id"]
     validation = validate_configuration(candidate)
     if not validation["ok"]:
         raise ValueError("; ".join(validation["errors"]))
     config_core.save_traffic_voice(candidate)
     return get_receiver_settings()
+
+
+def save_selected_mode(mode_id: str) -> dict[str, Any]:
+    """Persist the selected mode in the existing Traffic Voice authority."""
+    selected_mode = str(mode_id or "").strip()
+    if selected_mode not in MODE_ORDER:
+        raise ValueError("Onbekende Traffic Voice-modus")
+    raw = config_core.load_traffic_voice()
+    candidate = deepcopy(raw)
+    candidate["traffic_voice"]["selected_mode"] = selected_mode
+    validation = validate_configuration(candidate)
+    if not validation["ok"]:
+        raise ValueError("; ".join(validation["errors"]))
+    config_core.save_traffic_voice(candidate)
+    return get_receiver_settings(candidate)
 
 
 def _service_state(service_name: str) -> dict[str, Any]:
@@ -387,15 +411,17 @@ def render_rtlsdr_airband_config() -> str:
     settings = raw["traffic_voice"]
     backend = settings["backend"]
     assignments = config_core.get_receiver_assignments()
-    context_receiver = assignments.get("ais")
+    selected_mode = str(settings.get("selected_mode") or "")
+    mode = settings["modes"][selected_mode]
+    context_plugin = str(mode["context_plugin"])
+    context_receiver = assignments.get(context_plugin)
     voice_receiver = _other_receiver(context_receiver)
     assigned_voice = receiver_registry.resolve_id(assignments.get("traffic_voice"))
     if voice_receiver is None or assigned_voice != voice_receiver:
         raise RuntimeError("Traffic Voice assignment wijkt af van opposite_context_receiver")
     receiver = receiver_registry.get_receiver(voice_receiver)
-    marine = settings["modes"]["marine_ais"]
     receiver_settings = get_receiver_settings(raw)
-    channels = marine["channels"]
+    channels = mode["channels"]
     selected_channel = next(
         item for item in channels
         if item["id"] == receiver_settings["selected_channel_id"]
@@ -409,7 +435,7 @@ def render_rtlsdr_airband_config() -> str:
         else receiver_settings["squelch_snr_db"]
     )
     return "\n".join((
-        "# Generated by SDRCC v0.55.0b; do not edit runtime output.",
+        "# Generated by SDRCC v0.55.0d; do not edit runtime output.",
         "log_scan_activity = true;",
         f"stats_filepath = {_libconfig_string(backend['stats_file'])};",
         "tau = 75;",
@@ -423,7 +449,7 @@ def render_rtlsdr_airband_config() -> str:
         "  channels:",
         "  (",
         "    {",
-        '      modulation = "nfm";',
+        f"      modulation = {_libconfig_string(mode['modulation'])};",
         f"      freqs = ( {freqs} );",
         f"      labels = ( {labels} );",
         f"      squelch_snr_threshold = {squelch_snr_db:.1f};",
@@ -465,6 +491,7 @@ def get_snapshot(
 
     mode_snapshots: list[dict[str, Any]] = []
     selected_assignment = None
+    selected_assignment_matches = False
     selected_mode = str(settings.get("selected_mode") or "")
     for mode_id in MODE_ORDER:
         mode = deepcopy(modes_config.get(mode_id) or {})
@@ -491,6 +518,7 @@ def get_snapshot(
         if selected:
             assigned_voice_id = receiver_registry.resolve_id(assignments.get("traffic_voice"))
             matches = bool(derived_voice_id and assigned_voice_id == derived_voice_id)
+            selected_assignment_matches = matches
             selected_assignment = {
                 "voice_role": "traffic_voice",
                 "voice_receiver": _receiver_projection(assignments.get("traffic_voice")),
@@ -502,8 +530,6 @@ def get_snapshot(
                 ),
                 "matches_policy": matches,
             }
-            if not matches:
-                errors.append("traffic_voice assignment does not match opposite_context_receiver policy")
 
     backend = deepcopy(settings.get("backend") or {})
     receiver_settings = get_receiver_settings(raw)
@@ -511,6 +537,8 @@ def get_snapshot(
     service = (service_reader or _service_state)(
         str(backend.get("service") or "sdrcc-traffic-voice.service")
     )
+    if service.get("active") and not selected_assignment_matches:
+        errors.append("traffic_voice assignment does not match opposite_context_receiver policy")
     activity = read_statistics(
         str(backend.get("stats_file") or "/run/sdrcc-traffic-voice/channel-stats.prom"),
         possible_active_snr_db=float(backend.get("squelch_snr_db") or 6.0),
@@ -519,6 +547,14 @@ def get_snapshot(
         from core import traffic_voice_audio
         audio_reader = traffic_voice_audio.get_status
     audio = audio_reader()
+    from core import traffic_voice_atis
+    atis = traffic_voice_atis.get_status()
+    latest_atis = atis.get("latest") or {}
+    possible_speaker = None
+    if selected_mode == "marine_ais" and latest_atis.get("fresh"):
+        identity = latest_atis.get("callsign") or latest_atis.get("atis_code")
+        if identity:
+            possible_speaker = f"{identity} · ATIS VALIDATED"
     strongest = max(
         activity["channels"],
         key=lambda item: item.get("snr_db") if item.get("snr_db") is not None else -999.0,
@@ -528,7 +564,7 @@ def get_snapshot(
         "ok": not errors,
         "version": VERSION,
         "schema_version": SCHEMA_VERSION,
-        "source": "traffic_voice_marine",
+        "source": "traffic_voice",
         "read_only": False,
         "foundation_only": False,
         "execution_enabled": True,
@@ -541,11 +577,12 @@ def get_snapshot(
         "receiver_settings": receiver_settings,
         "service": service,
         "audio": audio,
+        "atis": atis,
         "activity": activity,
         "strongest_channel": strongest,
         "spectrum": deepcopy(settings.get("spectrum") or {}),
         "speaker_context": deepcopy(settings.get("speaker_context") or {}),
-        "possible_speaker": None,
+        "possible_speaker": possible_speaker,
         "authorities": {
             "configuration": "config/traffic_voice.yaml",
             "plugin_metadata": "plugin_registry",
@@ -555,6 +592,7 @@ def get_snapshot(
             "service_control": "existing_dashboard_systemctl_path",
             "sdr_owner": "rtlsdr_airband",
             "audio_bridge": "localhost_udp_observer",
+            "atis_decoder": "audio_bridge_read_only_observer",
         },
         "validation": {"ok": not errors, "configuration": validation, "errors": errors},
         "updated_at": _now(),

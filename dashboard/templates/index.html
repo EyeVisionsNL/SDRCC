@@ -32,7 +32,7 @@
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0s-r1">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.54.0u-r1">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.54.0v-r2">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.55.0b">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.55.0c-r3">
 </head>
 <body>
 <div
@@ -642,7 +642,7 @@
             <div>
                 <span class="traffic-voice-eyebrow">VHF COMMUNICATIONS</span>
                 <h2>🎙 Traffic Voice Monitor</h2>
-                <p>Live Marine VHF audio on the receiver opposite AIS, with one transaction-safe Start action.</p>
+                <p>Live Marine NFM or Airband AM audio, with transaction-safe switching between AIS and ADS-B context.</p>
             </div>
             <div class="traffic-voice-header-badges">
                 <span id="traffic-voice-status" class="traffic-voice-badge is-foundation">LOADING</span>
@@ -666,6 +666,13 @@
                     <div><dt>Voice receiver</dt><dd data-traffic-mode-receiver>-</dd></div>
                     <div><dt>Channel bank</dt><dd data-traffic-mode-bank>-</dd></div>
                 </dl>
+                <div class="traffic-voice-mode-actions">
+                    <button id="traffic-voice-start" type="button" class="traffic-voice-button is-start">Start Marine + AIS</button>
+                    <span data-traffic-mode-activity-state>SELECTED · STOPPED</span>
+                </div>
+                <div id="traffic-voice-channel-activity-marine" class="traffic-voice-channel-activity" data-traffic-channel-bank="marine_ais" aria-label="Marine channel activity">
+                    <p>Marine channels are loading.</p>
+                </div>
             </article>
 
             <article class="card traffic-voice-mode" data-traffic-mode="airband_adsb">
@@ -675,7 +682,7 @@
                         <span>AVIATION</span>
                         <h3>Airband Voice + ADS-B</h3>
                     </div>
-                    <strong data-traffic-mode-state>PLANNED</strong>
+                    <strong data-traffic-mode-state>AVAILABLE</strong>
                 </div>
                 <dl>
                     <div><dt>Voice</dt><dd data-traffic-mode-modulation>AM</dd></div>
@@ -683,82 +690,74 @@
                     <div><dt>Voice receiver</dt><dd data-traffic-mode-receiver>-</dd></div>
                     <div><dt>Channel bank</dt><dd data-traffic-mode-bank>-</dd></div>
                 </dl>
+                <div class="traffic-voice-mode-actions">
+                    <button id="traffic-voice-start-airband" type="button" class="traffic-voice-button is-airband">Start Airband + ADS-B</button>
+                    <span data-traffic-mode-activity-state>AVAILABLE</span>
+                </div>
+                <div id="traffic-voice-channel-activity-airband" class="traffic-voice-channel-activity" data-traffic-channel-bank="airband_adsb" aria-label="Airband channel activity">
+                    <p>Airband channels are loading.</p>
+                </div>
             </article>
         </section>
 
-        <div class="traffic-voice-workspace-grid">
-            <section class="card traffic-voice-signal-card">
-                <div class="traffic-voice-section-heading">
-                    <div>
-                        <span>RECEIVE WORKSPACE</span>
-                        <h3>Audio &amp; Channel Activity</h3>
-                    </div>
+        <section class="card traffic-voice-shared-workspace">
+            <div class="traffic-voice-section-heading">
+                <div>
+                    <span>ACTIVE RECEIVER</span>
+                    <h3>Shared Voice Controls &amp; Audio</h3>
+                </div>
+                <div class="traffic-voice-header-badges">
                     <span id="traffic-voice-execution" class="traffic-voice-badge is-offline">EXECUTION DISABLED</span>
-                </div>
-                <div class="traffic-voice-controls">
-                    <button id="traffic-voice-start" type="button" class="traffic-voice-button is-start">Start Marine + AIS</button>
-                    <button id="traffic-voice-stop" type="button" class="traffic-voice-button is-stop">Stop Voice</button>
-                    <span id="traffic-voice-action-message" aria-live="polite">Ready.</span>
-                </div>
-                <div class="traffic-voice-receiver-controls" aria-label="Marine Voice receiver controls">
-                    <label>Receive mode
-                        <select id="traffic-voice-tuning-mode">
-                            <option value="scan">Scan all channels</option>
-                            <option value="fixed">Fixed channel</option>
-                        </select>
-                    </label>
-                    <label>Channel
-                        <select id="traffic-voice-channel-select"></select>
-                    </label>
-                    <label>Gain
-                        <select id="traffic-voice-gain"></select>
-                    </label>
-                    <label>Squelch <span id="traffic-voice-squelch-value">6.0 dB</span>
-                        <input id="traffic-voice-squelch" type="range" min="1" max="30" step="0.5" value="6">
-                    </label>
-                    <button id="traffic-voice-apply-settings" type="button" class="traffic-voice-button">Apply settings</button>
-                    <button id="traffic-voice-open-squelch" type="button" class="traffic-voice-button is-test">Open squelch / Test</button>
-                </div>
-                <div class="traffic-voice-audio-controls">
-                    <button id="traffic-voice-audio-toggle" type="button" class="traffic-voice-button" disabled>▶ Live audio</button>
-                    <label>Browser volume
-                        <input id="traffic-voice-volume" type="range" min="0" max="1" step="0.05" value="0.85">
-                    </label>
-                    <span id="traffic-voice-audio-detail">Waiting for Voice.</span>
-                    <audio id="traffic-voice-audio" preload="none"></audio>
-                </div>
-                <div id="traffic-voice-channel-activity" class="traffic-voice-channel-activity" aria-label="Live channel activity">
-                    <p>Channel statistics appear within about 15 seconds after start.</p>
-                </div>
-                <div class="traffic-voice-signal-metrics">
-                    <div><span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
-                    <div><span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
-                    <div><span>Gain / squelch</span><strong id="traffic-voice-rf-settings">-</strong></div>
-                    <div><span>Strongest channel</span><strong id="traffic-voice-active-channel">-</strong></div>
-                    <div><span>Signal / SNR</span><strong id="traffic-voice-signal">-</strong></div>
-                    <div><span>Possible speaker</span><strong id="traffic-voice-possible-speaker">NOT INFERRED</strong></div>
-                </div>
-            </section>
-
-            <section class="card traffic-voice-contract-card">
-                <div class="traffic-voice-section-heading">
-                    <div>
-                        <span>LIVE CONTRACT</span>
-                        <h3>Selected Configuration</h3>
-                    </div>
                     <span id="traffic-voice-assignment-state" class="traffic-voice-badge">CHECKING</span>
                 </div>
-                <dl class="traffic-voice-contract-list">
-                    <div><dt>Selected mode</dt><dd id="traffic-voice-selected-mode">-</dd></div>
-                    <div><dt>Voice receiver</dt><dd id="traffic-voice-voice-receiver">-</dd></div>
-                    <div><dt>Context receiver</dt><dd id="traffic-voice-context-receiver">-</dd></div>
-                    <div><dt>Receiver policy</dt><dd id="traffic-voice-receiver-policy">-</dd></div>
-                    <div><dt>Backend</dt><dd id="traffic-voice-backend">-</dd></div>
-                    <div><dt>Speaker label</dt><dd id="traffic-voice-speaker-label">Possible speaker</dd></div>
-                </dl>
-                <p id="traffic-voice-contract-message" class="traffic-voice-contract-message" aria-live="polite">Loading Marine Voice contract...</p>
-            </section>
-        </div>
+            </div>
+            <dl class="traffic-voice-runtime-summary">
+                <div><dt>Selected mode</dt><dd id="traffic-voice-selected-mode">-</dd></div>
+                <div><dt>Voice receiver</dt><dd id="traffic-voice-voice-receiver">-</dd></div>
+                <div><dt>Context receiver</dt><dd id="traffic-voice-context-receiver">-</dd></div>
+                <div><dt>Backend</dt><dd id="traffic-voice-backend">-</dd></div>
+            </dl>
+            <div class="traffic-voice-controls">
+                <button id="traffic-voice-stop" type="button" class="traffic-voice-button is-stop">Stop Voice</button>
+                <span id="traffic-voice-action-message" aria-live="polite">Ready.</span>
+            </div>
+            <div class="traffic-voice-receiver-controls" aria-label="Traffic Voice receiver controls">
+                <label>Receive mode
+                    <select id="traffic-voice-tuning-mode">
+                        <option value="scan">Scan all channels</option>
+                        <option value="fixed">Fixed channel</option>
+                    </select>
+                </label>
+                <label>Channel
+                    <select id="traffic-voice-channel-select"></select>
+                </label>
+                <label>Gain
+                    <select id="traffic-voice-gain"></select>
+                </label>
+                <label>Squelch <span id="traffic-voice-squelch-value">6.0 dB</span>
+                    <input id="traffic-voice-squelch" type="range" min="1" max="30" step="0.5" value="6">
+                </label>
+                <button id="traffic-voice-apply-settings" type="button" class="traffic-voice-button">Apply settings</button>
+                <button id="traffic-voice-open-squelch" type="button" class="traffic-voice-button is-test">Open squelch / Test</button>
+            </div>
+            <div class="traffic-voice-audio-controls">
+                <button id="traffic-voice-audio-toggle" type="button" class="traffic-voice-button" disabled>▶ Live audio</button>
+                <label>Browser volume
+                    <input id="traffic-voice-volume" type="range" min="0" max="1" step="0.05" value="0.85">
+                </label>
+                <span id="traffic-voice-audio-detail">Waiting for Voice.</span>
+                <audio id="traffic-voice-audio" preload="none"></audio>
+            </div>
+            <div class="traffic-voice-signal-metrics">
+                <div><span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
+                <div><span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
+                <div><span>Gain / squelch</span><strong id="traffic-voice-rf-settings">-</strong></div>
+                <div><span>Strongest channel</span><strong id="traffic-voice-active-channel">-</strong></div>
+                <div><span>Signal / SNR</span><strong id="traffic-voice-signal">-</strong></div>
+                <div><span>Possible speaker</span><strong id="traffic-voice-possible-speaker">NOT INFERRED</strong></div>
+            </div>
+            <p id="traffic-voice-contract-message" class="traffic-voice-contract-message" aria-live="polite">Loading Traffic Voice contract...</p>
+        </section>
     </div>
 </section>
 
@@ -1255,6 +1254,6 @@
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.54.0i-r2"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
-<script src="/static/js/traffic_voice.js?v=0.55.0b"></script>
+<script src="/static/js/traffic_voice.js?v=0.55.0c-r3"></script>
 </body>
 </html>

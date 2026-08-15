@@ -85,16 +85,16 @@ def validate_banks_and_rendering():
     )
     marine = settings["modes"]["marine_ais"]
     airband = settings["modes"]["airband_adsb"]
-    check(marine["channel_bank"] == "coen_rotterdam", "local Rotterdam bank selected")
+    check(marine["channel_bank"] == "rotterdam_port", "Rotterdam Port bank selected")
     check(len(marine["channels"]) == 27, "all 27 local Marine favourites included")
     check(len({item["id"] for item in marine["channels"]}) == 27, "Marine channel IDs are unique")
     check(len({float(item["frequency_mhz"]) for item in marine["channels"]}) == 27, "Marine frequencies are unique")
     check({"V61_BOTLEK", "V60_WAALH", "VLAARDING", "ROEIERS", "BOLUDA"}.issubset(
         {item["label"] for item in marine["channels"]}
     ), "local port favourites are preserved")
-    check(airband["channel_bank"] == "coen_zestienhoven", "Zestienhoven bank selected")
+    check(airband["channel_bank"] == "rotterdam_aviation", "Rotterdam Aviation bank selected")
     check(len(airband["channels"]) == 13, "all 13 aviation favourites included")
-    check(airband["execution_enabled"] is False, "Airband execution remains fail-closed")
+    check(airband["execution_enabled"] is True, "Airband bank remains valid after execution enablement")
     check({"MIL_TOWE", "MIL_TACT", "MIL_L-L"}.issubset(
         {item["label"] for item in airband["channels"]}
     ), "three military AM favourites are preserved")
@@ -107,14 +107,28 @@ def validate_banks_and_rendering():
     check(air_tuning[122.99] == 122.991667, "RTM Approach channel designator maps to SDR carrier")
     check(air_tuning[121.205] == 121.2, "Schiphol West channel designator maps to SDR carrier")
 
-    rendered = traffic_voice.render_rtlsdr_airband_config()
+    render_payload = deepcopy(raw)
+    render_payload["traffic_voice"]["selected_mode"] = "marine_ais"
+    render_payload["traffic_voice"]["modes"]["marine_ais"]["tuning_mode"] = "scan"
+    render_payload["traffic_voice"]["backend"]["open_squelch"] = False
+    with patch.object(config, "load_traffic_voice", return_value=render_payload):
+        rendered = traffic_voice.render_rtlsdr_airband_config()
     check(rendered.count("frequency_mhz") == 0, "backend receives rendered frequencies, not YAML field names")
     check('labels = ( "CH16_NOOD"' in rendered and '"BOLUDA"' in rendered, "scan render contains the full named Marine bank")
-    check("squelch_snr_threshold = 6.0;" in rendered, "configured normal squelch is rendered")
+    expected_squelch = float(render_payload["traffic_voice"]["backend"]["squelch_snr_db"])
+    check(
+        f"squelch_snr_threshold = {expected_squelch:.1f};" in rendered,
+        "configured normal squelch is rendered",
+    )
 
     with tempfile.TemporaryDirectory(prefix="sdrcc-tv-controls-") as directory:
         config_path = Path(directory) / "traffic_voice.yaml"
-        config_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+        controls_payload = deepcopy(raw)
+        controls_payload["traffic_voice"]["selected_mode"] = "marine_ais"
+        config_path.write_text(
+            yaml.safe_dump(controls_payload, sort_keys=False),
+            encoding="utf-8",
+        )
         with patch.object(config, "TRAFFIC_VOICE_CONFIG", config_path):
             fixed = traffic_voice.save_receiver_settings({
                 "tuning_mode": "fixed",
@@ -146,11 +160,16 @@ def validate_settings_transaction():
     from core import config, traffic_voice, traffic_voice_controller
 
     original = config.load_traffic_voice()
+    transaction_payload = deepcopy(original)
+    transaction_payload["traffic_voice"]["selected_mode"] = "marine_ais"
     assignments = config.get_receiver_assignments()
     free_manager = {"canonical_reservations": {}}
     with tempfile.TemporaryDirectory(prefix="sdrcc-tv-transaction-") as directory:
         config_path = Path(directory) / "traffic_voice.yaml"
-        config_path.write_text(yaml.safe_dump(original, sort_keys=False), encoding="utf-8")
+        config_path.write_text(
+            yaml.safe_dump(transaction_payload, sort_keys=False),
+            encoding="utf-8",
+        )
         with (
             patch.object(config, "TRAFFIC_VOICE_CONFIG", config_path),
             patch.object(config, "get_receiver_assignments", return_value=assignments),

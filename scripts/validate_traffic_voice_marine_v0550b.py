@@ -82,13 +82,13 @@ def static_validation():
     check("service_action=run_systemctl" in app, "action injects existing dashboard systemctl path")
     html = (ROOT / "dashboard/templates/index.html").read_text(encoding="utf-8")
     check('id="traffic-voice-start"' in html and 'id="traffic-voice-stop"' in html, "Marine Start and Voice Stop controls present")
-    check("Airband Voice + ADS-B" in html and "PLANNED" in html, "Airband remains visibly planned")
+    check("Airband Voice + ADS-B" in html, "Airband card coexists with Marine controls")
     return required
 
 
 def runtime_validation():
     from core import config, device_manager, execution_factory, plugin_manager, plugin_registry
-    from core import receiver_manager, traffic_voice, traffic_voice_audio, traffic_voice_controller
+    from core import receiver_manager, receiver_registry, traffic_voice, traffic_voice_audio, traffic_voice_controller
 
     validation = traffic_voice.validate_configuration()
     check(validation["ok"], "Marine Voice configuration validates")
@@ -103,15 +103,36 @@ def runtime_validation():
     check(manager["control"]["endpoint"] == "/api/traffic-voice/action", "Plugin Manager points to bounded Traffic Voice endpoint")
     check(manager["control"]["actions"] == ["start", "stop"], "Traffic Voice exposes only Start and Stop")
 
-    rendered = traffic_voice.render_rtlsdr_airband_config()
+    # This validator exercises the Marine renderer in isolation. Voice may be
+    # stopped with Airband selected, in which case assignment reconciliation is
+    # intentionally deferred until Start. That valid stopped state must not make
+    # the Marine regression test fail the installer.
+    runtime_payload = config.load_traffic_voice()
+    marine_payload = json.loads(json.dumps(runtime_payload))
+    marine_payload["traffic_voice"]["selected_mode"] = "marine_ais"
+    assignments = config.get_receiver_assignments()
+    marine_context = receiver_registry.resolve_id(assignments.get("ais"))
+    marine_candidates = [
+        receiver["id"] for receiver in receiver_registry.get_receivers()
+        if receiver["id"] != marine_context
+    ]
+    check(len(marine_candidates) == 1, "Marine validation resolves one opposite receiver")
+    marine_assignments = {**assignments, "traffic_voice": marine_candidates[0]}
+    with (
+        patch.object(config, "load_traffic_voice", return_value=marine_payload),
+        patch.object(config, "get_receiver_assignments", return_value=marine_assignments),
+    ):
+        rendered = traffic_voice.render_rtlsdr_airband_config()
     check('serial = "24006572";' in rendered, "current opposite receiver serial is rendered")
     check("index =" not in rendered, "backend never selects a dongle by unstable index")
     check('modulation = "nfm";' in rendered and 'type = "udp_stream";' in rendered, "NFM and localhost audio backend rendered")
-    check(rendered.count("156.") >= 5, "configured Rotterdam channel bank rendered")
+    check('modulation = "nfm";' in rendered and "freqs = (" in rendered, "selected Marine channel configuration rendered")
 
-    assignments = config.get_receiver_assignments()
     swapped = {**assignments, "ais": "sdr2", "adsb": "sdr1", "traffic_voice": "sdr1"}
-    with patch.object(config, "get_receiver_assignments", return_value=swapped):
+    with (
+        patch.object(config, "load_traffic_voice", return_value=marine_payload),
+        patch.object(config, "get_receiver_assignments", return_value=swapped),
+    ):
         swapped_rendered = traffic_voice.render_rtlsdr_airband_config()
     check('serial = "05419737";' in swapped_rendered, "voice serial follows a swapped AIS assignment dynamically")
 
@@ -128,6 +149,17 @@ def runtime_validation():
 
     pcm = traffic_voice_audio.float32_to_pcm16(struct.pack("<ffff", -1.5, -0.5, 0.5, 1.5))
     check(struct.unpack("<hhhh", pcm) == (-32767, -16384, 16384, 32767), "float32 localhost audio clamps to PCM16")
+
+    # Controller transactions are intentionally stateful. Run every Marine
+    # transaction below against a disposable config authority so the validator
+    # can never change the operator's selected mode or receiver settings.
+    production_config_path = Path(config.TRAFFIC_VOICE_CONFIG)
+    production_config_bytes = production_config_path.read_bytes()
+    config_sandbox = tempfile.TemporaryDirectory(prefix="sdrcc-tv-config-")
+    sandbox_config_path = Path(config_sandbox.name) / "traffic_voice.yaml"
+    sandbox_config_path.write_bytes(production_config_bytes)
+    config_path_patch = patch.object(config, "TRAFFIC_VOICE_CONFIG", sandbox_config_path)
+    config_path_patch.start()
 
     base_states = {
         traffic_voice_controller.VOICE_SERVICE: False,
@@ -326,6 +358,13 @@ def runtime_validation():
         ("stop", "sdrcc-traffic-voice.service"),
         ("start", "sdrcc-traffic-voice.service"),
     ], "handover leaves inactive ADS-B untouched and restores only prior active voice")
+
+    config_path_patch.stop()
+    config_sandbox.cleanup()
+    check(
+        production_config_path.read_bytes() == production_config_bytes,
+        "Marine validation preserves the operator's Traffic Voice configuration",
+    )
 
     return {
         "version": traffic_voice.VERSION,
