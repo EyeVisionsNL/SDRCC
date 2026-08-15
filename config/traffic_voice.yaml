@@ -1,13 +1,26 @@
 version: 1
 traffic_voice:
-  foundation_only: true
-  execution_enabled: false
+  foundation_only: false
+  execution_enabled: true
   selected_mode: marine_ais
   receiver_policy: opposite_context_receiver
+  channel_source: RT-950PRO_CPS_ChannelListChirpData_laatste.csv
   backend:
     name: rtlsdr_airband
+    version: 5.2.0
+    commit: 61c5c4061967752da6b491a924664d72184b38fa
+    binary: /opt/sdrcc/traffic_voice/bin/rtl_airband
+    service: sdrcc-traffic-voice.service
     audio_transport: local_udp_pcm
+    audio_host: 127.0.0.1
+    audio_port: 49555
+    audio_sample_rate_hz: 16000
     activity_source: channel_statistics
+    stats_file: /run/sdrcc-traffic-voice/channel-stats.prom
+    gain_db: 20.7
+    correction_ppm: 0
+    squelch_snr_db: 2.0
+    open_squelch: false
   spectrum:
     mode: channel_activity
     fft_enabled: false
@@ -22,13 +35,152 @@ traffic_voice:
       modulation: nfm
       context_plugin: ais
       inactive_plugin: adsb
-      channel_bank: marine_nl
-      channels: []
+      channel_bank: coen_rotterdam
+      execution_enabled: true
+      tuning_mode: fixed
+      selected_channel_id: v60_waalh
+      channels:
+      - id: ch16_nood
+        label: CH16_NOOD
+        frequency_mhz: 156.8
+      - id: ch13_brug
+        label: CH13_BRUG
+        frequency_mhz: 156.65
+      - id: ch11_vts
+        label: CH11_VTS
+        frequency_mhz: 156.55
+      - id: ch14_vts
+        label: CH14_VTS
+        frequency_mhz: 156.7
+      - id: ch12_haven
+        label: CH12_HAVEN
+        frequency_mhz: 156.6
+      - id: ch10_werk
+        label: CH10_WERK
+        frequency_mhz: 156.5
+      - id: ch09_oproep
+        label: CH09_OPROEP
+        frequency_mhz: 156.45
+      - id: ch08_werk
+        label: CH08_WERK
+        frequency_mhz: 156.4
+      - id: ch06_sleep
+        label: CH06_SLEEP
+        frequency_mhz: 156.3
+      - id: v61_botlek
+        label: V61_BOTLEK
+        frequency_mhz: 160.675
+      - id: v60_waalh
+        label: V60_WAALH
+        frequency_mhz: 160.625
+      - id: v63_eemhv
+        label: V63_EEMHV
+        frequency_mhz: 160.775
+      - id: vlaarding
+        label: VLAARDING
+        frequency_mhz: 157.0
+      - id: roeiers
+        label: ROEIERS
+        frequency_mhz: 160.11
+      - id: boluda
+        label: BOLUDA
+        frequency_mhz: 162.2
+      - id: v01_maasap
+        label: V01_MAASAP
+        frequency_mhz: 160.65
+      - id: v02_maaspl
+        label: V02_MAASPL
+        frequency_mhz: 160.7
+      - id: v03_maasmd
+        label: V03_MAASMD
+        frequency_mhz: 160.75
+      - id: v04_heerj
+        label: V04_HEERJ
+        frequency_mhz: 160.8
+      - id: v05_rozbg
+        label: V05_ROZBG
+        frequency_mhz: 160.85
+      - id: v62_oudem
+        label: V62_OUDEM
+        frequency_mhz: 160.725
+      - id: v65_rozbg2
+        label: V65_ROZBG2
+        frequency_mhz: 160.875
+      - id: v66_europt
+        label: V66_EUROPT
+        frequency_mhz: 160.925
+      - id: v79_dordr
+        label: V79_DORDR
+        frequency_mhz: 161.575
+      - id: v80_maassl
+        label: V80_MAASSL
+        frequency_mhz: 161.625
+      - id: v81_maasbr
+        label: V81_MAASBR
+        frequency_mhz: 161.675
+      - id: v19_hcc
+        label: V19_HCC
+        frequency_mhz: 161.55
     airband_adsb:
       label: Airband Voice + ADS-B
       voice_profile: airband_voice
       modulation: am
       context_plugin: adsb
       inactive_plugin: ais
-      channel_bank: airband_nl
-      channels: []
+      channel_bank: coen_zestienhoven
+      execution_enabled: false
+      tuning_mode: scan
+      selected_channel_id: rtm_tower
+      channels:
+      - id: mil_tower
+        label: MIL_TOWE
+        channel_mhz: 139.1
+        frequency_mhz: 139.1
+      - id: mil_tactical
+        label: MIL_TACT
+        channel_mhz: 141.2
+        frequency_mhz: 141.2
+      - id: sar_heli
+        label: SAR_HELI
+        channel_mhz: 123.1
+        frequency_mhz: 123.1
+      - id: heli_traffic
+        label: HELI_TRA
+        channel_mhz: 123.45
+        frequency_mhz: 123.45
+      - id: mil_air_to_air
+        label: MIL_L-L
+        channel_mhz: 140.4
+        frequency_mhz: 140.4
+      - id: neth_info
+        label: NETH_INF
+        channel_mhz: 132.35
+        frequency_mhz: 132.35
+      - id: rtm_tower
+        label: RTM_TOWER
+        channel_mhz: 118.205
+        frequency_mhz: 118.2
+      - id: rtm_delivery
+        label: RTM_DELI
+        channel_mhz: 122.18
+        frequency_mhz: 122.175
+      - id: rtm_approach
+        label: RTM_APPR
+        channel_mhz: 122.99
+        frequency_mhz: 122.991667
+      - id: police_heli
+        label: POLICE_HE
+        channel_mhz: 131.35
+        frequency_mhz: 131.35
+      - id: lifeline_2
+        label: LIFELINE2
+        channel_mhz: 124.3
+        frequency_mhz: 124.3
+      - id: schiphol_west
+        label: SCHIP_WST
+        channel_mhz: 121.205
+        frequency_mhz: 121.2
+      - id: air_emergency
+        label: AIR_EMRG
+        channel_mhz: 121.5
+        frequency_mhz: 121.5

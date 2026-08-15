@@ -20,7 +20,7 @@ EXPECTED_ADAPTERS = {
     "ais": "service",
     "adsb": "service",
     "iss_voice": "wideband_iq",
-    "traffic_voice": "null",
+    "traffic_voice": "service",
     "meshcore": "null",
 }
 
@@ -136,7 +136,9 @@ def validate_runtime_contract() -> dict[str, Any]:
         raise RuntimeError("Execution adapter validity ontbreekt in summary")
     if summary.get("execution_foundation_only") is not False:
         raise RuntimeError("Actuele delegated execution-status ontbreekt in summary")
-    if summary.get("execution_enabled_plugins") != ["weather", "ais", "adsb"]:
+    if summary.get("execution_enabled_plugins") != [
+        "weather", "ais", "adsb", "traffic_voice",
+    ]:
         raise RuntimeError("Onverwachte lijst met execution-enabled plugins")
 
     embedded = manager.get("execution")
@@ -175,7 +177,7 @@ def validate_runtime_contract() -> dict[str, Any]:
             raise RuntimeError(f"{plugin_id}: execution discovery ontbreekt")
         actual[str(plugin_id)] = str(execution.get("adapter_type"))
 
-        delegated = plugin_id in {"weather", "ais", "adsb"}
+        delegated = plugin_id in {"weather", "ais", "adsb", "traffic_voice"}
         if execution.get("executable") is not delegated:
             raise RuntimeError(f"{plugin_id}: executable-delegatie klopt niet")
         if execution.get("foundation_only") is delegated:
@@ -196,7 +198,7 @@ def validate_runtime_contract() -> dict[str, Any]:
         item.get("plugin_id")
         for item in active_only.get("plugins", [])
     ]
-    if active_ids != ["weather", "ais", "adsb", "iss_voice"]:
+    if active_ids != ["weather", "ais", "adsb", "iss_voice", "traffic_voice"]:
         raise RuntimeError(
             f"include_planned=False levert onverwachte plugins: {active_ids}"
         )

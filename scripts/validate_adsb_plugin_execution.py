@@ -26,7 +26,7 @@ adsb = plugins["adsb"]
 weather = plugins["weather"]
 
 check(snapshot["manager_version"] == "0.45.0", "Plugin Manager-versie is v0.45.0")
-check(snapshot["execution_enablement"]["enabled_plugins"] == ["weather", "ais", "adsb"], "Weather, AIS en ADS-B zijn execution-enabled")
+check(snapshot["execution_enablement"]["enabled_plugins"] == ["weather", "ais", "adsb", "traffic_voice"], "Weather, AIS, ADS-B en Traffic Voice zijn execution-enabled")
 check(ais["control"]["enabled"] is True, "AIS blijft ingeschakeld")
 check(adsb["control"]["enabled"] is True, "ADS-B-control is ingeschakeld")
 check(adsb["control"]["actions"] == ["start", "stop", "restart"], "ADS-B-acties zijn begrensd")
@@ -72,7 +72,7 @@ check('handle_service_action(' in route_block, "Plugin Manager-route hergebruikt
 print({
     "status": "ok",
     "version": "0.45.0",
-    "enabled_plugins": ["weather", "ais", "adsb"],
+    "enabled_plugins": ["weather", "ais", "adsb", "traffic_voice"],
     "authority": "existing_dashboard_systemctl_path",
     "delegated_service": "readsb.service",
 })

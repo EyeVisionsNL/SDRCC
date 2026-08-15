@@ -34,9 +34,9 @@ EXPECTED = {
         "target_type": "wideband_iq_capture",
     },
     "traffic_voice": {
-        "adapter_type": "null",
-        "launch_type": "none",
-        "target_type": "none",
+        "adapter_type": "service",
+        "launch_type": "persistent_service",
+        "target_type": "systemd_service",
     },
     "meshcore": {
         "adapter_type": "null",
@@ -148,9 +148,9 @@ def runtime_validation() -> dict:
     assert voice_plan["targets"] == ["ISS (ZARYA)"]
     assert "bounded_capture_duration" in voice_plan["requirements"]
 
-    null_plan = execution_factory.build_plan("traffic_voice")
-    assert null_plan["targets"] == []
-    assert null_plan["requirements"] == ["execution_backend_required"]
+    traffic_plan = execution_factory.build_plan("traffic_voice")
+    assert traffic_plan["targets"] == ["sdrcc-traffic-voice.service"]
+    assert "receiver_available" in traffic_plan["requirements"]
 
     for plugin_id in EXPECTED:
         adapter = execution_factory.get_adapter(plugin_id)
@@ -172,7 +172,7 @@ def runtime_validation() -> dict:
     assert manager["summary"]["execution_plans_valid"] is True
     assert manager["summary"]["execution_planning_only"] is False
     assert manager["summary"]["execution_enabled_plugins"] == [
-        "weather", "ais", "adsb",
+        "weather", "ais", "adsb", "traffic_voice",
     ]
     assert manager["planning_source"] == "execution_factory"
     assert manager["planning_authority"] == "description_only"
@@ -199,6 +199,7 @@ def runtime_validation() -> dict:
         "service_targets": {
             "ais": ais["targets"],
             "adsb": adsb["targets"],
+            "traffic_voice": traffic_plan["targets"],
         },
         "source_status": manager["source_status"],
         "summary": manager["summary"],

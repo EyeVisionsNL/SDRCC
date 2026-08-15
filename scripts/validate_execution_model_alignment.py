@@ -27,7 +27,7 @@ weather = plugins["weather"]
 
 require(snapshot["manager_version"] == "0.45.0", "Plugin Manager-versie is v0.45.0")
 require(snapshot["execution_enablement"]["model_aligned"] is True, "effective execution-model is aligned")
-require(snapshot["summary"]["execution_enabled_plugins"] == ["weather", "ais", "adsb"], "Weather, AIS en ADS-B zijn effectief execution-enabled")
+require(snapshot["summary"]["execution_enabled_plugins"] == ["weather", "ais", "adsb", "traffic_voice"], "Weather, AIS, ADS-B en Traffic Voice zijn effectief execution-enabled")
 require(snapshot["summary"]["execution_foundation_only"] is False, "manager rapporteert niet langer foundation-only")
 require(snapshot["summary"]["execution_planning_only"] is False, "manager rapporteert niet langer planning-only")
 require(ais["execution"]["executable"] is True, "AIS execution is executable")

@@ -32,7 +32,7 @@
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0s-r1">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.54.0u-r1">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.54.0v-r2">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.55.0a">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.55.0b">
 </head>
 <body>
 <div
@@ -642,11 +642,11 @@
             <div>
                 <span class="traffic-voice-eyebrow">VHF COMMUNICATIONS</span>
                 <h2>🎙 Traffic Voice Monitor</h2>
-                <p>One listening mode at a time, with the other receiver reserved for live traffic context.</p>
+                <p>Live Marine VHF audio on the receiver opposite AIS, with one transaction-safe Start action.</p>
             </div>
             <div class="traffic-voice-header-badges">
                 <span id="traffic-voice-status" class="traffic-voice-badge is-foundation">LOADING</span>
-                <span class="traffic-voice-badge is-read-only">READ ONLY</span>
+                <span id="traffic-voice-service-state" class="traffic-voice-badge is-offline">STOPPED</span>
             </div>
         </section>
 
@@ -658,7 +658,7 @@
                         <span>MARITIME</span>
                         <h3>Marine Voice + AIS</h3>
                     </div>
-                    <strong data-traffic-mode-state>AVAILABLE MODE</strong>
+                    <strong data-traffic-mode-state>ACTIVE MODE</strong>
                 </div>
                 <dl>
                     <div><dt>Voice</dt><dd data-traffic-mode-modulation>NFM</dd></div>
@@ -675,7 +675,7 @@
                         <span>AVIATION</span>
                         <h3>Airband Voice + ADS-B</h3>
                     </div>
-                    <strong data-traffic-mode-state>AVAILABLE MODE</strong>
+                    <strong data-traffic-mode-state>PLANNED</strong>
                 </div>
                 <dl>
                     <div><dt>Voice</dt><dd data-traffic-mode-modulation>AM</dd></div>
@@ -695,25 +695,55 @@
                     </div>
                     <span id="traffic-voice-execution" class="traffic-voice-badge is-offline">EXECUTION DISABLED</span>
                 </div>
-                <div class="traffic-voice-signal-placeholder" aria-label="Future channel activity display">
-                    <div class="traffic-voice-signal-bars" aria-hidden="true">
-                        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-                    </div>
-                    <strong>No SDR process is started in v0.55.0a</strong>
-                    <span>Live audio, squelch and channel activity arrive with the Marine Voice execution release.</span>
+                <div class="traffic-voice-controls">
+                    <button id="traffic-voice-start" type="button" class="traffic-voice-button is-start">Start Marine + AIS</button>
+                    <button id="traffic-voice-stop" type="button" class="traffic-voice-button is-stop">Stop Voice</button>
+                    <span id="traffic-voice-action-message" aria-live="polite">Ready.</span>
+                </div>
+                <div class="traffic-voice-receiver-controls" aria-label="Marine Voice receiver controls">
+                    <label>Receive mode
+                        <select id="traffic-voice-tuning-mode">
+                            <option value="scan">Scan all channels</option>
+                            <option value="fixed">Fixed channel</option>
+                        </select>
+                    </label>
+                    <label>Channel
+                        <select id="traffic-voice-channel-select"></select>
+                    </label>
+                    <label>Gain
+                        <select id="traffic-voice-gain"></select>
+                    </label>
+                    <label>Squelch <span id="traffic-voice-squelch-value">6.0 dB</span>
+                        <input id="traffic-voice-squelch" type="range" min="1" max="30" step="0.5" value="6">
+                    </label>
+                    <button id="traffic-voice-apply-settings" type="button" class="traffic-voice-button">Apply settings</button>
+                    <button id="traffic-voice-open-squelch" type="button" class="traffic-voice-button is-test">Open squelch / Test</button>
+                </div>
+                <div class="traffic-voice-audio-controls">
+                    <button id="traffic-voice-audio-toggle" type="button" class="traffic-voice-button" disabled>▶ Live audio</button>
+                    <label>Browser volume
+                        <input id="traffic-voice-volume" type="range" min="0" max="1" step="0.05" value="0.85">
+                    </label>
+                    <span id="traffic-voice-audio-detail">Waiting for Voice.</span>
+                    <audio id="traffic-voice-audio" preload="none"></audio>
+                </div>
+                <div id="traffic-voice-channel-activity" class="traffic-voice-channel-activity" aria-label="Live channel activity">
+                    <p>Channel statistics appear within about 15 seconds after start.</p>
                 </div>
                 <div class="traffic-voice-signal-metrics">
-                    <div><span>Audio</span><strong>OFFLINE</strong></div>
-                    <div><span>Active channel</span><strong>-</strong></div>
-                    <div><span>Signal</span><strong>- dBFS</strong></div>
-                    <div><span>Possible speaker</span><strong>NOT ACTIVE</strong></div>
+                    <div><span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
+                    <div><span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
+                    <div><span>Gain / squelch</span><strong id="traffic-voice-rf-settings">-</strong></div>
+                    <div><span>Strongest channel</span><strong id="traffic-voice-active-channel">-</strong></div>
+                    <div><span>Signal / SNR</span><strong id="traffic-voice-signal">-</strong></div>
+                    <div><span>Possible speaker</span><strong id="traffic-voice-possible-speaker">NOT INFERRED</strong></div>
                 </div>
             </section>
 
             <section class="card traffic-voice-contract-card">
                 <div class="traffic-voice-section-heading">
                     <div>
-                        <span>FOUNDATION CONTRACT</span>
+                        <span>LIVE CONTRACT</span>
                         <h3>Selected Configuration</h3>
                     </div>
                     <span id="traffic-voice-assignment-state" class="traffic-voice-badge">CHECKING</span>
@@ -723,10 +753,10 @@
                     <div><dt>Voice receiver</dt><dd id="traffic-voice-voice-receiver">-</dd></div>
                     <div><dt>Context receiver</dt><dd id="traffic-voice-context-receiver">-</dd></div>
                     <div><dt>Receiver policy</dt><dd id="traffic-voice-receiver-policy">-</dd></div>
-                    <div><dt>Planned backend</dt><dd id="traffic-voice-backend">-</dd></div>
+                    <div><dt>Backend</dt><dd id="traffic-voice-backend">-</dd></div>
                     <div><dt>Speaker label</dt><dd id="traffic-voice-speaker-label">Possible speaker</dd></div>
                 </dl>
-                <p id="traffic-voice-contract-message" class="traffic-voice-contract-message" aria-live="polite">Loading foundation contract...</p>
+                <p id="traffic-voice-contract-message" class="traffic-voice-contract-message" aria-live="polite">Loading Marine Voice contract...</p>
             </section>
         </div>
     </div>
@@ -1225,6 +1255,6 @@
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.54.0i-r2"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
-<script src="/static/js/traffic_voice.js?v=0.55.0a"></script>
+<script src="/static/js/traffic_voice.js?v=0.55.0b"></script>
 </body>
 </html>

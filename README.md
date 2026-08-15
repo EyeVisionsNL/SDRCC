@@ -40,7 +40,7 @@ Receiver-toewijzingen en standaardcontexten zijn via **Radio Control** instelbaa
 - Receiver Manager met reservering, context, service-observatie en hersteldoel.
 - Live Event Timeline en read-only Execution Journal.
 - AIS- en ADS-B-monitoring met live statistieken en ingebedde viewers.
-- Traffic Voice Monitor-foundation voor Marine Voice + AIS of Airband Voice + ADS-B; uitvoering blijft in v0.55.0a uitgeschakeld.
+- Uitvoerbare Traffic Voice Monitor voor Marine Voice + AIS, met dynamische receiverkeuze, lokale live-audio en kanaalactiviteit. Airband Voice + ADS-B blijft gepland.
 - Live RF Console, decodertelemetrie en idle Spectrum Scan.
 - Mission History, Mission Analytics, image pipeline en live logging.
 - Handmatige serviceregeling en veilige missiehulpmiddelen op het tabblad **System**.
@@ -86,7 +86,7 @@ Gezamenlijk overzicht van ADS-B, AIS en de eerstvolgende satellietpassage.
 
 ### Traffic Voice Monitor
 
-Read-only foundation voor één gekozen luisterstand tegelijk: **Marine Voice + AIS** of **Airband Voice + ADS-B**. De pagina valideert receiver-scheiding, configuratie en autoriteitsgrenzen. Audio, scanning en servicebesturing worden in v0.55.0a nog niet gestart.
+**Marine Voice + AIS** is uitvoerbaar: SDRCC leidt de voice-receiver bij iedere start af als de receiver tegenover de actuele AIS-toewijzing, stopt de inactieve ADS-B-context en start de gepinde RTLSDR-Airband-backend. De pagina biedt live PCM-audio en 15-seconden kanaalstatistieken zonder een tweede SDR-eigenaar. **Airband Voice + ADS-B** blijft zichtbaar als geplande volgende modus.
 
 ### Mission Planner
 

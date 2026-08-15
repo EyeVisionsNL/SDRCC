@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
-"""Read-only Traffic Voice Monitor foundation for SDRCC v0.55.0a.
-
-The module validates configuration and projects existing receiver assignments.
-It never opens an SDR, starts a process, controls a service, changes an
-assignment, reserves a receiver, or persists runtime state.
-"""
+"""Marine Voice configuration, runtime projection and backend rendering."""
 
 from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime
-from typing import Any
+from pathlib import Path
+import re
+import subprocess
+from typing import Any, Callable
 
 from core import config as config_core
-from core import plugin_registry
-from core import receiver_registry
+from core import plugin_registry, receiver_registry
 
 
-VERSION = "0.55.0a"
+VERSION = "0.55.0b"
 SCHEMA_VERSION = 1
 MODE_ORDER = ("marine_ais", "airband_adsb")
 MODE_CONTRACTS = {
@@ -34,6 +31,14 @@ MODE_CONTRACTS = {
         "inactive_plugin": "ais",
     },
 }
+MODE_FREQUENCY_RANGES = {
+    "marine_ais": (156.0, 162.3),
+    "airband_adsb": (118.0, 144.0),
+}
+_METRIC_RE = re.compile(
+    r'^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)\{(?P<labels>[^}]*)\}\s+(?P<value>[-+0-9.eE]+)$'
+)
+_LABEL_RE = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:\\.|[^"])*)"')
 
 
 def _now() -> str:
@@ -58,144 +63,415 @@ def _other_receiver(receiver_id: str | None) -> str | None:
     if context is None:
         return None
     candidates = [
-        item["id"]
-        for item in receiver_registry.get_receivers()
+        item["id"] for item in receiver_registry.get_receivers()
         if item["id"] != context
     ]
     return candidates[0] if len(candidates) == 1 else None
 
 
 def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Validate the static foundation schema and non-execution contract."""
     errors: list[str] = []
-    if payload is None:
-        raw = config_core.load_traffic_voice()
-    else:
-        raw = deepcopy(payload)
-
+    raw = config_core.load_traffic_voice() if payload is None else deepcopy(payload)
     if not isinstance(raw, dict):
         return {"ok": False, "errors": ["configuration root must be a mapping"]}
     if raw.get("version") != SCHEMA_VERSION:
         errors.append(f"version must be {SCHEMA_VERSION}")
-
     settings = raw.get("traffic_voice")
     if not isinstance(settings, dict):
         return {"ok": False, "errors": [*errors, "traffic_voice must be a mapping"]}
-
-    if settings.get("foundation_only") is not True:
-        errors.append("foundation_only must remain true")
-    if settings.get("execution_enabled") is not False:
-        errors.append("execution_enabled must remain false")
+    if settings.get("foundation_only") is not False:
+        errors.append("foundation_only must be false")
+    if settings.get("execution_enabled") is not True:
+        errors.append("execution_enabled must be true")
+    if settings.get("selected_mode") != "marine_ais":
+        errors.append("selected_mode must remain marine_ais in v0.55.0b")
     if settings.get("receiver_policy") != "opposite_context_receiver":
         errors.append("receiver_policy must be opposite_context_receiver")
-
-    selected_mode = str(settings.get("selected_mode") or "").strip().lower()
-    if selected_mode not in MODE_ORDER:
-        errors.append("selected_mode must be marine_ais or airband_adsb")
+    if not str(settings.get("channel_source") or "").strip():
+        errors.append("channel_source is required")
 
     backend = settings.get("backend")
     if not isinstance(backend, dict):
         errors.append("backend must be a mapping")
     else:
-        expected_backend = {
+        exact = {
             "name": "rtlsdr_airband",
+            "version": "5.2.0",
+            "service": "sdrcc-traffic-voice.service",
             "audio_transport": "local_udp_pcm",
             "activity_source": "channel_statistics",
         }
-        for field, expected in expected_backend.items():
+        for field, expected in exact.items():
             if backend.get(field) != expected:
                 errors.append(f"backend.{field} must be {expected}")
+        if backend.get("commit") != "61c5c4061967752da6b491a924664d72184b38fa":
+            errors.append("backend.commit is not the pinned v5.2.0 commit")
+        try:
+            port = int(backend.get("audio_port"))
+        except (TypeError, ValueError):
+            port = 0
+        if port <= 0 or port > 65535:
+            errors.append("backend.audio_port is invalid")
+        if int(backend.get("audio_sample_rate_hz") or 0) != 16000:
+            errors.append("backend.audio_sample_rate_hz must be 16000 for the pinned NFM build")
+        valid_gains = config_core.get_rtl_sdr_valid_gains()
+        try:
+            gain_db = float(backend.get("gain_db"))
+        except (TypeError, ValueError):
+            gain_db = -1.0
+        if gain_db not in valid_gains:
+            errors.append("backend.gain_db is not a supported RTL-SDR gain")
+        try:
+            squelch_snr_db = float(backend.get("squelch_snr_db"))
+        except (TypeError, ValueError):
+            squelch_snr_db = -1.0
+        if squelch_snr_db < 1.0 or squelch_snr_db > 30.0:
+            errors.append("backend.squelch_snr_db must be between 1.0 and 30.0 dB")
+        if not isinstance(backend.get("open_squelch"), bool):
+            errors.append("backend.open_squelch must be a boolean")
 
-    spectrum = settings.get("spectrum")
-    if not isinstance(spectrum, dict):
-        errors.append("spectrum must be a mapping")
-    else:
-        if spectrum.get("mode") != "channel_activity":
-            errors.append("spectrum.mode must be channel_activity")
-        if spectrum.get("fft_enabled") is not False:
-            errors.append("spectrum.fft_enabled must remain false")
-
-    speaker = settings.get("speaker_context")
-    if not isinstance(speaker, dict):
-        errors.append("speaker_context must be a mapping")
-    else:
-        if speaker.get("label") != "possible_speaker":
-            errors.append("speaker_context.label must be possible_speaker")
-        if speaker.get("certainty") != "probabilistic":
-            errors.append("speaker_context.certainty must be probabilistic")
-        if speaker.get("asr_enabled") is not False:
-            errors.append("speaker_context.asr_enabled must remain false")
+    spectrum = settings.get("spectrum") or {}
+    if spectrum.get("mode") != "channel_activity" or spectrum.get("fft_enabled") is not False:
+        errors.append("spectrum must remain channel_activity with fft_enabled false")
+    speaker = settings.get("speaker_context") or {}
+    if speaker.get("label") != "possible_speaker" or speaker.get("certainty") != "probabilistic":
+        errors.append("speaker context must remain explicitly probabilistic")
+    if speaker.get("asr_enabled") is not False:
+        errors.append("speaker_context.asr_enabled must remain false")
 
     modes = settings.get("modes")
-    if not isinstance(modes, dict):
-        errors.append("modes must be a mapping")
-        modes = {}
-    if set(modes) != set(MODE_ORDER):
+    if not isinstance(modes, dict) or set(modes) != set(MODE_ORDER):
         errors.append("modes must contain exactly marine_ais and airband_adsb")
-
+        modes = modes if isinstance(modes, dict) else {}
     for mode_id in MODE_ORDER:
         mode = modes.get(mode_id)
         if not isinstance(mode, dict):
             errors.append(f"modes.{mode_id} must be a mapping")
             continue
-        if not str(mode.get("label") or "").strip():
-            errors.append(f"modes.{mode_id}.label is required")
         for field, expected in MODE_CONTRACTS[mode_id].items():
             if str(mode.get(field) or "").strip().lower() != expected:
                 errors.append(f"modes.{mode_id}.{field} must be {expected}")
-        if not str(mode.get("channel_bank") or "").strip():
-            errors.append(f"modes.{mode_id}.channel_bank is required")
-        if not isinstance(mode.get("channels"), list):
+        enabled = mode.get("execution_enabled")
+        if enabled is not (mode_id == "marine_ais"):
+            errors.append(f"modes.{mode_id}.execution_enabled is invalid")
+        channels = mode.get("channels")
+        if not isinstance(channels, list):
             errors.append(f"modes.{mode_id}.channels must be a list")
+            continue
+        if not channels:
+            errors.append(f"modes.{mode_id}.channels must not be empty")
+        tuning_mode = str(mode.get("tuning_mode") or "").strip().lower()
+        if tuning_mode not in {"scan", "fixed"}:
+            errors.append(f"modes.{mode_id}.tuning_mode must be scan or fixed")
+        selected_channel_id = str(mode.get("selected_channel_id") or "").strip()
+        ids: set[str] = set()
+        frequencies: set[float] = set()
+        minimum_frequency, maximum_frequency = MODE_FREQUENCY_RANGES[mode_id]
+        for index, channel in enumerate(channels):
+            prefix = f"modes.{mode_id}.channels[{index}]"
+            if not isinstance(channel, dict):
+                errors.append(f"{prefix} must be a mapping")
+                continue
+            channel_id = str(channel.get("id") or "").strip()
+            label = str(channel.get("label") or "").strip()
+            try:
+                frequency = round(float(channel.get("frequency_mhz")), 6)
+            except (TypeError, ValueError):
+                frequency = 0.0
+            if not channel_id or channel_id in ids:
+                errors.append(f"{prefix}.id is missing or duplicate")
+            if not label:
+                errors.append(f"{prefix}.label is required")
+            if (
+                frequency < minimum_frequency
+                or frequency > maximum_frequency
+                or frequency in frequencies
+            ):
+                errors.append(f"{prefix}.frequency_mhz is invalid or duplicate")
+            if mode_id == "airband_adsb":
+                try:
+                    channel_frequency = round(float(channel.get("channel_mhz")), 6)
+                except (TypeError, ValueError):
+                    channel_frequency = 0.0
+                if channel_frequency < minimum_frequency or channel_frequency > maximum_frequency:
+                    errors.append(f"{prefix}.channel_mhz is invalid")
+            ids.add(channel_id)
+            frequencies.add(frequency)
+        if selected_channel_id not in ids:
+            errors.append(f"modes.{mode_id}.selected_channel_id is unknown")
+    return {"ok": not errors, "schema_version": SCHEMA_VERSION, "errors": errors}
 
+
+def get_receiver_settings(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the single editable Marine receiver-settings projection."""
+    raw = config_core.load_traffic_voice() if payload is None else deepcopy(payload)
+    settings = raw.get("traffic_voice", {}) if isinstance(raw, dict) else {}
+    backend = settings.get("backend", {}) if isinstance(settings, dict) else {}
+    marine = (settings.get("modes", {}) or {}).get("marine_ais", {})
+    channels = deepcopy(marine.get("channels") or [])
     return {
-        "ok": not errors,
-        "schema_version": SCHEMA_VERSION,
-        "errors": errors,
+        "tuning_mode": str(marine.get("tuning_mode") or "scan").lower(),
+        "selected_channel_id": str(marine.get("selected_channel_id") or ""),
+        "gain_db": float(backend.get("gain_db") or 0.0),
+        "squelch_snr_db": float(backend.get("squelch_snr_db") or 0.0),
+        "open_squelch": backend.get("open_squelch") is True,
+        "valid_gains": config_core.get_rtl_sdr_valid_gains(),
+        "channels": channels,
     }
 
 
-def get_snapshot() -> dict[str, Any]:
-    """Return the complete read-only foundation snapshot."""
+def normalize_receiver_settings(
+    changes: dict[str, Any],
+    *,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if not isinstance(changes, dict):
+        raise ValueError("Traffic Voice-instellingen moeten een mapping zijn")
+    current = get_receiver_settings(payload)
+    tuning_mode = str(changes.get("tuning_mode", current["tuning_mode"])).strip().lower()
+    if tuning_mode not in {"scan", "fixed"}:
+        raise ValueError("Afstemmodus moet scan of fixed zijn")
+    selected_channel_id = str(
+        changes.get("selected_channel_id", current["selected_channel_id"])
+    ).strip()
+    channel_ids = {str(item.get("id") or "") for item in current["channels"]}
+    if selected_channel_id not in channel_ids:
+        raise ValueError("Onbekend Marine Voice-kanaal")
+    try:
+        gain_db = float(changes.get("gain_db", current["gain_db"]))
+    except (TypeError, ValueError) as error:
+        raise ValueError("Ongeldige Traffic Voice-gain") from error
+    if gain_db not in current["valid_gains"]:
+        raise ValueError("Deze gain wordt niet door de RTL-SDR ondersteund")
+    try:
+        squelch_snr_db = float(
+            changes.get("squelch_snr_db", current["squelch_snr_db"])
+        )
+    except (TypeError, ValueError) as error:
+        raise ValueError("Ongeldige Traffic Voice-squelch") from error
+    if squelch_snr_db < 1.0 or squelch_snr_db > 30.0:
+        raise ValueError("Squelch moet tussen 1,0 en 30,0 dB liggen")
+    open_squelch = changes.get("open_squelch", current["open_squelch"])
+    if not isinstance(open_squelch, bool):
+        raise ValueError("Open squelch moet true of false zijn")
+    return {
+        "tuning_mode": tuning_mode,
+        "selected_channel_id": selected_channel_id,
+        "gain_db": gain_db,
+        "squelch_snr_db": squelch_snr_db,
+        "open_squelch": open_squelch,
+    }
+
+
+def save_receiver_settings(changes: dict[str, Any]) -> dict[str, Any]:
+    """Persist validated controls in config/traffic_voice.yaml only."""
+    raw = config_core.load_traffic_voice()
+    normalized = normalize_receiver_settings(changes, payload=raw)
+    candidate = deepcopy(raw)
+    settings = candidate["traffic_voice"]
+    backend = settings["backend"]
+    marine = settings["modes"]["marine_ais"]
+    backend["gain_db"] = normalized["gain_db"]
+    backend["squelch_snr_db"] = normalized["squelch_snr_db"]
+    backend["open_squelch"] = normalized["open_squelch"]
+    marine["tuning_mode"] = normalized["tuning_mode"]
+    marine["selected_channel_id"] = normalized["selected_channel_id"]
+    validation = validate_configuration(candidate)
+    if not validation["ok"]:
+        raise ValueError("; ".join(validation["errors"]))
+    config_core.save_traffic_voice(candidate)
+    return get_receiver_settings()
+
+
+def _service_state(service_name: str) -> dict[str, Any]:
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", service_name],
+            text=True, capture_output=True, timeout=5, check=False,
+        )
+        state = result.stdout.strip() or result.stderr.strip() or "unknown"
+        return {"service": service_name, "active": state == "active", "state": state}
+    except (OSError, subprocess.SubprocessError) as error:
+        return {"service": service_name, "active": False, "state": "unknown", "error": str(error)}
+
+
+def parse_statistics(
+    text: str,
+    *,
+    possible_active_snr_db: float = 6.0,
+) -> list[dict[str, Any]]:
+    channels: dict[tuple[str, str], dict[str, Any]] = {}
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        match = _METRIC_RE.match(line)
+        if not match:
+            continue
+        labels = {
+            key: value.replace(r"\"", '"').replace(r"\\", "\\")
+            for key, value in _LABEL_RE.findall(match.group("labels"))
+        }
+        frequency = str(labels.get("freq") or labels.get("frequency") or "")
+        label = str(labels.get("label") or frequency)
+        if not frequency:
+            continue
+        try:
+            value = float(match.group("value"))
+            frequency_value = float(frequency)
+        except ValueError:
+            continue
+        if frequency_value < 1_000_000:
+            frequency_mhz = round(frequency_value, 6)
+            frequency_hz = int(round(frequency_mhz * 1_000_000.0))
+        else:
+            frequency_hz = int(round(frequency_value))
+            frequency_mhz = round(frequency_hz / 1_000_000.0, 6)
+        item = channels.setdefault((frequency, label), {
+            "frequency_hz": frequency_hz,
+            "frequency_mhz": frequency_mhz,
+            "label": label,
+        })
+        item[match.group("name")] = value
+
+    result = []
+    for item in channels.values():
+        signal = item.get("channel_dbfs_signal_level")
+        noise = item.get("channel_dbfs_noise_level")
+        snr = signal - noise if signal is not None and noise is not None else None
+        item["signal_dbfs"] = round(signal, 2) if signal is not None else None
+        item["noise_dbfs"] = round(noise, 2) if noise is not None else None
+        item["snr_db"] = round(snr, 2) if snr is not None else None
+        item["activity_count"] = int(item.get("channel_activity_counter") or 0)
+        item["squelch_count"] = int(item.get("channel_squelch_counter") or 0)
+        item["possible_active"] = bool(
+            snr is not None and snr >= float(possible_active_snr_db)
+        )
+        result.append(item)
+    return sorted(result, key=lambda item: item["frequency_hz"])
+
+
+def read_statistics(
+    path: str | Path,
+    *,
+    possible_active_snr_db: float = 6.0,
+) -> dict[str, Any]:
+    stats_path = Path(path)
+    try:
+        text = stats_path.read_text(encoding="utf-8")
+        age = max(0.0, datetime.now().timestamp() - stats_path.stat().st_mtime)
+        channels = parse_statistics(
+            text,
+            possible_active_snr_db=possible_active_snr_db,
+        )
+        return {
+            "available": True,
+            "fresh": age <= 35.0,
+            "age_seconds": round(age, 2),
+            "channels": channels,
+            "error": None,
+        }
+    except OSError as error:
+        return {"available": False, "fresh": False, "age_seconds": None, "channels": [], "error": str(error)}
+
+
+def _libconfig_string(value: Any) -> str:
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def render_rtlsdr_airband_config() -> str:
+    raw = config_core.load_traffic_voice()
+    validation = validate_configuration(raw)
+    if not validation["ok"]:
+        raise ValueError("; ".join(validation["errors"]))
+    settings = raw["traffic_voice"]
+    backend = settings["backend"]
+    assignments = config_core.get_receiver_assignments()
+    context_receiver = assignments.get("ais")
+    voice_receiver = _other_receiver(context_receiver)
+    assigned_voice = receiver_registry.resolve_id(assignments.get("traffic_voice"))
+    if voice_receiver is None or assigned_voice != voice_receiver:
+        raise RuntimeError("Traffic Voice assignment wijkt af van opposite_context_receiver")
+    receiver = receiver_registry.get_receiver(voice_receiver)
+    marine = settings["modes"]["marine_ais"]
+    receiver_settings = get_receiver_settings(raw)
+    channels = marine["channels"]
+    selected_channel = next(
+        item for item in channels
+        if item["id"] == receiver_settings["selected_channel_id"]
+    )
+    if receiver_settings["tuning_mode"] == "fixed" or receiver_settings["open_squelch"]:
+        channels = [selected_channel]
+    freqs = ", ".join(f"{float(item['frequency_mhz']):.6f}" for item in channels)
+    labels = ", ".join(_libconfig_string(item["label"]) for item in channels)
+    squelch_snr_db = (
+        0.0 if receiver_settings["open_squelch"]
+        else receiver_settings["squelch_snr_db"]
+    )
+    return "\n".join((
+        "# Generated by SDRCC v0.55.0b; do not edit runtime output.",
+        "log_scan_activity = true;",
+        f"stats_filepath = {_libconfig_string(backend['stats_file'])};",
+        "tau = 75;",
+        "devices:",
+        "({",
+        '  type = "rtlsdr";',
+        f"  serial = {_libconfig_string(receiver['serial'])};",
+        f"  gain = {receiver_settings['gain_db']:.1f};",
+        f"  correction = {int(backend['correction_ppm'])};",
+        '  mode = "scan";',
+        "  channels:",
+        "  (",
+        "    {",
+        '      modulation = "nfm";',
+        f"      freqs = ( {freqs} );",
+        f"      labels = ( {labels} );",
+        f"      squelch_snr_threshold = {squelch_snr_db:.1f};",
+        "      outputs: (",
+        "        {",
+        '          type = "udp_stream";',
+        f"          dest_address = {_libconfig_string(backend['audio_host'])};",
+        f"          dest_port = {int(backend['audio_port'])};",
+        "          continuous = true;",
+        "        }",
+        "      );",
+        "    }",
+        "  );",
+        " }",
+        ");",
+        "",
+    ))
+
+
+def get_snapshot(
+    *,
+    service_reader: Callable[[str], dict[str, Any]] | None = None,
+    audio_reader: Callable[[], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     raw = config_core.load_traffic_voice()
     validation = validate_configuration(raw)
     settings = raw.get("traffic_voice", {}) if isinstance(raw, dict) else {}
     modes_config = settings.get("modes", {}) if isinstance(settings, dict) else {}
     assignments = config_core.get_receiver_assignments()
     plugin = plugin_registry.get_plugin("traffic_voice")
-
-    contract_errors: list[str] = []
-    if plugin is None:
-        contract_errors.append("traffic_voice plugin metadata is missing")
-    else:
-        if plugin.get("status") != "planned":
-            contract_errors.append("traffic_voice plugin status must remain planned")
-        if plugin.get("executor") is not None:
-            contract_errors.append("traffic_voice executor must remain disabled")
-        if plugin.get("services") != [] or plugin.get("handover_services") != []:
-            contract_errors.append("traffic_voice must not declare services in v0.55.0a")
-        if plugin.get("assignment_role") != "traffic_voice":
-            contract_errors.append("traffic_voice assignment role is invalid")
-
+    errors = list(validation["errors"])
+    if not plugin or plugin.get("status") != "active" or plugin.get("executor") != "service":
+        errors.append("traffic_voice plugin must be an active service plugin")
+    if (plugin or {}).get("services") != ["sdrcc-traffic-voice.service"]:
+        errors.append("traffic_voice service metadata is invalid")
     receivers = receiver_registry.get_receivers()
     if len(receivers) != 2:
-        contract_errors.append("Traffic Voice foundation requires exactly two enabled receivers")
-    for receiver in receivers:
-        if "traffic_voice" not in set(receiver.get("capabilities") or []):
-            contract_errors.append(
-                f"{receiver.get('runtime_id')}: traffic_voice capability is missing"
-            )
+        errors.append("Traffic Voice requires exactly two enabled receivers")
 
-    selected_mode = str(settings.get("selected_mode") or "").strip().lower()
-    voice_receiver_id = assignments.get("traffic_voice")
     mode_snapshots: list[dict[str, Any]] = []
-    selected_assignment: dict[str, Any] | None = None
-
+    selected_assignment = None
+    selected_mode = str(settings.get("selected_mode") or "")
     for mode_id in MODE_ORDER:
         mode = deepcopy(modes_config.get(mode_id) or {})
-        context_plugin = str(mode.get("context_plugin") or "").strip().lower()
+        context_plugin = str(mode.get("context_plugin") or "")
         context_receiver_id = assignments.get(context_plugin)
         derived_voice_id = _other_receiver(context_receiver_id)
+        selected = mode_id == selected_mode
         item = {
             "id": mode_id,
             "label": mode.get("label") or mode_id,
@@ -205,59 +481,71 @@ def get_snapshot() -> dict[str, Any]:
             "inactive_plugin": mode.get("inactive_plugin"),
             "channel_bank": mode.get("channel_bank"),
             "channel_count": len(mode.get("channels") or []),
-            "selected": mode_id == selected_mode,
+            "channels": deepcopy(mode.get("channels") or []),
+            "selected": selected,
+            "execution_enabled": mode.get("execution_enabled") is True,
             "context_receiver": _receiver_projection(context_receiver_id),
             "derived_voice_receiver": _receiver_projection(derived_voice_id),
         }
         mode_snapshots.append(item)
-        if item["selected"]:
-            separated = bool(
-                voice_receiver_id
-                and context_receiver_id
-                and receiver_registry.resolve_id(voice_receiver_id)
-                != receiver_registry.resolve_id(context_receiver_id)
-            )
-            matches_policy = bool(
-                derived_voice_id
-                and receiver_registry.resolve_id(voice_receiver_id) == derived_voice_id
-            )
+        if selected:
+            assigned_voice_id = receiver_registry.resolve_id(assignments.get("traffic_voice"))
+            matches = bool(derived_voice_id and assigned_voice_id == derived_voice_id)
             selected_assignment = {
                 "voice_role": "traffic_voice",
-                "voice_receiver": _receiver_projection(voice_receiver_id),
+                "voice_receiver": _receiver_projection(assignments.get("traffic_voice")),
                 "context_plugin": context_plugin,
                 "context_receiver": _receiver_projection(context_receiver_id),
-                "separated": separated,
-                "matches_policy": matches_policy,
+                "separated": bool(
+                    assigned_voice_id
+                    and assigned_voice_id != receiver_registry.resolve_id(context_receiver_id)
+                ),
+                "matches_policy": matches,
             }
-            if not separated:
-                contract_errors.append(
-                    "selected voice and context roles must use different receivers"
-                )
-            if not matches_policy:
-                contract_errors.append(
-                    "traffic_voice assignment does not match opposite_context_receiver policy"
-                )
+            if not matches:
+                errors.append("traffic_voice assignment does not match opposite_context_receiver policy")
 
-    if selected_assignment is None:
-        contract_errors.append("selected mode has no assignment projection")
-
-    all_errors = [*validation["errors"], *contract_errors]
+    backend = deepcopy(settings.get("backend") or {})
+    receiver_settings = get_receiver_settings(raw)
+    backend["valid_gains"] = receiver_settings["valid_gains"]
+    service = (service_reader or _service_state)(
+        str(backend.get("service") or "sdrcc-traffic-voice.service")
+    )
+    activity = read_statistics(
+        str(backend.get("stats_file") or "/run/sdrcc-traffic-voice/channel-stats.prom"),
+        possible_active_snr_db=float(backend.get("squelch_snr_db") or 6.0),
+    )
+    if audio_reader is None:
+        from core import traffic_voice_audio
+        audio_reader = traffic_voice_audio.get_status
+    audio = audio_reader()
+    strongest = max(
+        activity["channels"],
+        key=lambda item: item.get("snr_db") if item.get("snr_db") is not None else -999.0,
+        default=None,
+    )
     return {
-        "ok": not all_errors,
+        "ok": not errors,
         "version": VERSION,
         "schema_version": SCHEMA_VERSION,
-        "source": "traffic_voice_foundation",
-        "read_only": True,
-        "foundation_only": True,
-        "execution_enabled": False,
-        "behavior_changed": False,
+        "source": "traffic_voice_marine",
+        "read_only": False,
+        "foundation_only": False,
+        "execution_enabled": True,
         "selected_mode": selected_mode,
         "receiver_policy": settings.get("receiver_policy"),
+        "channel_source": settings.get("channel_source"),
         "assignment": selected_assignment,
         "modes": mode_snapshots,
-        "backend": deepcopy(settings.get("backend") or {}),
+        "backend": backend,
+        "receiver_settings": receiver_settings,
+        "service": service,
+        "audio": audio,
+        "activity": activity,
+        "strongest_channel": strongest,
         "spectrum": deepcopy(settings.get("spectrum") or {}),
         "speaker_context": deepcopy(settings.get("speaker_context") or {}),
+        "possible_speaker": None,
         "authorities": {
             "configuration": "config/traffic_voice.yaml",
             "plugin_metadata": "plugin_registry",
@@ -265,20 +553,9 @@ def get_snapshot() -> dict[str, Any]:
             "receiver_assignment": "config/station.yaml:assignments",
             "receiver_runtime": "receiver_manager",
             "service_control": "existing_dashboard_systemctl_path",
+            "sdr_owner": "rtlsdr_airband",
+            "audio_bridge": "localhost_udp_observer",
         },
-        "prohibited_in_v0550a": [
-            "sdr_open",
-            "process_start",
-            "systemctl",
-            "receiver_reservation",
-            "assignment_write",
-            "runtime_persistence",
-        ],
-        "validation": {
-            "ok": not all_errors,
-            "configuration": validation,
-            "contract_errors": contract_errors,
-            "errors": all_errors,
-        },
+        "validation": {"ok": not errors, "configuration": validation, "errors": errors},
         "updated_at": _now(),
     }

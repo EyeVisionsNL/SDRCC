@@ -14,6 +14,7 @@ SCHEDULER_CONFIG = CONFIG_DIR / "scheduler.yaml"
 RECEIVERS_CONFIG = CONFIG_DIR / "receivers.yaml"
 TRAFFIC_VOICE_CONFIG = CONFIG_DIR / "traffic_voice.yaml"
 _station_write_lock = threading.RLock()
+_traffic_voice_write_lock = threading.RLock()
 
 RTL_SDR_VALID_GAINS = (
     0.0, 0.9, 1.4, 2.7, 3.7, 7.7, 8.7, 12.5, 14.4,
@@ -69,6 +70,32 @@ def get_traffic_voice_config():
     if not isinstance(traffic_voice, dict):
         raise ValueError("traffic_voice must be a YAML mapping")
     return traffic_voice
+
+
+def save_traffic_voice(data):
+    """Write traffic_voice.yaml atomically without creating another authority."""
+    if not isinstance(data, dict):
+        raise ValueError("Traffic Voice-configuratie moet een YAML mapping zijn")
+    with _traffic_voice_write_lock:
+        temp_path = TRAFFIC_VOICE_CONFIG.with_suffix(".yaml.tmp")
+        try:
+            with open(temp_path, "w", encoding="utf-8") as file:
+                yaml.safe_dump(data, file, sort_keys=False)
+                file.flush()
+                os.fsync(file.fileno())
+            if TRAFFIC_VOICE_CONFIG.exists():
+                os.chmod(temp_path, TRAFFIC_VOICE_CONFIG.stat().st_mode & 0o777)
+            temp_path.replace(TRAFFIC_VOICE_CONFIG)
+            directory_fd = os.open(TRAFFIC_VOICE_CONFIG.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        finally:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def get_rtl_sdr_valid_gains():

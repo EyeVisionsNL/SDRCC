@@ -95,7 +95,9 @@ def _merge_plugins(
         if not plugin_id:
             continue
 
-        execution_enabled = plugin_id in {"weather", "ais", "adsb"}
+        execution_enabled = plugin_id in {
+            "weather", "ais", "adsb", "traffic_voice",
+        }
         execution_item = deepcopy(execution_by_id.get(plugin_id))
         plan_item = deepcopy(planning_by_id.get(plugin_id))
 
@@ -151,13 +153,15 @@ def _merge_plugins(
                 "enabled": execution_enabled,
                 "actions": (
                     ["start", "stop"]
-                    if plugin_id == "weather" and execution_enabled
+                    if plugin_id in {"weather", "traffic_voice"} and execution_enabled
                     else ["start", "stop", "restart"]
                     if execution_enabled
                     else []
                 ),
                 "endpoint": (
-                    f"/api/plugin-manager/{plugin_id}/action"
+                    "/api/traffic-voice/action"
+                    if plugin_id == "traffic_voice" and execution_enabled
+                    else f"/api/plugin-manager/{plugin_id}/action"
                     if execution_enabled else None
                 ),
                 "authority": (
@@ -320,12 +324,13 @@ class PluginManager:
             "execution_authority": "delegation_only",
             "execution_enablement": {
                 "version": "0.45.0",
-                "enabled_plugins": ["weather", "ais", "adsb"],
+                "enabled_plugins": ["weather", "ais", "adsb", "traffic_voice"],
                 "authority": "delegated_existing_authority_paths",
                 "authority_by_plugin": {
                     "weather": "existing_mission_scheduler_autopilot_path",
                     "ais": "existing_dashboard_systemctl_path",
                     "adsb": "existing_dashboard_systemctl_path",
+                    "traffic_voice": "existing_dashboard_systemctl_path",
                 },
                 "new_service_controller": False,
                 "model_aligned": True,

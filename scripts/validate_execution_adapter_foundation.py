@@ -123,7 +123,7 @@ def validate_runtime_contract() -> dict[str, object]:
         "ais": "service",
         "adsb": "service",
         "iss_voice": "wideband_iq",
-        "traffic_voice": "null",
+        "traffic_voice": "service",
         "meshcore": "null",
     }
     actual = {

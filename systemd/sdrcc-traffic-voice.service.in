@@ -1,0 +1,25 @@
+[Unit]
+Description=SDRCC Traffic Voice Monitor (RTLSDR-Airband)
+After=network.target
+ConditionPathExists=/opt/sdrcc/traffic_voice/bin/rtl_airband
+
+[Service]
+Type=simple
+User=@PROJECT_USER@
+Group=@PROJECT_GROUP@
+SupplementaryGroups=plugdev dialout
+WorkingDirectory=@PROJECT_ROOT@
+RuntimeDirectory=sdrcc-traffic-voice
+RuntimeDirectoryMode=0750
+ExecStartPre=@PYTHON@ @PROJECT_ROOT@/scripts/traffic_voice_prepare.py --output /run/sdrcc-traffic-voice/rtl_airband.conf
+ExecStart=/opt/sdrcc/traffic_voice/bin/rtl_airband -F -e -c /run/sdrcc-traffic-voice/rtl_airband.conf
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/sdrcc-traffic-voice
+
+[Install]
+WantedBy=multi-user.target

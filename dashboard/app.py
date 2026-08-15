@@ -59,6 +59,8 @@ from core import profiles
 from core import satdump as satdump_core
 from core import satellite_view as satellite_view_core
 from core import traffic_voice as traffic_voice_core
+from core import traffic_voice_audio
+from core import traffic_voice_controller
 
 app = Flask(__name__)
 
@@ -2458,20 +2460,107 @@ def api_plugins():
 
 @app.route("/api/traffic-voice", methods=["GET"])
 def api_traffic_voice():
-    """Expose the read-only Traffic Voice Monitor foundation."""
+    """Expose Marine Voice configuration and observed runtime."""
     try:
         snapshot = traffic_voice_core.get_snapshot()
         return jsonify(snapshot), 200 if snapshot.get("ok") else 500
     except Exception as error:
         return jsonify({
             "ok": False,
-            "version": "0.55.0a",
-            "source": "traffic_voice_foundation",
-            "read_only": True,
-            "foundation_only": True,
-            "execution_enabled": False,
+            "version": "0.55.0b",
+            "source": "traffic_voice_marine",
+            "read_only": False,
+            "foundation_only": False,
+            "execution_enabled": True,
             "error": str(error),
         }), 500
+
+
+@app.route("/api/traffic-voice/action", methods=["POST"])
+def api_traffic_voice_action():
+    """Run the Marine topology transaction via existing service authority."""
+    payload = request.get_json(silent=True) or {}
+    action = str(payload.get("action") or "").strip().lower()
+    if action not in {"start_marine", "stop", "apply_settings"}:
+        return jsonify({
+            "ok": False,
+            "message": f"Niet-ondersteunde Traffic Voice-actie: {action or '<leeg>'}.",
+            "supported_actions": ["start_marine", "stop", "apply_settings"],
+        }), 400
+    try:
+        if action == "start_marine":
+            traffic_voice_audio.ensure_listener()
+            result = traffic_voice_controller.start_marine(
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+            )
+        elif action == "stop":
+            result = traffic_voice_controller.stop(
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+            )
+        else:
+            result = traffic_voice_controller.apply_receiver_settings(
+                payload.get("settings") or {},
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+            )
+        receiver_authority.invalidate_cache()
+        write_log(f"Traffic Voice {action}: {result['message']}")
+        result["snapshot"] = traffic_voice_core.get_snapshot()
+        return jsonify(result)
+    except ValueError as error:
+        message = str(error)
+        write_log(f"Traffic Voice {action} rejected: {message}")
+        return jsonify({
+            "ok": False,
+            "action": action,
+            "message": message,
+            "configuration_authority": "config/traffic_voice.yaml",
+        }), 400
+    except RuntimeError as error:
+        message = str(error)
+        status_code = 409 if (
+            "actieve missie" in message
+            or "gereserveerd" in message
+            or "receiver-handover" in message
+        ) else 500
+        write_log(f"Traffic Voice {action} failed: {message}")
+        return jsonify({
+            "ok": False,
+            "action": action,
+            "message": message,
+            "receiver_authority": "receiver_manager",
+            "service_authority": "existing_dashboard_systemctl_path",
+        }), status_code
+    except Exception as error:
+        write_log(f"Traffic Voice {action} failed: {error}")
+        return jsonify({"ok": False, "action": action, "message": str(error)}), 500
+
+
+@app.route("/api/traffic-voice/audio-stream", methods=["GET"])
+def api_traffic_voice_audio_stream():
+    """Stream the localhost backend audio bridge as PCM16 WAV."""
+    try:
+        generator = traffic_voice_audio.stream_wav()
+        return Response(
+            stream_with_context(generator),
+            mimetype="audio/wav",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+    except RuntimeError as error:
+        return jsonify({
+            "ok": False,
+            "authority": "audio_bridge_only",
+            "error": str(error),
+        }), 409
 
 
 @app.route("/api/plugin-runtime", methods=["GET"])
