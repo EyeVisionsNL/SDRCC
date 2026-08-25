@@ -141,6 +141,22 @@ function renderBreakdown(id, values, total) {
 }
 
 
+function gainDetails(mission) {
+    const mode = String(mission?.gain_mode || "").trim().toLowerCase();
+    const gain = Number(mission?.gain_db);
+    if (mode === "auto") return {label: "Auto Gain", mode: "auto", gainDb: null};
+    if (Number.isFinite(gain)) {
+        return {label: `Manual ${number(gain, 1)} dB`, mode: "manual", gainDb: gain};
+    }
+    if (mode === "manual") return {label: "Manual · gain unknown", mode: "manual", gainDb: null};
+    return {label: "Gain unknown", mode: "unknown", gainDb: null};
+}
+
+function missionReceiverAndGain(mission) {
+    const receiver = mission?.receiver || "Unknown receiver";
+    return `${receiver} · ${gainDetails(mission).label}`;
+}
+
 function missionLabel(mission) {
     const timestamp = mission?.started_at || mission?.created_at || "";
     const date = timestamp ? new Date(timestamp.replace(" ", "T")) : null;
@@ -157,7 +173,7 @@ function resultClass(result) {
     return "bad";
 }
 
-function renderMetricTrend(id, missions, field, formatter) {
+function renderMetricTrend(id, missions, field, formatter, showGain = false) {
     const container = document.getElementById(id);
     if (!container) return;
     const rows = (Array.isArray(missions) ? missions : [])
@@ -178,12 +194,40 @@ function renderMetricTrend(id, missions, field, formatter) {
             <div class="mission-analytics-trend-row ${satelliteClass(mission?.satellite)}">
                 <div class="mission-analytics-trend-label">
                     <strong>${escapeHtml(missionLabel(mission))}</strong>
-                    <span>${escapeHtml(mission?.receiver || "Unknown receiver")}</span>
+                    <span>${escapeHtml(showGain ? missionReceiverAndGain(mission) : (mission?.receiver || "Unknown receiver"))}</span>
                 </div>
                 <div class="mission-analytics-trend-value">${formatter(value)}</div>
                 <div class="mission-analytics-trend-bar"><span style="width:${width.toFixed(1)}%"></span></div>
             </div>`;
     }).join("");
+}
+
+function renderGainCorrelation(id, missions) {
+    const container = document.getElementById(id);
+    if (!container) return;
+
+    const rows = (Array.isArray(missions) ? missions : [])
+        .map(mission => ({mission, gain: gainDetails(mission), snr: Number(mission?.peak_snr_db)}))
+        .filter(row => row.gain.mode !== "unknown" || Number.isFinite(row.snr))
+        .slice()
+        .reverse();
+
+    if (rows.length === 0) {
+        container.innerHTML = '<div class="mission-analytics-empty">No historical RF gain data available.</div>';
+        return;
+    }
+
+    container.innerHTML = rows.map(({mission, gain, snr}) => `
+        <div class="mission-analytics-gain-row ${satelliteClass(mission?.satellite)}">
+            <div class="mission-analytics-gain-label">
+                <strong>${escapeHtml(missionLabel(mission))}</strong>
+                <span>${escapeHtml(missionReceiverAndGain(mission))}</span>
+            </div>
+            <div class="mission-analytics-gain-values">
+                <span class="gain-mode ${gain.mode}">${escapeHtml(gain.label)}</span>
+                <b>${Number.isFinite(snr) ? `Peak SNR ${db(snr)}` : "Peak SNR -"}</b>
+            </div>
+        </div>`).join("");
 }
 
 function renderOutcomeTimeline(id, missions) {
@@ -211,14 +255,16 @@ function renderOutcomeTimeline(id, missions) {
 
 function renderTrends(missions) {
     const rows = Array.isArray(missions) ? missions : [];
-    renderMetricTrend("analytics-snr-trend", rows, "peak_snr_db", db);
+    renderMetricTrend("analytics-snr-trend", rows, "peak_snr_db", db, true);
+    renderGainCorrelation("analytics-gain-snr", rows);
     renderMetricTrend("analytics-images-trend", rows, "image_count", value => number(value));
     renderOutcomeTimeline("analytics-outcome-timeline", rows);
 
     const ratedElevation = rows.filter(mission => Number.isFinite(Number(mission?.max_elevation))).length;
+    const gainRecorded = rows.filter(mission => gainDetails(mission).mode !== "unknown").length;
     setText(
         "analytics-trend-coverage",
-        `Showing ${number(rows.length)} missions · elevation available for ${number(ratedElevation)}`,
+        `Showing ${number(rows.length)} missions · gain recorded for ${number(gainRecorded)} · elevation available for ${number(ratedElevation)}`,
     );
 }
 
