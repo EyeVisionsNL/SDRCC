@@ -5,7 +5,7 @@ import argparse, json, os, platform, shutil, subprocess, sys
 from pathlib import Path
 
 REQUIRED_COMMANDS = ("git", "cmake", "make", "gcc", "g++", "pkg-config", "rtl_test")
-EXTERNAL_RUNTIME = ("satdump", "readsb", "AIS-catcher")
+EXTERNAL_RUNTIME = ("satdump", "readsb", "AIS-catcher", "AIS-catcher-control")
 
 
 def command_path(name: str) -> str | None:

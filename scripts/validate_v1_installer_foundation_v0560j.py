@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 def check(ok,msg):
     if not ok: raise SystemExit('FAIL: '+msg)
     print('PASS: '+msg)
-check((ROOT/'VERSION').read_text().strip()=='0.56.0j','release version is 0.56.0j')
+version=(ROOT/'VERSION').read_text().strip(); check(version in {'0.56.0j','0.56.0k'},f'release {version} retains v0.56.0j installer foundation')
 for rel in ['install.sh','update.sh','uninstall.sh','systemd/sdrcc.service.in','systemd/sdrcc-traffic-voice.service.in','scripts/install/preflight.py','scripts/install/detect_receivers.py','scripts/install/configure_station.py','scripts/install/validate_install.py']:
     check((ROOT/rel).exists(),f'required installer file present: {rel}')
 for rel in ['scripts/install/preflight.py','scripts/install/detect_receivers.py','scripts/install/configure_station.py','scripts/install/validate_install.py']:
@@ -19,7 +19,7 @@ check('/etc/sudoers.d/' in install and 'sdrcc-readsb' in install and 'visudo -cf
 check('sdrcc_apply_receiver_roles.py' in install and '/usr/local/sbin/sdrcc-apply-receiver-roles' in install,'existing receiver-role helper is installed, not reimplemented')
 check('systemctl enable sdrcc.service' in install,'SDRCC service is enabled')
 check('enable readsb' not in install and 'enable ais-catcher' not in install,'external receiver services are not auto-enabled')
-check('FAIL-CLOSED' in install and 'v0.56.0k' in install,'missing third-party provisioning fails closed and is explicit')
+check('provision_external.sh' in install,'later installer retains explicit third-party boundary')
 check('--purge-data' in (ROOT/'uninstall.sh').read_text(),'uninstall preserves data unless purge is explicit')
 check((ROOT/'docs/v1-installer-foundation-v0560j.md').exists(),'installer foundation documentation is present')
 print('VALIDATION PASS: SDRCC v0.56.0j v1.0 Installer Foundation')
