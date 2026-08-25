@@ -732,8 +732,12 @@
                 <label>Channel
                     <select id="traffic-voice-channel-select"></select>
                 </label>
-                <label>Gain
-                    <select id="traffic-voice-gain"></select>
+                <label class="traffic-voice-auto-gain-control">
+                    <span>Auto Gain</span>
+                    <input id="traffic-voice-auto-gain" type="checkbox" checked>
+                </label>
+                <label>Manual gain
+                    <select id="traffic-voice-gain" disabled></select>
                 </label>
                 <label>Squelch <span id="traffic-voice-squelch-value">6.0 dB</span>
                     <input id="traffic-voice-squelch" type="range" min="1" max="30" step="0.5" value="6">

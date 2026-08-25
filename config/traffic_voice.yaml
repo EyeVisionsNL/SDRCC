@@ -21,6 +21,7 @@ traffic_voice:
     correction_ppm: 0
     squelch_snr_db: 7.0
     open_squelch: false
+    gain_mode: manual
   spectrum:
     mode: channel_activity
     fft_enabled: false
@@ -38,89 +39,116 @@ traffic_voice:
       channel_bank: rotterdam_port
       execution_enabled: true
       tuning_mode: fixed
-      selected_channel_id: ch16_nood
+      selected_channel_id: v61_botlek
       channels:
       - id: ch16_nood
         label: CH16_NOOD
         frequency_mhz: 156.8
+        scan_enabled: false
       - id: ch13_brug
         label: CH13_BRUG
         frequency_mhz: 156.65
+        scan_enabled: false
       - id: ch11_vts
         label: CH11_VTS
         frequency_mhz: 156.55
+        scan_enabled: false
       - id: ch14_vts
         label: CH14_VTS
         frequency_mhz: 156.7
+        scan_enabled: false
       - id: ch12_haven
         label: CH12_HAVEN
         frequency_mhz: 156.6
+        scan_enabled: false
       - id: ch10_werk
         label: CH10_WERK
         frequency_mhz: 156.5
+        scan_enabled: false
       - id: ch09_oproep
         label: CH09_OPROEP
         frequency_mhz: 156.45
+        scan_enabled: false
       - id: ch08_werk
         label: CH08_WERK
         frequency_mhz: 156.4
+        scan_enabled: true
       - id: ch06_sleep
         label: CH06_SLEEP
         frequency_mhz: 156.3
+        scan_enabled: false
       - id: v61_botlek
         label: V61_BOTLEK
         frequency_mhz: 160.675
+        scan_enabled: true
       - id: v60_waalh
         label: V60_WAALH
         frequency_mhz: 160.625
+        scan_enabled: true
       - id: v63_eemhv
         label: V63_EEMHV
         frequency_mhz: 160.775
+        scan_enabled: true
       - id: vlaarding
         label: VLAARDING
         frequency_mhz: 157.0
+        scan_enabled: false
       - id: roeiers
         label: ROEIERS
         frequency_mhz: 160.11
+        scan_enabled: false
       - id: boluda
         label: BOLUDA
         frequency_mhz: 162.2
+        scan_enabled: false
       - id: v01_maasap
         label: V01_MAASAP
         frequency_mhz: 160.65
+        scan_enabled: true
       - id: v02_maaspl
         label: V02_MAASPL
         frequency_mhz: 160.7
+        scan_enabled: true
       - id: v03_maasmd
         label: V03_MAASMD
         frequency_mhz: 160.75
+        scan_enabled: true
       - id: v04_heerj
         label: V04_HEERJ
         frequency_mhz: 160.8
+        scan_enabled: false
       - id: v05_rozbg
         label: V05_ROZBG
         frequency_mhz: 160.85
+        scan_enabled: true
       - id: v62_oudem
         label: V62_OUDEM
         frequency_mhz: 160.725
+        scan_enabled: true
       - id: v65_rozbg2
         label: V65_ROZBG2
         frequency_mhz: 160.875
+        scan_enabled: true
       - id: v66_europt
         label: V66_EUROPT
         frequency_mhz: 160.925
+        scan_enabled: true
       - id: v79_dordr
         label: V79_DORDR
         frequency_mhz: 161.575
+        scan_enabled: true
       - id: v80_maassl
         label: V80_MAASSL
         frequency_mhz: 161.625
+        scan_enabled: true
       - id: v81_maasbr
         label: V81_MAASBR
         frequency_mhz: 161.675
+        scan_enabled: true
       - id: v19_hcc
         label: V19_HCC
         frequency_mhz: 161.55
+        scan_enabled: false
     airband_adsb:
       label: Airband Voice + ADS-B
       voice_profile: airband_voice

@@ -145,6 +145,7 @@
         const gains = Array.isArray(settings.valid_gains) ? settings.valid_gains : [];
         const channelSelect = byId("traffic-voice-channel-select");
         const gainSelect = byId("traffic-voice-gain");
+        const autoGain = byId("traffic-voice-auto-gain");
         const tuningMode = byId("traffic-voice-tuning-mode");
         const squelch = byId("traffic-voice-squelch");
 
@@ -172,9 +173,11 @@
         if (!settingsDirty && !actionBusy) {
             if (tuningMode) tuningMode.value = settings.tuning_mode || "scan";
             if (channelSelect) channelSelect.value = settings.selected_channel_id || "";
+            if (autoGain) autoGain.checked = settings.gain_mode !== "manual";
             if (gainSelect) gainSelect.value = String(settings.gain_db ?? "28");
             if (squelch) squelch.value = String(settings.squelch_snr_db ?? "6");
         }
+        if (gainSelect) gainSelect.disabled = Boolean(autoGain?.checked);
         text(
             "traffic-voice-squelch-value",
             Number(squelch?.value || settings.squelch_snr_db || 0).toFixed(1) + " dB",
@@ -200,8 +203,10 @@
         text("traffic-voice-tuning-state", tuningLabel);
         text(
             "traffic-voice-rf-settings",
-            Number(settings.gain_db || 0).toFixed(1) + " dB · "
-                + Number(settings.squelch_snr_db || 0).toFixed(1) + " dB",
+            (settings.gain_mode === "manual"
+                ? Number(settings.gain_db || 0).toFixed(1) + " dB"
+                : "AUTO GAIN")
+                + " · " + Number(settings.squelch_snr_db || 0).toFixed(1) + " dB",
         );
     }
 
@@ -500,6 +505,8 @@
         return {
             tuning_mode: byId("traffic-voice-tuning-mode")?.value || "scan",
             selected_channel_id: byId("traffic-voice-channel-select")?.value || "",
+            gain_mode: byId("traffic-voice-auto-gain")?.checked ? "auto" : "manual",
+            auto_gain: Boolean(byId("traffic-voice-auto-gain")?.checked),
             gain_db: Number(byId("traffic-voice-gain")?.value || 0),
             squelch_snr_db: Number(byId("traffic-voice-squelch")?.value || 0),
             open_squelch: Boolean((lastPayload?.receiver_settings || {}).open_squelch),
@@ -565,6 +572,11 @@
         });
         ["traffic-voice-tuning-mode", "traffic-voice-channel-select", "traffic-voice-gain"]
             .forEach(id => byId(id)?.addEventListener("change", () => { settingsDirty = true; }));
+        byId("traffic-voice-auto-gain")?.addEventListener("change", event => {
+            settingsDirty = true;
+            const gain = byId("traffic-voice-gain");
+            if (gain) gain.disabled = Boolean(event.target.checked);
+        });
         byId("traffic-voice-squelch")?.addEventListener("input", event => {
             settingsDirty = true;
             text("traffic-voice-squelch-value", Number(event.target.value).toFixed(1) + " dB");

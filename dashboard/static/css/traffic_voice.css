@@ -763,3 +763,19 @@
 .traffic-voice-channel.is-scan-excluded {
     opacity: 0.48;
 }
+
+
+/* v0.56.0f Traffic Voice hardware Auto Gain */
+.traffic-voice-auto-gain-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+.traffic-voice-auto-gain-control input {
+    width: 1rem;
+    height: 1rem;
+}
+#traffic-voice-gain:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
