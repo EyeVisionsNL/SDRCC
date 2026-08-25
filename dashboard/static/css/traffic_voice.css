@@ -723,3 +723,43 @@
         grid-column: 2;
     }
 }
+
+/* SDRCC v0.56.0e - per-channel scan inclusion */
+.traffic-voice-channel-wrap {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: 7px;
+}
+
+.traffic-voice-scan-toggle {
+    display: grid;
+    min-width: 48px;
+    place-content: center;
+    gap: 3px;
+    padding: 6px;
+    color: #8fa7c5;
+    background: #0b1626;
+    border: 1px solid #2b3c52;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.traffic-voice-scan-toggle input {
+    margin: 0 auto;
+    accent-color: var(--panel-accent, var(--traffic-cyan));
+}
+
+.traffic-voice-scan-toggle:has(input:disabled) {
+    cursor: default;
+    opacity: 0.48;
+}
+
+.traffic-voice-channel.is-scan-excluded {
+    opacity: 0.48;
+}

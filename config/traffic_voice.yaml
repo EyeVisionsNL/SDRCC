@@ -37,8 +37,8 @@ traffic_voice:
       inactive_plugin: adsb
       channel_bank: rotterdam_port
       execution_enabled: true
-      tuning_mode: scan
-      selected_channel_id: v60_waalh
+      tuning_mode: fixed
+      selected_channel_id: ch16_nood
       channels:
       - id: ch16_nood
         label: CH16_NOOD

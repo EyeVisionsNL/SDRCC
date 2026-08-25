@@ -7,6 +7,7 @@ import ast
 from copy import deepcopy
 import json
 import os
+import re
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -66,7 +67,11 @@ def static_validation():
     for relative in required:
         check((ROOT / relative).is_file(), f"required file present: {relative}")
 
-    check((ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.56.0c", "release version is 0.56.0c")
+    release = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", release)
+    check(match is not None, f"release {release} has a parseable numeric version prefix")
+    parts = tuple(int(part) for part in match.groups())
+    check(parts >= (0, 55, 0), f"release {release} retains v0.55.0c Airband contract")
     controller_path = ROOT / "core/traffic_voice_controller.py"
     tree = ast.parse(controller_path.read_text(encoding="utf-8"), filename=str(controller_path))
     imports = {

@@ -195,7 +195,8 @@
             ? "FIXED · SQUELCH OPEN"
             : settings.tuning_mode === "fixed"
                 ? "FIXED · " + (chosen?.label || "-")
-                : "SCAN ALL · " + channels.length;
+                : "SCAN · " + (Array.isArray(settings.scan_channel_ids) ? settings.scan_channel_ids.length : channels.length)
+                    + "/" + channels.length;
         text("traffic-voice-tuning-state", tuningLabel);
         text(
             "traffic-voice-rf-settings",
@@ -227,10 +228,44 @@
 
         configured.forEach(channel => {
             const live = measurements.get(Number(channel.frequency_mhz).toFixed(6)) || {};
+            const wrapper = document.createElement("div");
+            wrapper.className = "traffic-voice-channel-wrap";
+
+            const scanToggle = document.createElement("label");
+            scanToggle.className = "traffic-voice-scan-toggle";
+            scanToggle.title = selected
+                ? "Include this channel in Scan all channels"
+                : "Select this Voice mode before changing its scan list";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = channel.scan_enabled !== false;
+            checkbox.disabled = !selected || actionBusy || !payload.ok;
+            checkbox.dataset.scanChannelId = String(channel.id);
+            const toggleText = document.createElement("span");
+            toggleText.textContent = "Scan";
+            scanToggle.append(checkbox, toggleText);
+            if (selected) {
+                checkbox.addEventListener("change", async event => {
+                    const current = Array.isArray((lastPayload?.receiver_settings || {}).scan_channel_ids)
+                        ? [...lastPayload.receiver_settings.scan_channel_ids]
+                        : configured.filter(item => item.scan_enabled !== false).map(item => item.id);
+                    const wanted = new Set(current.map(String));
+                    if (event.target.checked) wanted.add(String(channel.id));
+                    else wanted.delete(String(channel.id));
+                    if (!wanted.size) {
+                        event.target.checked = true;
+                        text("traffic-voice-action-message", "At least one channel must remain enabled for scanning.");
+                        return;
+                    }
+                    await applySettings({scan_channel_ids: [...wanted]});
+                });
+            }
+
             const row = document.createElement("button");
             row.type = "button";
             row.className = "traffic-voice-channel";
             row.disabled = !selected || actionBusy || !payload.ok;
+            row.classList.toggle("is-scan-excluded", channel.scan_enabled === false);
             row.classList.toggle("is-possible-active", selected && Boolean(live.possible_active));
             row.classList.toggle(
                 "is-selected",
@@ -264,7 +299,8 @@
                 ? (Number.isFinite(snr) ? snr.toFixed(1) + " dB SNR" : "not measured")
                 : "available";
             row.append(copy, meter, value);
-            container.append(row);
+            wrapper.append(scanToggle, row);
+            container.append(wrapper);
         });
     }
 
