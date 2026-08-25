@@ -5,3 +5,4 @@ psutil
 flask
 schedule
 numpy
+openpyxl>=3.1,<4

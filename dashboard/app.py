@@ -4,6 +4,7 @@ import sys
 import subprocess
 import threading
 import time
+from io import BytesIO
 from pathlib import Path
 from datetime import datetime
 
@@ -2575,6 +2576,38 @@ def api_hf_monitor_audio_stream():
             "authority": "hf_audio_bridge",
             "error": str(error),
         }), 409
+
+
+@app.route("/api/traffic-voice/channel-list.xlsx", methods=["GET"])
+def api_traffic_voice_channel_list_export():
+    try:
+        content = traffic_voice_core.export_channel_list_xlsx()
+        return send_file(BytesIO(content), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name="sdrcc-traffic-voice-channel-list.xlsx", max_age=0)
+    except ValueError as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+    except Exception as error:
+        write_log(f"Traffic Voice channel export failed: {error}")
+        return jsonify({"ok": False, "message": "Channel list export failed."}), 500
+
+
+@app.route("/api/traffic-voice/channel-list/import", methods=["POST"])
+def api_traffic_voice_channel_list_import():
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return jsonify({"ok": False, "message": "Select an .xlsx channel list first."}), 400
+    if not upload.filename.lower().endswith(".xlsx"):
+        return jsonify({"ok": False, "message": "Only .xlsx channel lists are accepted."}), 400
+    try:
+        result = traffic_voice_core.import_channel_list_xlsx(upload.read(), source_name=upload.filename)
+        write_log(f"Traffic Voice channel list imported: marine={result['marine_channels']} aviation={result['aviation_channels']}")
+        result["snapshot"] = traffic_voice_core.get_snapshot()
+        return jsonify(result), 200
+    except ValueError as error:
+        write_log(f"Traffic Voice channel import rejected: {error}")
+        return jsonify({"ok": False, "message": str(error), "configuration_authority": "config/traffic_voice.yaml"}), 400
+    except Exception as error:
+        write_log(f"Traffic Voice channel import failed: {error}")
+        return jsonify({"ok": False, "message": "Channel list import failed."}), 500
 
 
 @app.route("/api/traffic-voice/action", methods=["POST"])

@@ -779,3 +779,11 @@
     opacity: 0.55;
     cursor: not-allowed;
 }
+
+
+/* SDRCC v0.56.0h channel list import/export */
+.traffic-voice-channel-list-tools { margin-top:14px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:14px; border:1px solid rgba(56,189,248,.18); border-radius:10px; background:rgba(15,23,42,.45); }
+.traffic-voice-channel-list-tools strong { display:block; color:#e2e8f0; }
+.traffic-voice-channel-list-tools span { display:block; margin-top:3px; color:#8fa7c5; font-size:.76rem; }
+.traffic-voice-channel-list-actions { display:flex; gap:8px; flex-wrap:wrap; }
+@media (max-width:700px) { .traffic-voice-channel-list-tools { align-items:flex-start; flex-direction:column; } }

@@ -722,6 +722,14 @@
                 <button id="traffic-voice-stop" type="button" class="traffic-voice-button is-stop">Stop Voice</button>
                 <span id="traffic-voice-action-message" aria-live="polite">Ready.</span>
             </div>
+            <div class="traffic-voice-channel-list-tools" aria-label="Traffic Voice channel list">
+                <div><strong>Channel List</strong><span>Load another port / airfield list or export the current list for editing.</span></div>
+                <div class="traffic-voice-channel-list-actions">
+                    <input id="traffic-voice-channel-list-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+                    <button id="traffic-voice-channel-list-load" type="button" class="traffic-voice-button">Load Excel</button>
+                    <button id="traffic-voice-channel-list-export" type="button" class="traffic-voice-button">Export Excel</button>
+                </div>
+            </div>
             <div class="traffic-voice-receiver-controls" aria-label="Traffic Voice receiver controls">
                 <label>Receive mode
                     <select id="traffic-voice-tuning-mode">

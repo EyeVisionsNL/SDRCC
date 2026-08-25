@@ -3,6 +3,8 @@
 
     const endpoint = "/api/traffic-voice";
     const actionEndpoint = "/api/traffic-voice/action";
+    const channelListExportEndpoint = "/api/traffic-voice/channel-list.xlsx";
+    const channelListImportEndpoint = "/api/traffic-voice/channel-list/import";
     let refreshTimer = null;
     let actionBusy = false;
     let settingsDirty = false;
@@ -542,6 +544,26 @@
         }
     }
 
+    function exportChannelList() { window.location.href = channelListExportEndpoint; }
+
+    async function importChannelList(file) {
+        if (!file) return;
+        const form = new FormData(); form.append("file", file, file.name);
+        text("traffic-voice-action-message", "Validating Excel channel list…");
+        try {
+            const response = await fetch(channelListImportEndpoint, {method: "POST", body: form, cache: "no-store"});
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.ok === false) throw new Error(payload.message || `HTTP ${response.status}`);
+            settingsDirty = false; channelSignature = ""; lastPayload = payload.snapshot || lastPayload;
+            text("traffic-voice-action-message", `Loaded ${payload.marine_channels} Marine and ${payload.aviation_channels} Aviation channels.`);
+            await refresh(true);
+        } catch (error) {
+            text("traffic-voice-action-message", "Excel import rejected: " + error.message);
+        } finally {
+            const input = byId("traffic-voice-channel-list-file"); if (input) input.value = "";
+        }
+    }
+
     function initialize() {
         document.querySelector('.tab-button[data-tab="traffic-voice"]')
             ?.addEventListener("click", () => window.setTimeout(() => refresh(true), 0));
@@ -555,6 +577,9 @@
             ?.addEventListener("click", showAisVessel);
         byId("traffic-voice-apply-settings")
             ?.addEventListener("click", () => applySettings());
+        byId("traffic-voice-channel-list-export")?.addEventListener("click", exportChannelList);
+        byId("traffic-voice-channel-list-load")?.addEventListener("click", () => byId("traffic-voice-channel-list-file")?.click());
+        byId("traffic-voice-channel-list-file")?.addEventListener("change", event => importChannelList(event.target.files?.[0]));
         byId("traffic-voice-open-squelch")?.addEventListener("click", async () => {
             const open = Boolean((lastPayload?.receiver_settings || {}).open_squelch);
             if (!open) await startAudio();

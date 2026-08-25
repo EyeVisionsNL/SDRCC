@@ -6,15 +6,19 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+from io import BytesIO
 import re
 import subprocess
 from typing import Any, Callable
+
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font
 
 from core import config as config_core
 from core import plugin_registry, receiver_registry
 
 
-VERSION = "0.56.0f"
+VERSION = "0.56.0h"
 SCHEMA_VERSION = 1
 MODE_ORDER = ("marine_ais", "airband_adsb")
 MODE_CONTRACTS = {
@@ -346,6 +350,131 @@ def save_selected_mode(mode_id: str) -> dict[str, Any]:
     config_core.save_traffic_voice(candidate)
     return get_receiver_settings(candidate)
 
+
+
+CHANNEL_LIST_HEADERS = (
+    "Mode", "Channel Bank", "ID", "Name", "Channel MHz", "Frequency MHz", "Scan",
+)
+
+
+def _excel_mode_id(value: Any) -> str:
+    token = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "marine": "marine_ais", "marine_ais": "marine_ais", "maritime": "marine_ais",
+        "aviation": "airband_adsb", "airband": "airband_adsb", "airband_adsb": "airband_adsb",
+    }
+    mode_id = aliases.get(token)
+    if mode_id is None:
+        raise ValueError(f"Unknown Mode '{value}'. Use Marine or Aviation.")
+    return mode_id
+
+
+def _excel_bool(value: Any, *, row_number: int) -> bool:
+    if isinstance(value, bool):
+        return value
+    token = str(value if value is not None else "Yes").strip().lower()
+    if token in {"yes", "y", "true", "1", "on", "scan"}:
+        return True
+    if token in {"no", "n", "false", "0", "off", "skip"}:
+        return False
+    raise ValueError(f"Row {row_number}: Scan must be Yes or No.")
+
+
+def export_channel_list_xlsx(payload: dict[str, Any] | None = None) -> bytes:
+    """Export the existing Traffic Voice channel authority as one editable workbook."""
+    raw = config_core.load_traffic_voice() if payload is None else deepcopy(payload)
+    validation = validate_configuration(raw)
+    if not validation["ok"]:
+        raise ValueError("; ".join(validation["errors"]))
+    settings = raw["traffic_voice"]
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Channels"
+    sheet.append(CHANNEL_LIST_HEADERS)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+    for mode_id in MODE_ORDER:
+        mode = settings["modes"][mode_id]
+        display_mode = "Marine" if mode_id == "marine_ais" else "Aviation"
+        bank = str(mode.get("channel_bank") or "")
+        for channel in mode.get("channels") or []:
+            sheet.append([
+                display_mode, bank, str(channel.get("id") or ""), str(channel.get("label") or ""),
+                float(channel["channel_mhz"]) if mode_id == "airband_adsb" else None,
+                float(channel["frequency_mhz"]),
+                "Yes" if channel.get("scan_enabled", True) is not False else "No",
+            ])
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = f"A1:G{sheet.max_row}"
+    for col,width in {"A":13,"B":22,"C":24,"D":24,"E":16,"F":18,"G":10}.items():
+        sheet.column_dimensions[col].width = width
+    notes = workbook.create_sheet("Instructions")
+    notes["A1"] = "SDRCC Traffic Voice Channel List"; notes["A1"].font = Font(bold=True)
+    notes["A3"] = "Edit the Channels sheet and load the .xlsx file from Traffic Voice."
+    notes["A4"] = "Mode: Marine or Aviation."
+    notes["A5"] = "Frequency MHz is the actual SDR carrier and must be unique within a mode."
+    notes["A6"] = "Channel MHz is required for Aviation and may differ for 8.33 kHz channel designators."
+    notes["A7"] = "Scan: Yes includes the channel in Scan all channels; No keeps it available for fixed tuning."
+    notes["A8"] = "Both Marine and Aviation must contain at least one valid channel."
+    notes.column_dimensions["A"].width = 110
+    output = BytesIO(); workbook.save(output); return output.getvalue()
+
+
+def import_channel_list_xlsx(data: bytes, *, source_name: str = "channels.xlsx") -> dict[str, Any]:
+    """Validate completely, then atomically replace only the existing channel banks."""
+    if not data: raise ValueError("The uploaded Excel file is empty.")
+    if len(data) > 2_000_000: raise ValueError("The Excel file is larger than the 2 MB import limit.")
+    try:
+        workbook = load_workbook(BytesIO(data), read_only=True, data_only=True)
+    except Exception as error:
+        raise ValueError("The uploaded file is not a readable .xlsx workbook.") from error
+    if "Channels" not in workbook.sheetnames:
+        raise ValueError("Workbook must contain a sheet named 'Channels'.")
+    sheet=workbook["Channels"]
+    header=[str(v or "").strip() for v in next(sheet.iter_rows(min_row=1,max_row=1,values_only=True))]
+    if header[:len(CHANNEL_LIST_HEADERS)] != list(CHANNEL_LIST_HEADERS):
+        raise ValueError("Channels sheet headers do not match the SDRCC export format.")
+    rows={mode:[] for mode in MODE_ORDER}; banks={}; seen_ids={mode:set() for mode in MODE_ORDER}; seen_freq={mode:set() for mode in MODE_ORDER}; count=0
+    for row_number, values in enumerate(sheet.iter_rows(min_row=2,values_only=True),start=2):
+        padded=list(values)+[None]*(7-len(values))
+        if not any(v not in (None,"") for v in padded[:7]): continue
+        count += 1
+        if count > 500: raise ValueError("Channel list is limited to 500 rows.")
+        mode_id=_excel_mode_id(padded[0]); bank=str(padded[1] or "").strip(); channel_id=str(padded[2] or "").strip(); label=str(padded[3] or "").strip()
+        if not channel_id: raise ValueError(f"Row {row_number}: ID is required.")
+        if channel_id in seen_ids[mode_id]: raise ValueError(f"Row {row_number}: duplicate ID '{channel_id}' in this mode.")
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,48}",channel_id): raise ValueError(f"Row {row_number}: ID may only contain letters, numbers, dot, underscore and hyphen.")
+        if not label or len(label)>48: raise ValueError(f"Row {row_number}: Name is required and may contain at most 48 characters.")
+        try: frequency=round(float(padded[5]),6)
+        except (TypeError,ValueError) as error: raise ValueError(f"Row {row_number}: Frequency MHz is invalid.") from error
+        minimum,maximum=MODE_FREQUENCY_RANGES[mode_id]
+        if not minimum <= frequency <= maximum: raise ValueError(f"Row {row_number}: Frequency MHz is outside the supported {mode_id} range.")
+        if frequency in seen_freq[mode_id]: raise ValueError(f"Row {row_number}: duplicate Frequency MHz {frequency:.6f} in this mode.")
+        channel={"id":channel_id,"label":label,"frequency_mhz":frequency,"scan_enabled":_excel_bool(padded[6],row_number=row_number)}
+        if mode_id == "airband_adsb":
+            try: channel_mhz=round(float(padded[4]),6)
+            except (TypeError,ValueError) as error: raise ValueError(f"Row {row_number}: Channel MHz is required for Aviation.") from error
+            if not minimum <= channel_mhz <= maximum: raise ValueError(f"Row {row_number}: Channel MHz is outside the supported Aviation range.")
+            channel["channel_mhz"] = channel_mhz
+        rows[mode_id].append(channel); seen_ids[mode_id].add(channel_id); seen_freq[mode_id].add(frequency)
+        if bank:
+            if mode_id in banks and banks[mode_id] != bank: raise ValueError(f"Row {row_number}: Channel Bank must be identical for all rows of the same mode.")
+            banks[mode_id]=bank
+    for mode_id in MODE_ORDER:
+        if not rows[mode_id]: raise ValueError(f"Excel import must contain at least one channel for {mode_id}.")
+        if not any(item["scan_enabled"] for item in rows[mode_id]): raise ValueError(f"Excel import must leave at least one {mode_id} channel enabled for scanning.")
+    raw=config_core.load_traffic_voice(); candidate=deepcopy(raw); modes=candidate["traffic_voice"]["modes"]; selection_changes=[]
+    for mode_id in MODE_ORDER:
+        mode=modes[mode_id]; previous=str(mode.get("selected_channel_id") or ""); mode["channels"]=rows[mode_id]
+        if mode_id in banks: mode["channel_bank"]=banks[mode_id]
+        ids={item["id"] for item in rows[mode_id]}
+        if previous not in ids:
+            replacement=next((item["id"] for item in rows[mode_id] if item["scan_enabled"]),rows[mode_id][0]["id"])
+            mode["selected_channel_id"]=replacement; selection_changes.append(f"{mode_id}: selected channel -> {replacement}")
+    validation=validate_configuration(candidate)
+    if not validation["ok"]: raise ValueError("; ".join(validation["errors"]))
+    config_core.save_traffic_voice(candidate)
+    return {"ok":True,"source_name":Path(source_name).name,"marine_channels":len(rows["marine_ais"]),"aviation_channels":len(rows["airband_adsb"]),"selection_changes":selection_changes,"receiver_settings":get_receiver_settings(candidate)}
 
 def _service_state(service_name: str) -> dict[str, Any]:
     try:
