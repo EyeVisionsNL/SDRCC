@@ -1,0 +1,18 @@
+[Unit]
+Description=SDR Control Center
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=@PROJECT_USER@
+Group=@PROJECT_GROUP@
+SupplementaryGroups=plugdev dialout
+WorkingDirectory=@PROJECT_ROOT@
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@PYTHON@ @PROJECT_ROOT@/dashboard/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
