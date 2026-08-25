@@ -86,6 +86,16 @@ The voice receiver is derived from the current assignment authority. The page su
 
 ![Traffic Voice](docs/screenshots/traffic-voice.png)
 
+#### Voice-to-AIS speaker correlation
+
+In **Marine Voice + AIS** mode, SDRCC can correlate a received marine VHF transmission with live AIS traffic and present a **Possible Speaker** when a likely vessel match is available. The match view shows the vessel name, callsign, MMSI, distance and AIS match status alongside the active voice receiver.
+
+![Traffic Voice AIS speaker match](docs/screenshots/traffic-voice-ais-match.png)
+
+The **Show on full AIS map** action opens the matched vessel in the full AIS-catcher map so the operator can immediately verify its live geographic position and surrounding traffic. This keeps voice reception, AIS identity and vessel position connected in one operator workflow.
+
+![Matched speaker on AIS map](docs/screenshots/traffic-voice-ais-map.png)
+
 `config/traffic_voice.yaml` remains the Traffic Voice configuration authority. Channel-list import is fail-closed and does not modify receiver assignments, services or Receiver Manager authority.
 
 ### HF Amateur Monitor
