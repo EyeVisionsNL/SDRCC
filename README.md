@@ -5,247 +5,310 @@
 <h1 align="center">SDR Control Center</h1>
 
 <p align="center">
-  Flexibel lokaal groundstation voor satellietontvangst, AIS, ADS-B en geautomatiseerde SDR-missies.
+  A local multi-receiver ground-station dashboard for satellite reception, AIS, ADS-B, traffic voice and live amateur-radio monitoring.
 </p>
 
 <p align="center">
-  <strong>Ontwikkelstatus: v0.55.x</strong><br>
-  Ubuntu 26.04 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb
+  <strong>Current development line: v0.56.0l · v1.0 preparation</strong><br>
+  Ubuntu 26.04 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb · RTLSDR-Airband
 </p>
 
 <p align="center">
   <img src="docs/screenshots/mission-control.png" alt="SDRCC Mission Control" width="100%">
 </p>
 
-## Over SDRCC
+## What is SDRCC?
 
-**SDR Control Center (SDRCC)** brengt twee fysieke SDR-ontvangers, meerdere radiodiensten en geplande missies samen in één lokaal dashboard. De software plant passages, wijst iedere missie toe aan de juiste receiver, bewaakt de runtime, registreert lifecycle-events en herstelt na afloop de normale receivertaak.
+**SDR Control Center (SDRCC)** combines multiple physical RTL-SDR receivers, continuous radio services and scheduled missions in one local dashboard. It plans satellite passes, assigns work to the correct receiver, coordinates temporary receiver handovers, records mission lifecycle events and restores the exact pre-mission receiver context when work finishes or fails.
 
-De huidige opstelling gebruikt:
+The current reference station uses two NESDR SMArt v5 receivers:
 
-| Receiver | Serienummer | Standaardcontext | Missierol |
+| Receiver | Serial | Normal context | Mission / temporary roles |
 |---|---:|---|---|
-| SDR1 | `05419737` | AIS | Weather / METEOR LRPT |
-| SDR2 | `24006572` | ADS-B | ISS Voice |
+| SDR1 | `05419737` | AIS | Weather / METEOR LRPT, Airband Voice |
+| SDR2 | `24006572` | ADS-B | ISS Voice, Marine Voice, HF Monitor |
 
-Receiver-toewijzingen en standaardcontexten zijn via **Radio Control** instelbaar. De **Mission Queue** blijft daarbij de centrale bron voor de geplande missie per receiver.
+These values describe the reference installation, not hard-coded product requirements. v1.0 installer work detects RTL-SDR hardware by serial and keeps station/location configuration separate from external-service provisioning.
 
-## Belangrijkste functies
+## Main capabilities
 
-- Dual-SDR architectuur met receiver-specifieke planning en status.
-- Mission Queue, Mission Planner en configureerbare minimale elevatie.
-- Mission Scheduler met `AUTO`, `MANUAL` en `PAUSED`.
-- METEOR-M2 3 en METEOR-M2 4 LRPT-ontvangst via SatDump.
-- ISS Voice-planning en controlled wideband-IQ capture op de toegewezen SDR.
-- Receiver Manager met reservering, context, service-observatie en hersteldoel.
-- Live Event Timeline en read-only Execution Journal.
-- AIS- en ADS-B-monitoring met live statistieken en ingebedde viewers.
-- Uitvoerbare Traffic Voice Monitor voor Marine Voice + AIS en Airband Voice + ADS-B, met dynamische receiverkeuze, lokale live-audio, kanaalactiviteit, passieve Marine ATIS-identificatie en exacte live AIS-schipkoppeling.
-- Live RF Console, decodertelemetrie en idle Spectrum Scan.
-- Mission History, Mission Analytics, image pipeline en live logging.
-- Handmatige serviceregeling en veilige missiehulpmiddelen op het tabblad **System**.
-- Compacte ruimtebanner waarin de bestaande satelliet ook op brede desktops volledig zichtbaar blijft.
-- Traffic Voice-panelen volgen hetzelfde SDRCC-thema met gekleurde hoekornamenten; Maritime blijft ook geselecteerd blauw, Aviation paars en de gedeelde actieve receiver roze.
+- Dual-SDR receiver architecture with serial-based identity and receiver-specific planning.
+- Automated METEOR-M2 3 / METEOR-M2 4 LRPT missions through SatDump.
+- ISS Voice pass planning, controlled wideband-IQ capture and offline audio processing.
+- Mission Scheduler with `AUTO`, `MANUAL` and `PAUSED` modes.
+- Per-satellite minimum peak, rising start angle and falling close angle.
+- Receiver Manager handover with reservation and exact pre-start service restoration.
+- Continuous AIS and ADS-B reception with live statistics and embedded viewers.
+- Marine NFM + AIS and Airband AM + ADS-B Traffic Voice modes.
+- Traffic Voice fixed-channel/scan operation, scan exclusions, squelch, native Auto Gain and Excel channel-list import/export.
+- HF Amateur Monitor with LSB, USB, CW, AM and FM reception.
+- Measured HF spectrum and waterfall from the same live IQ stream used for browser audio.
+- Spectrum hover measurement, click-to-tune and live frequency retuning.
+- HF Auto Gain/manual gain and RF-power squelch.
+- Mission Operations workspace for live missions and decoded results.
+- Persistent Mission History with mission diagnostics, files, telemetry and images.
+- Mission Analytics with receiver/satellite performance, Peak SNR and historical RF-gain comparison.
+- Multi-source logs and bounded runtime/log retention.
+- v1.0 installer foundation with pinned third-party provisioning and fail-closed validation.
 
 ## Dashboard
 
-### Mission Control
+The current navigation is:
 
-De operationele cockpit toont de Mission Queue, de eerstvolgende missie per receiver, schedulerbediening, Live Event Timeline en Execution Journal.
-
-![Mission Control](docs/screenshots/mission-control.png)
+`System · Radio Control · Radio View · Traffic Voice · HF Monitor · Mission Control · Mission Planner · Mission Operations · Mission History · Mission Analytics · Logs`
 
 ### System
 
-Systeemstatus, handmatige bediening van de continue AIS- en ADS-B-services, TLE-beheer, simulatie en gecontroleerd missieherstel.
+System Health, receiver inventory, manual AIS/ADS-B service control and deliberately separated advanced maintenance actions.
 
 ![System](docs/screenshots/system.png)
 
 ### Radio Control
 
-Live status van beide SDR's, Receiver Monitor, read-only Receiver Runtime Diagnostics, vrije mission assignments, receiver defaults en RF-instellingen.
+Operational receiver status, read-only runtime diagnostics, receiver-role assignments and Weather/METEOR and ISS Voice RF settings. Persistent role assignment remains separate from temporary runtime handover.
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/radio-control.png" alt="Radio Control status en diagnostics"></td>
-    <td width="50%"><img src="docs/screenshots/receiver-assignments-monitor.png" alt="Receiver assignments en Mission Monitor"></td>
-  </tr>
-</table>
-
-### Live RF en Spectrum Scan
-
-Tijdens Weather-opnames toont de Live RF Console decodertelemetrie. Wanneer de receiver vrij is kan een korte spectrumscan worden uitgevoerd.
-
-![Live RF Console en Spectrum Scan](docs/screenshots/live-rf-spectrum.png)
-
-> Dezelfde RTL-SDR kan niet tegelijk door SatDump en een losse spectrumtool worden geopend. Spectrum Scan is daarom een korte idle-meting; tijdens een missie gebruikt SDRCC de beschikbare SatDump-telemetrie.
+![Radio Control](docs/screenshots/radio-control.png)
 
 ### Radio View
 
-Gezamenlijk overzicht van ADS-B, AIS en de eerstvolgende satellietpassage.
+A shared live overview of ADS-B traffic, AIS traffic and satellite positions/ground tracks.
 
 ![Radio View](docs/screenshots/radio-view.png)
 
-### Traffic Voice Monitor
+### Traffic Voice
 
-**Marine Voice + AIS** en **Airband Voice + ADS-B** zijn uitvoerbaar. SDRCC leidt de voice-receiver bij iedere start af als de receiver tegenover de actuele AIS- of ADS-B-toewijzing en schakelt NFM/AM via dezelfde gepinde RTLSDR-Airband-backend. Een directe moduswissel is transactioneel; `Stop Voice` herstelt daarna nog steeds de servicestatus en Traffic Voice-assignment van vóór de eerste start. De pagina biedt live PCM-audio, vaste kanaalkeuze en kanaalscanning zonder een tweede SDR-eigenaar. Een begrensde observer decodeert geldige Marine ATIS-bursts uit een kopie van dezelfde audiobridge. Alleen één exacte, door AIS-Catcher gevalideerde roepnaammatch met een recente positie wordt als schip getoond. `Show on AIS map` opent dat MMSI in de bestaande AIS-Catcher-kaart; SDRCC maakt geen tweede kaart of AIS-databron.
+Traffic Voice provides two transaction-safe operating contexts:
+
+- **Marine Voice + AIS** — NFM voice while retaining the AIS context.
+- **Airband Voice + ADS-B** — AM voice while retaining the ADS-B context.
+
+The voice receiver is derived from the current assignment authority. The page supports fixed-channel listening, scanning, per-channel scan exclusions, live browser audio, squelch, native RTL-SDR Auto Gain/manual gain and validated `.xlsx` import/export of both channel banks.
+
+![Traffic Voice](docs/screenshots/traffic-voice.png)
+
+`config/traffic_voice.yaml` remains the Traffic Voice configuration authority. Channel-list import is fail-closed and does not modify receiver assignments, services or Receiver Manager authority.
+
+### HF Amateur Monitor
+
+HF Monitor is a dedicated live amateur-radio workspace. One selected RTL-SDR is handed over through Receiver Manager and opened by the HF backend through `librtlsdr`.
+
+Supported modes are **LSB, USB, CW, AM and FM**. The same measured IQ stream supplies spectrum, waterfall, demodulation and mono 16 kHz browser audio.
+
+![HF Amateur Monitor](docs/screenshots/hf-monitor.png)
+
+On the Q-branch direct-sampling bands, the tuner is bypassed. On the normal tuner path, manual tuner gain is available. Auto Gain and RF-power squelch can be updated during an active session. Spectrum hover reports the nearest FFT-bin frequency and dBFS level; clicking the trace can select and live-retune the active session without opening a second RTL-SDR handle.
+
+### Mission Control
+
+Mission Control is the operational cockpit: receiver-specific Mission Queue, next mission for SDR1/SDR2, scheduler controls, stop controls, Live Event Timeline and the read-only Execution Journal.
+
+![Mission Control](docs/screenshots/mission-control.png)
 
 ### Mission Planner
 
-De planner combineert pass prediction, minimale elevatie, receiver assignment, conflictcontrole en de uiteindelijke planningbeslissing.
+Mission Planner combines pass prediction, per-satellite planning policy, receiver assignment, conflict detection and the final planning decision. Each satellite can have its own downlink, minimum peak elevation, rising start angle and falling close angle.
 
 ![Mission Planner](docs/screenshots/mission-planner.png)
 
-### Mission Analytics
+### Mission Operations
 
-Historische prestaties per receiver en satelliet, inclusief succesratio, peak-SNR, beelden, resultaten en kwaliteitsverdeling.
+Mission Operations is the live and result workspace. During a mission it presents active receiver details; outside a mission it keeps historical products available. Decoded Weather products can be browsed directly from the recording library and result viewer.
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/mission-analytics-overview.png" alt="Mission Analytics overzicht"></td>
-    <td width="50%"><img src="docs/screenshots/mission-analytics-results.png" alt="Mission Analytics resultaten"></td>
-  </tr>
-</table>
+![Mission Operations](docs/screenshots/mission-operations.png)
 
 ### Mission History
 
-Blijvend overzicht van afgeronde, mislukte en geannuleerde missies met kwaliteitsdiagnose, missiegegevens, bestanden en telemetrie.
+Mission History is the persistent record of completed, failed, no-sync and cancelled missions. It exposes mission quality, receiver/frequency/pipeline metadata, files, telemetry and decoded images without turning historical data into active runtime state.
 
 ![Mission History](docs/screenshots/mission-history.png)
 
-### Images
+### Mission Analytics
 
-De nieuwste succesvolle ontvangst en de beschikbare producten uit de image pipeline.
+Mission Analytics aggregates stored mission history into receiver and satellite performance, Peak SNR trends, images per mission, result/quality distributions and **RF Gain vs Peak SNR**. Historical Auto Gain is shown as `Auto Gain`; older records without gain metadata remain explicitly unknown.
 
-![Images](docs/screenshots/images.png)
+![Mission Analytics](docs/screenshots/mission-analytics.png)
 
 ### Logs
 
-Live applicatielog voor scheduler-, receiver-, SatDump- en missieactiviteiten.
+The Logs page provides the operational log view for SDRCC and its relevant mission/runtime sources. Runtime log retention rotates `logs/sdrcc.log` at 10 MiB with three retained backups.
 
-![Logs](docs/screenshots/logs.png)
+## Architecture and authority
 
-## Architectuur
+SDRCC follows a single-owner rule: every operational state or hardware action has one authority. UI pages and observer components may project that state, but must not create a competing truth.
 
 ```text
 Pass Prediction / Planning Policy
               ↓
-         Mission Planner
+       Mission Scheduler
+       + Mission Queue
               ↓
-          Mission Queue
+         Mission Engine
               ↓
-     Automation / Scheduler
+        Receiver Manager
+        ↙             ↘
+ Receiver handover   Execution/runtime adapters
+        ↓                    ↓
+ AIS / ADS-B / HF / Voice / SatDump / Capture
               ↓
-        Mission Engine
-              ↓
- Receiver Manager + Execution Plan
-              ↓
- SatDump / Service Delegation / Capture
-              ↓
- History · Analytics · Images · Journal
+ Mission History · Analytics · Operations · Journal
 ```
 
-Belangrijke uitgangspunten:
+Core boundaries:
 
-- **Mission Queue** is de bron voor komende receiver-specifieke missies.
-- **Receiver Manager** blijft autoriteit voor receiverstatus en reservering.
-- **Execution Journal** observeert de lifecycle en neemt geen operationele autoriteit over.
-- Bestaande servicepaden worden hergebruikt; er is geen tweede servicecontroller.
-- Plugins en execution plans blijven fail-closed wanneer uitvoering niet expliciet ondersteund is.
-
-## Missieverloop
-
-| Moment | Actie |
+| Concern | Authority |
 |---|---|
-| T-5 minuten | Preflight en policycontrole |
-| T-90 seconden | Receiver en afhankelijkheden voorbereiden |
-| T-30 seconden | Receiver reserveren en missiecontext vastleggen |
-| T-0 | Capture- of decoderproces starten |
-| Tijdens passage | Live status, events en telemetrie bijwerken |
-| Na LOS | Proces afronden, resultaat classificeren en archiveren |
-| Afronding | Receiver vrijgeven en standaardcontext herstellen |
+| Physical receiver identity / serial | Receiver Registry |
+| Persistent receiver roles | Station assignment configuration |
+| Receiver reservation, handover and exact restoration | Receiver Manager |
+| Future mission queue and scheduler mode | Mission Scheduler |
+| Active mission lifecycle and result | Mission Engine |
+| Hardware/backend execution | Existing bounded plugin/adapter/backend |
+| Historical mission records | Mission History |
+| Historical aggregation | Mission Analytics |
+| Execution lifecycle observation | Execution Journal — observer only |
+| UI/API presentation | Dashboard — not an independent state authority |
 
-## Belangrijke services
+HF Monitor and Traffic Voice reuse these boundaries. Neither introduces a second receiver registry, lock mechanism or service controller.
 
-| Service | Functie |
+## Mission lifecycle
+
+| Moment | Action |
 |---|---|
-| `sdrcc.service` | Flask-dashboard en SDRCC-runtime |
-| `ais-catcher.service` | Continue AIS-ontvangst |
-| `ais-catcher-control.service` | Bestaand gecontroleerd AIS-servicepad |
-| `readsb.service` | Continue ADS-B-ontvangst |
-| `sdrcc-traffic-voice.service` | Geselecteerde Marine NFM- of Airband AM-ontvangst |
+| T-5 min | Preflight and policy checks |
+| T-90 s | Prepare receiver and dependencies |
+| T-30 s | Reserve receiver and capture restore context |
+| T-0 | Start capture/decoder execution |
+| During pass | Update measured status, events and telemetry |
+| After LOS | Finish processing and classify the result |
+| Completion | Archive history and restore/release the receiver |
 
-Status controleren:
+## Runtime data and retention
 
-```bash
-systemctl status sdrcc.service --no-pager -l
-systemctl status ais-catcher.service --no-pager -l
-systemctl status readsb.service --no-pager -l
-systemctl status sdrcc-traffic-voice.service --no-pager -l
-```
+Mission History remains the manual whole-mission deletion authority.
 
-## Dashboard starten
+For successful ISS Voice captures, SDRCC may remove `recording.iq` only after WAV validation and successful receiver-context restoration. Failed or incomplete missions retain raw IQ for diagnosis. Setting `iss_voice.storage.keep_raw_iq: true` disables automatic IQ removal.
 
-SDRCC draait standaard lokaal op:
+The main SDRCC runtime log rotates at 10 MiB with three retained backups.
+
+## Important services
+
+| Service | Purpose |
+|---|---|
+| `sdrcc.service` | SDRCC Flask dashboard and runtime |
+| `ais-catcher.service` | Continuous AIS reception |
+| `ais-catcher-control.service` | AIS-Catcher maintenance/control interface |
+| `readsb.service` | Continuous ADS-B reception |
+| `sdrcc-traffic-voice.service` | Selected Marine NFM or Airband AM reception |
+
+External receiver services are deliberately not enabled automatically by the v1 installer provisioning stage.
+
+## v1.0 installation foundation
+
+v0.56.0j/k introduced the generic SDRCC installer and external provisioning foundation and replaces the obsolete prototype installer with a generic SDRCC installation and provisioning path.
+
+Important installer properties:
+
+- Default project location: `<install-user-home>/SDRCC`.
+- No reference-user or reference-city values are embedded in the installer.
+- RTL-SDR identity is persisted by serial, never by USB index.
+- SDRCC service units, Traffic Voice service, sudoers boundary and receiver-role helper are reproducible from repository sources.
+- Third-party provisioning is pinned and validated.
+- Provisioning installs software but does not take receiver/service authority away from SDRCC.
+- Uninstall preserves runtime data by default.
+- Installation and provisioning fail closed when required validation fails.
+
+### Pinned external reference stack
+
+| Component | v0.56.0k reference |
+|---|---|
+| SatDump | Ubuntu `satdump` + `satdump-data`; Ubuntu 26.04 reference package 1.2.2+gb79af48-2 |
+| readsb | `wiedehopf/readsb`, commit `cc0d099`, Debian package with RTL-SDR support |
+| AIS-catcher | official installer pinned to release `v0.70` |
+| AIS-catcher-control | official installer, validated as release `v0.1` before execution |
+| RTLSDR-Airband | tag `v5.2.0`, commit `61c5c4061967752da6b491a924664d72184b38fa`, SDRCC Auto Gain patch |
+
+`provision_external.sh --check` is read-only and `--plan` prints the pinned provisioning plan. `install.sh --skip-third-party` is intended only for systems where the complete reference stack is already present and passes validation.
+
+> v0.56.0k does not yet claim fully unattended first-run AIS managed-mode configuration. The installer reports that boundary instead of guessing station-specific AIS settings.
+
+Detailed clean-machine installation commands should be taken from the release package itself while v1.0 installer validation is still in progress.
+
+## Third-party software and credits
+
+SDRCC coordinates and integrates several independent open-source projects. Those projects remain separate works with their own authors, licenses and support channels.
+
+| Project | Role in the SDRCC reference stack | Upstream |
+|---|---|---|
+| SatDump | Satellite demodulation and decoding, including METEOR LRPT | https://github.com/SatDump/SatDump |
+| AIS-catcher | AIS reception, decoding, statistics and local vessel viewer | https://github.com/jvde-github/AIS-catcher |
+| AIS-catcher-control | Companion management/control layer for AIS-catcher | https://github.com/jvde-github/AIS-catcher-control |
+| readsb | ADS-B reception and aircraft data | https://github.com/wiedehopf/readsb |
+| RTLSDR-Airband | Marine/Airband Traffic Voice backend in the v1 reference stack | https://github.com/rtl-airband/RTLSDR-Airband |
+| librtlsdr / rtl-sdr | RTL2832U receiver access used by SDRCC and supporting tools | https://github.com/steve-m/librtlsdr |
+
+SDRCC does not claim authorship of these upstream projects. Where the SDRCC installer provisions an external component, the pinned reference version or commit is documented and validated by the provisioning scripts. See each upstream project for its license, source, documentation and attribution requirements.
+
+## Dashboard access
+
+The local dashboard currently listens on:
 
 ```text
 http://127.0.0.1:8080
 ```
 
-Herstarten en controleren:
+Basic runtime check:
 
 ```bash
-sudo systemctl restart sdrcc.service
 systemctl status sdrcc.service --no-pager -l
 curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/api/status
 ```
 
-## Belangrijkste API-endpoints
+## Selected API endpoints
 
-| Endpoint | Functie |
+| Endpoint | Purpose |
 |---|---|
-| `GET /api/status` | Algemene systeemstatus |
-| `GET /api/mission-operations` | Samengevoegde operationele status |
-| `GET /api/mission-queue` | Receiver-specifieke geplande missies |
-| `GET /api/mission-engine` | Mission Engine-status |
-| `GET /api/mission-scheduler` | Schedulerstatus en modus |
-| `GET /api/automation-controller` | Automationstatus |
-| `GET /api/receiver-contexts` | Toewijzingen en standaardcontexten |
-| `GET /api/receiver-runtime` | Read-only receiver-runtime |
-| `GET /api/receiver-monitor` | AIS-, ADS-B- en missiestatistieken |
-| `GET /api/traffic-voice` | Traffic Voice-configuratie, receiverprojectie en live status |
-| `POST /api/traffic-voice/action` | Begrensde Start, Switch, Stop en receiverinstellingen |
-| `GET /api/live-rf` | Live decoder- en RF-telemetrie |
+| `GET /api/status` | General SDRCC status |
+| `GET /api/mission-operations` | Aggregated operational projection |
+| `GET /api/mission-queue` | Receiver-specific planned missions |
+| `GET /api/mission-engine` | Active Mission Engine status |
+| `GET /api/mission-scheduler` | Scheduler status and mode |
+| `GET /api/automation-controller` | Automation projection |
+| `GET /api/receiver-contexts` | Receiver assignments/default contexts |
+| `GET /api/receiver-runtime` | Read-only receiver runtime |
+| `GET /api/receiver-monitor` | Receiver/AIS/ADS-B/mission statistics |
+| `GET /api/traffic-voice` | Traffic Voice configuration and live status |
+| `POST /api/traffic-voice/action` | Bounded Traffic Voice actions/settings |
+| `GET /api/live-rf` | Live decoder/RF telemetry |
 | `GET /api/execution-journal` | Read-only execution lifecycle |
-| `GET /api/mission-history` | Opgeslagen missies en resultaten |
-| `GET /api/capture-status` | Laatste beschikbare beeldproduct |
+| `GET /api/mission-history` | Stored missions/results |
+| `GET /api/capture-status` | Latest available image product |
 
-## Projectstructuur
+The endpoint table is intentionally a selected operator-facing overview, not a complete API contract.
+
+## Project structure
 
 ```text
 SDRCC/
-├── config/                     # Station-, receiver- en satellietconfiguratie
-├── core/                       # Planning, runtime, receivers en execution
-├── dashboard/                  # Flask API en webinterface
-├── data/                       # TLE, state, recordings en resultaten
-├── docs/                       # Architectuur- en release-documentatie
-│   └── screenshots/            # README-afbeeldingen
-├── scripts/                    # CLI, validators en hulpmiddelen
+├── config/                     # Station, receiver and feature configuration
+├── core/                       # Planning, mission, receiver and execution logic
+├── dashboard/                  # Flask API and web interface
+├── data/                       # TLE, state, recordings and mission results
+├── docs/                       # Architecture and release documentation
+│   └── screenshots/            # README screenshots
+├── scripts/                    # Installer, validators and maintenance tools
 ├── README.md
 └── VERSION
 ```
 
-## Ontwikkeling
+## Development status
 
-De actieve ontwikkelbranch is:
+The active development branch is `develop`.
 
-```text
-develop
-```
+The current documented baseline is **v0.56.0l**. It includes the v1 installer/provisioning foundation from v0.56.0j/k plus the latest UI receiver-identity and Event Timeline language consistency work. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
 
-SDRCC wordt in kleine, controleerbare releases ontwikkeld. Iedere wijziging wordt eerst geanalyseerd, daarna als compleet installatiepakket geleverd en gevalideerd. Operationele wijzigingen worden pas gecommit nadat idle-tests en relevante echte missies zijn beoordeeld.
+SDRCC development follows small, reviewable changes with architecture/duplication checks before new functionality, fail-closed runtime behaviour and validation before commit.
 
-Controle vóór een commit:
+Typical pre-commit checks include:
 
 ```bash
 git status
@@ -253,6 +316,6 @@ git diff --check
 python3 -m compileall -q core dashboard scripts
 ```
 
-## Status
+## Documentation status
 
-SDRCC is actief in ontwikkeling. De huidige v0.55.x-lijn bouwt de Traffic Voice Monitor gecontroleerd op bovenop de bestaande receiver-, plugin- en handoverautoriteit.
+The `docs/` directory contains architecture references and version-specific implementation notes. Older release notes describe the boundary of the release in which a feature was introduced and may therefore intentionally describe capabilities that were expanded by later releases.
