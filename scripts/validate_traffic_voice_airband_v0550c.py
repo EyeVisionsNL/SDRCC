@@ -66,7 +66,7 @@ def static_validation():
     for relative in required:
         check((ROOT / relative).is_file(), f"required file present: {relative}")
 
-    check((ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.55.0f", "release version is 0.55.0f")
+    check((ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.56.0c", "release version is 0.56.0c")
     controller_path = ROOT / "core/traffic_voice_controller.py"
     tree = ast.parse(controller_path.read_text(encoding="utf-8"), filename=str(controller_path))
     imports = {
@@ -329,7 +329,7 @@ def main():
     except Exception as error:
         print(f"FAIL: {type(error).__name__}: {error}", file=sys.stderr)
         return 1
-    print("VALIDATION PASS: SDRCC v0.55.0f Airband Voice regression")
+    print("VALIDATION PASS: SDRCC v0.56.0b Airband Voice regression")
     print(json.dumps({
         "static": static,
         "modes": ["marine_ais", "airband_adsb"],

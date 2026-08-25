@@ -13,6 +13,7 @@ SATELLITES_CONFIG = CONFIG_DIR / "satellites.yaml"
 SCHEDULER_CONFIG = CONFIG_DIR / "scheduler.yaml"
 RECEIVERS_CONFIG = CONFIG_DIR / "receivers.yaml"
 TRAFFIC_VOICE_CONFIG = CONFIG_DIR / "traffic_voice.yaml"
+HF_MONITOR_CONFIG = CONFIG_DIR / "hf_monitor.yaml"
 _station_write_lock = threading.RLock()
 _traffic_voice_write_lock = threading.RLock()
 
@@ -61,6 +62,11 @@ def load_receivers():
 def load_traffic_voice():
     """Load the Traffic Voice Monitor configuration."""
     return load_yaml(TRAFFIC_VOICE_CONFIG)
+
+
+def load_hf_monitor():
+    """Load the HF Amateur Monitor configuration."""
+    return load_yaml(HF_MONITOR_CONFIG)
 
 
 def get_traffic_voice_config():
@@ -170,7 +176,7 @@ def get_assignment_roles():
         "adsb",
         "iss_voice",
         "traffic_voice",
-        "meshcore",
+        "hf_monitor",
     )
 
 
@@ -191,7 +197,7 @@ def get_assignment_defaults():
         "adsb": second,
         "iss_voice": None,
         "traffic_voice": second,
-        "meshcore": None,
+        "hf_monitor": None,
     }
 
 

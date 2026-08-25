@@ -11,7 +11,7 @@ from core import execution_journal
 from core import receiver_registry
 from core.execution_adapter import ExecutionAdapter, ExecutionAdapterError
 from core.execution_adapters import (
-    NullAdapter, SatDumpAdapter, ServiceAdapter, WidebandIQAdapter,
+    HFMonitorAdapter, NullAdapter, SatDumpAdapter, ServiceAdapter, WidebandIQAdapter,
 )
 
 
@@ -22,6 +22,7 @@ _ADAPTERS: dict[str | None, Type[ExecutionAdapter]] = {
     "service": ServiceAdapter,
     "satdump": SatDumpAdapter,
     "wideband_iq": WidebandIQAdapter,
+    "hf_monitor": HFMonitorAdapter,
 }
 
 

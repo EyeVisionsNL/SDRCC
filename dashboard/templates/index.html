@@ -30,9 +30,10 @@
     <link rel="stylesheet" href="/static/css/radio_view_theme.css?v=0.54.0p-r1">
     <link rel="stylesheet" href="/static/css/system_theme.css?v=0.54.0r-r1">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0s-r1">
-    <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.54.0u-r1">
+    <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.54.0v-r2">
     <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.55.0f-r3">
+    <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0c">
 </head>
 <body>
 <div
@@ -106,6 +107,7 @@
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
     <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>
     <button class="tab-button" data-tab="traffic-voice">🎙 Traffic Voice</button>
+    <button class="tab-button" data-tab="hf-monitor">〰 HF Monitor</button>
     <button class="tab-button" data-tab="mission">🛰 Mission Control</button>
     <button class="tab-button" data-tab="mission-planner">🗓 Mission Planner</button>
     <button class="tab-button" data-tab="images">🛰️ Mission Operations</button>
@@ -766,6 +768,130 @@
 </section>
 
 
+<section class="tab-page" id="tab-hf-monitor">
+    <div class="hf-monitor-page">
+        <section class="card hf-monitor-header">
+            <div>
+                <span class="hf-monitor-eyebrow">HF AMATEUR RADIO</span>
+                <h2>〰 HF Amateur Monitor</h2>
+                <p>Listen live on the amateur bands with measured spectrum, waterfall and browser audio.</p>
+            </div>
+            <div class="hf-monitor-badges">
+                <span id="hf-monitor-status" class="hf-monitor-badge is-foundation">LOADING</span>
+                <span id="hf-monitor-runtime-state" class="hf-monitor-badge is-stopped">RECEIVER STOPPED</span>
+            </div>
+        </section>
+
+        <section class="hf-monitor-layout">
+            <article class="card hf-monitor-control-card">
+                <div class="hf-monitor-section-heading">
+                    <div>
+                        <span>OPERATOR SETUP</span>
+                        <h3>Band &amp; receiver</h3>
+                    </div>
+                    <span id="hf-monitor-controller-state" class="hf-monitor-state-label">READY</span>
+                </div>
+
+                <div class="hf-monitor-field-grid">
+                    <label>Receiver
+                        <select id="hf-monitor-receiver"></select>
+                    </label>
+                    <label>Amateur band
+                        <select id="hf-monitor-band"></select>
+                    </label>
+                    <label>Mode
+                        <select id="hf-monitor-mode"></select>
+                    </label>
+                    <label>Frequency
+                        <div class="hf-monitor-frequency-field">
+                            <input id="hf-monitor-frequency" type="number" min="0" step="0.0001">
+                            <span>MHz</span>
+                        </div>
+                    </label>
+                    <label class="hf-monitor-check-field">Auto gain
+                        <span class="hf-monitor-check-row"><input id="hf-monitor-auto-gain" type="checkbox" checked> Automatic RTL gain / AGC</span>
+                    </label>
+                    <label>Tuner gain
+                        <select id="hf-monitor-gain-db"></select>
+                        <small id="hf-monitor-gain-note">Manual tuner gain is effective on 10 m; direct-sampling HF bypasses the tuner.</small>
+                    </label>
+                    <label class="hf-monitor-check-field">Squelch
+                        <span class="hf-monitor-check-row"><input id="hf-monitor-squelch-enabled" type="checkbox"> Enable RF-power squelch</span>
+                    </label>
+                    <label>Squelch threshold <strong id="hf-monitor-squelch-value">-42 dBFS</strong>
+                        <input id="hf-monitor-squelch-threshold" type="range" min="-65" max="-10" step="1" value="-42">
+                    </label>
+                </div>
+
+                <div class="hf-monitor-rf-actions">
+                    <button id="hf-monitor-apply-rf" type="button" class="hf-monitor-button is-retune" disabled>Apply gain / squelch</button>
+                    <span id="hf-monitor-rf-state">RF controls are applied by the existing HF IQ worker.</span>
+                </div>
+
+                <div id="hf-monitor-handover" class="hf-monitor-handover" aria-live="polite">
+                    Select a receiver to inspect its exact service handover.
+                </div>
+
+                <div class="hf-monitor-actions">
+                    <button id="hf-monitor-start" type="button" class="hf-monitor-button is-start" disabled>Start HF listening</button>
+                    <button id="hf-monitor-retune" type="button" class="hf-monitor-button is-retune" disabled>Tune live</button>
+                    <button id="hf-monitor-stop" type="button" class="hf-monitor-button is-stop" disabled>Stop HF listening</button>
+                    <span id="hf-monitor-action-message">Loading live HF backend...</span>
+                </div>
+
+                <dl class="hf-monitor-contract-grid">
+                    <div><dt>Receiver authority</dt><dd>Receiver Manager</dd></div>
+                    <div><dt>Service restore</dt><dd>Exact pre-start state</dd></div>
+                    <div><dt>Backend</dt><dd id="hf-monitor-backend">LOADING</dd></div>
+                    <div><dt>Execution</dt><dd id="hf-monitor-execution">LOADING</dd></div>
+                </dl>
+            </article>
+
+            <article class="card hf-monitor-spectrum-card">
+                <div class="hf-monitor-section-heading">
+                    <div>
+                        <span>LIVE RF</span>
+                        <h3>Spectrum &amp; waterfall</h3>
+                    </div>
+                    <span id="hf-monitor-spectrum-state" class="hf-monitor-state-label">NO LIVE DATA</span>
+                </div>
+                <div class="hf-monitor-spectrum" role="img" aria-label="Live measured HF spectrum and waterfall">
+                    <div class="hf-monitor-spectrum-axis">
+                        <span id="hf-monitor-axis-min">-</span>
+                        <strong id="hf-monitor-axis-band">HF</strong>
+                        <span id="hf-monitor-axis-max">-</span>
+                    </div>
+                    <div id="hf-monitor-spectrum-stage" class="hf-monitor-spectrum-live">
+                        <canvas id="hf-monitor-spectrum-canvas" width="1024" height="260"></canvas>
+                        <div id="hf-monitor-spectrum-tooltip" class="hf-monitor-spectrum-tooltip" hidden></div>
+                        <span id="hf-monitor-spectrum-hint" class="hf-monitor-spectrum-hint" hidden>Move over the trace to measure · click to tune</span>
+                        <div id="hf-monitor-spectrum-placeholder" class="hf-monitor-spectrum-placeholder">
+                            <strong>RECEIVER STOPPED</strong>
+                            <small>Choose a receiver, band, mode and frequency, then start HF listening.</small>
+                        </div>
+                    </div>
+                    <div class="hf-monitor-waterfall-live">
+                        <canvas id="hf-monitor-waterfall-canvas" width="1024" height="150"></canvas>
+                        <span>WATERFALL · MEASURED IQ</span>
+                    </div>
+                </div>
+                <div class="hf-monitor-audio">
+                    <button id="hf-monitor-audio-toggle" type="button" disabled>▶ Live audio</button>
+                    <label>Browser volume
+                        <input id="hf-monitor-audio-volume" type="range" min="0" max="1" step="0.05" value="0.85" disabled>
+                    </label>
+                    <span id="hf-monitor-audio-state">Audio starts from the same live IQ stream.</span>
+                </div>
+            </article>
+        </section>
+
+        <p id="hf-monitor-contract-message" class="hf-monitor-contract-message" aria-live="polite">
+            Loading the HF Monitor safety contract...
+        </p>
+    </div>
+</section>
+
+
 <section class="tab-page" id="tab-mission-planner">
     <div class="mission-planner-layout">
         <section class="card mission-planner-header">
@@ -1248,9 +1374,9 @@
 
 <script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
 <script src="/static/dashboard.js?v=0.54.0t-r1"></script>
-<script src="/static/js/receiver_inventory.js?v=0.54.0f"></script>
+<script src="/static/js/receiver_inventory.js?v=0.56.0b"></script>
 <script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
-<script src="/static/js/radio.js?v=0.54.0h-r2"></script>
+<script src="/static/js/radio.js?v=0.56.0b"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
@@ -1259,5 +1385,6 @@
 <script src="/static/js/radio_view.js?v=0.55.0e-r3"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
 <script src="/static/js/traffic_voice.js?v=0.55.0e-r5"></script>
+<script src="/static/js/hf_monitor.js?v=0.56.0c"></script>
 </body>
 </html>

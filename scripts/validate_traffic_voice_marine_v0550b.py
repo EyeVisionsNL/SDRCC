@@ -95,7 +95,7 @@ def runtime_validation():
     plugin = plugin_registry.get_plugin("traffic_voice")
     check(plugin["status"] == "active" and plugin["executor"] == "service", "Traffic Voice is an active service plugin")
     check(plugin["handover_services"] == ["sdrcc-traffic-voice.service"], "voice service participates in Receiver Manager handover")
-    check(len(plugin_registry.get_plugins(include_planned=False)) == 5, "five active plugins and one planned plugin")
+    check(len(plugin_registry.get_plugins(include_planned=False)) == 6, "six active plugins including HF Monitor")
 
     plan = execution_factory.build_plan("traffic_voice")
     check(plan["targets"] == ["sdrcc-traffic-voice.service"], "execution plan delegates the registered voice service")

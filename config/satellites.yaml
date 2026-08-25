@@ -6,12 +6,12 @@ satellites:
     pipeline: meteor_m2-x_lrpt
     decoder: satdump
     sample_rate: 1024000
-    min_elevation: 40.0
+    min_elevation: 50.0
     priority: 1
     planning:
-      minimum_peak_elevation: 40.0
-      begin_elevation: 10.0
-      close_elevation: 10.0
+      minimum_peak_elevation: 50.0
+      begin_elevation: 30.0
+      close_elevation: 30.0
   METEOR-M2 4:
     enabled: true
     frequency: 137900000
@@ -23,5 +23,5 @@ satellites:
     priority: 1
     planning:
       minimum_peak_elevation: 40.0
-      begin_elevation: 10.0
-      close_elevation: 10.0
+      begin_elevation: 30.0
+      close_elevation: 30.0

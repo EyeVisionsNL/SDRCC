@@ -61,6 +61,9 @@ from core import satellite_view as satellite_view_core
 from core import traffic_voice as traffic_voice_core
 from core import traffic_voice_audio
 from core import traffic_voice_controller
+from core import hf_monitor as hf_monitor_core
+from core import hf_monitor_backend
+from core import hf_monitor_controller
 
 app = Flask(__name__)
 
@@ -2476,6 +2479,104 @@ def api_traffic_voice():
         }), 500
 
 
+@app.route("/api/hf-monitor", methods=["GET"])
+def api_hf_monitor():
+    """Expose HF configuration and measured live runtime."""
+    try:
+        snapshot = hf_monitor_core.get_snapshot()
+        return jsonify(snapshot), 200 if snapshot.get("ok") else 500
+    except Exception as error:
+        return jsonify({
+            "ok": False,
+            "version": "0.56.0d",
+            "source": "hf_monitor",
+            "read_only": False,
+            "foundation_only": False,
+            "execution_enabled": True,
+            "start_allowed": False,
+            "error": str(error),
+        }), 500
+
+
+@app.route("/api/hf-monitor/action", methods=["POST"])
+def api_hf_monitor_action():
+    """Run bounded HF lifecycle or retune the existing live backend."""
+    payload = request.get_json(silent=True) or {}
+    action = str(payload.get("action") or "").strip().lower()
+    if action not in {"start", "stop", "retune", "rf_settings"}:
+        return jsonify({
+            "ok": False,
+            "message": f"Niet-ondersteunde HF Monitor-actie: {action or '<leeg>'}.",
+            "supported_actions": ["start", "stop", "retune", "rf_settings"],
+        }), 400
+    try:
+        if action == "start":
+            result = hf_monitor_controller.start(
+                payload.get("selection") or {},
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+            )
+        elif action == "stop":
+            result = hf_monitor_controller.stop(
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+            )
+        elif action == "retune":
+            result = hf_monitor_controller.retune(payload.get("selection") or {})
+        else:
+            result = hf_monitor_controller.update_rf_controls(payload.get("rf_controls") or {})
+        receiver_authority.invalidate_cache()
+        write_log(f"HF Monitor {action}: {result['message']}")
+        result["snapshot"] = hf_monitor_core.get_snapshot()
+        return jsonify(result)
+    except ValueError as error:
+        write_log(f"HF Monitor {action} rejected: {error}")
+        return jsonify({
+            "ok": False,
+            "action": action,
+            "message": str(error),
+            "configuration_authority": "config/hf_monitor.yaml",
+        }), 400
+    except RuntimeError as error:
+        message = str(error)
+        write_log(f"HF Monitor {action} failed: {message}")
+        status_code = 409 if any(
+            marker in message.lower()
+            for marker in ("gereserveerd", "handover", "sessie", "missie", "draait al")
+        ) else 500
+        return jsonify({
+            "ok": False,
+            "action": action,
+            "message": message,
+            "receiver_authority": "receiver_manager",
+            "service_authority": "existing_dashboard_systemctl_path",
+        }), status_code
+
+
+@app.route("/api/hf-monitor/audio-stream", methods=["GET"])
+def api_hf_monitor_audio_stream():
+    """Stream the live HF demodulator output as mono PCM16 WAV."""
+    try:
+        generator = hf_monitor_backend.stream_wav()
+        return Response(
+            stream_with_context(generator),
+            mimetype="audio/wav",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+    except RuntimeError as error:
+        return jsonify({
+            "ok": False,
+            "authority": "hf_audio_bridge",
+            "error": str(error),
+        }), 409
+
+
 @app.route("/api/traffic-voice/action", methods=["POST"])
 def api_traffic_voice_action():
     """Run bounded Traffic Voice transactions via existing service authority."""
@@ -4149,6 +4250,25 @@ def capture_file(relative_path):
 
 
 
+def recover_stale_hf_monitor():
+    """Stop stale in-process HF work and restore its exact receiver context."""
+    try:
+        result = hf_monitor_controller.recover_stale_session(
+            service_state=service_state,
+            service_action=run_systemctl,
+            wait_for_service=wait_for_service,
+        )
+        if result.get("changed"):
+            write_log(
+                "HF Monitor: achtergebleven sessie veilig gestopt en hersteld "
+                f"({result.get('session_id') or '-'})"
+            )
+        return result
+    except Exception as recovery_error:
+        write_log(f"HF Monitor runtime recovery vereist aandacht: {recovery_error}")
+        return {"ok": False, "changed": False, "error": str(recovery_error)}
+
+
 def recover_stale_iss_voice_observer():
     """Reconcile the persisted ISS observer after an interrupted restart."""
     try:
@@ -4169,6 +4289,7 @@ def recover_stale_iss_voice_observer():
         return {"ok": False, "changed": False, "error": str(recovery_error)}
 
 def run():
+    recover_stale_hf_monitor()
     recover_stale_iss_voice_observer()
     event_bus.publish_system(
         "SYSTEM",

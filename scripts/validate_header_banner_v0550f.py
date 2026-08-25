@@ -65,7 +65,7 @@ def main() -> None:
     template = read("dashboard/templates/index.html")
     stylesheet = read("dashboard/static/css/header_theme.css")
     version = read("VERSION").strip()
-    check(version == "0.55.0f", "release version is 0.55.0f")
+    check(version == "0.56.0c", "current release version is 0.56.0c")
 
     svg = re.search(
         r'<svg class="topbar-space-art"[^>]*>(.*?)</svg>',

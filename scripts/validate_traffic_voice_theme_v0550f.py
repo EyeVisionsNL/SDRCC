@@ -38,7 +38,7 @@ def main() -> None:
     for relative_path in required:
         check((ROOT / relative_path).is_file(), f"required file present: {relative_path}")
 
-    check(read("VERSION").strip() == "0.55.0f", "release version remains 0.55.0f")
+    check(read("VERSION").strip() == "0.56.0c", "current release version is 0.56.0c")
     template = read("dashboard/templates/index.html")
     stylesheet = read("dashboard/static/css/traffic_voice.css")
     javascript = read("dashboard/static/js/traffic_voice.js")

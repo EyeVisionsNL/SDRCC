@@ -1,0 +1,62 @@
+hf_monitor:
+  version: 0.56.0d
+  foundation_only: false
+  execution_enabled: true
+  receiver_policy: operator_selected_handover
+  default_receiver: sdr2
+  selected_band: 40m
+  selected_mode: LSB
+  gain_mode: auto
+  gain_db: 28.0
+  squelch_enabled: false
+  squelch_threshold_dbfs: -42.0
+  backend:
+    selected: librtlsdr_qbranch_dsp
+    status: validated
+    sample_rate_hz: 240000
+    audio_sample_rate_hz: 16000
+    required_capabilities:
+    - hf_direct_sampling
+    - ssb_demodulation
+    - spectrum_stream
+    - pcm_audio
+    - fm_demodulation
+    - live_gain_control
+    - audio_squelch
+  modes:
+  - LSB
+  - USB
+  - CW
+  - AM
+  - FM
+  bands:
+    80m:
+      label: 80 metre
+      minimum_hz: 3500000
+      maximum_hz: 3800000
+      default_hz: 3700000
+      default_mode: LSB
+    40m:
+      label: 40 metre
+      minimum_hz: 7000000
+      maximum_hz: 7200000
+      default_hz: 7100000
+      default_mode: LSB
+    20m:
+      label: 20 metre
+      minimum_hz: 14000000
+      maximum_hz: 14350000
+      default_hz: 14200000
+      default_mode: USB
+    15m:
+      label: 15 metre
+      minimum_hz: 21000000
+      maximum_hz: 21450000
+      default_hz: 21200000
+      default_mode: USB
+    10m:
+      label: 10 metre
+      minimum_hz: 28000000
+      maximum_hz: 29700000
+      default_hz: 28500000
+      default_mode: USB

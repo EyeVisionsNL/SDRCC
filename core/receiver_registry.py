@@ -26,7 +26,7 @@ KNOWN_CAPABILITIES = {
     "adsb",
     "iss_voice",
     "traffic_voice",
-    "meshcore",
+    "hf_monitor",
     "recording",
     "live_rf",
 }

@@ -50,7 +50,7 @@
             adsb: "ADS-B",
             weather: "Weather / METEOR",
             iss_voice: "ISS Voice",
-            meshcore: "MeshCore",
+            hf_monitor: "HF Monitor",
         };
         return labels[role] || (role ? role.replaceAll("_", " ").toUpperCase() : "-");
     }

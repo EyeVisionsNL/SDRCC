@@ -96,8 +96,9 @@ def _merge_plugins(
             continue
 
         execution_enabled = plugin_id in {
-            "weather", "ais", "adsb", "traffic_voice",
+            "weather", "ais", "adsb", "traffic_voice", "hf_monitor",
         }
+        generic_control_enabled = execution_enabled and plugin_id != "hf_monitor"
         execution_item = deepcopy(execution_by_id.get(plugin_id))
         plan_item = deepcopy(planning_by_id.get(plugin_id))
 
@@ -106,6 +107,8 @@ def _merge_plugins(
             execution_item["execution_mode"] = (
                 "delegated_mission_scheduler_autopilot"
                 if plugin_id == "weather" and execution_enabled
+                else "bounded_hf_monitor_controller"
+                if plugin_id == "hf_monitor" and execution_enabled
                 else "delegated_service_control"
                 if execution_enabled
                 else "foundation_only"
@@ -113,6 +116,8 @@ def _merge_plugins(
             execution_item["execution_authority"] = (
                 "existing_mission_scheduler_autopilot_path"
                 if plugin_id == "weather" and execution_enabled
+                else "hf_monitor_controller_via_page_endpoint"
+                if plugin_id == "hf_monitor" and execution_enabled
                 else "existing_dashboard_systemctl_path"
                 if execution_enabled
                 else "none"
@@ -126,6 +131,8 @@ def _merge_plugins(
             plan_item["execution_mode"] = (
                 "delegated_mission_scheduler_autopilot"
                 if plugin_id == "weather" and execution_enabled
+                else "bounded_hf_monitor_controller"
+                if plugin_id == "hf_monitor" and execution_enabled
                 else "delegated_service_control"
                 if execution_enabled
                 else "planning_only"
@@ -133,6 +140,8 @@ def _merge_plugins(
             plan_item["execution_authority"] = (
                 "existing_mission_scheduler_autopilot_path"
                 if plugin_id == "weather" and execution_enabled
+                else "hf_monitor_controller_via_page_endpoint"
+                if plugin_id == "hf_monitor" and execution_enabled
                 else "existing_dashboard_systemctl_path"
                 if execution_enabled
                 else "none"
@@ -150,25 +159,25 @@ def _merge_plugins(
             "execution": execution_item,
             "execution_plan": plan_item,
             "control": {
-                "enabled": execution_enabled,
+                "enabled": generic_control_enabled,
                 "actions": (
                     ["start", "stop"]
-                    if plugin_id in {"weather", "traffic_voice"} and execution_enabled
+                    if plugin_id in {"weather", "traffic_voice"} and generic_control_enabled
                     else ["start", "stop", "restart"]
-                    if execution_enabled
+                    if generic_control_enabled
                     else []
                 ),
                 "endpoint": (
                     "/api/traffic-voice/action"
-                    if plugin_id == "traffic_voice" and execution_enabled
+                    if plugin_id == "traffic_voice" and generic_control_enabled
                     else f"/api/plugin-manager/{plugin_id}/action"
-                    if execution_enabled else None
+                    if generic_control_enabled else None
                 ),
                 "authority": (
                     "existing_mission_scheduler_autopilot_path"
-                    if plugin_id == "weather" and execution_enabled
+                    if plugin_id == "weather" and generic_control_enabled
                     else "existing_dashboard_systemctl_path"
-                    if execution_enabled
+                    if generic_control_enabled
                     else "not_enabled"
                 ),
                 "delegation_only": True,
@@ -286,8 +295,8 @@ class PluginManager:
         execution_enabled_plugins = [
             str(item.get("plugin_id"))
             for item in plugins
-            if isinstance(item.get("control"), dict)
-            and item["control"].get("enabled") is True
+            if isinstance(item.get("execution"), dict)
+            and item["execution"].get("execution_enabled") is True
         ]
 
         summary = {
@@ -324,13 +333,14 @@ class PluginManager:
             "execution_authority": "delegation_only",
             "execution_enablement": {
                 "version": "0.45.0",
-                "enabled_plugins": ["weather", "ais", "adsb", "traffic_voice"],
+                "enabled_plugins": ["weather", "ais", "adsb", "traffic_voice", "hf_monitor"],
                 "authority": "delegated_existing_authority_paths",
                 "authority_by_plugin": {
                     "weather": "existing_mission_scheduler_autopilot_path",
                     "ais": "existing_dashboard_systemctl_path",
                     "adsb": "existing_dashboard_systemctl_path",
                     "traffic_voice": "existing_dashboard_systemctl_path",
+                    "hf_monitor": "hf_monitor_controller_via_page_endpoint",
                 },
                 "new_service_controller": False,
                 "model_aligned": True,

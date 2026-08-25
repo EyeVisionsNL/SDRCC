@@ -3,11 +3,13 @@
 from core.execution_adapters.null_adapter import NullAdapter
 from core.execution_adapters.satdump_adapter import SatDumpAdapter
 from core.execution_adapters.service_adapter import ServiceAdapter
+from core.execution_adapters.hf_monitor_adapter import HFMonitorAdapter
+from core.execution_adapters.wideband_iq_adapter import WidebandIQAdapter
 
 __all__ = [
     "NullAdapter",
     "SatDumpAdapter",
     "ServiceAdapter",
+    "WidebandIQAdapter",
+    "HFMonitorAdapter",
 ]
-
-from core.execution_adapters.wideband_iq_adapter import WidebandIQAdapter

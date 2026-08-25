@@ -17,7 +17,7 @@
         ais: "AIS",
         adsb: "ADS-B",
         iss_voice: "ISS Voice",
-        meshcore: "MeshCore",
+        hf_monitor: "HF Monitor",
         live_rf: "Live RF",
         recording: "Recording",
     });

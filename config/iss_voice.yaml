@@ -30,9 +30,9 @@ iss_voice:
   audio_deemphasis_us: 75.0
   planning:
     minimum_peak_elevation: 40.0
-    begin_elevation: 10.0
+    begin_elevation: 20.0
     close_elevation: 40.0
   gain_mode: manual
-  gain_db: 7.7
+  gain_db: 3.7
   squelch_enabled: false
   squelch_threshold_dbfs: -47.0

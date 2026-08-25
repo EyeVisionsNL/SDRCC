@@ -137,24 +137,31 @@ _REGISTRY = {
             "settings": True,
         },
     },
-    "meshcore": {
-        "id": "meshcore",
-        "label": "MeshCore",
-        "description": "Gereserveerde pluginrol voor toekomstige MeshCore-integratie.",
-        "assignment_role": "meshcore",
+    "hf_monitor": {
+        "id": "hf_monitor",
+        "label": "HF Amateur Monitor",
+        "description": (
+            "Operator-selected live HF amateur receiver with measured spectrum, "
+            "waterfall and browser audio."
+        ),
+        "assignment_role": "hf_monitor",
         "category": "terrestrial",
-        "status": "planned",
+        "status": "active",
         "receiver_type": "rtl_sdr",
-        "executor": None,
+        "executor": "hf_monitor",
         "services": [],
         "handover_services": [],
         "capabilities": [
-            "packet_receive",
+            "hf_receive",
+            "spectrum_view",
+            "audio_receive",
+            "operator_handover",
         ],
         "dashboard": {
             "assignment": False,
-            "live_status": False,
-            "settings": False,
+            "operator_selected_receiver": True,
+            "live_status": True,
+            "settings": True,
         },
     },
 }

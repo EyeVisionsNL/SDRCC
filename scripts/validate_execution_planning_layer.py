@@ -38,10 +38,10 @@ EXPECTED = {
         "launch_type": "persistent_service",
         "target_type": "systemd_service",
     },
-    "meshcore": {
-        "adapter_type": "null",
-        "launch_type": "none",
-        "target_type": "none",
+    "hf_monitor": {
+        "adapter_type": "hf_monitor",
+        "launch_type": "bounded_operator_session",
+        "target_type": "operator_selected_receiver",
     },
 }
 
@@ -55,6 +55,7 @@ def static_validation() -> list[str]:
         ROOT / "core/execution_adapters/service_adapter.py",
         ROOT / "core/execution_adapters/satdump_adapter.py",
         ROOT / "core/execution_adapters/null_adapter.py",
+        ROOT / "core/execution_adapters/hf_monitor_adapter.py",
         ROOT / "core/plugin_manager.py",
     ]
     forbidden_imports = {
@@ -172,7 +173,7 @@ def runtime_validation() -> dict:
     assert manager["summary"]["execution_plans_valid"] is True
     assert manager["summary"]["execution_planning_only"] is False
     assert manager["summary"]["execution_enabled_plugins"] == [
-        "weather", "ais", "adsb", "traffic_voice",
+        "weather", "ais", "adsb", "traffic_voice", "hf_monitor",
     ]
     assert manager["planning_source"] == "execution_factory"
     assert manager["planning_authority"] == "description_only"

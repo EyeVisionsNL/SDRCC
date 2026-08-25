@@ -22,6 +22,7 @@ ADAPTER_FILES = {
     Path("core/execution_adapters/service_adapter.py"),
     Path("core/execution_adapters/satdump_adapter.py"),
     Path("core/execution_adapters/null_adapter.py"),
+    Path("core/execution_adapters/hf_monitor_adapter.py"),
 }
 
 FORBIDDEN_IMPORTS = {
@@ -124,7 +125,7 @@ def validate_runtime_contract() -> dict[str, object]:
         "adsb": "service",
         "iss_voice": "wideband_iq",
         "traffic_voice": "service",
-        "meshcore": "null",
+        "hf_monitor": "hf_monitor",
     }
     actual = {
         item["plugin_id"]: item["adapter_type"]
@@ -172,7 +173,7 @@ def main() -> int:
 
     print("PASS: Registry-to-adapter mapping")
     print("PASS: alle adapters zijn fail-closed")
-    print("PASS: Service/SatDump/Null metadata-contracten")
+    print("PASS: Service/SatDump/Null/HF metadata-contracten")
     print(json.dumps(snapshot, indent=2, sort_keys=True, default=str))
     return 0
 

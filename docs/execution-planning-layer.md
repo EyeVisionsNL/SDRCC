@@ -2,10 +2,12 @@
 
 ## Doel
 
-Deze release voegt een uniforme, read-only beschrijving toe van hoe een plugin
-in een latere release gedelegeerd zou kunnen worden.
+Deze historische laag begon als een uniforme, read-only beschrijving van hoe
+een plugin gedelegeerd kon worden. De adapters zijn inmiddels ook de gedeelde
+contractgrens voor uitvoerbare plugins; autoriteit blijft bij hun bestaande
+lifecycle-controller.
 
-Een execution plan voert niets uit.
+Een execution plan voert zelf niets uit.
 
 ## Plancontract
 
@@ -18,26 +20,27 @@ Elk plan bevat onder andere:
 - benodigde autoriteiten en voorwaarden;
 - delegation targets;
 - validatiestatus;
-- expliciete `executable: false`;
-- expliciete `planning_only: true` op catalogusniveau.
+- expliciete uitvoerbaarheidsmetadata;
+- een adapter die alleen naar bestaande, begrensde autoriteit delegeert.
 
 ## Huidige plannen
 
 - Weather: mission → SatDump pipeline.
 - AIS: persistent service → `ais-catcher.service`.
 - ADS-B: persistent service → `readsb.service`.
-- ISS Voice en MeshCore: geen backend → Null plan.
+- Traffic Voice: page controller → bestaande Voice-service en Receiver Manager.
+- HF Amateur Monitor: page controller → Receiver Manager en één gevalideerde
+  `librtlsdr`-backend voor SSB/spectrum/audio.
 
 ## Autoriteitsgrenzen
 
-Deze release:
+De planningslaag zelf:
 
 - start en stopt geen services;
-- start geen SatDump;
 - reserveert, lockt of wijzigt geen receiver;
 - maakt of wijzigt geen missie;
-- schrijft geen Runtime- of Health-state;
 - vervangt geen bestaand executionpad.
 
-Receiver Manager, Mission Engine, Process Manager en bestaande service-control
-blijven de enige operationele autoriteiten.
+Receiver Manager, Mission Engine, Process Manager, de begrensde Traffic
+Voice/HF-controllers en bestaande service-control blijven de operationele
+autoriteiten.

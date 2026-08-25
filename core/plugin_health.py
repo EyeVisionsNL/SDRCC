@@ -61,6 +61,7 @@ def _evaluate_plugin(plugin: dict[str, Any], observed_at: str) -> dict[str, Any]
         for item in plugin.get("services", [])
         if isinstance(item, dict)
     ]
+    operator_selected = plugin.get("operator_selected_receiver") is True
 
     warnings: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -124,13 +125,13 @@ def _evaluate_plugin(plugin: dict[str, Any], observed_at: str) -> dict[str, Any]
         ))
 
     receiver_id = plugin.get("receiver_id")
-    if not receiver_id:
+    if not receiver_id and not operator_selected:
         errors.append(_issue(
             "RECEIVER_UNASSIGNED",
             "Actieve plugin heeft geen receiver-assignment.",
             field="receiver_id",
         ))
-    elif not isinstance(plugin.get("receiver"), dict):
+    elif receiver_id and not isinstance(plugin.get("receiver"), dict):
         errors.append(_issue(
             "RECEIVER_NOT_OBSERVED",
             "Toegewezen receiver ontbreekt in de runtime-observatie.",
@@ -214,7 +215,7 @@ def _evaluate_plugin(plugin: dict[str, Any], observed_at: str) -> dict[str, Any]
         and not errors
     )
     operational = (
-        receiver_id is not None
+        (receiver_id is not None or operator_selected)
         and runtime_state in {
             "READY",
             "SERVICE_ACTIVE",

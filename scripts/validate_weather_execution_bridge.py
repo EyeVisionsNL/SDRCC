@@ -12,8 +12,13 @@ def req(c,m):
     print('PASS:',m)
 
 snap=pm.get_snapshot()
-req(snap['manager_version']=='0.45.0','Plugin Manager-versie is v0.45.0')
-req(snap['summary']['execution_enabled_plugins']==['weather','ais','adsb','traffic_voice'],'Weather, AIS, ADS-B en Traffic Voice zijn execution-enabled')
+req(snap['manager_version']=='0.49.0c2','Plugin Manager-versie is v0.49.0c2')
+req(
+    snap['summary']['execution_enabled_plugins'] == [
+        'weather', 'ais', 'adsb', 'traffic_voice', 'hf_monitor',
+    ],
+    'Weather, AIS, ADS-B, Traffic Voice en HF Monitor zijn execution-enabled',
+)
 w=next(p for p in snap['plugins'] if p['plugin_id']=='weather')
 req(w['control']['enabled'] is True,'Weather-control is ingeschakeld')
 req(w['control']['actions']==['start','stop'],'Weather-acties zijn begrensd tot start/stop')
@@ -28,4 +33,9 @@ req('mission_scheduler_core.set_scheduler_mode("AUTO")' in block,'Weather Start 
 req('_stop_active_mission()' in block,'Weather Stop hergebruikt bestaande Stop Mission-keten')
 req('immediate_recording": False' in block,'Weather Start begint niet direct met opnemen')
 req('next_pass' in block,'Weather Start vereist een eerstvolgende passage')
-print({'status':'ok','version':'0.45.0','enabled_plugins':['weather','ais','adsb','traffic_voice'],'authority':'existing_mission_scheduler_autopilot_path'})
+print({
+    'status': 'ok',
+    'version': '0.49.0c2',
+    'enabled_plugins': ['weather', 'ais', 'adsb', 'traffic_voice', 'hf_monitor'],
+    'authority': 'existing_mission_scheduler_autopilot_path',
+})

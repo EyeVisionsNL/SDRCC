@@ -4,3 +4,4 @@ requests
 psutil
 flask
 schedule
+numpy

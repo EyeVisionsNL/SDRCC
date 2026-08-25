@@ -82,7 +82,8 @@ def _derive_state(
         return "PLANNED"
 
     if not receiver_id:
-        return "UNASSIGNED"
+        dashboard = plugin.get("dashboard") or {}
+        return "READY" if dashboard.get("operator_selected_receiver") is True else "UNASSIGNED"
 
     if isinstance(mission, dict):
         return "MISSION_ACTIVE"
@@ -120,6 +121,17 @@ class PluginRuntime:
             plugin_id = plugin["id"]
             role = plugin["assignment_role"]
             receiver_id = assignments.get(role)
+            operator_selected = bool(
+                (plugin.get("dashboard") or {}).get("operator_selected_receiver")
+            )
+            if not receiver_id and operator_selected:
+                receiver_id = next((
+                    candidate_id
+                    for candidate_id, candidate in receivers.items()
+                    if str((candidate or {}).get("reservation_owner") or "").startswith(
+                        f"{plugin_id}:"
+                    )
+                ), None)
             receiver = receivers.get(receiver_id) if receiver_id else None
             services = _services_for_plugin(plugin_id, receiver)
             mission = _mission_for_plugin(plugin, receiver)
@@ -138,6 +150,7 @@ class PluginRuntime:
                 "executor": plugin["executor"],
                 "capabilities": list(plugin["capabilities"]),
                 "assignment_role": role,
+                "operator_selected_receiver": operator_selected,
                 "receiver_id": receiver_id,
                 "receiver": (
                     deepcopy(receiver.get("device"))

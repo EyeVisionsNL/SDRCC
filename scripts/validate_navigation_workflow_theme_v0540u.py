@@ -14,6 +14,7 @@ EXPECTED_ORDER = [
     "radio",
     "radio-view",
     "traffic-voice",
+    "hf-monitor",
     "mission",
     "mission-planner",
     "images",
@@ -71,7 +72,7 @@ def main() -> None:
     parser.feed(template)
 
     check([tab for tab, _classes in parser.buttons] == EXPECTED_ORDER, "tab buttons follow the approved operator workflow")
-    check(len(parser.buttons) == len(EXPECTED_ORDER), "all ten tab buttons remain unique")
+    check(len(parser.buttons) == len(EXPECTED_ORDER), "all eleven tab buttons remain unique")
     check(
         [tab for tab, classes in parser.buttons if "active" in classes] == ["system"],
         "System is the only initially active tab button",
@@ -81,14 +82,15 @@ def main() -> None:
         "System is the only initially visible tab page",
     )
     check(set(page for page, _classes in parser.pages) == set(EXPECTED_ORDER), "every tab button retains its matching page")
-    check('/static/css/navigation_theme.css?v=0.54.0u-r1' in template, "navigation theme uses the v0.54.0u cache key")
+    check('/static/css/navigation_theme.css?v=0.56.0b' in template, "navigation theme uses the v0.56.0b cache key")
 
     for token, label in (
-        ("grid-template-columns: repeat(10, minmax(0, 1fr))", "wide navigation uses ten equal columns"),
+        ("grid-template-columns: repeat(11, minmax(0, 1fr))", "wide navigation uses eleven equal columns"),
         ('.tab-button[data-tab="system"]', "System has a scoped accent"),
         ('.tab-button[data-tab="mission"]', "Mission Control has a scoped accent"),
         ('.tab-button[data-tab="images"]', "Mission Operations has a scoped accent"),
         ('.tab-button[data-tab="traffic-voice"]', "Traffic Voice has a scoped accent"),
+        ('.tab-button[data-tab="hf-monitor"]', "HF Monitor has a scoped accent"),
         (".tab-button.active", "active tab state is explicit"),
         (".tab-button:focus-visible", "keyboard focus state is explicit"),
         ("@media (max-width: 1100px)", "navigation has a narrow-screen grid"),
