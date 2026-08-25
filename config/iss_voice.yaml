@@ -36,3 +36,5 @@ iss_voice:
   gain_db: 3.7
   squelch_enabled: false
   squelch_threshold_dbfs: -47.0
+  storage:
+    keep_raw_iq: false

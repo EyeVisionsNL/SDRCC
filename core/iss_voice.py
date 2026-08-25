@@ -178,6 +178,11 @@ def validate_config() -> dict[str, Any]:
         errors.append("eerste profiel moet 437800000 Hz gebruiken")
     if config.get("capture_strategy") != "wideband_iq":
         errors.append("capture_strategy moet wideband_iq zijn")
+    storage = config.get("storage", {})
+    if storage is not None and not isinstance(storage, dict):
+        errors.append("storage moet een mapping zijn")
+    elif isinstance(storage, dict) and "keep_raw_iq" in storage and not isinstance(storage.get("keep_raw_iq"), bool):
+        errors.append("storage.keep_raw_iq moet true of false zijn")
     if not bool(config.get("doppler_tracking")):
         errors.append("doppler_tracking moet actief zijn")
     if not bool(config.get("execution_backend_enabled")):
