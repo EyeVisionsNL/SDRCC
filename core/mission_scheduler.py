@@ -256,8 +256,8 @@ class MissionScheduler:
 
         event_bus.publish_scheduler(
             "INFO",
-            "Scheduler-modus gewijzigd",
-            f"Scheduler staat nu op {mode}",
+            "Scheduler mode changed",
+            f"Scheduler is now {mode}",
             data={
                 "mode": mode,
                 "observer_only": bool(state.get("observer_only", True)),

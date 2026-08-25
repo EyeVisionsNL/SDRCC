@@ -140,7 +140,7 @@ def run_preflight():
 
     event_bus.publish_preflight(
         "SUCCESS" if passed else "WARNING",
-        "Preflight geslaagd" if passed else "Preflight mislukt",
+        "Preflight passed" if passed else "Preflight failed",
         result["detail"],
         data={
             "passed": passed,

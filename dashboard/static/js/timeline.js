@@ -107,7 +107,7 @@ async function refreshEventTimeline() {
         latestEvents = Array.isArray(payload.events) ? payload.events : [];
         renderEvents(timeline, latestEvents);
     } catch (error) {
-        console.error("Event Timeline update mislukt:", error);
+        console.error("Event Timeline update failed:", error);
         showTimelineError(timeline);
     }
 }
@@ -134,7 +134,7 @@ function renderEvents(timeline, apiEvents, force = false) {
     timeline.replaceChildren();
 
     if (events.length === 0) {
-        timeline.appendChild(createEmptyState(activeFilter === "ALL" ? "Nog geen operator-events." : "Geen events binnen dit filter."));
+        timeline.appendChild(createEmptyState(activeFilter === "ALL" ? "No operator events yet." : "No events match this filter."));
         return;
     }
 
@@ -204,12 +204,12 @@ function createEventItem(event) {
     expand.type = "button";
     expand.className = "timeline-expand";
     expand.textContent = "⌄";
-    expand.title = "Details tonen";
+    expand.title = "Show details";
     expand.setAttribute("aria-expanded", "false");
     expand.addEventListener("click", () => {
         const expanded = item.classList.toggle("is-expanded");
         expand.setAttribute("aria-expanded", expanded ? "true" : "false");
-        expand.title = expanded ? "Details verbergen" : "Details tonen";
+        expand.title = expanded ? "Hide details" : "Show details";
     });
 
     headerRight.append(time, expand);
@@ -362,5 +362,5 @@ function createEmptyState(text) {
 
 function showTimelineError(timeline) {
     if (timeline.querySelector(".timeline-list")) return;
-    timeline.replaceChildren(createEmptyState("Event Timeline tijdelijk niet bereikbaar."));
+    timeline.replaceChildren(createEmptyState("Event Timeline is temporarily unavailable."));
 }

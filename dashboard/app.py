@@ -1636,8 +1636,8 @@ def autopilot_prepare_receiver():
     )
     event_bus.publish_receiver(
         "INFO",
-        "Weather-receiver voorbereid",
-        f"{device['number']} ({device['serial']}) is beschikbaar voor AUTO",
+        "Weather receiver prepared",
+        f"{device['number']} ({device['serial']}) is available for AUTO",
         data={
             "device_id": device["id"],
             "serial": device["serial"],
@@ -1706,8 +1706,8 @@ def autopilot_lock_receiver():
     )
     event_bus.publish_receiver(
         "SYSTEM",
-        "Receiver gelocked",
-        f"{record_data['device']['number']} voor {pass_data['name']}",
+        "Receiver locked",
+        f"{record_data['device']['number']} for {pass_data['name']}",
         data={
             "device_id": record_data["device"]["id"],
             "serial": record_data["device"]["serial"],
@@ -1787,8 +1787,8 @@ def monitor_auto_record_process(process):
             )
             event_bus.publish_satdump(
                 "INFO",
-                "SatDump productdecode gestart",
-                "CADU wordt verwerkt naar METEOR-beeldproducten",
+                "SatDump product decode started",
+                "CADU is being processed into METEOR image products",
                 data=satdump_core.build_event_context(record_data),
             )
 
@@ -1821,8 +1821,8 @@ def monitor_auto_record_process(process):
 
             event_bus.publish_satdump(
                 "INFO" if final_returncode == 0 else "WARNING",
-                "SatDump productdecode afgerond",
-                f"Returncode {final_returncode}; output wordt gevalideerd",
+                "SatDump product decode completed",
+                f"Return code {final_returncode}; output is being validated",
                 data={
                     **satdump_core.build_event_context(record_data),
                     "returncode": final_returncode,
@@ -1997,8 +1997,8 @@ def autopilot_start_recording():
     )
     event_bus.publish_satdump(
         "INFO",
-        "SatDump AUTO gestart",
-        f"PID {process.pid} voor {record_data['pass']['name']}",
+        "SatDump AUTO started",
+        f"PID {process.pid} for {record_data['pass']['name']}",
         data={
             **satdump_core.build_event_context(record_data),
             "pid": process.pid,
@@ -2170,12 +2170,12 @@ def mission_autopilot_worker():
                 reset_autopilot_runtime(next_pass)
                 write_log(
                     "AUTO: passage geselecteerd: "
-                    f"{next_pass['name']} om {next_pass['start']}"
+                    f"{next_pass['name']} at {next_pass['start']}"
                 )
                 event_bus.publish_automation(
                     "INFO",
-                    "Passage geselecteerd",
-                    f"{next_pass['name']} om {next_pass['start']}",
+                    "Pass selected",
+                    f"{next_pass['name']} at {next_pass['start']}",
                     data={"pass": next_pass},
                 )
 
@@ -2329,7 +2329,7 @@ def mission_autopilot_worker():
             write_log(f"Mission autopilot fout: {error}")
             event_bus.publish_automation(
                 "ERROR",
-                "Mission autopilot fout",
+                "Mission autopilot error",
                 str(error),
                 data={"pass": autopilot_runtime.get("target_pass")},
             )
@@ -3384,8 +3384,8 @@ def api_mission_history_detail(mission_id):
             result = mission_history_core.delete_mission(mission_id)
             event_bus.publish_mission(
                 "INFO",
-                "Mission History verwijderd",
-                f"Missie {mission_id} is handmatig verwijderd",
+                "Mission History entry deleted",
+                f"Mission {mission_id} was manually deleted",
                 data={
                     "mission_id": mission_id,
                     "satellite": result.get("satellite"),
@@ -3747,8 +3747,8 @@ def _stop_active_mission(receiver_id=None):
 
     event_bus.publish_mission(
         "WARNING",
-        "Mission gestopt door operator",
-        "Actieve missie is gecontroleerd geannuleerd; Scheduler staat op MANUAL",
+        "Mission stopped by operator",
+        "Active mission was safely cancelled; Scheduler is now MANUAL",
         data={
             "mission_id": (active_job or {}).get("mission_id"),
             "receiver_id": active_receiver or requested_receiver,
@@ -4326,8 +4326,8 @@ def run():
     recover_stale_iss_voice_observer()
     event_bus.publish_system(
         "SYSTEM",
-        "Event Bus gestart",
-        "SDRCC operator-eventopslag en API zijn actief.",
+        "Event Bus started",
+        "SDRCC operator event storage and API are active.",
     )
     start_mission_autopilot()
     app.run(

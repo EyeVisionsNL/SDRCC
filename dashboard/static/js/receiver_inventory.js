@@ -75,7 +75,7 @@
             return `<article class="receiver-inventory-item ${tone}">
                 <div class="receiver-inventory-head">
                     <div>
-                        <h3>${esc(receiver.number)} · ${esc(receiver.name)}</h3>
+                        <h3>${esc(receiver.name || receiver.number || receiver.id)}</h3>
                         <div class="receiver-inventory-serial">RTL-SDR #${esc(receiver.serial)}</div>
                     </div>
                     <span class="receiver-inventory-state ${tone}" data-state="${esc(receiver.runtime_state)}">${esc(displayState(receiver.runtime_state))}</span>

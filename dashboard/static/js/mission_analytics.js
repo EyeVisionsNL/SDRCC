@@ -73,7 +73,8 @@ function setSuccessSummaryClass(value) {
 }
 
 function performanceCard(item, kind) {
-    const name = item?.name || "Unknown";
+    const displayName = kind === "receiver" ? analyticsReceiverLabel(item?.name) : (item?.name || "Unknown");
+    const name = displayName;
     const missions = Number(item?.missions || 0);
     const successRate = Number(item?.success_rate || 0);
     const className = successRate >= 80 ? "good" : successRate >= 50 ? "warn" : "bad";
@@ -98,7 +99,6 @@ function performanceCard(item, kind) {
             </div>
         </article>`;
 }
-
 function escapeHtml(value) {
     return String(value)
         .replaceAll("&", "&amp;")
@@ -152,8 +152,15 @@ function gainDetails(mission) {
     return {label: "Gain unknown", mode: "unknown", gainDb: null};
 }
 
+function analyticsReceiverLabel(value) {
+    const receiver = String(value || "").trim().toUpperCase();
+    if (["RECEIVER01", "SDR1", "RX01"].includes(receiver)) return "SDR1";
+    if (["RECEIVER02", "SDR2", "RX02"].includes(receiver)) return "SDR2";
+    return value || "Unknown receiver";
+}
+
 function missionReceiverAndGain(mission) {
-    const receiver = mission?.receiver || "Unknown receiver";
+    const receiver = analyticsReceiverLabel(mission?.receiver);
     return `${receiver} · ${gainDetails(mission).label}`;
 }
 
@@ -194,7 +201,7 @@ function renderMetricTrend(id, missions, field, formatter, showGain = false) {
             <div class="mission-analytics-trend-row ${satelliteClass(mission?.satellite)}">
                 <div class="mission-analytics-trend-label">
                     <strong>${escapeHtml(missionLabel(mission))}</strong>
-                    <span>${escapeHtml(showGain ? missionReceiverAndGain(mission) : (mission?.receiver || "Unknown receiver"))}</span>
+                    <span>${escapeHtml(showGain ? missionReceiverAndGain(mission) : (analyticsReceiverLabel(mission?.receiver)))}</span>
                 </div>
                 <div class="mission-analytics-trend-value">${formatter(value)}</div>
                 <div class="mission-analytics-trend-bar"><span style="width:${width.toFixed(1)}%"></span></div>
@@ -246,7 +253,7 @@ function renderOutcomeTimeline(id, missions) {
                 <span class="mission-analytics-timeline-dot ${resultClass(result)}" aria-hidden="true"></span>
                 <div>
                     <strong>${escapeHtml(missionLabel(mission))}</strong>
-                    <span>${escapeHtml(mission?.receiver || "Unknown receiver")}</span>
+                    <span>${escapeHtml(analyticsReceiverLabel(mission?.receiver))}</span>
                 </div>
                 <b class="${resultClass(result)}">${escapeHtml(result)}</b>
             </div>`;

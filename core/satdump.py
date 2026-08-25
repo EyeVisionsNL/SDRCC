@@ -311,8 +311,8 @@ def record_now():
         print("Geen geschikte passage gevonden.")
         event_bus.publish_satdump(
             "WARNING",
-            "SatDump-opname geweigerd",
-            "Geen geschikte passage gevonden",
+            "SatDump recording rejected",
+            "No suitable pass found",
         )
         return False
 
@@ -322,7 +322,7 @@ def record_now():
         print(data["reason"])
         event_bus.publish_satdump(
             "WARNING",
-            "SatDump-opname geweigerd",
+            "SatDump recording rejected",
             data["reason"],
         )
         return False
@@ -347,7 +347,7 @@ def record_now():
     print("Conflicts    :", ", ".join(conflict_services) or "geen")
     event_bus.publish_receiver(
         "INFO",
-        "Weather-receiver voorbereid",
+        "Weather receiver prepared",
         f"{data['device']['number']} ({data['device']['serial']})",
         data={
             **build_event_context(data),
@@ -393,7 +393,7 @@ def record_now():
 
         event_bus.publish_satdump(
             "INFO",
-            "SatDump-opname gestart",
+            "SatDump recording started",
             f"{data['pass']['name']} via {data['device']['number']}",
             data={
                 **build_event_context(data),
@@ -406,8 +406,8 @@ def record_now():
 
         event_bus.publish_satdump(
             "SUCCESS" if success else "ERROR",
-            "SatDump-opname afgerond" if success else "SatDump-opname mislukt",
-            f"Returncode {result.returncode}",
+            "SatDump recording completed" if success else "SatDump recording failed",
+            f"Return code {result.returncode}",
             data={
                 **build_event_context(data),
                 "returncode": result.returncode,
@@ -483,7 +483,7 @@ def analyze_satdump_result(
     )
     event_bus.publish_satdump(
         level,
-        f"SatDump-resultaat: {result['result']}",
+        f"SatDump result: {result['result']}",
         result["detail"],
         data={
             **dict(context or _active_mission_context()),

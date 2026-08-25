@@ -361,7 +361,7 @@ def reserve(receiver_id: str, *, mission_key: str, mission_id: str | None = None
     if created:
         event_data = deepcopy(reservation)
         event_data.update({"receiver_number": device["number"], "receiver_name": device["name"], "receiver_serial": device["serial"], "previous_status": "AVAILABLE", "current_status": "RESERVED"})
-        event_bus.publish_receiver("INFO", "Receiver gereserveerd", f"{device['number']}: AVAILABLE → RESERVED · owner {key} · {reservation.get('reason', '-')}", data=event_data)
+        event_bus.publish_receiver("INFO", "Receiver reserved", f"{device['number']}: AVAILABLE → RESERVED · owner {key} · {reservation.get('reason', '-')}", data=event_data)
     return get_status()
 
 
@@ -397,7 +397,7 @@ def activate(*, mission_key: str, mission_id: str | None = None) -> dict[str, An
         device = get_device(canonical)
         event_data = deepcopy(reservation)
         event_data.update({"receiver_number": device["number"] if device else canonical.upper(), "receiver_name": device["name"] if device else canonical, "receiver_serial": device["serial"] if device else None, "previous_status": previous_status, "current_status": "ACTIVE"})
-        event_bus.publish_receiver("INFO", "Receiver missie actief", f"{event_data['receiver_number']}: {previous_status} → ACTIVE · owner {key}", data=event_data)
+        event_bus.publish_receiver("INFO", "Receiver mission active", f"{event_data['receiver_number']}: {previous_status} → ACTIVE · owner {key}", data=event_data)
     return get_status()
 
 
@@ -548,7 +548,7 @@ def begin_handover(
         event_bus.publish_receiver(
             "SUCCESS",
             "Receiver handover ready",
-            f"{device['number']} is veilig vrijgemaakt voor {key}",
+            f"{device['number']} was safely released for {key}",
             data={
                 "receiver_id": device["id"],
                 "mission_key": key,
@@ -707,7 +707,7 @@ def restore_handover(
     event_bus.publish_receiver(
         "SUCCESS",
         "Receiver handover restored",
-        f"Receivercontext voor {key} is volledig hersteld",
+        f"Receiver context for {key} was fully restored",
         data={"mission_key": key, "receiver_id": _runtime_id(canonical)},
     )
     return {"ok": True, "attention": False, "released": True, "errors": []}
@@ -813,5 +813,5 @@ def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") 
     device = get_device(canonical)
     event_data = deepcopy(released)
     event_data.update({"receiver_number": device["number"] if device else canonical.upper(), "receiver_name": device["name"] if device else canonical, "receiver_serial": device["serial"] if device else None, "previous_status": str(reservation.get("status") or "RESERVED").upper(), "current_status": "RELEASED"})
-    event_bus.publish_receiver("INFO", "Receiver vrijgegeven", f"{event_data['receiver_number']}: {event_data['previous_status']} → RELEASED · owner {released.get('mission_key', '-')} · {detail}", data=event_data)
+    event_bus.publish_receiver("INFO", "Receiver released", f"{event_data['receiver_number']}: {event_data['previous_status']} → RELEASED · owner {released.get('mission_key', '-')} · {detail}", data=event_data)
     return get_status()

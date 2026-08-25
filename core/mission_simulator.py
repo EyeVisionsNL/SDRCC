@@ -312,7 +312,7 @@ def _worker(stop_event: Event, *, scenario: str, duration_seconds: int, mission_
                 })
             event_bus.publish_mission(
                 "SYSTEM",
-                "Simulatiemissie afgerond",
+                "Simulation mission completed",
                 str(result or "UNKNOWN"),
                 data=_snapshot(),
             )
@@ -448,8 +448,8 @@ def start(*, scenario: str = "success", receiver_id: str = "sdr2", duration_seco
 
     event_bus.publish_mission(
         "INFO",
-        "Simulatiemissie gestart",
-        f"{scenario} op {receiver_id.upper()}",
+        "Simulation mission started",
+        f"{scenario} on {receiver_id.upper()}",
         data=_snapshot(),
     )
     return get_status()

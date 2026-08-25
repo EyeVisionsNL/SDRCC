@@ -416,7 +416,7 @@ def update_item(queue_key: str, *, action: str) -> dict[str, Any]:
         changed = deepcopy(override)
     event_bus.publish_automation(
         "INFO",
-        "Mission Queue gewijzigd",
+        "Mission Queue changed",
         f"{key}: {action}",
         data={"queue_key": key, "action": action, "override": changed},
     )

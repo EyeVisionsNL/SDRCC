@@ -268,7 +268,7 @@ class MissionEngine:
 
         event_bus.publish_mission(
             "INFO",
-            "Mission Job aangemaakt",
+            "Mission Job created",
             f"{job['satellite']} / {job['mission_id']}",
             data=job,
         )
@@ -308,7 +308,7 @@ class MissionEngine:
                 )
             event_bus.publish_mission(
                 "SYSTEM",
-                "Mission-status gewijzigd",
+                "Mission status changed",
                 f"{old_state.value} → {new_state.value}",
                 data={
                     "from": old_state.value,
@@ -425,7 +425,7 @@ class MissionEngine:
 
         event_bus.publish_mission(
             "SUCCESS" if success else "WARNING",
-            "Mission Job afgerond",
+            "Mission Job completed",
             f"{completed_job['satellite']} - {completed_job['result']}",
             data=completed_job,
         )
@@ -476,7 +476,7 @@ class MissionEngine:
             "WARNING" if cancelled_job else "SYSTEM",
             event_title,
             (
-                f"Mission {cancelled_job['mission_id']} is geannuleerd"
+                f"Mission {cancelled_job['mission_id']} was cancelled"
                 if cancelled_job
                 else f"{old_state.value} → READY"
             ),
