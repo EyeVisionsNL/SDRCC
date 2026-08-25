@@ -235,6 +235,14 @@ def _build_snapshot(now: datetime) -> dict[str, Any]:
     }
 
 
+
+def invalidate_cache() -> None:
+    """Discard observer-only orbital presentation data after station changes."""
+    with _CACHE_LOCK:
+        _CACHE["epoch"] = 0.0
+        _CACHE["snapshot"] = None
+
+
 def get_snapshot(*, now: datetime | None = None, force: bool = False) -> dict[str, Any]:
     """Return a short-lived cached presentation snapshot of all required TLEs."""
     current = now or datetime.now(timezone.utc)

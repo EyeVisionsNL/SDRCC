@@ -393,6 +393,7 @@
         document.querySelector('.tab-button[data-tab="radio-view"]')?.addEventListener("click", () => {
             window.setTimeout(updateSatelliteView, 0);
         });
+        window.addEventListener("sdrcc:home-position-changed", () => updateSatelliteView());
         updateSatelliteView();
         window.setInterval(() => {
             if (byId("tab-radio-view")?.classList.contains("active")) updateSatelliteView();

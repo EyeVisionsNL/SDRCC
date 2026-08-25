@@ -2376,6 +2376,70 @@ def api_logs():
     return jsonify(payload), status_code
 
 
+
+@app.route("/api/home-position", methods=["GET", "POST"])
+def api_home_position():
+    """Read or update the single station-location authority in station.yaml."""
+    if request.method == "GET":
+        try:
+            return jsonify({
+                "ok": True,
+                "authority": "config/station.yaml:station",
+                "position": config_core.get_home_position(),
+            })
+        except (ValueError, OSError, KeyError) as error:
+            return jsonify({"ok": False, "message": str(error)}), 500
+
+    mission = get_mission_data_for_status()
+    scheduler = mission_scheduler_core.get_scheduler_status()
+    mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
+    observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
+    blocked = mission_phase not in {"", "READY", "WAIT FOR PASS"} or observer_phase in {
+        "PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"
+    }
+    if blocked:
+        return jsonify({
+            "ok": False,
+            "message": "Home Position is locked while a mission is active or preparing.",
+        }), 409
+
+    try:
+        position = config_core.set_home_position(request.get_json(silent=True) or {})
+        satellite_view_core.invalidate_cache()
+        write_log(
+            "Home Position changed: "
+            f"{position['location']} "
+            f"{position['latitude']:.6f}, {position['longitude']:.6f}, "
+            f"{position['altitude_m']:.1f} m"
+        )
+        event_bus.publish_system(
+            "SYSTEM",
+            "Home Position updated",
+            (
+                f"{position['location']} · "
+                f"{position['latitude']:.6f}, {position['longitude']:.6f} · "
+                f"{position['altitude_m']:.1f} m"
+            ),
+            data={"home_position": position},
+        )
+        return jsonify({
+            "ok": True,
+            "authority": "config/station.yaml:station",
+            "position": position,
+            "message": (
+                "Home Position saved. Radio View, satellite planning and "
+                "station-relative Doppler now use this position."
+            ),
+        })
+    except ValueError as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+    except OSError as error:
+        return jsonify({
+            "ok": False,
+            "message": f"Home Position could not be saved: {error}",
+        }), 500
+
+
 @app.route("/api/satellite-view")
 def api_satellite_view():
     """Read-only live geometry for the Radio View world map."""

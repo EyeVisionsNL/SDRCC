@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+import math
 import os
 import threading
 import yaml
@@ -142,6 +143,87 @@ def get_enabled_satellites():
             enabled[name] = config
 
     return enabled
+
+
+
+HOME_POSITION_ALTITUDE_MIN_M = -500.0
+HOME_POSITION_ALTITUDE_MAX_M = 10000.0
+
+
+def _home_position_number(value, field_name):
+    """Normalize one finite numeric home-position value."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{field_name} must be a number") from error
+    if not math.isfinite(number):
+        raise ValueError(f"{field_name} must be finite")
+    return number
+
+
+def normalize_home_position(payload):
+    """Validate operator-supplied station location without creating new authority."""
+    if not isinstance(payload, dict):
+        raise ValueError("Home Position payload must be an object")
+
+    location = str(payload.get("location") or "").strip()
+    if not location:
+        location = "Home"
+    if len(location) > 80:
+        raise ValueError("Location name must be 80 characters or fewer")
+
+    latitude = _home_position_number(payload.get("latitude"), "Latitude")
+    longitude = _home_position_number(payload.get("longitude"), "Longitude")
+    altitude_m = _home_position_number(payload.get("altitude_m", 0.0), "Altitude")
+
+    if not -90.0 <= latitude <= 90.0:
+        raise ValueError("Latitude must be between -90 and 90 degrees")
+    if not -180.0 <= longitude <= 180.0:
+        raise ValueError("Longitude must be between -180 and 180 degrees")
+    if not HOME_POSITION_ALTITUDE_MIN_M <= altitude_m <= HOME_POSITION_ALTITUDE_MAX_M:
+        raise ValueError(
+            f"Altitude must be between {HOME_POSITION_ALTITUDE_MIN_M:g} and "
+            f"{HOME_POSITION_ALTITUDE_MAX_M:g} metres"
+        )
+
+    return {
+        "location": location,
+        "latitude": round(latitude, 6),
+        "longitude": round(longitude, 6),
+        "altitude_m": round(altitude_m, 1),
+    }
+
+
+def get_home_position():
+    """Return the station location used by planning, Radio View and Doppler."""
+    data = load_station() or {}
+    station = data.get("station", {})
+    if not isinstance(station, dict):
+        raise ValueError("station must be a YAML mapping")
+    return normalize_home_position({
+        "location": station.get("location") or "Home",
+        "latitude": station.get("latitude"),
+        "longitude": station.get("longitude"),
+        "altitude_m": station.get("altitude_m", 0.0),
+    })
+
+
+def set_home_position(payload):
+    """Update only station location fields and preserve all other station.yaml state."""
+    position = normalize_home_position(payload)
+    data = load_station() or {}
+    if not isinstance(data, dict):
+        raise ValueError("station.yaml must contain a YAML mapping")
+    station = data.setdefault("station", {})
+    if not isinstance(station, dict):
+        raise ValueError("station must be a YAML mapping")
+
+    station["location"] = position["location"]
+    station["latitude"] = position["latitude"]
+    station["longitude"] = position["longitude"]
+    station["altitude_m"] = position["altitude_m"]
+    save_station(data)
+    return position
 
 
 def save_station(data):

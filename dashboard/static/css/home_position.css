@@ -1,0 +1,170 @@
+/* SDRCC v0.56.0m-r3 — Home Position presentation inside Advanced Maintenance.
+   Colour identity, neon rail and corner ornament are intentionally inherited from
+   the existing system-maintenance-card-v0540f theme. */
+
+.home-position-maintenance {
+    grid-column: 1 / -1;
+}
+
+.home-position-maintenance-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.home-position-maintenance-copy {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+
+.home-position-maintenance-copy h3,
+.home-position-maintenance-copy p {
+    margin: 0;
+}
+
+.home-position-maintenance-copy h3 {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.home-position-maintenance-copy p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.home-position-form {
+    display: grid;
+    gap: 8px;
+}
+
+.home-position-grid {
+    display: grid;
+    grid-template-columns:
+        minmax(150px, 1.25fr)
+        minmax(125px, .9fr)
+        minmax(125px, .9fr)
+        minmax(110px, .7fr)
+        minmax(300px, 1.55fr);
+    gap: 9px;
+    align-items: end;
+}
+
+.home-position-field {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.home-position-field > span {
+    color: #94a3b8;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+}
+
+.home-position-field input {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: 7px 9px;
+    border: 1px solid #24364d;
+    border-radius: 7px;
+    background: rgba(2, 7, 18, .72);
+    color: inherit;
+}
+
+.home-position-field input:focus {
+    outline: 1px solid rgba(245, 158, 11, .62);
+    border-color: rgba(245, 158, 11, .62);
+}
+
+.home-position-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(135px, 1fr));
+    gap: 8px;
+    min-width: 0;
+}
+
+.home-position-actions .control-button {
+    min-height: 36px;
+    margin: 0;
+}
+
+.home-position-footline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 18px;
+}
+
+.home-position-help,
+.home-position-result {
+    margin: 0;
+    font-size: .72rem;
+    line-height: 1.25;
+}
+
+.home-position-help {
+    color: #64748b;
+}
+
+.home-position-result {
+    color: #94a3b8;
+    text-align: right;
+}
+
+.home-position-result.is-ok {
+    color: #74df9a;
+}
+
+.home-position-result.is-error {
+    color: #ff8585;
+}
+
+.home-position-result.is-busy {
+    color: #ffd56a;
+}
+
+@media (max-width: 1180px) {
+    .home-position-grid {
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
+    }
+
+    .home-position-actions {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 720px) {
+    .home-position-maintenance-copy,
+    .home-position-footline {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .home-position-maintenance-copy p {
+        overflow: visible;
+        white-space: normal;
+    }
+
+    .home-position-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .home-position-actions {
+        grid-column: auto;
+        grid-template-columns: 1fr;
+    }
+
+    .home-position-result {
+        text-align: left;
+    }
+}

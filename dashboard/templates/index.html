@@ -29,6 +29,7 @@
     <link rel="stylesheet" href="/static/css/radio_control_theme.css?v=0.54.0o-r2">
     <link rel="stylesheet" href="/static/css/radio_view_theme.css?v=0.54.0p-r1">
     <link rel="stylesheet" href="/static/css/system_theme.css?v=0.54.0r-r1">
+    <link rel="stylesheet" href="/static/css/home_position.css?v=0.56.0m">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.54.0s-r1">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.54.0v-r2">
@@ -347,6 +348,43 @@
                 <span class="system-maintenance-badge-v0540f">CLOSED BY DEFAULT</span>
             </summary>
             <div class="system-maintenance-body-v0540f">
+                <section class="system-maintenance-group-v0540f system-maintenance-service-v0540q home-position-maintenance" aria-labelledby="home-position-title">
+                    <div class="home-position-maintenance-heading">
+                        <div class="home-position-maintenance-copy">
+                            <h3 id="home-position-title">📍 Home Position</h3>
+                            <p class="muted">Single station location used by Radio View, satellite pass planning and station-relative Doppler.</p>
+                        </div>
+                        <span class="system-maintenance-warning-v0540f">STATION SETUP</span>
+                    </div>
+                    <form id="home-position-form" class="home-position-form">
+                        <div class="home-position-grid">
+                            <label class="home-position-field is-name">
+                                <span>Location name</span>
+                                <input id="home-position-location" type="text" maxlength="80" autocomplete="off" placeholder="Home">
+                            </label>
+                            <label class="home-position-field">
+                                <span>Latitude</span>
+                                <input id="home-position-latitude" type="number" min="-90" max="90" step="0.000001" inputmode="decimal" required>
+                            </label>
+                            <label class="home-position-field">
+                                <span>Longitude</span>
+                                <input id="home-position-longitude" type="number" min="-180" max="180" step="0.000001" inputmode="decimal" required>
+                            </label>
+                            <label class="home-position-field">
+                                <span>Altitude ASL (m)</span>
+                                <input id="home-position-altitude" type="number" min="-500" max="10000" step="0.1" inputmode="decimal" required>
+                            </label>
+                            <div class="home-position-actions">
+                                <button id="home-position-browser" type="button" class="control-button">◎ Use browser location</button>
+                                <button id="home-position-save" type="submit" class="control-button">Save Home Position</button>
+                            </div>
+                        </div>
+                        <div class="home-position-footline">
+                            <p class="home-position-help">Browser location only fills latitude/longitude; Save applies the configured station position.</p>
+                            <p id="home-position-result" class="home-position-result" aria-live="polite">Loading configured Home Position...</p>
+                        </div>
+                    </form>
+                </section>
                 <section class="system-maintenance-group-v0540f system-maintenance-service-v0540q" data-control-scope="ais-control" aria-labelledby="ais-control-maintenance-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
@@ -608,7 +646,7 @@
                         <g id="radio-view-station-marker"></g>
                     </svg>
                     <div class="radio-view-station-label">
-                        <strong id="radio-view-station-name">HOME · Vlaardingen</strong>
+                        <strong id="radio-view-station-name">HOME</strong>
                         <span id="radio-view-map-age">Waiting for orbital data...</span>
                     </div>
                     <div class="radio-view-satellite-selector" aria-label="Select a satellite">
@@ -1396,6 +1434,7 @@
 <script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
 <script src="/static/dashboard.js?v=0.54.0t-r1"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0b"></script>
+<script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
 <script src="/static/js/radio.js?v=0.56.0b"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
