@@ -17,9 +17,9 @@ traffic_voice:
     audio_sample_rate_hz: 16000
     activity_source: channel_statistics
     stats_file: /run/sdrcc-traffic-voice/channel-stats.prom
-    gain_db: 15.7
+    gain_db: 12.5
     correction_ppm: 0
-    squelch_snr_db: 7.0
+    squelch_snr_db: 4.0
     open_squelch: false
     gain_mode: manual
   spectrum:
