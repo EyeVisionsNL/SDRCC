@@ -1,25 +1,27 @@
 <p align="center">
-  <img src="dashboard/static/assets/sdrcc.png" alt="SDRCC logo" width="180">
+  <img src="dashboard/static/assets/flexground-sdr.png" alt="FlexGround SDR logo" width="220">
 </p>
 
-<h1 align="center">SDR Control Center</h1>
+<h1 align="center">FlexGround SDR</h1>
 
 <p align="center">
-  A local multi-receiver ground-station dashboard for satellite reception, AIS, ADS-B, traffic voice and live amateur-radio monitoring.
+  Flexible SDR Ground Station for satellite reception, AIS, ADS-B, traffic voice and live amateur-radio monitoring.
 </p>
 
 <p align="center">
-  <strong>Current development line: v0.56.0l · v1.0 preparation</strong><br>
+  <strong>Current development line: v0.56.0n · v1.0 preparation</strong><br>
   Ubuntu 26.04 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb · RTLSDR-Airband
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/mission-control.png" alt="SDRCC Mission Control" width="100%">
+  <img src="docs/screenshots/mission-control.png" alt="FlexGround SDR Mission Control" width="100%">
 </p>
 
-## What is SDRCC?
+## What is FlexGround SDR?
 
-**SDR Control Center (SDRCC)** combines multiple physical RTL-SDR receivers, continuous radio services and scheduled missions in one local dashboard. It plans satellite passes, assigns work to the correct receiver, coordinates temporary receiver handovers, records mission lifecycle events and restores the exact pre-mission receiver context when work finishes or fails.
+**FlexGround SDR** is a flexible software-defined-radio ground station for local radio monitoring and automated satellite missions. It combines multiple physical RTL-SDR receivers, continuous radio services and scheduled missions in one dashboard. It plans satellite passes, assigns work to the correct receiver, coordinates temporary receiver handovers, records mission lifecycle events and restores the exact pre-mission receiver context when work finishes or fails.
+
+The project was previously presented as **SDR Control Center (SDRCC)**. Existing technical identifiers such as `sdrcc.service`, `/home/eyevisions/SDRCC`, environment variables, API contracts and browser events are intentionally retained for backward compatibility.
 
 The current reference station uses two NESDR SMArt v5 receivers:
 
@@ -88,7 +90,7 @@ The voice receiver is derived from the current assignment authority. The page su
 
 #### Voice-to-AIS speaker correlation
 
-In **Marine Voice + AIS** mode, SDRCC can correlate a received marine VHF transmission with live AIS traffic and present a **Possible Speaker** when a likely vessel match is available. The match view shows the vessel name, callsign, MMSI, distance and AIS match status alongside the active voice receiver.
+In **Marine Voice + AIS** mode, FlexGround SDR can correlate a received marine VHF transmission with live AIS traffic and present a **Possible Speaker** when a likely vessel match is available. The match view shows the vessel name, callsign, MMSI, distance and AIS match status alongside the active voice receiver.
 
 ![Traffic Voice AIS speaker match](docs/screenshots/traffic-voice-ais-match.png)
 
@@ -140,11 +142,11 @@ Mission Analytics aggregates stored mission history into receiver and satellite 
 
 ### Logs
 
-The Logs page provides the operational log view for SDRCC and its relevant mission/runtime sources. Runtime log retention rotates `logs/sdrcc.log` at 10 MiB with three retained backups.
+The Logs page provides the operational log view for FlexGround SDR and its relevant mission/runtime sources. Runtime log retention rotates the legacy-compatible `logs/sdrcc.log` at 10 MiB with three retained backups.
 
 ## Architecture and authority
 
-SDRCC follows a single-owner rule: every operational state or hardware action has one authority. UI pages and observer components may project that state, but must not create a competing truth.
+FlexGround SDR follows a single-owner rule: every operational state or hardware action has one authority. UI pages and observer components may project that state, but must not create a competing truth.
 
 ```text
 Pass Prediction / Planning Policy
@@ -196,15 +198,15 @@ HF Monitor and Traffic Voice reuse these boundaries. Neither introduces a second
 
 Mission History remains the manual whole-mission deletion authority.
 
-For successful ISS Voice captures, SDRCC may remove `recording.iq` only after WAV validation and successful receiver-context restoration. Failed or incomplete missions retain raw IQ for diagnosis. Setting `iss_voice.storage.keep_raw_iq: true` disables automatic IQ removal.
+For successful ISS Voice captures, FlexGround SDR may remove `recording.iq` only after WAV validation and successful receiver-context restoration. Failed or incomplete missions retain raw IQ for diagnosis. Setting `iss_voice.storage.keep_raw_iq: true` disables automatic IQ removal.
 
-The main SDRCC runtime log rotates at 10 MiB with three retained backups.
+The main FlexGround SDR runtime log rotates at 10 MiB with three retained backups.
 
 ## Important services
 
 | Service | Purpose |
 |---|---|
-| `sdrcc.service` | SDRCC Flask dashboard and runtime |
+| `sdrcc.service` | FlexGround SDR Flask dashboard and runtime |
 | `ais-catcher.service` | Continuous AIS reception |
 | `ais-catcher-control.service` | AIS-Catcher maintenance/control interface |
 | `readsb.service` | Continuous ADS-B reception |
@@ -214,16 +216,16 @@ External receiver services are deliberately not enabled automatically by the v1 
 
 ## v1.0 installation foundation
 
-v0.56.0j/k introduced the generic SDRCC installer and external provisioning foundation and replaces the obsolete prototype installer with a generic SDRCC installation and provisioning path.
+v0.56.0j/k introduced the generic installer and external provisioning foundation. The legacy-compatible technical identifiers remain unchanged during the FlexGround SDR rebrand.
 
 Important installer properties:
 
 - Default project location: `<install-user-home>/SDRCC`.
 - No reference-user or reference-city values are embedded in the installer.
 - RTL-SDR identity is persisted by serial, never by USB index.
-- SDRCC service units, Traffic Voice service, sudoers boundary and receiver-role helper are reproducible from repository sources.
+- FlexGround SDR service units, Traffic Voice service, sudoers boundary and receiver-role helper are reproducible from repository sources.
 - Third-party provisioning is pinned and validated.
-- Provisioning installs software but does not take receiver/service authority away from SDRCC.
+- Provisioning installs software but does not take receiver/service authority away from FlexGround SDR.
 - Uninstall preserves runtime data by default.
 - Installation and provisioning fail closed when required validation fails.
 
@@ -245,18 +247,18 @@ Detailed clean-machine installation commands should be taken from the release pa
 
 ## Third-party software and credits
 
-SDRCC coordinates and integrates several independent open-source projects. Those projects remain separate works with their own authors, licenses and support channels.
+FlexGround SDR coordinates and integrates several independent open-source projects. Those projects remain separate works with their own authors, licenses and support channels.
 
-| Project | Role in the SDRCC reference stack | Upstream |
+| Project | Role in the FlexGround SDR reference stack | Upstream |
 |---|---|---|
 | SatDump | Satellite demodulation and decoding, including METEOR LRPT | https://github.com/SatDump/SatDump |
 | AIS-catcher | AIS reception, decoding, statistics and local vessel viewer | https://github.com/jvde-github/AIS-catcher |
 | AIS-catcher-control | Companion management/control layer for AIS-catcher | https://github.com/jvde-github/AIS-catcher-control |
 | readsb | ADS-B reception and aircraft data | https://github.com/wiedehopf/readsb |
 | RTLSDR-Airband | Marine/Airband Traffic Voice backend in the v1 reference stack | https://github.com/rtl-airband/RTLSDR-Airband |
-| librtlsdr / rtl-sdr | RTL2832U receiver access used by SDRCC and supporting tools | https://github.com/steve-m/librtlsdr |
+| librtlsdr / rtl-sdr | RTL2832U receiver access used by FlexGround SDR and supporting tools | https://github.com/steve-m/librtlsdr |
 
-SDRCC does not claim authorship of these upstream projects. Where the SDRCC installer provisions an external component, the pinned reference version or commit is documented and validated by the provisioning scripts. See each upstream project for its license, source, documentation and attribution requirements.
+FlexGround SDR does not claim authorship of these upstream projects. Where the installer provisions an external component, the pinned reference version or commit is documented and validated by the provisioning scripts. See each upstream project for its license, source, documentation and attribution requirements.
 
 ## Dashboard access
 
@@ -277,7 +279,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/api/status
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/status` | General SDRCC status |
+| `GET /api/status` | General FlexGround SDR status |
 | `GET /api/mission-operations` | Aggregated operational projection |
 | `GET /api/mission-queue` | Receiver-specific planned missions |
 | `GET /api/mission-engine` | Active Mission Engine status |
@@ -316,7 +318,7 @@ The active development branch is `develop`.
 
 The current documented baseline is **v0.56.0l**. It includes the v1 installer/provisioning foundation from v0.56.0j/k plus the latest UI receiver-identity and Event Timeline language consistency work. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
 
-SDRCC development follows small, reviewable changes with architecture/duplication checks before new functionality, fail-closed runtime behaviour and validation before commit.
+FlexGround SDR development follows small, reviewable changes with architecture/duplication checks before new functionality, fail-closed runtime behaviour and validation before commit.
 
 Typical pre-commit checks include:
 

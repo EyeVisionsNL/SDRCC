@@ -21,7 +21,7 @@ MAX_LIMIT = 500
 
 SOURCE_DEFINITIONS = {
     "sdrcc": {
-        "label": "SDRCC",
+        "label": "FlexGround SDR",
         "kind": "file",
         "path": SDRCC_LOG_FILE,
     },

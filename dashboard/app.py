@@ -4391,7 +4391,7 @@ def run():
     event_bus.publish_system(
         "SYSTEM",
         "Event Bus started",
-        "SDRCC operator event storage and API are active.",
+        "FlexGround SDR operator event storage and API are active.",
     )
     start_mission_autopilot()
     app.run(

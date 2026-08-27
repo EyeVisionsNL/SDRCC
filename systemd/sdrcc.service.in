@@ -1,5 +1,5 @@
 [Unit]
-Description=SDR Control Center
+Description=FlexGround SDR - Flexible SDR Ground Station
 After=network.target
 Wants=network.target
 

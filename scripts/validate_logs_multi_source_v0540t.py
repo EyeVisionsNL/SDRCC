@@ -118,7 +118,7 @@ def validate_static_contract() -> None:
 def validate_backend_contract() -> None:
     check(
         log_sources.available_sources() == [
-            {"id": "sdrcc", "label": "SDRCC"},
+            {"id": "sdrcc", "label": "FlexGround SDR"},
             {"id": "ais", "label": "AIS"},
             {"id": "adsb", "label": "ADS-B"},
         ],

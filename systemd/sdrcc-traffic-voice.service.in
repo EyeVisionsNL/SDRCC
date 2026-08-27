@@ -1,5 +1,5 @@
 [Unit]
-Description=SDRCC Traffic Voice Monitor (RTLSDR-Airband)
+Description=FlexGround SDR Traffic Voice Monitor (RTLSDR-Airband)
 After=network.target
 ConditionPathExists=/opt/sdrcc/traffic_voice/bin/rtl_airband
 

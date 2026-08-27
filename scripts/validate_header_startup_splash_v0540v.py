@@ -27,7 +27,7 @@ class ContractParser(HTMLParser):
             self.ids.append(values["id"] or "")
         if tag == "a" and values.get("href") == PROJECT_URL:
             self.github_links.append(values)
-        if tag == "img" and values.get("src") == "/static/assets/sdrcc.png":
+        if tag == "img" and values.get("src") == "/static/assets/flexground-sdr.png":
             self.logo_sources.append(values.get("src") or "")
 
 
@@ -60,12 +60,12 @@ def main() -> None:
     parser = ContractParser()
     parser.feed(template)
 
-    check("SDRCC – Flexible Ground Station" in template, "approved Flexible Ground Station identity is present")
+    check("FlexGround SDR" in template and "Flexible SDR Ground Station" in template, "approved FlexGround SDR identity is present")
     check("Single Screen Ground Station" not in template, "retired Single Screen Ground Station copy is absent")
     check("Mission Control · Satellite Reception · Air Traffic · Maritime" not in template, "old generic banner subtitle is removed")
-    check(len(parser.logo_sources) >= 2, "existing SDRCC logo is reused in splash and banner")
+    check(len(parser.logo_sources) >= 2, "FlexGround SDR logo is reused in splash and banner")
     check('id="sdrcc-startup-splash"' in template and " hidden" in template, "startup splash defaults to hidden")
-    check('/static/css/header_theme.css?v=0.54.0v-r2' in template, "header theme uses the v0.54.0v-r2 cache key")
+    check('/static/css/header_theme.css?v=0.56.0n' in template, "header theme uses the current branding cache key")
     check('/static/js/startup_splash.js?v=0.54.0v-r1' in template, "startup behavior uses the v0.54.0v cache key")
 
     check(len(parser.github_links) == 1, "one canonical project link is present")

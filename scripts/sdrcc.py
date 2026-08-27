@@ -23,7 +23,7 @@ VERSION = "0.4.0"
 
 
 def print_header():
-    print(f"\nSDR Control Center v{VERSION}")
+    print(f"\nFlexGround SDR v{VERSION}")
     print("=" * 40)
 
 

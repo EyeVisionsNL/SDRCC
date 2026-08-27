@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PURGE=0
 [[ "${1:-}" == "--purge-data" ]] && PURGE=1
-read -r -p "Remove SDRCC services and privileged integration? [y/N] " answer
+read -r -p "Remove FlexGround SDR services and privileged integration? [y/N] " answer
 [[ "$answer" =~ ^[Yy]$ ]] || exit 0
 sudo systemctl disable --now sdrcc.service 2>/dev/null || true
 sudo systemctl stop sdrcc-traffic-voice.service 2>/dev/null || true
