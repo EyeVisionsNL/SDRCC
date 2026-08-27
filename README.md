@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Current development line: v0.56.0n · v1.0 preparation</strong><br>
+  <strong>Current development line: v0.56.0o · v1.0 preparation</strong><br>
   Ubuntu 26.04 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb · RTLSDR-Airband
 </p>
 
@@ -90,7 +90,7 @@ The voice receiver is derived from the current assignment authority. The page su
 
 #### Voice-to-AIS speaker correlation
 
-In **Marine Voice + AIS** mode, FlexGround SDR can correlate a received marine VHF transmission with live AIS traffic and present a **Possible Speaker** when a likely vessel match is available. The match view shows the vessel name, callsign, MMSI, distance and AIS match status alongside the active voice receiver.
+In **Marine Voice + AIS** mode, FlexGround SDR can correlate a received marine VHF transmission with live AIS traffic and present a **Possible Speaker** when a likely vessel match is available. The match view shows the vessel name, callsign, MMSI, distance and AIS match status alongside the active voice receiver. Optional **AIS Auto** opens one operator-approved AIS-Catcher map window and moves that same window to each newly validated vessel match.
 
 ![Traffic Voice AIS speaker match](docs/screenshots/traffic-voice-ais-match.png)
 

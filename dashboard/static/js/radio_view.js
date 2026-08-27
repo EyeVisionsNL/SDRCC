@@ -21,6 +21,7 @@
     let latestQueue = null;
     let selectedSatelliteKey = null;
     let lastQueueFetchMs = 0;
+    let aisAutoWindow = null;
 
     function buildViewerUrls() {
         const hostname = window.location.hostname;
@@ -72,12 +73,8 @@
         const vesselMmsi = String(mmsi || "").trim();
         if (!/^\d{9}$/.test(vesselMmsi)) return false;
 
-        const url = new URL(buildViewerUrls().ais);
-        url.searchParams.set("mmsi", vesselMmsi);
-        url.searchParams.set("zoom", String(Math.max(3, Math.min(18, Number(zoom) || 14))));
-
         const link = document.createElement("a");
-        link.href = url.toString();
+        link.href = aisVesselUrl(vesselMmsi, zoom);
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.hidden = true;
@@ -85,6 +82,32 @@
         link.click();
         link.remove();
         return true;
+    }
+
+    function aisVesselUrl(mmsi, zoom = 14) {
+        const vesselMmsi = String(mmsi || "").trim();
+        const url = new URL(buildViewerUrls().ais);
+        if (/^\d{9}$/.test(vesselMmsi)) url.searchParams.set("mmsi", vesselMmsi);
+        url.searchParams.set("zoom", String(Math.max(3, Math.min(18, Number(zoom) || 14))));
+        return url.toString();
+    }
+
+    function openAisAutoWindow(mmsi = "", zoom = 14) {
+        aisAutoWindow = window.open(aisVesselUrl(mmsi, zoom), "flexground-sdr-ais-auto");
+        if (!aisAutoWindow) return false;
+        aisAutoWindow.focus();
+        return true;
+    }
+
+    function updateAisAutoWindow(mmsi, zoom = 14) {
+        const vesselMmsi = String(mmsi || "").trim();
+        if (!/^\d{9}$/.test(vesselMmsi) || !aisAutoWindow || aisAutoWindow.closed) return false;
+        try {
+            aisAutoWindow.location.href = aisVesselUrl(vesselMmsi, zoom);
+            return true;
+        } catch (_error) {
+            return false;
+        }
     }
 
     async function fetchJson(url) {
@@ -400,7 +423,11 @@
         }, 10000);
     }
 
-    window.sdrccRadioView = Object.freeze({openAisVessel});
+    window.sdrccRadioView = Object.freeze({
+        openAisVessel,
+        openAisAutoWindow,
+        updateAisAutoWindow,
+    });
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", initialize, { once: true });

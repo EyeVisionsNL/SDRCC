@@ -67,7 +67,7 @@ def validate_source_contract() -> None:
     voice_css = (ROOT / "dashboard/static/css/traffic_voice.css").read_text(encoding="utf-8")
     template = (ROOT / "dashboard/templates/index.html").read_text(encoding="utf-8")
 
-    require('VERSION = "0.55.0e"' in traffic, "Traffic Voice version is 0.55.0e")
+    require('VERSION = "0.56.0h"' in traffic, "current Traffic Voice backend retains the ATIS/AIS contract")
     require(
         monitor.count('"http://127.0.0.1:8100/ships.json"') == 1,
         "receiver_monitor retains one canonical AIS-Catcher endpoint",

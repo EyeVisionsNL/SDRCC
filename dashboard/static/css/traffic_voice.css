@@ -622,6 +622,18 @@
     font-weight: 800;
 }
 
+.traffic-voice-map-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.traffic-voice-map-button.is-active {
+    color: #dcfce7;
+    background: rgba(5, 150, 105, 0.24);
+    border-color: rgba(52, 211, 153, 0.7);
+}
+
 .traffic-voice-map-button:hover,
 .traffic-voice-map-button:focus-visible {
     background: rgba(14, 116, 144, 0.28);

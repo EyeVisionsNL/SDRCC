@@ -11,6 +11,8 @@
     let lastPayload = null;
     let channelSignature = "";
     let gainSignature = "";
+    let aisAutoEnabled = false;
+    let lastAutoAisMmsi = "";
 
     function byId(id) {
         return document.getElementById(id);
@@ -77,6 +79,56 @@
             values.push(Number(match.last_signal_seconds).toFixed(0) + " s old");
         }
         detail.textContent = values.join(" · ");
+        maybeAutoFollowAis(match);
+    }
+
+    function renderAisAutoButton() {
+        const button = byId("traffic-voice-auto-ais-vessel");
+        if (!button) return;
+        button.textContent = aisAutoEnabled ? "Auto: on" : "Auto: off";
+        button.setAttribute("aria-pressed", String(aisAutoEnabled));
+        button.classList.toggle("is-active", aisAutoEnabled);
+    }
+
+    function disableAisAuto(message = "") {
+        aisAutoEnabled = false;
+        lastAutoAisMmsi = "";
+        renderAisAutoButton();
+        if (message) text("traffic-voice-action-message", message);
+    }
+
+    function toggleAisAuto() {
+        if (aisAutoEnabled) {
+            disableAisAuto("Automatic AIS vessel following stopped.");
+            return;
+        }
+        const mmsi = String(byId("traffic-voice-show-ais-vessel")?.dataset.mmsi || "");
+        const opened = window.sdrccRadioView?.openAisAutoWindow(mmsi, 14);
+        if (!opened) {
+            disableAisAuto("AIS Auto needs permission to open the map window.");
+            return;
+        }
+        aisAutoEnabled = true;
+        lastAutoAisMmsi = /^\d{9}$/.test(mmsi) ? mmsi : "";
+        renderAisAutoButton();
+        text(
+            "traffic-voice-action-message",
+            lastAutoAisMmsi
+                ? "AIS Auto is following the current matched vessel."
+                : "AIS Auto is waiting for the next validated ATIS/AIS match.",
+        );
+    }
+
+    function maybeAutoFollowAis(match) {
+        if (!aisAutoEnabled) return;
+        const mmsi = String(match?.mmsi || "");
+        if (!/^\d{9}$/.test(mmsi) || mmsi === lastAutoAisMmsi) return;
+        if (!window.sdrccRadioView?.updateAisAutoWindow(mmsi, 14)) {
+            disableAisAuto("AIS Auto stopped because its map window was closed.");
+            return;
+        }
+        lastAutoAisMmsi = mmsi;
+        text("traffic-voice-action-message", "AIS Auto selected MMSI " + mmsi + ".");
     }
 
     function selectedMode(payload) {
@@ -575,6 +627,8 @@
             ?.addEventListener("click", () => runAction("stop"));
         byId("traffic-voice-show-ais-vessel")
             ?.addEventListener("click", showAisVessel);
+        byId("traffic-voice-auto-ais-vessel")
+            ?.addEventListener("click", toggleAisAuto);
         byId("traffic-voice-apply-settings")
             ?.addEventListener("click", () => applySettings());
         byId("traffic-voice-channel-list-export")?.addEventListener("click", exportChannelList);
@@ -608,6 +662,7 @@
         });
         document.addEventListener("visibilitychange", refresh);
         refreshTimer = window.setInterval(refresh, 3000);
+        renderAisAutoButton();
     }
 
     if (document.readyState === "loading") {
