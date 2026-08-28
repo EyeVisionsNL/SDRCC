@@ -5,7 +5,7 @@
 <h1 align="center">FlexGround SDR</h1>
 
 <p align="center">
-  Flexible SDR Ground Station for satellite reception, AIS, ADS-B, traffic voice and live amateur-radio monitoring.
+  Flexible SDR Ground Station for satellite reception, AIS, ADS-B, intelligent traffic voice and wideband live radio monitoring.
 </p>
 
 <p align="center">
@@ -25,10 +25,10 @@ The project was previously presented as **SDR Control Center (SDRCC)**. Existing
 
 The current reference station uses two NESDR SMArt v5 receivers:
 
-| Receiver | Serial | Normal context | Mission / temporary roles |
-|---|---:|---|---|
-| SDR1 | `05419737` | AIS | Weather / METEOR LRPT, Airband Voice |
-| SDR2 | `24006572` | ADS-B | ISS Voice, Marine Voice, HF Monitor |
+| Receiver | Normal context | Mission / temporary roles |
+|---|---|---|
+| SDR1 | AIS | Weather / METEOR LRPT, Airband Voice |
+| SDR2 | ADS-B | ISS Voice, Marine Voice, Radio Receiver |
 
 These values describe the reference installation, not hard-coded product requirements. v1.0 installer work detects RTL-SDR hardware by serial and keeps station/location configuration separate from external-service provisioning.
 
@@ -43,10 +43,11 @@ These values describe the reference installation, not hard-coded product require
 - Continuous AIS and ADS-B reception with live statistics and embedded viewers.
 - Marine NFM + AIS and Airband AM + ADS-B Traffic Voice modes.
 - Traffic Voice fixed-channel/scan operation, scan exclusions, squelch, native Auto Gain and Excel channel-list import/export.
-- HF Amateur Monitor with LSB, USB, CW, AM and FM reception.
-- Measured HF spectrum and waterfall from the same live IQ stream used for browser audio.
-- Spectrum hover measurement, click-to-tune and live frequency retuning.
-- HF Auto Gain/manual gain and RF-power squelch.
+- **AIS-assisted Traffic Voice:** correlates marine transmissions with nearby AIS vessels and can automatically follow validated speaker matches with **Auto** mode.
+- General **Radio Receiver** with free tuning from 0.5 to 1766 MHz, frequency presets and LSB, USB, CW, AM, NFM, FM and WFM modes.
+- Measured spectrum and waterfall from the same live IQ stream used for browser audio.
+- Spectrum hover measurement with frequency/dBFS/offset, click-to-tune, tuning steps and live frequency retuning.
+- Radio Receiver Auto Gain/manual gain and RF-power squelch.
 - Mission Operations workspace for live missions and decoded results.
 - Persistent Mission History with mission diagnostics, files, telemetry and images.
 - Mission Analytics with receiver/satellite performance, Peak SNR and historical RF-gain comparison.
@@ -57,7 +58,7 @@ These values describe the reference installation, not hard-coded product require
 
 The current navigation is:
 
-`System · Radio Control · Radio View · Traffic Voice · HF Monitor · Mission Control · Mission Planner · Mission Operations · Mission History · Mission Analytics · Logs`
+`System · Radio Control · Radio View · Traffic Voice · Radio Receiver · Mission Control · Mission Planner · Mission Operations · Mission History · Mission Analytics · Logs`
 
 ### System
 
@@ -79,36 +80,41 @@ A shared live overview of ADS-B traffic, AIS traffic and satellite positions/gro
 
 ### Traffic Voice
 
-Traffic Voice provides two transaction-safe operating contexts:
+Traffic Voice is more than a channel scanner: it combines live voice reception with the traffic context already available to FlexGround SDR.
 
-- **Marine Voice + AIS** — NFM voice while retaining the AIS context.
-- **Airband Voice + ADS-B** — AM voice while retaining the ADS-B context.
-
-The voice receiver is derived from the current assignment authority. The page supports fixed-channel listening, scanning, per-channel scan exclusions, live browser audio, squelch, native RTL-SDR Auto Gain/manual gain and validated `.xlsx` import/export of both channel banks.
+- **Marine Voice + AIS** — NFM marine VHF while AIS remains the live vessel context.
+- **Airband Voice + ADS-B** — AM aviation voice while ADS-B remains the live aircraft context.
+- Fixed-channel listening or scanning with per-channel scan exclusions.
+- Live browser audio, squelch, native RTL-SDR Auto Gain/manual gain and validated `.xlsx` channel-list import/export.
+- Transaction-safe switching and exact receiver/service restoration through Receiver Manager.
 
 ![Traffic Voice](docs/screenshots/traffic-voice.png)
 
-#### Voice-to-AIS speaker correlation
+#### AIS-assisted speaker identification and Auto follow
 
-In **Marine Voice + AIS** mode, FlexGround SDR can correlate a received marine VHF transmission with live AIS traffic and present a **Possible Speaker** when a likely vessel match is available. The match view shows the vessel name, callsign, MMSI, distance and AIS match status alongside the active voice receiver. Optional **AIS Auto** opens one operator-approved AIS-Catcher map window and moves that same window to each newly validated vessel match.
+In **Marine Voice + AIS**, FlexGround SDR can combine the active marine channel with current AIS traffic to identify a **Possible Speaker**. A validated match exposes the vessel identity and AIS context directly beside the live audio controls.
 
-![Traffic Voice AIS speaker match](docs/screenshots/traffic-voice-ais-match.png)
+The **Auto** button turns that correlation into an operator workflow: when **Auto: on** is enabled, newly validated AIS speaker matches are followed automatically in the operator-approved AIS-Catcher map window. The same map window is reused instead of opening a new window for every match.
 
-The **Show on full AIS map** action opens the matched vessel in the full AIS-catcher map so the operator can immediately verify its live geographic position and surrounding traffic. This keeps voice reception, AIS identity and vessel position connected in one operator workflow.
+![Traffic Voice AIS speaker match with Auto enabled](docs/screenshots/traffic-voice-ais-match.png)
+
+The normal **Show on full AIS map** action remains available for manual verification. This makes it possible to move directly from *hearing a transmission* to *seeing the likely vessel and its live position*.
 
 ![Matched speaker on AIS map](docs/screenshots/traffic-voice-ais-map.png)
 
-`config/traffic_voice.yaml` remains the Traffic Voice configuration authority. Channel-list import is fail-closed and does not modify receiver assignments, services or Receiver Manager authority.
+`config/traffic_voice.yaml` remains the Traffic Voice configuration authority. AIS correlation and Auto follow do not create a second receiver or service authority; receiver handover remains owned by Receiver Manager.
 
-### HF Amateur Monitor
+### Radio Receiver
 
-HF Monitor is a dedicated live amateur-radio workspace. One selected RTL-SDR is handed over through Receiver Manager and opened by the HF backend through `librtlsdr`.
+The **Radio Receiver** is the general-purpose live SDR workspace. It expands the former HF Amateur Monitor into a receiver that can free-tune across the practical RTL-SDR range used by FlexGround SDR: **0.5 to 1766 MHz**.
 
-Supported modes are **LSB, USB, CW, AM and FM**. The same measured IQ stream supplies spectrum, waterfall, demodulation and mono 16 kHz browser audio.
+Frequency presets provide quick starting points for amateur HF bands, shortwave, Airband, Marine VHF, 2 m, broadcast FM, 70 cm, PMR446 and ADS-B, while **Custom / free tune** allows direct frequency entry.
 
-![HF Amateur Monitor](docs/screenshots/hf-monitor.png)
+Supported modes are **LSB, USB, CW, AM, NFM, FM and WFM**. The same measured `librtlsdr` IQ stream supplies the spectrum, waterfall, DSP and browser audio.
 
-On the Q-branch direct-sampling bands, the tuner is bypassed. On the normal tuner path, manual tuner gain is available. Auto Gain and RF-power squelch can be updated during an active session. Spectrum hover reports the nearest FFT-bin frequency and dBFS level; clicking the trace can select and live-retune the active session without opening a second RTL-SDR handle.
+![Radio Receiver live spectrum and waterfall](docs/screenshots/radio-receiver.png)
+
+The live RF display supports frequency divisions, hover measurement with **MHz, dBFS and frequency offset**, spectrum/waterfall click-to-tune, selectable tuning steps and `− / +` fine tuning. Auto Gain/manual tuner gain and RF-power squelch remain available. Below 25 MHz the existing Q-branch direct-sampling path is used; above it the normal tuner path is used. Receiver Manager retains the handover and restores the exact pre-start service state after Stop or failure.
 
 ### Mission Control
 
@@ -160,7 +166,7 @@ Pass Prediction / Planning Policy
         ↙             ↘
  Receiver handover   Execution/runtime adapters
         ↓                    ↓
- AIS / ADS-B / HF / Voice / SatDump / Capture
+ AIS / ADS-B / Radio Receiver / Voice / SatDump / Capture
               ↓
  Mission History · Analytics · Operations · Journal
 ```
@@ -180,7 +186,7 @@ Core boundaries:
 | Execution lifecycle observation | Execution Journal — observer only |
 | UI/API presentation | Dashboard — not an independent state authority |
 
-HF Monitor and Traffic Voice reuse these boundaries. Neither introduces a second receiver registry, lock mechanism or service controller.
+Radio Receiver and Traffic Voice reuse these boundaries. Neither introduces a second receiver registry, lock mechanism or service controller.
 
 ## Mission lifecycle
 
@@ -316,7 +322,7 @@ SDRCC/
 
 The active development branch is `develop`.
 
-The current documented baseline is **v0.56.0l**. It includes the v1 installer/provisioning foundation from v0.56.0j/k plus the latest UI receiver-identity and Event Timeline language consistency work. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
+The current development line is **v0.56.0o / v1.0 preparation**. It includes the v1 installer/provisioning foundation, the current Traffic Voice workflow and the general Radio Receiver. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
 
 FlexGround SDR development follows small, reviewable changes with architecture/duplication checks before new functionality, fail-closed runtime behaviour and validation before commit.
 
