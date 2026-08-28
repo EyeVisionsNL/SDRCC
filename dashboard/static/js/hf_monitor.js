@@ -9,6 +9,13 @@
     let hoverIndex = null;
     let spectrumView = null;
     let rfDirty = false;
+    const MIN_FREQUENCY_HZ = 500_000;
+    const MAX_FREQUENCY_HZ = 1_766_000_000;
+    const PRESET_STEPS_HZ = Object.freeze({
+        "80m":100,"40m":100,"20m":100,"15m":100,"10m":100,
+        shortwave:5000,airband:8330,marine:12500,"2m":12500,
+        fm_broadcast:100000,"70cm":12500,pmr446:6250,adsb:100000,custom:12500,
+    });
 
     const byId = (id) => document.getElementById(id);
 
@@ -60,17 +67,17 @@
             if (squelch) squelch.value = String(controls.squelch_threshold_dbfs ?? -42);
         }
         const isAuto = Boolean(autoGain?.checked);
-        const band = selectedBand();
+        const frequencyHz = Number(byId("hf-monitor-frequency")?.value || 0) * 1_000_000;
         const directSampling = data?.runtime_state === "LISTENING"
             ? data?.backend?.runtime?.settings?.sampling_mode === "Q_BRANCH_DIRECT"
-            : Number(band?.maximum_hz || 0) < 25_000_000;
+            : frequencyHz > 0 && frequencyHz < 25_000_000;
         if (gain) gain.disabled = actionBusy || isAuto || directSampling;
         if (squelch) squelch.disabled = actionBusy || !Boolean(squelchEnabled?.checked);
         setText("hf-monitor-squelch-value", `${Number(squelch?.value || -42).toFixed(0)} dBFS`);
         setText(
             "hf-monitor-gain-note",
             directSampling
-                ? "Q-branch direct sampling bypasses the tuner: Auto Gain controls RTL AGC; numeric tuner gain is not effective on this band."
+                ? "Q-branch direct sampling bypasses the tuner: Auto Gain controls RTL AGC; numeric tuner gain is not effective below 25 MHz."
                 : (isAuto ? "Automatic tuner gain / RTL AGC is active." : "Manual tuner gain is active on the normal tuner path."),
         );
         const signal = Number(controls.signal_dbfs);
@@ -105,8 +112,8 @@
         if (!band) return;
         const frequency = byId("hf-monitor-frequency");
         if (frequency) {
-            frequency.min = formatMHz(band.minimum_hz);
-            frequency.max = formatMHz(band.maximum_hz);
+            frequency.min = "0.500000";
+            frequency.max = "1766.000000";
             if (resetFrequency || !frequency.value) frequency.value = formatMHz(band.default_hz);
         }
         const points = snapshot?.spectrum?.points || [];
@@ -114,7 +121,7 @@
         const minimum = points.length ? points[0].frequency_hz : center - 120000;
         const maximum = points.length ? points[points.length - 1].frequency_hz : center + 120000;
         setText("hf-monitor-axis-min", `${formatMHz(minimum)} MHz`);
-        setText("hf-monitor-axis-band", String(band.id || "HF").toUpperCase());
+        setText("hf-monitor-axis-band", String(band.label || band.id || "RADIO").toUpperCase());
         setText("hf-monitor-axis-max", `${formatMHz(maximum)} MHz`);
     }
 
@@ -132,6 +139,39 @@
             detail = "Receiver Manager still reserves this receiver and never starts a service that was inactive beforehand.";
         }
         target.replaceChildren(heading, document.createElement("br"), document.createTextNode(detail));
+    }
+
+    function selectedStepHz() {
+        const value = Number(byId("hf-monitor-step")?.value || 12500);
+        return Number.isFinite(value) && value > 0 ? value : 12500;
+    }
+    function applyStepToFrequencyInput() {
+        const input = byId("hf-monitor-frequency");
+        if (input) input.step = String(selectedStepHz() / 1_000_000);
+    }
+    function selectPresetStep() {
+        const bandId = byId("hf-monitor-band")?.value || "custom";
+        const preferred = PRESET_STEPS_HZ[bandId] || 12500;
+        const step = byId("hf-monitor-step");
+        if (step && Array.from(step.options).some((option) => Number(option.value) === preferred)) step.value = String(preferred);
+        applyStepToFrequencyInput();
+    }
+    function steppedFrequencyHz(direction) {
+        const input = byId("hf-monitor-frequency");
+        const currentHz = Number(input?.value || 0) * 1_000_000;
+        if (!input || !Number.isFinite(currentHz)) return null;
+        const stepHz = selectedStepHz();
+        const target = Math.max(MIN_FREQUENCY_HZ, Math.min(MAX_FREQUENCY_HZ, Math.round((currentHz + direction * stepHz) / stepHz) * stepHz));
+        input.value = formatMHz(target);
+        frequencyDirty = Boolean(snapshot?.runtime_state === "LISTENING");
+        renderBandDetails();
+        return target;
+    }
+    function tuneOneStep(direction) {
+        const target = steppedFrequencyHz(direction);
+        if (target === null) return;
+        if (snapshot?.retune_allowed) action("retune");
+        else setText("hf-monitor-action-message", `Selected ${formatMHz(target)} MHz; start the receiver when ready.`);
     }
 
     function fitCanvas(canvas) {
@@ -196,15 +236,15 @@
         }
         const minimumFrequency = Number(points[0].frequency_hz);
         const maximumFrequency = Number(points[points.length - 1].frequency_hz);
-        for (let index = 0; index <= 6; index += 1) {
-            const fraction = index / 6;
+        for (let index = 0; index <= 12; index += 1) {
+            const fraction = index / 12;
             const x = plot.left + (plotWidth * fraction);
             const frequency = minimumFrequency + ((maximumFrequency - minimumFrequency) * fraction);
             ctx.strokeStyle = "rgba(56, 189, 248, 0.13)";
             ctx.beginPath(); ctx.moveTo(x, plot.top); ctx.lineTo(x, plot.bottom); ctx.stroke();
             ctx.fillStyle = "#7798ba";
             ctx.textBaseline = "bottom";
-            ctx.textAlign = index === 0 ? "left" : index === 6 ? "right" : "center";
+            ctx.textAlign = index === 0 ? "left" : index === 12 ? "right" : "center";
             ctx.fillText((frequency / 1_000_000).toFixed(4), x, height - (3 * ratio));
         }
         ctx.textBaseline = "middle";
@@ -274,7 +314,10 @@
         }
         hoverIndex = index;
         const point = spectrumView.points[index];
-        tooltip.textContent = `${formatMHz(point.frequency_hz)} MHz · ${Number(point.dbfs).toFixed(1)} dBFS`;
+        const centerHz = Number(snapshot?.selected_frequency_hz || 0);
+        const offsetHz = Number(point.frequency_hz) - centerHz;
+        const offsetText = `${offsetHz >= 0 ? "+" : "−"}${Math.abs(offsetHz / 1000).toFixed(1)} kHz`;
+        tooltip.textContent = `${formatMHz(point.frequency_hz)} MHz · ${Number(point.dbfs).toFixed(1)} dBFS · ${offsetText}`;
         tooltip.removeAttribute("hidden");
         const stage = byId("hf-monitor-spectrum-stage");
         const rect = stage.getBoundingClientRect();
@@ -300,7 +343,24 @@
         frequencyDirty = true;
         renderBandDetails();
         if (snapshot?.retune_allowed) action("retune");
-        else setText("hf-monitor-action-message", `Selected ${formatMHz(point.frequency_hz)} MHz; start HF listening when ready.`);
+        else setText("hf-monitor-action-message", `Selected ${formatMHz(point.frequency_hz)} MHz; start the receiver when ready.`);
+    }
+
+    function chooseWaterfallFrequency(event) {
+        const canvas = byId("hf-monitor-waterfall-canvas");
+        const points = snapshot?.spectrum?.points || [];
+        const frequency = byId("hf-monitor-frequency");
+        if (!canvas || !points.length || !frequency) return;
+        const rect = canvas.getBoundingClientRect();
+        const fraction = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width)));
+        const minimum = Number(points[0].frequency_hz);
+        const maximum = Number(points[points.length - 1].frequency_hz);
+        const target = minimum + ((maximum - minimum) * fraction);
+        frequency.value = formatMHz(target);
+        frequencyDirty = Boolean(snapshot?.runtime_state === "LISTENING");
+        renderBandDetails();
+        if (snapshot?.retune_allowed) action("retune");
+        else setText("hf-monitor-action-message", `Selected ${formatMHz(target)} MHz; start the receiver when ready.`);
     }
 
     function waterfallColor(normalized) {
@@ -372,7 +432,7 @@
             await audio.play();
             const button = byId("hf-monitor-audio-toggle");
             if (button) button.textContent = "■ Stop audio";
-            setText("hf-monitor-audio-state", "Playing 16 kHz live HF audio.");
+            setText("hf-monitor-audio-state", "Playing live Radio Receiver audio.");
         } catch (error) {
             stopAudio();
             setText("hf-monitor-audio-state", error.message || "Browser audio could not start.");
@@ -390,7 +450,7 @@
         }
         setText("hf-monitor-runtime-state", `RECEIVER ${formatState(data.runtime_state)}`);
         setText("hf-monitor-controller-state", listening ? "LIVE DSP" : "BOUNDED CONTROL");
-        setText("hf-monitor-backend", data.backend?.selected === "librtlsdr_qbranch_dsp" ? "LIBRTLSDR · HF DSP" : formatState(data.backend?.status));
+        setText("hf-monitor-backend", data.backend?.selected === "librtlsdr_qbranch_dsp" ? "LIBRTLSDR · RADIO DSP" : formatState(data.backend?.status));
         setText("hf-monitor-execution", data.execution_enabled ? "ENABLED" : "DISABLED");
         setText("hf-monitor-spectrum-state", data.spectrum?.available ? "LIVE MEASURED" : "NO LIVE DATA");
 
@@ -426,9 +486,9 @@
 
         const message = listening
             ? `Live ${data.selected_mode} on ${formatMHz(data.selected_frequency_hz)} MHz via ${String(data.selected_receiver || "").toUpperCase()}.`
-            : data.start_block_reason || "Ready to start one bounded HF session.";
+            : data.start_block_reason || "Ready to start one bounded Radio Receiver session.";
         setText("hf-monitor-action-message", message);
-        setText("hf-monitor-contract-message", "HF Monitor uses one measured librtlsdr IQ stream for spectrum, waterfall and audio. Receiver Manager restores only services that were active before Start.");
+        setText("hf-monitor-contract-message", "Radio Receiver uses one measured librtlsdr IQ stream for spectrum, waterfall and audio. Receiver Manager restores only services that were active before Start.");
 
         const points = data.spectrum?.available && Array.isArray(data.spectrum?.points) ? data.spectrum.points : [];
         const rows = data.spectrum?.available && Array.isArray(data.spectrum?.waterfall) ? data.spectrum.waterfall : [];
@@ -443,7 +503,7 @@
                 if (heading) heading.textContent = listening ? "ACQUIRING LIVE IQ" : "RECEIVER STOPPED";
                 if (detail) detail.textContent = listening
                     ? "Waiting for the first measured spectrum after tuning."
-                    : "Choose a receiver, band, mode and frequency, then start HF listening.";
+                    : "Choose a receiver, preset, mode and frequency, then start listening.";
             }
         }
         const hint = byId("hf-monitor-spectrum-hint");
@@ -467,7 +527,7 @@
     function renderError(error) {
         setText("hf-monitor-status", "UNAVAILABLE");
         byId("hf-monitor-status")?.classList.add("is-error");
-        setText("hf-monitor-action-message", error.message || "HF Monitor API unavailable.");
+        setText("hf-monitor-action-message", error.message || "Radio Receiver API unavailable.");
         const start = byId("hf-monitor-start");
         if (start) start.disabled = true;
     }
@@ -476,7 +536,7 @@
         try {
             const response = await fetch("/api/hf-monitor", {cache: "no-store"});
             const data = await response.json();
-            if (!response.ok || !data.ok) throw new Error(data.error || "HF Monitor configuration is invalid.");
+            if (!response.ok || !data.ok) throw new Error(data.error || "Radio Receiver configuration is invalid.");
             render(data);
         } catch (error) {
             renderError(error);
@@ -489,9 +549,9 @@
         if (snapshot) render(snapshot);
         setText("hf-monitor-action-message", (
             name === "start" ? "Preparing receiver handover..." :
-            name === "retune" ? "Retuning the live HF receiver..." :
+            name === "retune" ? "Retuning the live Radio Receiver..." :
             name === "rf_settings" ? "Applying gain and squelch in the live IQ worker..." :
-            "Stopping HF and restoring receiver context..."
+            "Stopping Radio Receiver and restoring receiver context..."
         ));
         const frequencyMHz = Number(byId("hf-monitor-frequency")?.value);
         const body = {
@@ -512,13 +572,13 @@
                 body: JSON.stringify(body),
             });
             const result = await response.json();
-            if (!response.ok || !result.ok) throw new Error(result.message || "HF action failed.");
+            if (!response.ok || !result.ok) throw new Error(result.message || "Radio Receiver action failed.");
             if (name === "retune") frequencyDirty = false;
             if (name === "rf_settings") rfDirty = false;
             if (result.snapshot) render(result.snapshot);
             setText("hf-monitor-action-message", result.message);
         } catch (error) {
-            setText("hf-monitor-action-message", error.message || "HF action failed.");
+            setText("hf-monitor-action-message", error.message || "Radio Receiver action failed.");
             await load();
         } finally {
             actionBusy = false;
@@ -535,12 +595,16 @@
         const band = selectedBand();
         if (band && byId("hf-monitor-mode")) byId("hf-monitor-mode").value = String(band.default_mode || "USB");
         renderBandDetails({resetFrequency: true});
+        selectPresetStep();
         if (snapshot) renderRfControlState(snapshot);
     });
     byId("hf-monitor-frequency")?.addEventListener("input", () => {
         frequencyDirty = Boolean(snapshot?.runtime_state === "LISTENING");
         renderBandDetails();
     });
+    byId("hf-monitor-step")?.addEventListener("change", applyStepToFrequencyInput);
+    byId("hf-monitor-step-down")?.addEventListener("click", () => tuneOneStep(-1));
+    byId("hf-monitor-step-up")?.addEventListener("click", () => tuneOneStep(1));
     ["hf-monitor-auto-gain", "hf-monitor-gain-db", "hf-monitor-squelch-enabled"].forEach((id) => {
         byId(id)?.addEventListener("change", () => {
             rfDirty = true;
@@ -562,6 +626,7 @@
     byId("hf-monitor-spectrum-canvas")?.addEventListener("mousemove", moveSpectrumCursor);
     byId("hf-monitor-spectrum-canvas")?.addEventListener("mouseleave", leaveSpectrum);
     byId("hf-monitor-spectrum-canvas")?.addEventListener("click", chooseSpectrumFrequency);
+    byId("hf-monitor-waterfall-canvas")?.addEventListener("click", chooseWaterfallFrequency);
     document.querySelector('[data-tab="hf-monitor"]')?.addEventListener("click", load);
     window.addEventListener("resize", () => {
         if (snapshot) {
@@ -570,6 +635,7 @@
         }
     });
 
+    applyStepToFrequencyInput();
     load();
     window.setInterval(() => {
         if (isActive()) load();

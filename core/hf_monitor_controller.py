@@ -285,15 +285,40 @@ def retune(selection: dict[str, Any]) -> dict[str, Any]:
             raise RuntimeError("De actieve HF-selectie ontbreekt")
         for field, label in (
             ("receiver_id", "ontvanger"),
-            ("band", "amateurband"),
+            ("band", "preset"),
             ("mode", "demodulatiemodus"),
         ):
             if normalized[field] != active.get(field):
                 raise ValueError(f"Live afstemmen mag de actieve {label} niet wijzigen")
-        runtime = hf_monitor_backend.retune(
-            center_frequency_hz=normalized["frequency_hz"],
+        current_frequency_hz = int(active.get("frequency_hz") or 0)
+        target_frequency_hz = int(normalized["frequency_hz"])
+        sampling_path_changed = (
+            (current_frequency_hz < 25_000_000) !=
+            (target_frequency_hz < 25_000_000)
         )
+        if sampling_path_changed:
+            receiver = session.get("receiver") or {}
+            rf_controls = session.get("rf_controls") or {}
+            hf_monitor_backend.stop()
+            runtime = hf_monitor_backend.start(
+                serial=str(receiver["serial"]),
+                receiver_id=str(receiver["runtime_id"]),
+                center_frequency_hz=target_frequency_hz,
+                band=normalized["band"],
+                mode=normalized["mode"],
+                gain_mode=str(rf_controls.get("gain_mode", "auto")),
+                gain_db=float(rf_controls.get("gain_db", 28.0)),
+                squelch_enabled=bool(rf_controls.get("squelch_enabled", False)),
+                squelch_threshold_dbfs=float(
+                    rf_controls.get("squelch_threshold_dbfs", -42.0)
+                ),
+            )
+        else:
+            runtime = hf_monitor_backend.retune(
+                center_frequency_hz=target_frequency_hz,
+            )
         session["selection"] = normalized
+        session["sampling_mode"] = runtime.get("settings", {}).get("sampling_mode")
         session["retuned_at"] = _now()
         session["updated_at"] = _now()
         _write_session(session)

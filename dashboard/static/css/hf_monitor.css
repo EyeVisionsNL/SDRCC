@@ -600,3 +600,11 @@
         flex-direction: column;
     }
 }
+
+/* Radio Receiver r2 tuning controls */
+.hf-monitor-step-field {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch;}
+.hf-monitor-step-buttons {display:grid;grid-template-columns:repeat(2,38px);gap:6px;}
+.hf-monitor-step-button {min-height:38px;border:1px solid rgba(56,189,248,.28);border-radius:8px;background:rgba(5,18,33,.92);color:#d8eefc;font-size:22px;line-height:1;cursor:pointer;}
+.hf-monitor-step-button:hover {border-color:rgba(250,204,21,.72);color:#facc15;}
+.hf-monitor-step-button:disabled {opacity:.45;cursor:not-allowed;}
+#hf-monitor-waterfall-canvas {cursor:crosshair;}

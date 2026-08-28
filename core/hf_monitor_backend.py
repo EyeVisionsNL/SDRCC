@@ -110,15 +110,18 @@ class HFSignalProcessor:
         self.mode = str(mode).upper()
         self.sample_rate_hz = int(sample_rate_hz)
         if self.sample_rate_hz != SAMPLE_RATE_HZ:
-            raise ValueError(f"HF backend sample rate must be {SAMPLE_RATE_HZ} Hz")
-        if self.mode not in {"LSB", "USB", "CW", "AM", "FM"}:
-            raise ValueError(f"Unsupported HF mode: {mode}")
+            raise ValueError(f"Radio Receiver backend sample rate must be {SAMPLE_RATE_HZ} Hz")
+        if self.mode not in {"LSB", "USB", "CW", "AM", "NFM", "FM", "WFM"}:
+            raise ValueError(f"Unsupported Radio Receiver mode: {mode}")
         self._window = np.hanning(FFT_SIZE).astype(np.float32)
         self._first = _FIRDecimator(
             _design_lowpass(8_000.0, self.sample_rate_hz, 161), 5,
         )
         self._second = _FIRDecimator(
             _design_lowpass(3_400.0, self.sample_rate_hz / 5.0, 129), 3,
+        )
+        self._wfm_audio = _FIRDecimator(
+            _design_lowpass(7_200.0, self.sample_rate_hz, 241), 15,
         )
         self._sideband = (
             _ComplexFIRFilter(_design_sideband(self.sample_rate_hz, upper=self.mode == "USB"))
@@ -160,9 +163,10 @@ class HFSignalProcessor:
         if self.mode == "CW":
             # A carrier tuned to the selected frequency becomes a 700 Hz tone.
             return np.real(self._mix(iq, -700.0)).astype(np.float32)
-        if self.mode == "FM":
-            # Phase discriminator. Preserve the previous complex sample so block
-            # boundaries do not introduce an audible click or lose phase change.
+        if self.mode in {"NFM", "FM", "WFM"}:
+            # Shared phase discriminator for monitor-quality mono FM modes.
+            # Preserve the previous complex sample so block boundaries do not
+            # introduce an audible click or lose phase change.
             if iq.size == 0:
                 return np.empty(0, dtype=np.float32)
             previous = self._fm_previous
@@ -180,7 +184,7 @@ class HFSignalProcessor:
     def update_squelch(self, *, enabled: bool, threshold_dbfs: float) -> None:
         threshold = float(threshold_dbfs)
         if not -65.0 <= threshold <= -10.0:
-            raise ValueError("HF squelch threshold must be between -65 and -10 dBFS")
+            raise ValueError("Radio Receiver squelch threshold must be between -65 and -10 dBFS")
         self.squelch_enabled = bool(enabled)
         self.squelch_threshold_dbfs = threshold
 
@@ -192,7 +196,7 @@ class HFSignalProcessor:
             or self.last_signal_dbfs >= self.squelch_threshold_dbfs
         )
         source = self._audio_source(iq)
-        audio = self._second.process(self._first.process(source))
+        audio = self._wfm_audio.process(source) if self.mode == "WFM" else self._second.process(self._first.process(source))
         if audio.size == 0:
             return b""
         if not self.squelch_open:
@@ -319,7 +323,7 @@ class _RtlSdrDevice:
     def set_gain(self, *, gain_mode: str, gain_db: float) -> dict[str, Any]:
         mode = str(gain_mode).strip().lower()
         if mode not in {"auto", "manual"}:
-            raise ValueError("HF gain mode must be auto or manual")
+            raise ValueError("Radio Receiver gain mode must be auto or manual")
         if mode == "auto":
             self._check(self.library.rtlsdr_set_tuner_gain_mode(self.device, 0), "automatic tuner gain")
             self._check(self.library.rtlsdr_set_agc_mode(self.device, 1), "digital AGC")
@@ -695,10 +699,10 @@ def update_rf_controls(*, gain_mode: str, gain_db: float, squelch_enabled: bool,
     global _rf_request, _rf_sequence, _rf_error
     mode = str(gain_mode).strip().lower()
     if mode not in {"auto", "manual"}:
-        raise ValueError("HF gain mode must be auto or manual")
+        raise ValueError("Radio Receiver gain mode must be auto or manual")
     threshold = float(squelch_threshold_dbfs)
     if not -65.0 <= threshold <= -10.0:
-        raise ValueError("HF squelch threshold must be between -65 and -10 dBFS")
+        raise ValueError("Radio Receiver squelch threshold must be between -65 and -10 dBFS")
     with _lock:
         if _state != "LISTENING" or _thread is None or not _thread.is_alive():
             raise RuntimeError("HF backend luistert niet")

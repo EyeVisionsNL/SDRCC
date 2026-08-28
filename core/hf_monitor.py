@@ -15,8 +15,14 @@ from core import config as config_core
 from core import plugin_registry, receiver_registry
 
 VERSION = "0.56.0d"
-BAND_ORDER = ("80m", "40m", "20m", "15m", "10m")
-MODE_ORDER = ("LSB", "USB", "CW", "AM", "FM")
+BAND_ORDER = (
+    "80m", "40m", "20m", "15m", "10m",
+    "shortwave", "airband", "marine", "2m",
+    "fm_broadcast", "70cm", "pmr446", "adsb", "custom",
+)
+MODE_ORDER = ("LSB", "USB", "CW", "AM", "NFM", "FM", "WFM")
+MIN_FREQUENCY_HZ = 500_000
+MAX_FREQUENCY_HZ = 1_766_000_000
 CONTINUOUS_CONTEXTS = (
     ("ais", "AIS", "ais-catcher.service"),
     ("adsb", "ADS-B", "readsb.service"),
@@ -71,11 +77,11 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
 
     modes = settings.get("modes")
     if tuple(modes or ()) != MODE_ORDER:
-        errors.append("modes must use the stable LSB/USB/CW/AM/FM order")
+        errors.append("modes must use the stable LSB/USB/CW/AM/NFM/FM/WFM order")
 
     bands = settings.get("bands")
     if not isinstance(bands, dict) or tuple(bands) != BAND_ORDER:
-        errors.append("bands must use the stable 80m/40m/20m/15m/10m order")
+        errors.append("bands/presets must use the stable Radio Receiver preset order")
         bands = {}
     for band_id in BAND_ORDER:
         band = bands.get(band_id)
@@ -167,20 +173,19 @@ def validate_selection(selection: dict[str, Any]) -> dict[str, Any]:
     band_id = str(selection.get("band") or "").strip().lower()
     band = (settings.get("bands") or {}).get(band_id)
     if band_id not in BAND_ORDER or not isinstance(band, dict):
-        raise ValueError("Kies een geldige amateurband")
+        raise ValueError("Kies een geldige frequentie-preset")
     mode = str(selection.get("mode") or "").strip().upper()
     if mode not in MODE_ORDER:
-        raise ValueError("Kies LSB, USB, CW, AM of FM")
+        raise ValueError("Kies LSB, USB, CW, AM, NFM, FM of WFM")
     try:
         frequency_hz = int(selection.get("frequency_hz"))
     except (TypeError, ValueError) as error:
         raise ValueError("Frequentie moet in Hz worden opgegeven") from error
-    minimum = int(band["minimum_hz"])
-    maximum = int(band["maximum_hz"])
-    if not minimum <= frequency_hz <= maximum:
+    if not MIN_FREQUENCY_HZ <= frequency_hz <= MAX_FREQUENCY_HZ:
         raise ValueError(
-            f"Frequentie valt buiten {band_id.upper()} "
-            f"({minimum / 1_000_000:.3f}–{maximum / 1_000_000:.3f} MHz)"
+            "Frequentie moet tussen "
+            f"{MIN_FREQUENCY_HZ / 1_000_000:.3f} en "
+            f"{MAX_FREQUENCY_HZ / 1_000_000:.3f} MHz liggen"
         )
     return {
         "receiver_id": receiver_id,

@@ -34,7 +34,7 @@
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.56.0n">
     <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.56.0o">
-    <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0c">
+    <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
 </head>
 <body>
 <div
@@ -108,7 +108,7 @@
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
     <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>
     <button class="tab-button" data-tab="traffic-voice">🎙 Traffic Voice</button>
-    <button class="tab-button" data-tab="hf-monitor">〰 HF Monitor</button>
+    <button class="tab-button" data-tab="hf-monitor">〰 Radio Receiver</button>
     <button class="tab-button" data-tab="mission">🛰 Mission Control</button>
     <button class="tab-button" data-tab="mission-planner">🗓 Mission Planner</button>
     <button class="tab-button" data-tab="images">🛰️ Mission Operations</button>
@@ -825,9 +825,9 @@
     <div class="hf-monitor-page">
         <section class="card hf-monitor-header">
             <div>
-                <span class="hf-monitor-eyebrow">HF AMATEUR RADIO</span>
-                <h2>〰 HF Amateur Monitor</h2>
-                <p>Listen live on the amateur bands with measured spectrum, waterfall and browser audio.</p>
+                <span class="hf-monitor-eyebrow">GENERAL SDR RECEIVER</span>
+                <h2>〰 Radio Receiver</h2>
+                <p>Free-tune the RTL-SDR with measured spectrum, waterfall and browser audio.</p>
             </div>
             <div class="hf-monitor-badges">
                 <span id="hf-monitor-status" class="hf-monitor-badge is-foundation">LOADING</span>
@@ -840,7 +840,7 @@
                 <div class="hf-monitor-section-heading">
                     <div>
                         <span>OPERATOR SETUP</span>
-                        <h3>Band &amp; receiver</h3>
+                        <h3>Preset &amp; receiver</h3>
                     </div>
                     <span id="hf-monitor-controller-state" class="hf-monitor-state-label">READY</span>
                 </div>
@@ -849,7 +849,7 @@
                     <label>Receiver
                         <select id="hf-monitor-receiver"></select>
                     </label>
-                    <label>Amateur band
+                    <label>Frequency preset
                         <select id="hf-monitor-band"></select>
                     </label>
                     <label>Mode
@@ -857,8 +857,22 @@
                     </label>
                     <label>Frequency
                         <div class="hf-monitor-frequency-field">
-                            <input id="hf-monitor-frequency" type="number" min="0" step="0.0001">
+                            <input id="hf-monitor-frequency" type="number" min="0.5" max="1766" step="0.0125">
                             <span>MHz</span>
+                        </div>
+                    </label>
+                    <label>Frequency step
+                        <div class="hf-monitor-step-field">
+                            <select id="hf-monitor-step" aria-label="Frequency tuning step">
+                                <option value="100">100 Hz</option><option value="500">500 Hz</option><option value="1000">1 kHz</option>
+                                <option value="2500">2.5 kHz</option><option value="5000">5 kHz</option><option value="6250">6.25 kHz</option>
+                                <option value="8330">8.33 kHz</option><option value="10000">10 kHz</option><option value="12500" selected>12.5 kHz</option>
+                                <option value="25000">25 kHz</option><option value="50000">50 kHz</option><option value="100000">100 kHz</option>
+                            </select>
+                            <div class="hf-monitor-step-buttons">
+                                <button id="hf-monitor-step-down" type="button" class="hf-monitor-step-button" title="Tune one step down">−</button>
+                                <button id="hf-monitor-step-up" type="button" class="hf-monitor-step-button" title="Tune one step up">+</button>
+                            </div>
                         </div>
                     </label>
                     <label class="hf-monitor-check-field">Auto gain
@@ -886,9 +900,9 @@
                 </div>
 
                 <div class="hf-monitor-actions">
-                    <button id="hf-monitor-start" type="button" class="hf-monitor-button is-start" disabled>Start HF listening</button>
+                    <button id="hf-monitor-start" type="button" class="hf-monitor-button is-start" disabled>Start receiver</button>
                     <button id="hf-monitor-retune" type="button" class="hf-monitor-button is-retune" disabled>Tune live</button>
-                    <button id="hf-monitor-stop" type="button" class="hf-monitor-button is-stop" disabled>Stop HF listening</button>
+                    <button id="hf-monitor-stop" type="button" class="hf-monitor-button is-stop" disabled>Stop receiver</button>
                     <span id="hf-monitor-action-message">Loading live HF backend...</span>
                 </div>
 
@@ -908,7 +922,7 @@
                     </div>
                     <span id="hf-monitor-spectrum-state" class="hf-monitor-state-label">NO LIVE DATA</span>
                 </div>
-                <div class="hf-monitor-spectrum" role="img" aria-label="Live measured HF spectrum and waterfall">
+                <div class="hf-monitor-spectrum" role="img" aria-label="Live measured SDR spectrum and waterfall">
                     <div class="hf-monitor-spectrum-axis">
                         <span id="hf-monitor-axis-min">-</span>
                         <strong id="hf-monitor-axis-band">HF</strong>
@@ -917,15 +931,15 @@
                     <div id="hf-monitor-spectrum-stage" class="hf-monitor-spectrum-live">
                         <canvas id="hf-monitor-spectrum-canvas" width="1024" height="260"></canvas>
                         <div id="hf-monitor-spectrum-tooltip" class="hf-monitor-spectrum-tooltip" hidden></div>
-                        <span id="hf-monitor-spectrum-hint" class="hf-monitor-spectrum-hint" hidden>Move over the trace to measure · click to tune</span>
+                        <span id="hf-monitor-spectrum-hint" class="hf-monitor-spectrum-hint" hidden>Move over the trace to measure · click to tune · use step − / + for fine tuning</span>
                         <div id="hf-monitor-spectrum-placeholder" class="hf-monitor-spectrum-placeholder">
                             <strong>RECEIVER STOPPED</strong>
-                            <small>Choose a receiver, band, mode and frequency, then start HF listening.</small>
+                            <small>Choose a receiver, preset, mode and frequency, then start listening.</small>
                         </div>
                     </div>
                     <div class="hf-monitor-waterfall-live">
-                        <canvas id="hf-monitor-waterfall-canvas" width="1024" height="150"></canvas>
-                        <span>WATERFALL · MEASURED IQ</span>
+                        <canvas id="hf-monitor-waterfall-canvas" width="1024" height="150" title="Click a frequency to tune"></canvas>
+                        <span>WATERFALL · MEASURED IQ · CLICK TO TUNE</span>
                     </div>
                 </div>
                 <div class="hf-monitor-audio">
@@ -1448,6 +1462,6 @@
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
 <script src="/static/js/traffic_voice.js?v=0.56.0o"></script>
-<script src="/static/js/hf_monitor.js?v=0.56.0c"></script>
+<script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>

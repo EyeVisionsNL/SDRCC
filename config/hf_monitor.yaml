@@ -28,7 +28,9 @@ hf_monitor:
   - USB
   - CW
   - AM
+  - NFM
   - FM
+  - WFM
   bands:
     80m:
       label: 80 metre
@@ -60,3 +62,57 @@ hf_monitor:
       maximum_hz: 29700000
       default_hz: 28500000
       default_mode: USB
+    shortwave:
+      label: Shortwave
+      minimum_hz: 500000
+      maximum_hz: 30000000
+      default_hz: 10000000
+      default_mode: AM
+    airband:
+      label: Airband
+      minimum_hz: 108000000
+      maximum_hz: 137000000
+      default_hz: 121500000
+      default_mode: AM
+    marine:
+      label: Marine VHF
+      minimum_hz: 156000000
+      maximum_hz: 163000000
+      default_hz: 156800000
+      default_mode: NFM
+    2m:
+      label: Amateur 2 metre
+      minimum_hz: 144000000
+      maximum_hz: 146000000
+      default_hz: 145800000
+      default_mode: NFM
+    fm_broadcast:
+      label: Broadcast FM
+      minimum_hz: 87500000
+      maximum_hz: 108000000
+      default_hz: 100000000
+      default_mode: WFM
+    70cm:
+      label: Amateur 70 centimetre
+      minimum_hz: 430000000
+      maximum_hz: 440000000
+      default_hz: 433500000
+      default_mode: NFM
+    pmr446:
+      label: PMR446
+      minimum_hz: 446000000
+      maximum_hz: 446200000
+      default_hz: 446006250
+      default_mode: NFM
+    adsb:
+      label: ADS-B spectrum
+      minimum_hz: 1089000000
+      maximum_hz: 1091000000
+      default_hz: 1090000000
+      default_mode: AM
+    custom:
+      label: Custom / free tune
+      minimum_hz: 500000
+      maximum_hz: 1766000000
+      default_hz: 145800000
+      default_mode: NFM
