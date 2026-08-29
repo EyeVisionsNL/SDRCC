@@ -43,7 +43,7 @@ These values describe the reference installation, not hard-coded product require
 - Continuous AIS and ADS-B reception with live statistics and embedded viewers.
 - Marine NFM + AIS and Airband AM + ADS-B Traffic Voice modes.
 - Traffic Voice fixed-channel/scan operation, scan exclusions, squelch, native Auto Gain and Excel channel-list import/export.
-- **AIS-assisted Traffic Voice:** correlates marine transmissions with nearby AIS vessels and can automatically follow validated speaker matches with **Auto** mode.
+- **Marine ATIS decoding + AIS correlation:** decodes and validates the **Automatic Transmitter Identification System (ATIS)** identity from marine VHF traffic, correlates it with live AIS vessel data and can automatically follow validated vessel matches with **Auto** mode.
 - General **Radio Receiver** with free tuning from 0.5 to 1766 MHz, frequency presets and LSB, USB, CW, AM, NFM, FM and WFM modes.
 - Measured spectrum and waterfall from the same live IQ stream used for browser audio.
 - Spectrum hover measurement with frequency/dBFS/offset, click-to-tune, tuning steps and live frequency retuning.
@@ -90,11 +90,11 @@ Traffic Voice is more than a channel scanner: it combines live voice reception w
 
 ![Traffic Voice](docs/screenshots/traffic-voice.png)
 
-#### AIS-assisted speaker identification and Auto follow
+#### Marine ATIS decoding, AIS correlation and Auto follow
 
-In **Marine Voice + AIS**, FlexGround SDR can combine the active marine channel with current AIS traffic to identify a **Possible Speaker**. A validated match exposes the vessel identity and AIS context directly beside the live audio controls.
+In **Marine Voice + AIS**, FlexGround SDR decodes the marine **ATIS (Automatic Transmitter Identification System)** identity transmitted with VHF traffic. After validation, that ATIS identity is correlated with current AIS data to identify a **Possible Speaker**. A validated match exposes the vessel identity and AIS context directly beside the live audio controls.
 
-The **Auto** button turns that correlation into an operator workflow: when **Auto: on** is enabled, newly validated AIS speaker matches are followed automatically in the operator-approved AIS-Catcher map window. The same map window is reused instead of opening a new window for every match.
+The **Auto** button turns the ATIS-to-AIS correlation into an operator workflow: when **Auto: on** is enabled, newly validated vessel matches are followed automatically in the operator-approved AIS-Catcher map window. The same map window is reused instead of opening a new window for every match.
 
 ![Traffic Voice AIS speaker match with Auto enabled](docs/screenshots/traffic-voice-ais-match.png)
 
@@ -102,7 +102,7 @@ The normal **Show on full AIS map** action remains available for manual verifica
 
 ![Matched speaker on AIS map](docs/screenshots/traffic-voice-ais-map.png)
 
-`config/traffic_voice.yaml` remains the Traffic Voice configuration authority. AIS correlation and Auto follow do not create a second receiver or service authority; receiver handover remains owned by Receiver Manager.
+`config/traffic_voice.yaml` remains the Traffic Voice configuration authority. ATIS decoding, AIS correlation and Auto follow do not create a second receiver or service authority; receiver handover remains owned by Receiver Manager.
 
 ### Radio Receiver
 
