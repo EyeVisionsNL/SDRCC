@@ -732,21 +732,27 @@ def get_snapshot(
         "matched": False,
         "status": "not_applicable" if selected_mode != "marine_ais" else "no_validated_atis",
         "callsign": None,
+        "atis_code": None,
     }
     possible_speaker = None
     if selected_mode == "marine_ais" and latest_atis.get("fresh"):
-        identity = latest_atis.get("callsign") or latest_atis.get("atis_code")
+        atis_code = str(latest_atis.get("atis_code") or "").strip()
+        identity = latest_atis.get("callsign") or atis_code
         if identity:
             possible_speaker = f"{identity} · ATIS VALIDATED"
-        callsign = latest_atis.get("callsign")
-        if callsign:
+        if atis_code:
             if ais_matcher is None:
                 from core import receiver_monitor
-                ais_matcher = receiver_monitor.match_ais_callsign
-            ais_match = ais_matcher(callsign)
+                ais_matcher = receiver_monitor.match_ais_atis
+            ais_match = ais_matcher(atis_code)
             if ais_match.get("matched"):
-                vessel = ais_match.get("shipname") or callsign
-                possible_speaker = f"{vessel} · {callsign} · AIS MATCHED"
+                callsign = ais_match.get("callsign")
+                vessel = ais_match.get("shipname") or callsign or atis_code
+                parts = [str(vessel)]
+                if callsign and callsign != vessel:
+                    parts.append(str(callsign))
+                parts.append("AIS MATCHED")
+                possible_speaker = " · ".join(parts)
     strongest = max(
         activity["channels"],
         key=lambda item: item.get("snr_db") if item.get("snr_db") is not None else -999.0,

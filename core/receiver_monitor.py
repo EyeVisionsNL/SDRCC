@@ -272,43 +272,13 @@ def _valid_mmsi(value: Any) -> str | None:
     return text if len(text) == 9 and text.isdigit() else None
 
 
-def match_ais_callsign(
-    callsign: str | None,
+def _complete_ais_match(
+    result: dict[str, Any],
+    ship: dict[str, Any],
     *,
-    payload: Any | None = None,
-    max_age_seconds: float = AIS_VESSEL_MAX_AGE_SECONDS,
+    max_age_seconds: float,
 ) -> dict[str, Any]:
-    """Return one exact, fresh AIS-Catcher vessel match without guessing."""
-
-    normalized = _normalized_callsign(callsign)
-    result: dict[str, Any] = {
-        "matched": False,
-        "status": "no_callsign" if not normalized else "not_found",
-        "callsign": normalized or None,
-        "max_age_seconds": float(max_age_seconds),
-        "source": None,
-    }
-    if not normalized:
-        return result
-
-    source = "provided_payload"
-    if payload is None:
-        payload, source = _read_ais_ships()
-    result["source"] = source
-    if payload is None:
-        result["status"] = "source_unavailable"
-        return result
-
-    ships = _extract_list(payload, ("ships", "vessels", "targets", "data"))
-    candidates = [ship for ship in ships if _normalized_callsign(ship.get("callsign")) == normalized]
-    result["candidate_count"] = len(candidates)
-    if not candidates:
-        return result
-    if len(candidates) != 1:
-        result["status"] = "ambiguous"
-        return result
-
-    ship = candidates[0]
+    'Apply the shared exact/fresh AIS-Catcher validation contract.'
     validated = _safe_number(ship.get("validated"))
     age = _first_number(ship, ("last_signal", "last_signal_seconds", "age"))
     latitude = _first_number(ship, ("lat", "latitude"))
@@ -330,11 +300,12 @@ def match_ais_callsign(
     ):
         result["status"] = "invalid_position"
         return result
-
+    callsign = _normalized_callsign(ship.get("callsign"))
     result.update({
         "matched": True,
         "status": "matched",
         "mmsi": mmsi,
+        "callsign": callsign or result.get("callsign"),
         "shipname": _bounded_text(ship.get("shipname"), 80),
         "eni": _bounded_text(ship.get("eni"), 20),
         "latitude": round(latitude, 6),
@@ -349,6 +320,110 @@ def match_ais_callsign(
         "validated": True,
     })
     return result
+
+
+def match_ais_callsign(
+    callsign: str | None,
+    *,
+    payload: Any | None = None,
+    max_age_seconds: float = AIS_VESSEL_MAX_AGE_SECONDS,
+) -> dict[str, Any]:
+    'Return one exact, fresh AIS-Catcher callsign match without guessing.'
+    normalized = _normalized_callsign(callsign)
+    result: dict[str, Any] = {
+        "matched": False,
+        "status": "no_callsign" if not normalized else "not_found",
+        "callsign": normalized or None,
+        "max_age_seconds": float(max_age_seconds),
+        "source": None,
+    }
+    if not normalized:
+        return result
+    source = "provided_payload"
+    if payload is None:
+        payload, source = _read_ais_ships()
+    result["source"] = source
+    if payload is None:
+        result["status"] = "source_unavailable"
+        return result
+    ships = _extract_list(payload, ("ships", "vessels", "targets", "data"))
+    candidates = [
+        ship for ship in ships
+        if _normalized_callsign(ship.get("callsign")) == normalized
+    ]
+    result["candidate_count"] = len(candidates)
+    if not candidates:
+        return result
+    if len(candidates) != 1:
+        result["status"] = "ambiguous"
+        return result
+    return _complete_ais_match(result, candidates[0], max_age_seconds=max_age_seconds)
+
+
+def _atis_codes_for_ais_vessel(ship: dict[str, Any]) -> dict[str, str]:
+    'Return standard ATIS identities derivable from one live AIS target.'
+    mmsi = _valid_mmsi(ship.get("mmsi"))
+    if mmsi is None:
+        return {}
+    codes: dict[str, str] = {f"9{mmsi}": "mmsi_direct"}
+    callsign = _normalized_callsign(ship.get("callsign"))
+    matched = re.fullmatch(r"([A-Z]{2,3})([0-9]{4})", callsign)
+    if matched:
+        letters, digits = matched.groups()
+        # RAINWAT permits the second or third callsign letter. Generate both
+        # candidates where available; the received ATIS still has to match
+        # exactly and exactly one live AIS vessel must result.
+        for index in (1, 2):
+            if index >= len(letters):
+                continue
+            letter_code = ord(letters[index]) - 64
+            code = f"9{mmsi[:3]}{letter_code:02d}{digits}"
+            codes.setdefault(code, "callsign_standard")
+    return codes
+
+
+def match_ais_atis(
+    atis_code: str | None,
+    *,
+    payload: Any | None = None,
+    max_age_seconds: float = AIS_VESSEL_MAX_AGE_SECONDS,
+) -> dict[str, Any]:
+    'Match one validated ATIS identity to exactly one live AIS vessel.'
+    normalized = str(atis_code or "").strip()
+    valid = len(normalized) == 10 and normalized.isdigit() and normalized.startswith("9")
+    result: dict[str, Any] = {
+        "matched": False,
+        "status": "not_found" if valid else "invalid_atis",
+        "atis_code": normalized or None,
+        "callsign": None,
+        "match_method": None,
+        "max_age_seconds": float(max_age_seconds),
+        "source": None,
+    }
+    if not valid:
+        return result
+    source = "provided_payload"
+    if payload is None:
+        payload, source = _read_ais_ships()
+    result["source"] = source
+    if payload is None:
+        result["status"] = "source_unavailable"
+        return result
+    ships = _extract_list(payload, ("ships", "vessels", "targets", "data"))
+    candidates: list[tuple[dict[str, Any], str]] = []
+    for ship in ships:
+        method = _atis_codes_for_ais_vessel(ship).get(normalized)
+        if method:
+            candidates.append((ship, method))
+    result["candidate_count"] = len(candidates)
+    if not candidates:
+        return result
+    if len(candidates) != 1:
+        result["status"] = "ambiguous"
+        return result
+    ship, method = candidates[0]
+    result["match_method"] = method
+    return _complete_ais_match(result, ship, max_age_seconds=max_age_seconds)
 
 
 def get_ais_metrics(service_active: bool) -> dict[str, Any]:

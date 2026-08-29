@@ -52,15 +52,15 @@
         const statusMessages = {
             not_applicable: "AIS correlation is available in Marine Voice + AIS.",
             no_validated_atis: "Waiting for validated Marine ATIS.",
+            invalid_atis: "The decoded ATIS identity is not a valid ten-digit ATIS code.",
             no_callsign: "Validated ATIS has no AIS callsign projection.",
             source_unavailable: "AIS-Catcher ships.json is currently unavailable.",
-            not_found: "No exact live AIS callsign match.",
-            ambiguous: "Multiple exact AIS callsign matches; no vessel selected.",
-            not_validated: "Exact AIS callsign found, but AIS-Catcher has not validated it.",
-            stale: "Exact AIS callsign found, but its position is stale.",
-            invalid_position: "Exact AIS callsign found without a usable live position.",
+            not_found: "No exact live AIS vessel match for this ATIS.",
+            ambiguous: "Multiple exact ATIS/AIS matches; no vessel selected.",
+            not_validated: "Matching AIS vessel found, but AIS-Catcher has not validated it.",
+            stale: "Matching AIS vessel found, but its position is stale.",
+            invalid_position: "Matching AIS vessel found without a usable live position.",
         };
-
         if (button) {
             button.hidden = !match.matched;
             button.dataset.mmsi = match.matched ? String(match.mmsi || "") : "";
@@ -72,6 +72,13 @@
         }
 
         const values = ["AIS MATCHED", "MMSI " + match.mmsi];
+        const matchMethods = {
+            callsign_standard: "ATIS→CALLSIGN",
+            mmsi_direct: "ATIS→MMSI",
+        };
+        if (matchMethods[match.match_method]) {
+            values.push(matchMethods[match.match_method]);
+        }
         if (Number.isFinite(Number(match.distance_nm))) {
             values.push(Number(match.distance_nm).toFixed(1) + " NM");
         }

@@ -22,7 +22,7 @@ import numpy as np
 from core import config
 
 
-DECODER_VERSION = 1
+DECODER_VERSION = 2
 SAMPLE_RATE_HZ = 16_000
 BIT_RATE = 1_200.0
 LOW_TONE_HZ = 1_300.0
@@ -39,24 +39,32 @@ _PHASING_SYMBOLS = (
     125, 107, 125, 106, 121, 105, 121, 104,
 )
 
-# The first character in a RAINWAT call sign is represented by the MID.  The
-# compact table deliberately covers the administrations normally heard around
-# Rotterdam; an unknown MID still yields the validated ten-digit ATIS code.
-_MID_CALLSIGN_PREFIXES = {
-    203: ("O", "Austria"),
-    205: ("O", "Belgium"),
-    211: ("D", "Germany"),
-    218: ("D", "Germany"),
-    226: ("F", "France"),
-    227: ("F", "France"),
-    228: ("F", "France"),
-    244: ("P", "Netherlands"),
-    245: ("P", "Netherlands"),
-    246: ("P", "Netherlands"),
-    253: ("L", "Luxembourg"),
-    269: ("H", "Switzerland"),
+# Country metadata is presentation-only. ATIS-to-vessel correlation no longer
+# depends on a guessed national callsign prefix; it is derived from each live
+# AIS target's own MMSI/callsign in receiver_monitor.
+_MID_COUNTRIES = {
+    203: "Austria",
+    205: "Belgium",
+    211: "Germany",
+    218: "Germany",
+    226: "France",
+    227: "France",
+    228: "France",
+    244: "Netherlands",
+    245: "Netherlands",
+    246: "Netherlands",
+    253: "Luxembourg",
+    269: "Switzerland",
 }
 
+# Preserve the familiar Dutch two-letter projection for display only.
+# Foreign RAINWAT callsigns may encode their second OR third letter, so those
+# are correlated against live AIS instead of being reconstructed heuristically.
+_SIMPLE_CALLSIGN_PREFIXES = {
+    244: "P",
+    245: "P",
+    246: "P",
+}
 _state_lock = threading.RLock()
 _audio_queue: queue.Queue[tuple[bytes, float]] = queue.Queue(maxsize=QUEUE_BLOCKS)
 _worker: threading.Thread | None = None
@@ -130,13 +138,12 @@ def _identity_projection(groups: list[int]) -> dict[str, Any] | None:
     if len(atis_code) != 10 or not atis_code.startswith("9"):
         return None
     mid = int(atis_code[1:4])
-    second_letter = int(atis_code[4:6])
-    if second_letter < 1 or second_letter > 26:
-        return None
-    prefix, country = _MID_CALLSIGN_PREFIXES.get(mid, (None, None))
+    letter_code = int(atis_code[4:6])
+    country = _MID_COUNTRIES.get(mid)
     callsign = None
-    if prefix:
-        callsign = f"{prefix}{chr(64 + second_letter)}{atis_code[6:]}"
+    prefix = _SIMPLE_CALLSIGN_PREFIXES.get(mid)
+    if prefix and 1 <= letter_code <= 26:
+        callsign = f"{prefix}{chr(64 + letter_code)}{atis_code[6:]}"
     return {
         "atis_code": atis_code,
         "mid": mid,

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Current development line: v0.56.0o · v1.0 preparation</strong><br>
+  <strong>Current development line: v0.56.0p · v1.0 preparation</strong><br>
   Ubuntu 26.04 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb · RTLSDR-Airband
 </p>
 
@@ -92,7 +92,7 @@ Traffic Voice is more than a channel scanner: it combines live voice reception w
 
 #### Marine ATIS decoding, AIS correlation and Auto follow
 
-In **Marine Voice + AIS**, FlexGround SDR decodes the marine **ATIS (Automatic Transmitter Identification System)** identity transmitted with VHF traffic. After validation, that ATIS identity is correlated with current AIS data to identify a **Possible Speaker**. A validated match exposes the vessel identity and AIS context directly beside the live audio controls.
+In **Marine Voice + AIS**, FlexGround SDR decodes the marine **ATIS (Automatic Transmitter Identification System)** identity transmitted with VHF traffic. After validation, that ATIS identity is correlated with current AIS data to identify a **Possible Speaker**. The local matcher supports the RAINWAT second/third callsign-letter form as well as the direct `9 + MMSI` form used for visiting vessels, without an external vessel database. A validated match exposes the vessel identity and AIS context directly beside the live audio controls.
 
 The **Auto** button turns the ATIS-to-AIS correlation into an operator workflow: when **Auto: on** is enabled, newly validated vessel matches are followed automatically in the operator-approved AIS-Catcher map window. The same map window is reused instead of opening a new window for every match.
 
@@ -322,7 +322,7 @@ SDRCC/
 
 The active development branch is `develop`.
 
-The current development line is **v0.56.0o / v1.0 preparation**. It includes the v1 installer/provisioning foundation, the current Traffic Voice workflow and the general Radio Receiver. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
+The current development line is **v0.56.0p / v1.0 preparation**. It includes the v1 installer/provisioning foundation, the current Traffic Voice workflow and the general Radio Receiver. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
 
 FlexGround SDR development follows small, reviewable changes with architecture/duplication checks before new functionality, fail-closed runtime behaviour and validation before commit.
 
