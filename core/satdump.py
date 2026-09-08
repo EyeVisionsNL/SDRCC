@@ -142,6 +142,8 @@ def build_record_command(pass_data=None):
         return None
 
     device = get_assigned_device("weather")
+    if not device or not device.get("serial"):
+        return None
 
     start_local = next_pass["start"].astimezone(LOCAL_TZ)
     safe_name = next_pass["name"].replace(" ", "_").replace("/", "_")

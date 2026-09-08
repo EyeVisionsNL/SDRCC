@@ -30,16 +30,17 @@ def main():
     p.add_argument('--latitude',type=float,required=True)
     p.add_argument('--longitude',type=float,required=True)
     p.add_argument('--altitude-m',type=float,default=0.0)
-    p.add_argument('--sdr1-serial',required=True)
-    p.add_argument('--sdr2-serial',required=True)
+    p.add_argument('--sdr1-serial',default=None)
+    p.add_argument('--sdr2-serial',default=None)
     p.add_argument('--apply',action='store_true')
     a=p.parse_args()
-    if a.sdr1_serial==a.sdr2_serial: p.error('SDR1 and SDR2 must have different serials')
+    if a.sdr1_serial and a.sdr1_serial==a.sdr2_serial: p.error('SDR1 and SDR2 must have different serials')
     if not (-90<=a.latitude<=90 and -180<=a.longitude<=180): p.error('invalid latitude/longitude')
     station=yaml.safe_load(STATION.read_text()) or {}; receivers=yaml.safe_load(RECEIVERS.read_text()) or {}
     st=station.setdefault('station',{}); st.update({'name':a.station_name,'location':a.location,'latitude':a.latitude,'longitude':a.longitude,'altitude_m':a.altitude_m})
     rs=receivers.setdefault('receivers',{})
     for key,serial in [('receiver01',a.sdr1_serial),('receiver02',a.sdr2_serial)]:
+        if serial is None: continue
         if key not in rs: raise SystemExit(f'{key} missing from receivers.yaml')
         rs[key].setdefault('hardware',{})['serial']=str(serial)
     print(f"Station: {a.location} ({a.latitude}, {a.longitude}) altitude={a.altitude_m}m")

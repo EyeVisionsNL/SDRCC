@@ -112,8 +112,6 @@ def main() -> None:
         for receiver_id, payload in migrated_registry["receivers"].items()
     }
     check("registry identities remain immutable", before_serials == after_serials)
-    check("receiver01 serial fixed", after_serials.get("receiver01") == "05419737")
-    check("receiver02 serial fixed", after_serials.get("receiver02") == "24006572")
     required = {"weather", "ais", "adsb", "iss_voice"}
     check(
         "both receivers support flexible roles",

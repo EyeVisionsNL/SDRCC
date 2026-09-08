@@ -78,6 +78,8 @@ def _normalise_state(data: Any) -> dict[str, Any]:
             if canonical and item:
                 state["reservations"][canonical] = item
 
+    state["hardware_recovery"] = deepcopy(data.get("hardware_recovery") or {})
+    state["binding_transaction"] = deepcopy(data.get("binding_transaction"))
     last_releases = data.get("last_releases")
     if isinstance(last_releases, dict):
         for receiver_id, released in last_releases.items():
@@ -226,6 +228,8 @@ def _device_summary(device_id: str | None) -> dict[str, Any] | None:
         "number": device["number"],
         "name": device["name"],
         "serial": device["serial"],
+        "presence": device.get("presence", "UNKNOWN"),
+        "present": device.get("present", False),
     }
 
 
@@ -280,7 +284,7 @@ def get_status() -> dict[str, Any]:
             "device": _device_summary(canonical),
             "reservation": reservation,
             "last_release": canonical_last_releases.get(canonical),
-            "available": reservation is None,
+            "available": reservation is None and hardware_ready(canonical),
         }
         receivers[runtime] = entry
         canonical_receivers[canonical] = entry
@@ -297,7 +301,7 @@ def get_status() -> dict[str, Any]:
         "configured_receiver": _device_summary(configured_canonical or configured_runtime),
         "reservation": configured_reservation,
         "last_release": configured_last_release,
-        "available": configured_reservation is None,
+        "available": configured_reservation is None and hardware_ready(configured_canonical),
         # Existing compatibility contract.
         "receivers": receivers,
         "reservations": reservations,
@@ -317,7 +321,7 @@ def get_status() -> dict[str, Any]:
 
 def is_available(receiver_id: str, *, mission_key: str | None = None) -> bool:
     canonical = _canonical_id(receiver_id)
-    if canonical is None:
+    if canonical is None or not hardware_ready(canonical):
         return False
     with _LOCK:
         reservation = _load_state().get("reservations", {}).get(canonical)
@@ -335,6 +339,8 @@ def reserve(receiver_id: str, *, mission_key: str, mission_id: str | None = None
         raise ValueError("mission_key ontbreekt")
 
     with _LOCK:
+        if not hardware_ready(canonical):
+            raise RuntimeError("Receiver hardware is missing, unbound or requires recovery")
         state = _load_state()
         reservations = state["reservations"]
         current = reservations.get(canonical)
@@ -382,6 +388,8 @@ def activate(*, mission_key: str, mission_id: str | None = None) -> dict[str, An
         if reservation is None or canonical is None:
             raise RuntimeError("Geen passende receiver-reservering gevonden")
         previous_status = str(reservation.get("status") or "RESERVED").upper()
+        if not hardware_ready(canonical):
+            raise RuntimeError("Receiver hardware disappeared before activation")
         reservation["status"] = "ACTIVE"
         reservation["activated_at"] = _now()
         if isinstance(reservation.get("handover"), dict):
@@ -615,6 +623,20 @@ def restore_handover(
         services = deepcopy(handover.get("services") or [])
         previous_profile = handover.get("previous_profile")
 
+    device = get_device(canonical)
+    if device and device.get("presence") == "MISSING":
+        with _LOCK:
+            stored = _load_state()
+            pending = stored.setdefault("hardware_recovery", {}).setdefault(canonical, {"services": [], "status": "WAITING"})
+            for item in services:
+                if item.get("was_active") and (item.get("stopped_by_sdrcc") or item.get("stop_status") in {"STOPPING", "STOPPED"}):
+                    if item["service"] not in pending["services"]:
+                        pending["services"].append(item["service"])
+            stored["reservations"][canonical]["handover"]["status"] = "DEFERRED_HARDWARE"
+            _save_state(stored)
+        release(mission_key=key, detail="Executor stopped; service restoration deferred until hardware returns")
+        return {"ok": True, "released": True, "deferred": True, "errors": []}
+
     def mark_restoring(reservation: dict[str, Any], handover: dict[str, Any]) -> None:
         handover["status"] = "RESTORING"
         handover["restore_started_at"] = _now()
@@ -763,6 +785,8 @@ def service_action_block(plugin_id: str, action: str) -> dict[str, Any] | None:
             "action": operation,
         }
     canonical = device["registry_id"]
+    if not hardware_ready(canonical):
+        return {"reason": "hardware_unavailable", "message": "Receiver hardware is missing, unbound or requires recovery"}
     with _LOCK:
         reservation = deepcopy(_load_state().get("reservations", {}).get(canonical))
     if not isinstance(reservation, dict):
@@ -798,7 +822,7 @@ def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") 
         else:
             raise RuntimeError("Meerdere receiver-reserveringen actief; mission_key is verplicht")
         handover = reservation.get("handover")
-        if isinstance(handover, dict) and str(handover.get("status") or "").upper() != "RESTORED":
+        if isinstance(handover, dict) and str(handover.get("status") or "").upper() not in {"RESTORED", "DEFERRED_HARDWARE"}:
             raise RuntimeError(
                 "Receiver kan niet worden vrijgegeven voordat de handover volledig is hersteld"
             )
@@ -815,3 +839,201 @@ def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") 
     event_data.update({"receiver_number": device["number"] if device else canonical.upper(), "receiver_name": device["name"] if device else canonical, "receiver_serial": device["serial"] if device else None, "previous_status": str(reservation.get("status") or "RESERVED").upper(), "current_status": "RELEASED"})
     event_bus.publish_receiver("INFO", "Receiver released", f"{event_data['receiver_number']}: {event_data['previous_status']} → RELEASED · owner {released.get('mission_key', '-')} · {detail}", data=event_data)
     return get_status()
+
+
+# Hardware lifecycle belongs to this existing manager. GET snapshots never bind.
+_binding_message = 'Waiting for hardware observation'
+_previous_active = {}
+_tick_lock = RLock()
+
+
+def hardware_ready(receiver_id):
+    device = get_device(receiver_id)
+    if not device or not device.get('present'):
+        return False
+    with _LOCK:
+        state = _load_state()
+        return not state.get('binding_transaction') and device['registry_id'] not in state.get('hardware_recovery', {})
+
+
+def binding_status():
+    with _LOCK:
+        state = _load_state()
+        return {'message': _binding_message, 'transaction': bool(state.get('binding_transaction')),
+                'recovery': deepcopy(state.get('hardware_recovery', {}))}
+
+
+def service_control_serialized(function):
+    """Prevent a dashboard service start racing a hardware binding commit."""
+    from functools import wraps
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        with _LOCK:
+            return function(*args, **kwargs)
+    return wrapped
+
+
+def bind_hardware(*, privileged_apply, service_state, mapping=None):
+    """Idempotent registry transaction with a durable external-sync intent.
+
+    Existing privileged adapter owns AIS/readsb files, service preservation and
+    rollback. On interruption the intent blocks new work until an idempotent retry
+    completes; no blank serial is ever passed to an executor.
+    """
+    global _binding_message
+    from core import receiver_registry, receiver_hardware, receiver_authority, config
+    from core.device_manager import get_conflicting_services
+    with _LOCK:
+        snapshot = receiver_hardware.scan(refresh=True)
+        if not snapshot['ok'] or snapshot['ambiguous']:
+            raise RuntimeError(snapshot['error'] or 'USB identity is ambiguous')
+        state = _load_state()
+        rows = receiver_registry.get_receivers(include_disabled=True)
+        current = {r['id']: r['serial'] for r in rows}
+        enabled = {r['id']: r for r in rows if r['enabled']}
+        devices = {r['serial'] for r in snapshot['receivers'] if r['serial']}
+        pending = state.get('binding_transaction')
+        if pending and current not in (pending['previous'], {**pending['previous'], **pending['mapping']}):
+            raise RuntimeError('Registry changed during pending binding; review configuration')
+        if pending and mapping is None:
+            changes = pending['mapping']
+        elif mapping is not None:
+            if not isinstance(mapping, dict) or not mapping:
+                raise ValueError('Select at least one receiver and serial')
+            changes = {}
+            for key, value in mapping.items():
+                if key not in enabled or not isinstance(value, str) or value not in devices:
+                    raise ValueError('Select an enabled receiver and a currently present serial')
+                changes[key] = value
+        else:
+            vacant = [key for key in enabled if not current[key] or current[key] not in devices]
+            new = sorted(devices - {v for v in current.values() if v})
+            # Preserve retained receivers. For two entirely new receivers, sorted
+            # serials provide stable first binding independent of USB enumeration.
+            if not vacant or not new:
+                _binding_message = 'Bindings retained; waiting for missing hardware' if vacant else 'Hardware bindings ready'
+                return {'ok': True, 'changed': False}
+            if len(vacant) != len(new):
+                _binding_message = 'ACTION_REQUIRED: select the receiver bindings below'
+                return {'ok': False, 'changed': False, 'message': _binding_message}
+            changes = dict(zip(vacant, new))
+        candidate = {**current, **changes}
+        bound = [value for value in candidate.values() if value]
+        if len(bound) != len(set(bound)):
+            raise ValueError('A physical serial cannot belong to two slots')
+        if any(value not in devices for value in changes.values()):
+            raise RuntimeError('Pending replacement is no longer connected')
+        changed = [key for key in changes if candidate[key] != current[key]]
+        if not changed and not pending:
+            return {'ok': True, 'changed': False}
+        if state['reservations']:
+            raise RuntimeError('Waiting for the existing mission/session to release its reservation')
+        for key in changed:
+            for service in get_conflicting_services(key):
+                observation = service_state(service)
+                if observation.get('state') not in {'inactive', 'failed'}:
+                    raise RuntimeError(f'{service}: stop reception before changing this binding')
+        state['binding_transaction'] = {'mapping': changes, 'previous': current, 'started_at': _now()} if mapping is not None else (pending or {'mapping': changes, 'previous': current, 'started_at': _now()})
+        _save_state(state)
+        # Missing service roles do not prevent HF/mission-only stations binding.
+        assignments = config.get_receiver_assignments()
+        ids = {role: resolve_id(assignments.get(role)) for role in ('ais', 'adsb')}
+        serials = {role: candidate.get(key, '') for role, key in ids.items()}
+        if all(serials.values()):
+            result = privileged_apply(serials['ais'], serials['adsb'])
+            if not result.get('ok'):
+                _binding_message = 'ACTION_REQUIRED: ' + str(result.get('message', 'External service configuration failed'))
+                raise RuntimeError(_binding_message)
+        receiver_registry.write_bindings(candidate)
+        receiver_authority.invalidate_cache()
+        state = _load_state()
+        state['binding_transaction'] = None
+        _save_state(state)
+        _binding_message = 'Hardware bindings updated; roles and reception settings preserved'
+        return {'ok': True, 'changed': True, 'bindings': candidate}
+
+
+def hardware_tick(*, service_state, service_action, wait_for_service, stop_receiver, privileged_apply):
+    """One bounded observation/recovery cycle, invoked by the dashboard worker."""
+    global _binding_message, _previous_active
+    from core import receiver_hardware
+    from core.device_manager import get_conflicting_services
+    with _tick_lock:
+        snapshot = receiver_hardware.scan(refresh=True)
+        if not snapshot['ok'] or snapshot['ambiguous']:
+            _binding_message = snapshot['error'] or 'UNKNOWN USB state'
+            return
+        devices = get_devices()
+        for device in devices:
+            key = device['registry_id']
+            services = get_conflicting_services(key)
+            observations = {name: service_state(name) for name in services}
+            active = [name for name, item in observations.items() if item.get('active')]
+            if device['presence'] == 'PRESENT':
+                _previous_active[key] = active
+                continue
+            if device['presence'] != 'MISSING':
+                continue
+            with _LOCK:
+                state = _load_state()
+                recoveries = state.setdefault('hardware_recovery', {})
+                recovery = recoveries.setdefault(key, {'services': [], 'status': 'WAITING'})
+                for service in active + _previous_active.get(key, []):
+                    if service not in recovery['services']: recovery['services'].append(service)
+                reservation = deepcopy(state['reservations'].get(key))
+                _save_state(state)
+            # Executor stop runs outside the manager lock: watcher cleanup needs it.
+            stop_receiver(key, reservation)
+            for service in services:
+                if observations[service].get('state') not in {'inactive', 'failed'} or observations[service].get('active'):
+                    result = service_action('stop', service)
+                    if not _result_ok(result) or not wait_for_service(service, 'inactive', 15):
+                        raise RuntimeError(f'{service}: hardware-loss stop failed')
+            _previous_active[key] = []
+        bind_hardware(privileged_apply=privileged_apply, service_state=service_state)
+        # Restore only the services retained in the manager's recovery intent.
+        with _LOCK:
+            state = _load_state()
+            if state.get('binding_transaction'): return
+            for key in list(state.get('hardware_recovery', {})):
+                device = get_device(key)
+                if not device or not device.get('present') or key in state['reservations']:
+                    continue
+                recovery = state['hardware_recovery'][key]
+                for service in sorted(recovery['services'], key=lambda name: (name.endswith('-control.service'), name)):
+                    result = service_action('start', service)
+                    if not _result_ok(result) or not wait_for_service(service, 'active', 15):
+                        recovery['status'] = 'ACTION_REQUIRED'
+                        _save_state(state)
+                        raise RuntimeError(f'{service}: restart failed; recovery intent retained')
+                    recovery['services'].remove(service)
+                    _save_state(state)
+                del state['hardware_recovery'][key]
+                _save_state(state)
+
+
+def cancel_service_recovery(plugin_id):
+    """An explicit operator Stop cancels queued automatic service restoration."""
+    from core.device_manager import get_role_handover_services
+    cancelled = set(get_role_handover_services(plugin_id))
+    with _LOCK:
+        state = _load_state()
+        for recovery in state.get('hardware_recovery', {}).values():
+            recovery['services'] = [name for name in recovery['services'] if name not in cancelled]
+        for key in _previous_active:
+            _previous_active[key] = [name for name in _previous_active[key] if name not in cancelled]
+        _save_state(state)
+
+
+def defer_missing_service(service):
+    """Let existing controller cleanup defer its exact prior service intent."""
+    from core.device_manager import get_conflicting_services
+    with _LOCK:
+        for device in get_devices():
+            if service in get_conflicting_services(device['registry_id']) and device['presence'] == 'MISSING':
+                state = _load_state()
+                recovery = state.setdefault('hardware_recovery', {}).setdefault(device['registry_id'], {'services': [], 'status': 'WAITING'})
+                if service not in recovery['services']: recovery['services'].append(service)
+                _save_state(state)
+                return True
+    return False

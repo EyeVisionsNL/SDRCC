@@ -1,0 +1,41 @@
+USB/service boundaries simulated; real Registry/Manager and temporary state/config files.
+
+test_activation_checks_disappearance (__main__.Flexibility.test_activation_checks_disappearance) ... ok
+test_ais_restores_main_before_control (__main__.Flexibility.test_ais_restores_main_before_control) ... ok
+test_ambiguous_count_manual_binding (__main__.Flexibility.test_ambiguous_count_manual_binding) ... ok
+test_atomic_registry_failure_replays_intent (__main__.Flexibility.test_atomic_registry_failure_replays_intent) ... ok
+test_blank_config_can_update_station_location (__main__.Flexibility.test_blank_config_can_update_station_location) ... ok
+test_clean_external_placeholders_then_existing_helper (__main__.Flexibility.test_clean_external_placeholders_then_existing_helper) ... ok
+test_controller_defers_only_missing_service (__main__.Flexibility.test_controller_defers_only_missing_service) ... ok
+test_dashboard_hf_loss_uses_existing_controller (__main__.Flexibility.test_dashboard_hf_loss_uses_existing_controller) ... ok
+test_duplicate_mapping_rejected (__main__.Flexibility.test_duplicate_mapping_rejected) ... ok
+test_duplicate_serial_rejected (__main__.Flexibility.test_duplicate_serial_rejected) ... ok
+test_empty_valid_and_unavailable (__main__.Flexibility.test_empty_valid_and_unavailable) ... ok
+test_existing_executor_cleanup_defers_services (__main__.Flexibility.test_existing_executor_cleanup_defers_services) ... ok
+test_explicit_stop_cancels_recovery (__main__.Flexibility.test_explicit_stop_cancels_recovery) ... ok
+test_external_failure_blocks_and_retries (__main__.Flexibility.test_external_failure_blocks_and_retries) ... ok
+test_extra_device_requires_choice (__main__.Flexibility.test_extra_device_requires_choice) ... ok
+test_initial_binding_stable_by_serial (__main__.Flexibility.test_initial_binding_stable_by_serial) ... ok
+test_live_services_stop_sync_restart (__main__.Flexibility.test_live_services_stop_sync_restart) ... ok
+test_manual_change_busy_is_rejected (__main__.Flexibility.test_manual_change_busy_is_rejected) ... ok
+test_missing_bindings_retained (__main__.Flexibility.test_missing_bindings_retained) ... ok
+test_missing_serial_rejected (__main__.Flexibility.test_missing_serial_rejected) ... ok
+test_no_service_resurrection_on_idle_receiver (__main__.Flexibility.test_no_service_resurrection_on_idle_receiver) ... ok
+test_operator_can_recover_pending_with_different_replacement (__main__.Flexibility.test_operator_can_recover_pending_with_different_replacement) ... ok
+test_recovery_survives_restart (__main__.Flexibility.test_recovery_survives_restart) ... ok
+test_replace_one_preserves_other (__main__.Flexibility.test_replace_one_preserves_other) ... ok
+test_replace_two (__main__.Flexibility.test_replace_two) ... ok
+test_reservation_not_force_released (__main__.Flexibility.test_reservation_not_force_released) ... ok
+test_service_restart_failure_keeps_intent (__main__.Flexibility.test_service_restart_failure_keeps_intent) ... ok
+test_service_start_blocked_when_missing (__main__.Flexibility.test_service_start_blocked_when_missing) ... ok
+test_snapshot_read_only (__main__.Flexibility.test_snapshot_read_only) ... ok
+test_unknown_does_not_modify (__main__.Flexibility.test_unknown_does_not_modify) ... ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 5.367s
+
+OK
+Station: Test (1.0, 2.0) altitude=0.0m
+SDR1 serial: None
+SDR2 serial: None
+Initial SDRCC station configuration written. External AIS/readsb roles are unchanged.

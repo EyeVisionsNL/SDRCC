@@ -29,7 +29,7 @@ def main():
     check(snapshot["runtime_state_in_registry"] is False, "runtime-status staat niet in de registry")
     check(len(receivers) >= 1, "minimaal één receiver aanwezig")
     check(len({r["id"] for r in receivers}) == len(receivers), "neutrale receiver-ID's zijn uniek")
-    check(len({r["serial"] for r in receivers}) == len(receivers), "serienummers zijn uniek")
+    check(len({r["serial"] for r in receivers if r["serial"]}) == sum(bool(r["serial"]) for r in receivers), "serienummers zijn uniek")
     check(all(r["id"].startswith("receiver") for r in receivers), "gemigreerde IDs zijn neutraal")
 
     runtime_ids = receiver_registry.get_receiver_ids(compatibility=True)
@@ -39,7 +39,7 @@ def main():
     devices = device_manager.get_devices()
     check(len(devices) == snapshot["enabled_count"], "Device Manager leest de centrale registry")
     check(all(d.get("registry_id") for d in devices), "Device Manager publiceert registry_id")
-    check(all(d.get("serial") for d in devices), "Device Manager haalt serienummers uit de registry")
+    check(all(d.get("serial") == receiver_registry.get_receiver(d["registry_id"])["serial"] for d in devices), "Device Manager haalt serienummers uit de registry")
 
     station = config.load_station()
     legacy_identity_blocks = [

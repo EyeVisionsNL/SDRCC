@@ -152,7 +152,7 @@ def get_snapshot() -> dict[str, Any]:
     runtime = receiver_runtime.get_snapshot()
     plugins = plugin_runtime.get_snapshot(include_planned=True)
 
-    runtime_receivers = runtime.get("receivers")
+    runtime_receivers = runtime.get("canonical_receivers")
     if not isinstance(runtime_receivers, dict):
         runtime_receivers = {}
 
@@ -193,7 +193,7 @@ def get_snapshot() -> dict[str, Any]:
         ])
 
         reserved = bool(observed.get("reserved"))
-        state = _display_state(observed, services)
+        state = _display_state(observed, services) if observed.get("presence") == "PRESENT" else observed.get("presence", "UNKNOWN")
 
         items.append({
             "number": registered.get("number"),
@@ -211,7 +211,9 @@ def get_snapshot() -> dict[str, Any]:
             "plugins": plugin_items,
             "runtime_state": state,
             "observed_runtime_state": observed.get("runtime_state"),
-            "available": not reserved and not active_services,
+            "presence": observed.get("presence", "UNKNOWN"),
+            "present": observed.get("present", False),
+            "available": bool(observed.get("available")) and not reserved and not active_services,
             "reserved": reserved,
             "reservation": deepcopy(observed.get("reservation")),
             "active_services": active_services,
@@ -219,7 +221,11 @@ def get_snapshot() -> dict[str, Any]:
             "observed_mission": deepcopy(observed.get("observed_mission")),
         })
 
+    from core import receiver_hardware, receiver_manager
+    hardware = receiver_hardware.scan()
     return {
+        "hardware": hardware,
+        "binding": receiver_manager.binding_status(),
         "ok": True,
         "version": VERSION,
         "read_only": True,

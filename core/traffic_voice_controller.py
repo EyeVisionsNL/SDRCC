@@ -217,6 +217,9 @@ def _restore(
         wanted = bool((previous.get(service) or {}).get("active"))
         current = bool((service_state(service) or {}).get("active"))
         if wanted and not current:
+            if receiver_manager.defer_missing_service(service):
+                actions.append({"service": service, "action": "deferred_until_hardware_returns"})
+                continue
             try:
                 actions.append(_apply_service(
                     "start", service,
@@ -265,6 +268,8 @@ def start_mode(
         if reservations:
             raise RuntimeError("Traffic Voice kan niet starten terwijl een receiver is gereserveerd")
 
+        if not all(receiver_manager.hardware_ready(key) for key in manager.get("canonical_receivers", {})):
+            raise RuntimeError("Traffic Voice receivers are missing, unbound or recovering")
         existing_session = _load_session()
         voice_active = bool((service_state(VOICE_SERVICE) or {}).get("active"))
         current_document = config.load_traffic_voice()

@@ -589,6 +589,8 @@ def render_rtlsdr_airband_config() -> str:
     if voice_receiver is None or assigned_voice != voice_receiver:
         raise RuntimeError("Traffic Voice assignment wijkt af van opposite_context_receiver")
     receiver = receiver_registry.get_receiver(voice_receiver)
+    if not receiver or not receiver.get("serial"):
+        raise RuntimeError("Traffic Voice receiver is UNBOUND; select a physical receiver first")
     receiver_settings = get_receiver_settings(raw)
     channels = mode["channels"]
     selected_channel = next(

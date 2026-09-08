@@ -337,3 +337,8 @@ python3 -m compileall -q core dashboard scripts
 ## Documentation status
 
 The `docs/` directory contains architecture references and version-specific implementation notes. Older release notes describe the boundary of the release in which a feature was introduced and may therefore intentionally describe capabilities that were expanded by later releases.
+
+
+## Flexible receivers — 0.56.0q-r2
+
+One installer for clean Ubuntu stations and existing installations, with or without RTL-SDR receivers. Physical presence, replaceable local bindings and runtime recovery are described in [installation and receiver replacement](docs/flexible-receiver-binding-v0560q-r2.md).

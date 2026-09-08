@@ -244,6 +244,9 @@ class ReceiverRuntime:
                 "runtime_id": identity["runtime_id"],
                 "device": deepcopy(device),
                 "serial": device.get("serial"),
+                "presence": device.get("presence", "UNKNOWN"),
+                "present": device.get("present", False),
+                "available": bool(manager_item.get("available")),
                 "name": device.get("name"),
                 "configured_roles": _roles_for_receiver(
                     receiver_id,

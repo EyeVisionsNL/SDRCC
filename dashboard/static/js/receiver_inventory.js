@@ -57,7 +57,9 @@
         return `<div class="${extraClass}"><dt>${esc(label)}</dt><dd title="${esc(displayValue(value))}">${esc(displayValue(value))}</dd></div>`;
     }
 
+    let editing = false;
     function render(data) {
+        if (editing) return;
         const root = document.getElementById("receiver-inventory");
         const status = document.getElementById("receiver-inventory-status");
         if (!root) return;
@@ -83,6 +85,7 @@
                 <dl class="receiver-inventory-details">
                     ${detail("Canonical ID", receiver.canonical_id)}
                     ${detail("Runtime alias", receiver.runtime_id)}
+                    ${detail("USB status", receiver.presence)}
                     ${detail("Driver", receiver.driver)}
                     ${detail("Assigned roles", displayList(receiver.assigned_roles), "receiver-inventory-detail-wide")}
                     ${detail("Available", receiver.available ? "YES" : "NO")}
@@ -92,9 +95,42 @@
             </article>`;
         }).join("");
 
-        if (status) {
-            status.textContent = `${items.length} receivers · identity authority: ${data.identity_authority} · read-only`;
-        }
+        const hardware = data.hardware || {};
+        const detected = hardware.receivers || [];
+        root.insertAdjacentHTML("beforeend", `<article class="receiver-inventory-item">
+            <h3>Receiver hardware</h3>
+            <p>${esc(data.binding?.message || hardware.error || "")}</p>
+            <p>${detected.map(d => `${esc(d.description)} · ${esc(d.serial || "NO SERIAL")}`).join("<br>") || "No RTL-SDR connected"}</p>
+            <button type="button" id="receiver-binding-edit">Change bindings</button>
+            <form id="receiver-binding-form" hidden>
+                ${items.filter(r => r.enabled).map(r => `<label>${esc(r.name)}
+                    <select name="${esc(r.canonical_id)}"><option value="">Keep current binding</option>
+                    ${detected.filter(d => d.serial).map(d => `<option value="${esc(d.serial)}">${esc(d.serial)} · ${esc(d.description)}</option>`).join("")}</select></label>`).join("")}
+                <p>Stop reception on the receivers being changed. Roles and settings are retained.</p>
+                <button type="submit">Apply bindings</button><button type="button" id="receiver-binding-cancel">Cancel</button>
+                <p id="receiver-binding-result" role="status"></p>
+            </form></article>`);
+        document.getElementById("receiver-binding-edit").onclick = () => {
+            editing = true;
+            document.getElementById("receiver-binding-form").hidden = false;
+        };
+        document.getElementById("receiver-binding-cancel").onclick = () => { editing = false; load(); };
+        document.getElementById("receiver-binding-form").onsubmit = async (event) => {
+            event.preventDefault();
+            const resultElement = document.getElementById("receiver-binding-result");
+            const bindings = Object.fromEntries([...new FormData(event.target)].filter(([, value]) => value));
+            const button = event.target.querySelector('[type="submit"]');
+            button.disabled = true;
+            try {
+                const response = await fetch("/api/receiver-bindings", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({bindings})});
+                const result = await response.json();
+                if (!result.ok) throw new Error(result.message || "Binding failed");
+                editing = false;
+                await load();
+            } catch (error) { resultElement.textContent = error.message; }
+            finally { button.disabled = false; }
+        };
+        if (status) status.textContent = `${items.length} receiver slots · ${hardware.ok ? detected.length + " USB receivers" : "USB status UNKNOWN"}`;
     }
 
     async function load() {

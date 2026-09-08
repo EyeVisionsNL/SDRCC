@@ -54,8 +54,6 @@ def _normalise_receiver(receiver_id: str, raw: Any, order: int) -> dict[str, Any
 
     driver = str(hardware.get("driver") or "rtlsdr").strip().lower()
     serial = str(hardware.get("serial") or "").strip()
-    if not serial:
-        raise ValueError(f"Receiver {receiver_id} heeft geen serienummer")
 
     aliases_raw = raw.get("aliases") or []
     if isinstance(aliases_raw, str):
@@ -121,7 +119,7 @@ def get_registry(*, include_disabled: bool = False) -> dict[str, dict[str, Any]]
         item = _normalise_receiver(receiver_id, value, order)
 
         serial_key = item["serial"].casefold()
-        if serial_key in serial_owner:
+        if serial_key and serial_key in serial_owner:
             raise ValueError(
                 f"Dubbel serienummer bij {receiver_id} en {serial_owner[serial_key]}"
             )
@@ -213,3 +211,23 @@ def public_snapshot() -> dict[str, Any]:
         "receivers": receivers,
         "runtime_state_in_registry": False,
     }
+
+
+def write_bindings(bindings):
+    """Persist only hardware serials; called under Receiver Manager's transaction lock."""
+    import os, tempfile
+    raw = _load_raw()
+    for key, serial in bindings.items():
+        if key not in raw['receivers']:
+            raise ValueError('Unknown receiver slot')
+        raw['receivers'][key].setdefault('hardware', {})['serial'] = serial
+    fd, temporary = tempfile.mkstemp(dir=REGISTRY_FILE.parent, prefix='receivers.', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w') as handle:
+            yaml.safe_dump(raw, handle, sort_keys=False, allow_unicode=True)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temporary, REGISTRY_FILE.stat().st_mode & 0o777)
+        os.replace(temporary, REGISTRY_FILE)
+    finally:
+        if os.path.exists(temporary): os.unlink(temporary)

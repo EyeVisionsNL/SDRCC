@@ -1,0 +1,111 @@
+{
+  "README.md": [
+    "198693451f253ad1b966faaeb4c71d0b4e2a6fd23edd74482aa7e03362e2496d",
+    "12e9f27059a429c91133d1cce35043580520948829974e5ca58f73097b5b86e0"
+  ],
+  "VERSION": [
+    "0ce5d24be6eb85807eb9fc6e1b43918738d830755dbf238e2a94f5eefb9e4470",
+    "be2b7758fbdfe23e3719e25388d3b24780f6a25eeee21e5008ba227bc789db17"
+  ],
+  "core/device_manager.py": [
+    "dd5d589b6d7660623df7f5adf3324716b43a1e67d31ef3ea8f43688d42b72797",
+    "86c0983ebe6110816669616df2f5adaa3fce7aa274732e7df6e0aff6977079e7"
+  ],
+  "core/receiver_hardware.py": [
+    "86e762723b439630f7e60716571351e417c0e4c43937dd6e8703cb2ed541358c"
+  ],
+  "core/receiver_inventory.py": [
+    "70c5f9e1f991e02ac3dea47506a3b2b1a37edc2f4637ee5af17ccd9af0492ad2",
+    "e03d65a636072b36ac3522ca0193acf8a80ff9914b382178c3a6be8563f3e11c"
+  ],
+  "core/receiver_manager.py": [
+    "033c34a20683ef4bbe2e95596806e8fc31ccfacc525ce6209ace6e0c61424955",
+    "960e5664933069fba61461b8b5a5ef7383f53858162b14f511dfad0462d986a3"
+  ],
+  "core/receiver_registry.py": [
+    "0040e656a93c786ea62f6f8a4ba6588acf2f0dd03aba33810b340b79b8e81589",
+    "4e39a6a57e3fc91b45a94c97772c7d3c6d72bf5c52a82b477cf86d57976ed8ec"
+  ],
+  "core/receiver_runtime.py": [
+    "17a540fb87c91199e162999610083026131ce2ae46715ccd5969d37916275afd",
+    "14a000003a40d6ed3709d6654eb17ca8545992bafb38fea242c0ce7538030c01"
+  ],
+  "core/rtl.py": [
+    "1d9d2f115ecf845c7f4421c077c0226dd2741311211ced1e944dcabc62c85c20",
+    "6d78c79c3b02f4bec32cb24c1a9a88499020ae99bf1adb8a7c01e9d382358dd2"
+  ],
+  "core/satdump.py": [
+    "d2a42b1782858ff063615aa2e5c2a25a103a77ea9ea5e41ec7b56f11c44ac928",
+    "46c87cd09073ff15fce9af08851280b402c5aa419628840a6a74249c8efeba63"
+  ],
+  "core/traffic_voice.py": [
+    "4cc6a85c4c08e2c8a00ba5b38814091a61453cc104a4c3e272bdb5b320b02904",
+    "ad6dbe7abc8e32b962b1d7e763be16dec6351fabf713d12e98dfa33e43c45ef4"
+  ],
+  "core/traffic_voice_controller.py": [
+    "c715e9574ab775d17909ce3c5fd96884cdb1ad93522d403b50ec3fcd817b52d6",
+    "a8a70df0216465bf7380d1adc8f9e81f6dd0f490da76bb191ee6cf71cb3d56d0"
+  ],
+  "dashboard/app.py": [
+    "2d0e62c51b4126abcb001c5c240182bc09810cadf832f11f74ef54eed92ec71a",
+    "4652dd22c9248e41d58f5982fc095d8903b982102e39d1577d6dbd39b8abe915"
+  ],
+  "dashboard/static/css/receiver_inventory.css": [
+    "cd7c06849735c542d8ed307ed74cfae0a91151620e63ce2fac1367c5cd2e161e",
+    "ece3b14a92e56675c6f0e7d6f4cf4eafd5a2e09993e6cd91f8a3813180f2b85c"
+  ],
+  "dashboard/static/js/receiver_inventory.js": [
+    "e09c8857d349d1d139c84ba7a1c15e63bddb072caad14bb20e171c0b7f1cf8eb",
+    "5b4e684b7ac9d2bc12167f028abcc17fe077caf3af6b5fa6faec4ca782a4421c"
+  ],
+  "docs/flexible-receiver-binding-v0560q-r2.md": [
+    "d72ce8389381b0e5f9aa5af7cc51492891a02f60c98cbbc7c8ab780a360fb966"
+  ],
+  "docs/validation-v0560q-r2.txt": [
+    "3a476962991e2107b4b926eeb1d19d522f02db3fd7bcb981ee9e09533b8b2827"
+  ],
+  "install.sh": [
+    "3daaffc46a4718c46a271d3a2fcf48d595ab7207b691be48a5df2c1b2b83c5ba",
+    "17835ee06492fec2edd1f787b60dc677ad08af5858148809036d0d6ad7e4dc8c"
+  ],
+  "scripts/install/check_update.py": [
+    "44354efae6f1e3e14dc2768f18443dfd1895300012b04faec692d3f694802584"
+  ],
+  "scripts/install/configure_station.py": [
+    "8fbedbde4be1baf0fce0a24faff7926344969f6fd4c428201d8e3bfa8b3c8686",
+    "e40234b7ee3804aaf7d8be06fd12e7a6c33ff8970150282fd466e22dcb578d19"
+  ],
+  "scripts/install/detect_receivers.py": [
+    "4b7a13c480830d46ef54358a6735981403ec8c1ac4019f9ce8116e8f0b6bc8aa",
+    "64e7eed22705d2747ef094295d47abf4dcb59912990072f78aadaed375ad5cd4"
+  ],
+  "scripts/install/initialize_external.py": [
+    "a2cdb55c5e09091d1d1ff19c7db29bee7be7985d82cc4eebb40d5430ed9a5bd4"
+  ],
+  "scripts/install/preflight.py": [
+    "6c83c0cc9c8e47ce08b95024b4f3bd521ebf072c354fefc56f4c1b37bbf4fe11",
+    "cab968c51b49de1f0fa3e9abb9610cd2385e3256bd387924ec6daedb0971d51a"
+  ],
+  "scripts/install/rollback_code.py": [
+    "3f232b4d7de77c1e051a7a5414fb4402b08700c84e8fff498d35a06e84515234"
+  ],
+  "scripts/install/update_existing.sh": [
+    "bf68b15a15dc8fb343b6004ae1a062e780a0d47aef7137ecd9415ac81ff84b50"
+  ],
+  "scripts/install/validate_install.py": [
+    "2eb26fe2cc11fd42a9a7670e6be16d8d331e77ea6168a14fc04ec5301e703399",
+    "18dde40ef44a3ee42618282f66cdcda9fd4655f0f471498ebcfc0067ed0db562"
+  ],
+  "scripts/validate_receiver_authority_v0540a.py": [
+    "5ef5b370887c0e6b84b2bcb9b52b451fe89f5c9e76b21256dffa81f5929c8ff3",
+    "2f03219d7937c69931184f449db40cf0bf30b22e0def23925d42c3107583b603"
+  ],
+  "scripts/validate_receiver_flexibility_v0560q.py": [
+    "57edef21e59be11b6f4005b04b8a9638ab0721b1cf8c04568f494d50336d766b"
+  ],
+  "scripts/validate_receiver_registry_foundation.py": [
+    "522c261b3e944de2d7844d62e14b4e038c877e48e7bb95eec9f699296a7d44c0",
+    "ea3967e75876f7d0eb2c8e4213bad5ccc626dc49fd750bc710ca3ae9a6205708"
+  ],
+  "scripts/install/update_manifest.json": []
+}

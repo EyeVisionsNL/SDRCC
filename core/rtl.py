@@ -1,43 +1,18 @@
 #!/usr/bin/env python3
-
-import subprocess
-
+"""Compatibility display; physical discovery is shared with the installer."""
+from core.receiver_hardware import scan
 from core.device_manager import get_devices
 
-
 def detect():
-    try:
-        result = subprocess.run(
-            ["rtl_test", "-t"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        output = result.stdout + result.stderr
-    except Exception:
-        return []
-
-    devices = []
-    for info in get_devices():
-        serial = str(info.get("serial", ""))
-        if serial and serial in output:
-            devices.append({
-                "serial": serial,
-                "role": info.get("role", "manual"),
-                "locked": bool(info.get("locked", False)),
-                "name": info.get("name", info.get("number", "SDR")),
-                "status": "ONLINE",
-            })
-    return devices
-
+    configured = {d['serial']: d for d in get_devices() if d['serial']}
+    result = []
+    for row in scan()['receivers']:
+        device = configured.get(row['serial'], {})
+        result.append({**row, 'name': device.get('name', row['description']),
+                       'role': device.get('role', 'unassigned'),
+                       'locked': device.get('locked', False), 'status': 'ONLINE'})
+    return result
 
 def print_status():
-    print()
-    for dev in detect():
-        print(dev["name"])
-        print("-" * len(dev["name"]))
-        print("Serial :", dev["serial"])
-        print("Role   :", dev["role"])
-        print("Locked :", dev["locked"])
-        print("Status :", dev["status"])
-        print()
+    for device in detect():
+        print(f"{device['name']}: {device['serial']} · {device['role']} · {device['status']}")

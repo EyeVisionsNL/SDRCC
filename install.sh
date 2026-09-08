@@ -30,8 +30,15 @@ done
 say(){ printf '\n==> %s\n' "$*"; }
 need_sudo(){ sudo -v; }
 
+# Same entry point for a clean Ubuntu station and an existing installation.
+if [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" && "$CHECK_ONLY" == 0 ]]; then
+  exec bash "$SOURCE_ROOT/scripts/install/update_existing.sh" "$SOURCE_ROOT" "$PROJECT_ROOT"
+fi
 say "Preflight"
-python3 "$SOURCE_ROOT/scripts/install/preflight.py"
+python3 "$SOURCE_ROOT/scripts/install/preflight.py" || {
+  ((CHECK_ONLY)) && exit 2
+  echo "Missing dependencies will be installed below."
+}
 if ((CHECK_ONLY)); then
   "$SOURCE_ROOT/scripts/install/provision_external.sh" --check || true
   exit 0
@@ -125,46 +132,37 @@ for svc in readsb.service ais-catcher.service ais-catcher-control.service sdrcc-
   sudo systemctl disable "$svc" >/dev/null 2>&1 || true
 done
 
-say "Receiver detection and initial station configuration"
-DETECTED_JSON="$("$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" --json || true)"
-mapfile -t DETECTED_SERIALS < <(printf '%s' "$DETECTED_JSON" | "$PYTHON" -c 'import json,sys; d=json.load(sys.stdin); [print(x["serial"]) for x in d.get("receivers",[])]')
-if ((${#DETECTED_SERIALS[@]} < 2)); then
-  echo "FAIL: SDRCC v1.0 currently requires at least two detected RTL-SDR receivers."
-  exit 4
-fi
-"$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" || true
-serial_detected(){ local wanted="$1" item; for item in "${DETECTED_SERIALS[@]}"; do [[ "$item" == "$wanted" ]] && return 0; done; return 1; }
+say "Station configuration (independent of receiver presence)"
 if ((NON_INTERACTIVE)); then
-  : "${SDRCC_LOCATION:?Set SDRCC_LOCATION for --non-interactive}"
-  : "${SDRCC_LATITUDE:?Set SDRCC_LATITUDE for --non-interactive}"
-  : "${SDRCC_LONGITUDE:?Set SDRCC_LONGITUDE for --non-interactive}"
-  : "${SDRCC_SDR1_SERIAL:?Set SDRCC_SDR1_SERIAL for --non-interactive}"
-  : "${SDRCC_SDR2_SERIAL:?Set SDRCC_SDR2_SERIAL for --non-interactive}"
-  STATION_NAME="${SDRCC_STATION_NAME:-SDRCC}"; ALTITUDE="${SDRCC_ALTITUDE_M:-0}"
+  : "${SDRCC_LOCATION:?Set SDRCC_LOCATION}"
+  : "${SDRCC_LATITUDE:?Set SDRCC_LATITUDE}"
+  : "${SDRCC_LONGITUDE:?Set SDRCC_LONGITUDE}"
+  STATION_NAME="${SDRCC_STATION_NAME:-FlexGround SDR}"
   LOCATION="$SDRCC_LOCATION"; LATITUDE="$SDRCC_LATITUDE"; LONGITUDE="$SDRCC_LONGITUDE"
-  SDR1_SERIAL="$SDRCC_SDR1_SERIAL"; SDR2_SERIAL="$SDRCC_SDR2_SERIAL"
+  ALTITUDE="${SDRCC_ALTITUDE_M:-0}"
 else
-  echo
-  read -r -p "Station name [SDRCC]: " STATION_NAME; STATION_NAME="${STATION_NAME:-SDRCC}"
+  read -r -p "Station name [FlexGround SDR]: " STATION_NAME; STATION_NAME="${STATION_NAME:-FlexGround SDR}"
   read -r -p "Location/city: " LOCATION
   read -r -p "Latitude: " LATITUDE
   read -r -p "Longitude: " LONGITUDE
   read -r -p "Altitude metres [0]: " ALTITUDE; ALTITUDE="${ALTITUDE:-0}"
-  read -r -p "Serial to use as SDR1: " SDR1_SERIAL
-  read -r -p "Serial to use as SDR2: " SDR2_SERIAL
 fi
-serial_detected "$SDR1_SERIAL" || { echo "FAIL: SDR1 serial was not detected"; exit 4; }
-serial_detected "$SDR2_SERIAL" || { echo "FAIL: SDR2 serial was not detected"; exit 4; }
 "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
   --station-name "$STATION_NAME" --location "$LOCATION" \
-  --latitude "$LATITUDE" --longitude "$LONGITUDE" --altitude-m "$ALTITUDE" \
-  --sdr1-serial "$SDR1_SERIAL" --sdr2-serial "$SDR2_SERIAL" --apply
+  --latitude "$LATITUDE" --longitude "$LONGITUDE" --altitude-m "$ALTITUDE" --apply
+sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/initialize_external.py"
+"$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" || true
+echo "Receiver binding is handled by Receiver Manager after startup; no dongles are required."
 
 say "Start and validate SDRCC"
 sudo systemctl restart sdrcc.service
-sleep 2
 "$PYTHON" "$PROJECT_ROOT/scripts/install/validate_install.py"
-HTTP="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/status || true)"
+HTTP=000
+for attempt in {1..60}; do
+  HTTP="$(curl --max-time 5 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/status || true)"
+  [[ "$HTTP" == 200 ]] && break
+  sleep 1
+done
 echo "Dashboard API: HTTP $HTTP"
 [[ "$HTTP" == 200 ]] || exit 4
 

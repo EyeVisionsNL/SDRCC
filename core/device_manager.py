@@ -12,6 +12,8 @@ from core.receiver_registry import get_receiver as registry_get_receiver, get_re
 
 
 def get_devices():
+    from core import receiver_hardware
+    hardware = receiver_hardware.scan()
     assignments = get_receiver_assignments()
     devices = []
     for item in get_receivers():
@@ -38,6 +40,8 @@ def get_devices():
             "name": item["name"],
             "description": item["description"],
             "serial": item["serial"],
+            "presence": receiver_hardware.presence(item["serial"], hardware),
+            "present": receiver_hardware.presence(item["serial"], hardware) == "PRESENT",
             "driver": item["driver"],
             "aliases": item["aliases"],
             "capabilities": item["capabilities"],

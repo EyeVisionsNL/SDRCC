@@ -30,7 +30,8 @@ def main():
     try:
       r=yaml.safe_load((ROOT/'config/receivers.yaml').read_text())['receivers']
       serials=[str(v.get('hardware',{}).get('serial','')).strip() for v in r.values() if v.get('enabled',True)]
-      checks['receiver_serials']=len(serials)>=1 and len(serials)==len(set(serials)) and all(serials)
+      bound=[s for s in serials if s]
+      checks['receiver_serials']=len(serials)>=1 and len(bound)==len(set(bound))
     except Exception: checks['receiver_serials']=False
     payload={'ok':all(checks.values()),'checks':checks}
     if args.json: print(json.dumps(payload,indent=2))

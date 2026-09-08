@@ -204,3 +204,7 @@
         grid-column: auto;
     }
 }
+
+#receiver-binding-form label { display: grid; gap: .4rem; margin: .8rem 0; }
+#receiver-binding-form select { width: 100%; padding: .5rem; }
+#receiver-binding-result { overflow-wrap: anywhere; }

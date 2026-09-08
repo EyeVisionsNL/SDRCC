@@ -24,23 +24,9 @@ def ubuntu_release() -> dict:
 
 
 def rtl_devices() -> list[dict]:
-    exe = command_path('rtl_test')
-    if not exe: return []
-    try:
-        done = subprocess.run([exe, '-t'], text=True, capture_output=True, timeout=4, check=False)
-        text = (done.stdout or '') + '\n' + (done.stderr or '')
-    except Exception:
-        return []
-    devices=[]
-    for line in text.splitlines():
-        line=line.strip()
-        if not line or ':' not in line or 'SN:' not in line: continue
-        head, rest = line.split(':',1)
-        if not head.isdigit(): continue
-        serial=rest.split('SN:',1)[1].strip()
-        fields=[p.strip() for p in rest.split(',')]
-        devices.append({'index':int(head),'serial':serial,'description':', '.join(fields[:-1])})
-    return devices
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from core.receiver_hardware import scan
+    return scan(refresh=True)['receivers']
 
 
 def main() -> int:
@@ -70,7 +56,7 @@ def main() -> int:
         for name,path in external.items(): print(f"{'PASS' if path else 'MISS'} external {name}: {path or '-'}")
         print(f"{'PASS' if payload['traffic_voice_backend'] else 'MISS'} external RTLSDR-Airband: /opt/sdrcc/traffic_voice/bin/rtl_airband")
         for dev in payload['rtl_devices']:
-            print(f"RTL-SDR index {dev['index']}: serial={dev['serial']} {dev['description']}")
+            print(f"RTL-SDR index {dev['usb_path']}: serial={dev['serial']} {dev['description']}")
     return 0 if payload['ok'] else 2
 
 if __name__ == '__main__': raise SystemExit(main())

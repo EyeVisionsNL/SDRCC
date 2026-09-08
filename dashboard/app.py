@@ -1067,6 +1067,9 @@ def get_dashboard_data(include_logs=True):
         device["current_task"] = current_task
         device["next_task"] = next_task
         device["active_detail"] = active_detail
+        if device.get("presence") != "PRESENT":
+            status_label = device.get("presence", "UNKNOWN")
+            device["active_detail"] = "Receiver USB status: " + status_label
         device["status_label"] = status_label
         device["in_use"] = status_label in {"IN USE", "LOCKED", "DRIFT", "UNVERIFIED"}
 
@@ -1215,10 +1218,13 @@ def handle_maintenance_service_action(action_id, action):
     })
 
 
+@receiver_manager.service_control_serialized
 def handle_service_action(action_id, action):
     plugin_id = str(action["plugin_id"]).strip().lower()
     systemctl_action = str(action["systemctl"]).strip().lower()
     label = action["label"]
+    if systemctl_action == "stop":
+        receiver_manager.cancel_service_recovery(plugin_id)
 
     block = receiver_manager.service_action_block(plugin_id, systemctl_action)
     if block is not None:
@@ -2675,6 +2681,7 @@ def api_traffic_voice_channel_list_import():
 
 
 @app.route("/api/traffic-voice/action", methods=["POST"])
+@receiver_manager.service_control_serialized
 def api_traffic_voice_action():
     """Run bounded Traffic Voice transactions via existing service authority."""
     payload = request.get_json(silent=True) or {}
@@ -2701,6 +2708,7 @@ def api_traffic_voice_action():
                 wait_for_service=wait_for_service,
             )
         elif action == "stop":
+            receiver_manager.cancel_service_recovery("traffic_voice")
             result = traffic_voice_controller.stop(
                 service_state=service_state,
                 service_action=run_systemctl,
@@ -3130,6 +3138,7 @@ def _release_assignment_transaction_receivers(reservation_keys):
     return errors
 
 
+@receiver_manager.service_control_serialized
 def _apply_receiver_assignment_changes(changes):
     blocked = _receiver_assignment_block_reason()
     if blocked:
@@ -3708,7 +3717,7 @@ def _active_mission_receiver(mission_status=None):
     return None
 
 
-def _stop_active_mission(receiver_id=None):
+def _stop_active_mission(receiver_id=None, *, hardware_loss=False):
     """Stop the active task for one receiver while preserving legacy behaviour.
 
     The simulator is stopped without changing Scheduler mode. A production
@@ -3811,8 +3820,8 @@ def _stop_active_mission(receiver_id=None):
 
     event_bus.publish_mission(
         "WARNING",
-        "Mission stopped by operator",
-        "Active mission was safely cancelled; Scheduler is now MANUAL",
+        "Mission stopped after USB loss" if hardware_loss else "Mission stopped by operator",
+        "Receiver disconnected; cancellation requested; Scheduler is now MANUAL" if hardware_loss else "Active mission was safely cancelled; Scheduler is now MANUAL",
         data={
             "mission_id": (active_job or {}).get("mission_id"),
             "receiver_id": active_receiver or requested_receiver,
@@ -4385,6 +4394,47 @@ def recover_stale_iss_voice_observer():
         write_log(f"ISS Voice runtime recovery overgeslagen: {recovery_error}")
         return {"ok": False, "changed": False, "error": str(recovery_error)}
 
+
+def stop_receiver_for_hardware_loss(receiver_id, reservation):
+    """Reuse each executor's stop path; never remove a live owner's reservation."""
+    session = hf_monitor_controller.get_session()
+    if session and receiver_registry.resolve_id((session.get('receiver') or {}).get('registry_id')) == receiver_id:
+        hf_monitor_controller.stop(service_state=service_state, service_action=run_systemctl,
+                                   wait_for_service=wait_for_service)
+        return
+    active = _active_mission_receiver()
+    if active and receiver_registry.resolve_id(active) == receiver_id:
+        _stop_active_mission(receiver_id, hardware_loss=True)
+    elif reservation:
+        raise RuntimeError('Receiver owner requires attention: ' + str(reservation.get('mission_key')))
+
+
+def receiver_hardware_worker():
+    while True:
+        try:
+            receiver_manager.hardware_tick(
+                service_state=service_state, service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+                stop_receiver=stop_receiver_for_hardware_loss,
+                privileged_apply=apply_receiver_service_configuration)
+        except Exception as error:
+            receiver_manager._binding_message = str(error)
+        time.sleep(3)
+
+
+@app.route('/api/receiver-bindings', methods=['POST'])
+def api_receiver_bindings():
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = receiver_manager.bind_hardware(
+            mapping=payload.get('bindings') or {},
+            service_state=service_state,
+            privileged_apply=apply_receiver_service_configuration)
+        return jsonify(result)
+    except (ValueError, RuntimeError) as error:
+        return jsonify({'ok': False, 'message': str(error)}), 409
+
+
 def run():
     recover_stale_hf_monitor()
     recover_stale_iss_voice_observer()
@@ -4393,6 +4443,7 @@ def run():
         "Event Bus started",
         "FlexGround SDR operator event storage and API are active.",
     )
+    threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
     app.run(
         host="0.0.0.0",
