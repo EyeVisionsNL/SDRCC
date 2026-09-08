@@ -9,6 +9,10 @@ MODE="install"
 [[ "${1:-}" == "--check" ]] && MODE="check"
 [[ "${1:-}" == "--plan" ]] && MODE="plan"
 
+SATDUMP_REPO="https://github.com/SatDump/SatDump.git"
+SATDUMP_TAG="1.2.2"
+SATDUMP_COMMIT="7aef0fe"
+SATDUMP_UBUNTU_2404_AMD64_URL="https://github.com/SatDump/SatDump/releases/download/1.2.2/satdump_1.2.2_ubuntu_24.04_amd64.deb"
 READSB_REPO="https://github.com/wiedehopf/readsb.git"
 READSB_COMMIT="cc0d099"
 AIS_INSTALLER="https://raw.githubusercontent.com/jvde-github/AIS-catcher/v0.70/scripts/aiscatcher-install"
@@ -36,10 +40,75 @@ service_disable(){
   fi
 }
 
+install_satdump_official_deb(){
+  local arch os_id os_version deb pkg pkg_arch
+  arch="$(dpkg --print-architecture 2>/dev/null || true)"
+  os_id=""
+  os_version=""
+  if [[ -r /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    os_id="${ID:-}"
+    os_version="${VERSION_ID:-}"
+  fi
+
+  [[ "$os_id" == "ubuntu" && "$os_version" == "24.04" && "$arch" == "amd64" ]] || return 1
+
+  deb="$WORK/satdump_${SATDUMP_TAG}_ubuntu_24.04_amd64.deb"
+  echo "APT SatDump packages unavailable; trying official SatDump ${SATDUMP_TAG} Ubuntu 24.04 amd64 package"
+  if ! curl -fL --retry 3 --connect-timeout 20 "$SATDUMP_UBUNTU_2404_AMD64_URL" -o "$deb"; then
+    echo "WARN: official SatDump .deb download failed; falling back to pinned source build"
+    return 1
+  fi
+
+  pkg="$(dpkg-deb -f "$deb" Package 2>/dev/null || true)"
+  pkg_arch="$(dpkg-deb -f "$deb" Architecture 2>/dev/null || true)"
+  if [[ "$pkg" != "satdump" || "$pkg_arch" != "amd64" ]]; then
+    echo "WARN: downloaded SatDump package identity mismatch; falling back to pinned source build"
+    return 1
+  fi
+
+  if ! sudo apt-get install -y "$deb"; then
+    echo "WARN: official SatDump .deb install failed; falling back to pinned source build"
+    return 1
+  fi
+
+  command -v satdump >/dev/null 2>&1
+}
+
+install_satdump_from_source(){
+  local src="$WORK/satdump"
+  local build="$src/build"
+  local got_commit
+
+  echo "Building pinned SatDump ${SATDUMP_TAG} from source"
+
+  sudo apt-get install -y --no-install-recommends \
+    g++ libfftw3-dev libpng-dev libtiff-dev libjemalloc-dev \
+    libcurl4-openssl-dev libsqlite3-dev libvolk-dev libnng-dev \
+    libzstd-dev libhdf5-dev librtlsdr-dev libarmadillo-dev
+
+  git clone --quiet --recursive --depth 1 --branch "$SATDUMP_TAG" "$SATDUMP_REPO" "$src"
+  got_commit="$(git -C "$src" rev-parse --short=7 HEAD)"
+  [[ "$got_commit" == "$SATDUMP_COMMIT" ]] || {
+    echo "FAIL: SatDump commit mismatch: expected $SATDUMP_COMMIT, got $got_commit"
+    return 1
+  }
+
+  cmake -S "$src" -B "$build" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_GUI=OFF
+
+  cmake --build "$build" --parallel "$(nproc)"
+  sudo cmake --install "$build"
+  command -v satdump >/dev/null 2>&1
+}
+
 print_plan(){
 cat <<EOF
 SDRCC external provisioning plan
-  SatDump             Ubuntu apt: satdump + satdump-data
+  SatDump             KEEP existing; Ubuntu apt if available; pinned official/source fallback
   readsb              $READSB_REPO @ $READSB_COMMIT
   AIS-catcher         official installer pinned to $AIS_TAG
   AIS-catcher-control official installer, required release $AIS_CONTROL_TAG
@@ -74,15 +143,28 @@ command -v sudo >/dev/null || { echo "FAIL: sudo is required"; exit 2; }
 sudo -v
 WORK="$(mktemp -d /tmp/sdrcc-v0560k-provision.XXXXXX)"
 
-say "Ubuntu packages and SatDump"
+say "Ubuntu packages"
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   ca-certificates curl git build-essential cmake pkg-config \
   rtl-sdr librtlsdr-dev \
-  satdump satdump-data \
   debhelper fakeroot help2man libusb-1.0-0-dev libncurses-dev zlib1g-dev libzstd-dev \
   'libconfig++-dev' libfftw3-dev libmp3lame-dev libshout3-dev
-command -v satdump >/dev/null
+
+say "SatDump"
+if command -v satdump >/dev/null 2>&1; then
+  echo "KEEP existing SatDump: $(command -v satdump)"
+elif apt-cache show satdump >/dev/null 2>&1 && apt-cache show satdump-data >/dev/null 2>&1; then
+  echo "Installing SatDump from configured Ubuntu repositories"
+  sudo apt-get install -y --no-install-recommends satdump satdump-data
+elif install_satdump_official_deb; then
+  echo "Installed SatDump from pinned official release package"
+else
+  install_satdump_from_source
+fi
+
+command -v satdump >/dev/null 2>&1 || { echo "FAIL: SatDump installation did not provide satdump on PATH"; exit 3; }
+echo "PASS external SatDump: $(command -v satdump)"
 
 say "readsb $READSB_COMMIT"
 if ! command -v readsb >/dev/null 2>&1; then
