@@ -188,7 +188,7 @@ say "AIS-catcher $AIS_TAG"
 if ! command -v AIS-catcher >/dev/null 2>&1; then
   curl -fL --retry 3 "$AIS_INSTALLER" -o "$WORK/aiscatcher-install"
   grep -q 'aiscatcher' "$WORK/aiscatcher-install" || { echo "FAIL: unexpected AIS-catcher installer content"; exit 3; }
-  sudo bash "$WORK/aiscatcher-install" -p -M
+  sudo bash "$WORK/aiscatcher-install" -p
 else
   echo "KEEP existing AIS-catcher: $(command -v AIS-catcher)"
 fi
