@@ -11,7 +11,7 @@ CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
 sudo -v
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="$PROJECT_ROOT/.rollback/v0.56.0q-r2-$STAMP"
+BACKUP="$PROJECT_ROOT/.rollback/v0.56.0q-r3-$STAMP"
 mkdir -p "$BACKUP/files"
 cp -a "$PROJECT_ROOT/config" "$BACKUP/config"
 cp -a "$SOURCE_ROOT/scripts/install/rollback_code.py" "$BACKUP/rollback_code.py"
@@ -59,7 +59,7 @@ if [[ "$HTTP" != 200 ]]; then
   echo "Backup: $BACKUP"
   exit 4
 fi
-echo "PASS: FlexGround SDR 0.56.0q-r2; dashboard HTTP 200"
+echo "PASS: FlexGround SDR 0.56.0q-r3; dashboard HTTP 200"
 echo "Existing station, ISS Voice, Traffic Voice and receiver configuration preserved."
 echo "Backup: $BACKUP"
 echo "Code rollback (when no receiver activity/recovery is pending):"

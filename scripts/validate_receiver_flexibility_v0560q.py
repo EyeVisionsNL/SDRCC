@@ -89,6 +89,32 @@ class Flexibility(unittest.TestCase):
         self.assertFalse(self.bind()['ok'])
         self.bind(mapping={'receiver01':'A'})
         self.assertEqual(self.serials(),['A',''])
+    def test_explicit_unbound_stays_unbound(self):
+        self.bound()
+        self.bind(mapping={'receiver02':''})
+        self.assertEqual(self.serials(),['A',''])
+        self.assertEqual(manager.binding_status()['manual_unbound'],['receiver02'])
+        self.tick()
+        self.assertEqual(self.serials(),['A',''])
+    def test_explicit_unbound_can_be_bound_again(self):
+        self.bound();self.bind(mapping={'receiver02':''})
+        self.bind(mapping={'receiver02':'B'})
+        self.assertEqual(self.serials(),['A','B'])
+        self.assertEqual(manager.binding_status()['manual_unbound'],[])
+    def test_explicit_unbound_requires_idle_receiver(self):
+        self.bound();self.services['ais-catcher.service']=True
+        with self.assertRaises(RuntimeError):self.bind(mapping={'receiver01':''})
+        self.assertEqual(self.serials(),['A','B'])
+    def test_unbound_intent_survives_atomic_registry_failure(self):
+        self.bound()
+        with patch.object(registry,'write_bindings',side_effect=OSError('disk failure')):
+            with self.assertRaises(OSError):self.bind(mapping={'receiver02':''})
+        state=manager._load_state()
+        self.assertEqual(state['manual_unbound'],[])
+        self.assertEqual(state['binding_transaction']['manual_unbound'],['receiver02'])
+        self.bind()
+        self.assertEqual(self.serials(),['A',''])
+        self.assertEqual(manager.binding_status()['manual_unbound'],['receiver02'])
     def test_extra_device_requires_choice(self):
         for s in ('A','B','C'):self.usb_add(s)
         self.assertFalse(self.bind()['ok']);self.assertEqual(self.serials(),['',''])
@@ -225,6 +251,16 @@ class Flexibility(unittest.TestCase):
         exec(compile(ast.Module(body=[node],type_ignores=[]),'dashboard-hf-stop','exec'),namespace)
         namespace['stop_receiver_for_hardware_loss']('receiver01',{'mission_key':'hf'})
         self.assertEqual(calls,['stop'])
+    def test_dashboard_exposes_explicit_unbound_and_compact_hardware_panel(self):
+        javascript=(ROOT/'dashboard/static/js/receiver_inventory.js').read_text()
+        stylesheet=(ROOT/'dashboard/static/css/receiver_inventory.css').read_text()
+        template=(ROOT/'dashboard/templates/index.html').read_text()
+        self.assertIn('value="__UNBOUND__">No binding (UNBOUND)',javascript)
+        self.assertIn('value === "__UNBOUND__" ? "" : value',javascript)
+        self.assertIn('receiver-hardware-panel',javascript)
+        self.assertIn('grid-column: 1 / -1',stylesheet)
+        self.assertIn('receiver_inventory.css?v=0.56.0q-r3',template)
+        self.assertIn('receiver_inventory.js?v=0.56.0q-r3',template)
     def test_operator_can_recover_pending_with_different_replacement(self):
         self.usb_add('A');self.usb_add('B')
         with self.assertRaises(RuntimeError):

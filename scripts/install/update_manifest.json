@@ -16,7 +16,8 @@
   ],
   "core/receiver_inventory.py": [
     "70c5f9e1f991e02ac3dea47506a3b2b1a37edc2f4637ee5af17ccd9af0492ad2",
-    "e03d65a636072b36ac3522ca0193acf8a80ff9914b382178c3a6be8563f3e11c"
+    "e03d65a636072b36ac3522ca0193acf8a80ff9914b382178c3a6be8563f3e11c",
+    "ea364194ba7dcf842ddd94954b3d38c4bc015d8fcc1bf1cf4429eb19643047bf"
   ],
   "core/receiver_manager.py": [
     "033c34a20683ef4bbe2e95596806e8fc31ccfacc525ce6209ace6e0c61424955",
@@ -49,6 +50,9 @@
   "dashboard/app.py": [
     "2d0e62c51b4126abcb001c5c240182bc09810cadf832f11f74ef54eed92ec71a",
     "4652dd22c9248e41d58f5982fc095d8903b982102e39d1577d6dbd39b8abe915"
+  ],
+  "dashboard/templates/index.html": [
+    "514d43bd6ef77b0d20823e4915e83af1abb4ea7cea0805d96ce19811f24d6d66"
   ],
   "dashboard/static/css/receiver_inventory.css": [
     "cd7c06849735c542d8ed307ed74cfae0a91151620e63ce2fac1367c5cd2e161e",

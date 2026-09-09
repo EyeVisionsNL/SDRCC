@@ -7,12 +7,16 @@ test_atomic_registry_failure_replays_intent (__main__.Flexibility.test_atomic_re
 test_blank_config_can_update_station_location (__main__.Flexibility.test_blank_config_can_update_station_location) ... ok
 test_clean_external_placeholders_then_existing_helper (__main__.Flexibility.test_clean_external_placeholders_then_existing_helper) ... ok
 test_controller_defers_only_missing_service (__main__.Flexibility.test_controller_defers_only_missing_service) ... ok
+test_dashboard_exposes_explicit_unbound_and_compact_hardware_panel (__main__.Flexibility.test_dashboard_exposes_explicit_unbound_and_compact_hardware_panel) ... ok
 test_dashboard_hf_loss_uses_existing_controller (__main__.Flexibility.test_dashboard_hf_loss_uses_existing_controller) ... ok
 test_duplicate_mapping_rejected (__main__.Flexibility.test_duplicate_mapping_rejected) ... ok
 test_duplicate_serial_rejected (__main__.Flexibility.test_duplicate_serial_rejected) ... ok
 test_empty_valid_and_unavailable (__main__.Flexibility.test_empty_valid_and_unavailable) ... ok
 test_existing_executor_cleanup_defers_services (__main__.Flexibility.test_existing_executor_cleanup_defers_services) ... ok
 test_explicit_stop_cancels_recovery (__main__.Flexibility.test_explicit_stop_cancels_recovery) ... ok
+test_explicit_unbound_can_be_bound_again (__main__.Flexibility.test_explicit_unbound_can_be_bound_again) ... ok
+test_explicit_unbound_requires_idle_receiver (__main__.Flexibility.test_explicit_unbound_requires_idle_receiver) ... ok
+test_explicit_unbound_stays_unbound (__main__.Flexibility.test_explicit_unbound_stays_unbound) ... ok
 test_external_failure_blocks_and_retries (__main__.Flexibility.test_external_failure_blocks_and_retries) ... ok
 test_extra_device_requires_choice (__main__.Flexibility.test_extra_device_requires_choice) ... ok
 test_initial_binding_stable_by_serial (__main__.Flexibility.test_initial_binding_stable_by_serial) ... ok
@@ -29,13 +33,18 @@ test_reservation_not_force_released (__main__.Flexibility.test_reservation_not_f
 test_service_restart_failure_keeps_intent (__main__.Flexibility.test_service_restart_failure_keeps_intent) ... ok
 test_service_start_blocked_when_missing (__main__.Flexibility.test_service_start_blocked_when_missing) ... ok
 test_snapshot_read_only (__main__.Flexibility.test_snapshot_read_only) ... ok
+test_unbound_intent_survives_atomic_registry_failure (__main__.Flexibility.test_unbound_intent_survives_atomic_registry_failure) ... ok
 test_unknown_does_not_modify (__main__.Flexibility.test_unknown_does_not_modify) ... ok
 
 ----------------------------------------------------------------------
-Ran 30 tests in 5.367s
+Ran 35 tests in 11.271s
 
 OK
 Station: Test (1.0, 2.0) altitude=0.0m
 SDR1 serial: None
 SDR2 serial: None
 Initial SDRCC station configuration written. External AIS/readsb roles are unchanged.
+
+PASS: simulated 0.56.0q-r2 to 0.56.0q-r3 update reached dashboard HTTP 200.
+PASS: all local YAML configuration remained byte-for-byte unchanged.
+PASS: explicit UNBOUND manager state remained present after the update.

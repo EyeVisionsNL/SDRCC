@@ -78,7 +78,7 @@
                 <div class="receiver-inventory-head">
                     <div>
                         <h3>${esc(receiver.name || receiver.number || receiver.id)}</h3>
-                        <div class="receiver-inventory-serial">RTL-SDR #${esc(receiver.serial)}</div>
+                        <div class="receiver-inventory-serial">${receiver.serial ? `RTL-SDR #${esc(receiver.serial)}` : "No hardware binding"}</div>
                     </div>
                     <span class="receiver-inventory-state ${tone}" data-state="${esc(receiver.runtime_state)}">${esc(displayState(receiver.runtime_state))}</span>
                 </div>
@@ -97,17 +97,29 @@
 
         const hardware = data.hardware || {};
         const detected = hardware.receivers || [];
-        root.insertAdjacentHTML("beforeend", `<article class="receiver-inventory-item">
-            <h3>Receiver hardware</h3>
-            <p>${esc(data.binding?.message || hardware.error || "")}</p>
-            <p>${detected.map(d => `${esc(d.description)} · ${esc(d.serial || "NO SERIAL")}`).join("<br>") || "No RTL-SDR connected"}</p>
-            <button type="button" id="receiver-binding-edit">Change bindings</button>
+        root.insertAdjacentHTML("beforeend", `<article class="receiver-inventory-item receiver-hardware-panel">
+            <div class="receiver-hardware-head">
+                <div><h3>Receiver hardware</h3><p>${esc(data.binding?.message || hardware.error || "")}</p></div>
+                <button type="button" id="receiver-binding-edit">Change bindings</button>
+            </div>
+            <div class="receiver-hardware-bindings">
+                ${items.filter(r => r.enabled).map(r => `<div class="receiver-hardware-binding">
+                    <span><strong>${esc(r.name)}</strong><small>${esc(r.canonical_id)}</small></span>
+                    <code>${r.serial ? esc(r.serial) : "NO BINDING"}</code>
+                    <span class="receiver-hardware-presence is-${esc(String(r.presence || "unknown").toLowerCase())}">${esc(displayState(r.presence))}</span>
+                </div>`).join("")}
+            </div>
+            <div class="receiver-hardware-detected"><span>Detected USB:</span>
+                ${detected.map(d => `<span class="receiver-hardware-device">${esc(d.description)} · ${esc(d.serial || "NO SERIAL")}</span>`).join("") || "<em>No RTL-SDR connected</em>"}
+            </div>
             <form id="receiver-binding-form" hidden>
-                ${items.filter(r => r.enabled).map(r => `<label>${esc(r.name)}
-                    <select name="${esc(r.canonical_id)}"><option value="">Keep current binding</option>
+                <div class="receiver-binding-fields">${items.filter(r => r.enabled).map(r => `<label><span>${esc(r.name)} <small>Current: ${esc(r.serial || "NO BINDING")}</small></span>
+                    <select name="${esc(r.canonical_id)}"><option value="__KEEP__">Keep current binding</option>
+                    <option value="__UNBOUND__">No binding (UNBOUND)</option>
                     ${detected.filter(d => d.serial).map(d => `<option value="${esc(d.serial)}">${esc(d.serial)} · ${esc(d.description)}</option>`).join("")}</select></label>`).join("")}
-                <p>Stop reception on the receivers being changed. Roles and settings are retained.</p>
-                <button type="submit">Apply bindings</button><button type="button" id="receiver-binding-cancel">Cancel</button>
+                </div>
+                <div class="receiver-binding-actions"><p>Stop reception on receivers being changed. Roles and settings are retained.</p>
+                <span><button type="submit">Apply bindings</button><button type="button" id="receiver-binding-cancel">Cancel</button></span></div>
                 <p id="receiver-binding-result" role="status"></p>
             </form></article>`);
         document.getElementById("receiver-binding-edit").onclick = () => {
@@ -118,7 +130,15 @@
         document.getElementById("receiver-binding-form").onsubmit = async (event) => {
             event.preventDefault();
             const resultElement = document.getElementById("receiver-binding-result");
-            const bindings = Object.fromEntries([...new FormData(event.target)].filter(([, value]) => value));
+            const bindings = Object.fromEntries(
+                [...new FormData(event.target)]
+                    .filter(([, value]) => value !== "__KEEP__")
+                    .map(([key, value]) => [key, value === "__UNBOUND__" ? "" : value])
+            );
+            if (!Object.keys(bindings).length) {
+                resultElement.textContent = "Choose a new binding or No binding first.";
+                return;
+            }
             const button = event.target.querySelector('[type="submit"]');
             button.disabled = true;
             try {

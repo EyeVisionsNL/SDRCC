@@ -25,7 +25,11 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 STATE_FILE = STATE_DIR / "receiver_manager.json"
 _LOCK = RLock()
 
-DEFAULT_STATE: dict[str, Any] = {"reservations": {}, "last_releases": {}}
+DEFAULT_STATE: dict[str, Any] = {
+    "reservations": {},
+    "last_releases": {},
+    "manual_unbound": [],
+}
 
 VERSION = "0.54.0b"
 ServiceState = Callable[[str], dict[str, Any]]
@@ -80,6 +84,10 @@ def _normalise_state(data: Any) -> dict[str, Any]:
 
     state["hardware_recovery"] = deepcopy(data.get("hardware_recovery") or {})
     state["binding_transaction"] = deepcopy(data.get("binding_transaction"))
+    for receiver_id in data.get("manual_unbound") or []:
+        canonical = _canonical_id(receiver_id)
+        if canonical and canonical not in state["manual_unbound"]:
+            state["manual_unbound"].append(canonical)
     last_releases = data.get("last_releases")
     if isinstance(last_releases, dict):
         for receiver_id, released in last_releases.items():
@@ -100,6 +108,12 @@ def _validate_state_document(data: Any) -> None:
     """Reject malformed persisted ownership instead of silently dropping it."""
     if not isinstance(data, dict):
         raise ValueError("top-level state moet een object zijn")
+    manual_unbound = data.get("manual_unbound", [])
+    if not isinstance(manual_unbound, list):
+        raise ValueError("manual_unbound moet een lijst zijn")
+    for receiver_id in manual_unbound:
+        if not isinstance(receiver_id, str) or _canonical_id(receiver_id) is None:
+            raise ValueError("manual_unbound bevat een onbekende receiver")
     for plural, singular in (
         ("reservations", "reservation"),
         ("last_releases", "last_release"),
@@ -860,7 +874,8 @@ def binding_status():
     with _LOCK:
         state = _load_state()
         return {'message': _binding_message, 'transaction': bool(state.get('binding_transaction')),
-                'recovery': deepcopy(state.get('hardware_recovery', {}))}
+                'recovery': deepcopy(state.get('hardware_recovery', {})),
+                'manual_unbound': deepcopy(state.get('manual_unbound', []))}
 
 
 def service_control_serialized(function):
@@ -878,7 +893,8 @@ def bind_hardware(*, privileged_apply, service_state, mapping=None):
 
     Existing privileged adapter owns AIS/readsb files, service preservation and
     rollback. On interruption the intent blocks new work until an idempotent retry
-    completes; no blank serial is ever passed to an executor.
+    completes; no blank serial is ever passed to an executor. Explicitly
+    unbound slots remain excluded from automatic hardware assignment.
     """
     global _binding_message
     from core import receiver_registry, receiver_hardware, receiver_authority, config
@@ -893,20 +909,35 @@ def bind_hardware(*, privileged_apply, service_state, mapping=None):
         enabled = {r['id']: r for r in rows if r['enabled']}
         devices = {r['serial'] for r in snapshot['receivers'] if r['serial']}
         pending = state.get('binding_transaction')
+        manual_unbound = set(state.get('manual_unbound', []))
         if pending and current not in (pending['previous'], {**pending['previous'], **pending['mapping']}):
             raise RuntimeError('Registry changed during pending binding; review configuration')
         if pending and mapping is None:
             changes = pending['mapping']
+            target_manual_unbound = set(pending.get('manual_unbound', manual_unbound))
         elif mapping is not None:
             if not isinstance(mapping, dict) or not mapping:
-                raise ValueError('Select at least one receiver and serial')
+                raise ValueError('Select at least one receiver binding')
             changes = {}
             for key, value in mapping.items():
-                if key not in enabled or not isinstance(value, str) or value not in devices:
-                    raise ValueError('Select an enabled receiver and a currently present serial')
+                if key not in enabled or not isinstance(value, str):
+                    raise ValueError('Select an enabled receiver and a valid binding')
+                value = value.strip()
+                if value and value not in devices:
+                    raise ValueError('Select a currently present serial or No binding')
                 changes[key] = value
+            target_manual_unbound = set(manual_unbound)
+            for key, value in changes.items():
+                if value:
+                    target_manual_unbound.discard(key)
+                else:
+                    target_manual_unbound.add(key)
         else:
-            vacant = [key for key in enabled if not current[key] or current[key] not in devices]
+            vacant = [
+                key for key in enabled
+                if key not in manual_unbound
+                and (not current[key] or current[key] not in devices)
+            ]
             new = sorted(devices - {v for v in current.values() if v})
             # Preserve retained receivers. For two entirely new receivers, sorted
             # serials provide stable first binding independent of USB enumeration.
@@ -917,15 +948,22 @@ def bind_hardware(*, privileged_apply, service_state, mapping=None):
                 _binding_message = 'ACTION_REQUIRED: select the receiver bindings below'
                 return {'ok': False, 'changed': False, 'message': _binding_message}
             changes = dict(zip(vacant, new))
+            target_manual_unbound = set(manual_unbound)
         candidate = {**current, **changes}
         bound = [value for value in candidate.values() if value]
         if len(bound) != len(set(bound)):
             raise ValueError('A physical serial cannot belong to two slots')
-        if any(value not in devices for value in changes.values()):
+        if any(value and value not in devices for value in changes.values()):
             raise RuntimeError('Pending replacement is no longer connected')
         changed = [key for key in changes if candidate[key] != current[key]]
+        policy_changed = target_manual_unbound != manual_unbound
         if not changed and not pending:
-            return {'ok': True, 'changed': False}
+            if policy_changed:
+                state['manual_unbound'] = sorted(target_manual_unbound)
+                _save_state(state)
+                _binding_message = 'Hardware binding preference updated'
+                return {'ok': True, 'changed': True, 'bindings': candidate}
+            return {'ok': True, 'changed': False, 'bindings': candidate}
         if state['reservations']:
             raise RuntimeError('Waiting for the existing mission/session to release its reservation')
         for key in changed:
@@ -933,7 +971,17 @@ def bind_hardware(*, privileged_apply, service_state, mapping=None):
                 observation = service_state(service)
                 if observation.get('state') not in {'inactive', 'failed'}:
                     raise RuntimeError(f'{service}: stop reception before changing this binding')
-        state['binding_transaction'] = {'mapping': changes, 'previous': current, 'started_at': _now()} if mapping is not None else (pending or {'mapping': changes, 'previous': current, 'started_at': _now()})
+        state['binding_transaction'] = {
+            'mapping': changes,
+            'previous': current,
+            'manual_unbound': sorted(target_manual_unbound),
+            'started_at': _now(),
+        } if mapping is not None else (pending or {
+            'mapping': changes,
+            'previous': current,
+            'manual_unbound': sorted(target_manual_unbound),
+            'started_at': _now(),
+        })
         _save_state(state)
         # Missing service roles do not prevent HF/mission-only stations binding.
         assignments = config.get_receiver_assignments()
@@ -948,6 +996,7 @@ def bind_hardware(*, privileged_apply, service_state, mapping=None):
         receiver_authority.invalidate_cache()
         state = _load_state()
         state['binding_transaction'] = None
+        state['manual_unbound'] = sorted(target_manual_unbound)
         _save_state(state)
         _binding_message = 'Hardware bindings updated; roles and reception settings preserved'
         return {'ok': True, 'changed': True, 'bindings': candidate}
