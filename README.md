@@ -10,7 +10,7 @@
 
 <p align="center">
   <strong>Current development line: v0.56.0p · v1.0 preparation</strong><br>
-  Ubuntu 26.04 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb · RTLSDR-Airband
+  Ubuntu 26.04.1 LTS AMD64 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb · RTLSDR-Airband
 </p>
 
 <p align="center">
@@ -31,6 +31,14 @@ The current reference station uses two NESDR SMArt v5 receivers:
 | SDR2 | ADS-B | ISS Voice, Marine Voice, Radio Receiver |
 
 These values describe the reference installation, not hard-coded product requirements. v1.0 installer work detects RTL-SDR hardware by serial and keeps station/location configuration separate from external-service provisioning.
+
+## Supported platform
+
+FlexGround SDR targets an x86-64 mini PC running **Ubuntu 26.04.1 LTS 64-bit (AMD64)**. AMD64 is Ubuntu's architecture name for both 64-bit Intel and AMD processors. Ubuntu Desktop is the reference installation; Ubuntu Server can be used when the dashboard is operated remotely.
+
+| Support level | Processor | Memory | Storage |
+|---|---|---|---|
+| Minimum | Intel Core i3 mini PC or comparable AMD x86-64 processor | 16 GB RAM | SSD |
 
 ## Main capabilities
 
@@ -250,9 +258,9 @@ Important installer properties:
 
 > v0.56.0k does not yet claim fully unattended first-run AIS managed-mode configuration. The installer reports that boundary instead of guessing station-specific AIS settings.
 
-### Install on a Raspberry Pi
+### Install on Ubuntu
 
-Run the installer as the normal Raspberry Pi user, without putting `sudo` in front of `install.sh`. The script requests `sudo` itself when system changes are needed.
+Install Ubuntu 26.04.1 LTS 64-bit (AMD64), then run the installer as the normal Ubuntu user without putting `sudo` in front of `install.sh`. The script requests `sudo` itself when system changes are needed.
 
 Fresh installation from GitHub:
 
@@ -273,7 +281,7 @@ SDRCC_ROOT=~/SDRCC ./install.sh
 
 The update source must be outside `~/SDRCC`; station settings, receiver bindings and runtime data are preserved by the update workflow.
 
-### Uninstall from a Raspberry Pi
+### Uninstall from Ubuntu
 
 For an installation made with the current `install.sh`:
 
@@ -289,7 +297,7 @@ For an older installation without that receipt, use the following command only w
 ~/SDRCC/uninstall.sh --purge-external
 ```
 
-Generic Ubuntu/build packages are deliberately preserved because other software on the Raspberry Pi may use them.
+Generic Ubuntu/build packages are deliberately preserved because other software on the mini PC may use them.
 
 ## Third-party software and credits
 
