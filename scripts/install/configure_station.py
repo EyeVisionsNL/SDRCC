@@ -7,9 +7,13 @@ start services and does not edit readsb/AIS-catcher configuration.
 from __future__ import annotations
 import argparse, os, tempfile
 from pathlib import Path
+import sys
 import yaml
 
 ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+from core.config import normalize_home_position
+
 STATION=ROOT/'config/station.yaml'; RECEIVERS=ROOT/'config/receivers.yaml'
 
 def atomic_yaml(path:Path,payload:dict):
@@ -35,21 +39,33 @@ def main():
     p.add_argument('--apply',action='store_true')
     a=p.parse_args()
     if a.sdr1_serial and a.sdr1_serial==a.sdr2_serial: p.error('SDR1 and SDR2 must have different serials')
-    if not (-90<=a.latitude<=90 and -180<=a.longitude<=180): p.error('invalid latitude/longitude')
+    station_name=a.station_name.strip()
+    if not station_name: p.error('station name must not be empty')
+    if len(station_name)>80: p.error('station name must be 80 characters or fewer')
+    try:
+        position=normalize_home_position({
+            'location':a.location,
+            'latitude':a.latitude,
+            'longitude':a.longitude,
+            'altitude_m':a.altitude_m,
+        })
+    except ValueError as error:
+        p.error(str(error))
     station=yaml.safe_load(STATION.read_text()) or {}; receivers=yaml.safe_load(RECEIVERS.read_text()) or {}
-    st=station.setdefault('station',{}); st.update({'name':a.station_name,'location':a.location,'latitude':a.latitude,'longitude':a.longitude,'altitude_m':a.altitude_m})
+    st=station.setdefault('station',{}); st.update({'name':station_name,**position})
     rs=receivers.setdefault('receivers',{})
     for key,serial in [('receiver01',a.sdr1_serial),('receiver02',a.sdr2_serial)]:
         if serial is None: continue
         if key not in rs: raise SystemExit(f'{key} missing from receivers.yaml')
         rs[key].setdefault('hardware',{})['serial']=str(serial)
-    print(f"Station: {a.location} ({a.latitude}, {a.longitude}) altitude={a.altitude_m}m")
+    print(f"Station name: {station_name}")
+    print(f"Home Position: {position['location']} ({position['latitude']}, {position['longitude']}) altitude={position['altitude_m']}m ASL")
     print(f"SDR1 serial: {a.sdr1_serial}")
     print(f"SDR2 serial: {a.sdr2_serial}")
     if not a.apply:
         print('Dry run only; pass --apply to write configuration.')
         return 0
     atomic_yaml(STATION,station); atomic_yaml(RECEIVERS,receivers)
-    print('Initial SDRCC station configuration written. External AIS/readsb roles are unchanged.')
+    print(f'Station configuration saved to {STATION}. External AIS/readsb roles are unchanged.')
     return 0
 if __name__=='__main__': raise SystemExit(main())

@@ -33,7 +33,7 @@ else
   }
 fi
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="$PROJECT_ROOT/.rollback/v0.56.0q-r4-$STAMP"
+BACKUP="$PROJECT_ROOT/.rollback/v0.56.0q-r5-$STAMP"
 mkdir -p "$BACKUP/files"
 cp -a "$PROJECT_ROOT/config" "$BACKUP/config"
 cp -a "$SOURCE_ROOT/scripts/install/rollback_code.py" "$BACKUP/rollback_code.py"
@@ -81,8 +81,10 @@ if [[ "$HTTP" != 200 ]]; then
   echo "Backup: $BACKUP"
   exit 4
 fi
-echo "PASS: FlexGround SDR 0.56.0q-r4; dashboard HTTP 200"
+echo "PASS: FlexGround SDR 0.56.0q-r5; dashboard HTTP 200"
 echo "Existing station, ISS Voice, Traffic Voice and receiver configuration preserved."
+echo "This update did not replace the existing Home Position."
+echo "To change it: System -> Advanced Maintenance -> Home Position."
 echo "Backup: $BACKUP"
 echo "Code rollback (when no receiver activity/recovery is pending):"
 echo "  $PYTHON $BACKUP/rollback_code.py $PROJECT_ROOT $BACKUP"

@@ -262,6 +262,8 @@ Important installer properties:
 
 Install Ubuntu 26.04.1 LTS 64-bit (AMD64), then run the installer as the normal Ubuntu user without putting `sudo` in front of `install.sh`. The script requests `sudo` itself when system changes are needed.
 
+During a fresh installation the installer clearly asks for five station values: station name, location/city, latitude, longitude and altitude above sea level. Latitude, longitude and altitude are used by satellite pass planning, Radio View and station-relative Doppler correction. Use decimal degrees with a dot. The installer shows a summary for confirmation before saving the values to `config/station.yaml`.
+
 Fresh installation from GitHub:
 
 ```bash
@@ -275,11 +277,11 @@ cd ~/SDRCC
 Update an existing installation from a newly downloaded or extracted release directory:
 
 ```bash
-cd ~/Downloads/flexground-sdr-v0.56.0q-r4-complete-uninstall
+cd ~/Downloads/flexground-sdr-v0.56.0q-r5-clear-station-setup
 SDRCC_ROOT=~/SDRCC ./install.sh
 ```
 
-The update source must be outside `~/SDRCC`; station settings, receiver bindings and runtime data are preserved by the update workflow.
+The update source must be outside `~/SDRCC`; station settings, receiver bindings and runtime data are preserved by the update workflow. An update therefore does not ask for or replace latitude, longitude and altitude. Change an existing location in **System → Advanced Maintenance → Home Position**.
 
 ### Uninstall from Ubuntu
 

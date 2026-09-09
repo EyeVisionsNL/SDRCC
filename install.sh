@@ -167,11 +167,28 @@ if ((NON_INTERACTIVE)); then
   LOCATION="$SDRCC_LOCATION"; LATITUDE="$SDRCC_LATITUDE"; LONGITUDE="$SDRCC_LONGITUDE"
   ALTITUDE="${SDRCC_ALTITUDE_M:-0}"
 else
-  read -r -p "Station name [FlexGround SDR]: " STATION_NAME; STATION_NAME="${STATION_NAME:-FlexGround SDR}"
-  read -r -p "Location/city: " LOCATION
-  read -r -p "Latitude: " LATITUDE
-  read -r -p "Longitude: " LONGITUDE
-  read -r -p "Altitude metres [0]: " ALTITUDE; ALTITUDE="${ALTITUDE:-0}"
+  echo "The following five values configure this ground station."
+  echo "Latitude, longitude and altitude are used for satellite pass planning, Radio View and Doppler correction."
+  echo "Use decimal degrees with a dot, for example 51.908401 and 4.351168."
+  while true; do
+    read -r -p "1/5 Station name (saved identifier) [FlexGround SDR]: " STATION_NAME
+    STATION_NAME="${STATION_NAME:-FlexGround SDR}"
+    read -r -p "2/5 Location or city (shown in Home Position): " LOCATION
+    read -r -p "3/5 Latitude (-90 to 90, decimal degrees): " LATITUDE
+    read -r -p "4/5 Longitude (-180 to 180, decimal degrees): " LONGITUDE
+    read -r -p "5/5 Altitude above sea level in metres [0]: " ALTITUDE
+    ALTITUDE="${ALTITUDE:-0}"
+    echo
+    echo "Station settings to save:"
+    echo "  Name      : $STATION_NAME"
+    echo "  Location  : $LOCATION"
+    echo "  Latitude  : $LATITUDE"
+    echo "  Longitude : $LONGITUDE"
+    echo "  Altitude  : $ALTITUDE m ASL"
+    read -r -p "Save these station settings? [Y/n] " CONFIRM_STATION
+    [[ ! "$CONFIRM_STATION" =~ ^[Nn]$ ]] && break
+    echo "Re-enter the station settings."
+  done
 fi
 "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
   --station-name "$STATION_NAME" --location "$LOCATION" \

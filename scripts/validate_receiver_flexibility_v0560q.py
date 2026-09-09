@@ -218,6 +218,11 @@ class Flexibility(unittest.TestCase):
         with patch.object(module,'STATION',station),patch.object(module,'RECEIVERS',self.registry),patch.object(sys,'argv',args):
             module.main()
         self.assertEqual(yaml.safe_load(station.read_text())['station']['location'],'Test')
+        saved=yaml.safe_load(station.read_text())['station']
+        self.assertEqual(saved['name'],'SDRCC')
+        self.assertEqual(saved['latitude'],1.0)
+        self.assertEqual(saved['longitude'],2.0)
+        self.assertEqual(saved['altitude_m'],0.0)
         self.assertEqual(self.serials(),['',''])
     def test_clean_external_placeholders_then_existing_helper(self):
         import importlib.util
