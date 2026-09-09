@@ -15,6 +15,8 @@ PYTHON="$PROJECT_ROOT/venv/bin/python"
 CHECK_ONLY=0
 NON_INTERACTIVE=0
 SKIP_THIRD_PARTY=0
+INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
+[[ "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] && INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-$INSTALL_RECEIPT}"
 
 while (($#)); do
   case "$1" in
@@ -26,9 +28,17 @@ while (($#)); do
   esac
   shift
 done
+PROJECT_ROOT="$(realpath -m "$PROJECT_ROOT")"
+PYTHON="$PROJECT_ROOT/venv/bin/python"
 
 say(){ printf '\n==> %s\n' "$*"; }
 need_sudo(){ sudo -v; }
+receipt_set(){ printf '%s=%s\n' "$1" "$2" | sudo tee -a "$INSTALL_RECEIPT" >/dev/null; }
+receipt_value(){
+  [[ -r "$INSTALL_RECEIPT" ]] || return 0
+  awk -F= -v key="$1" '$1 == key { value=substr($0, index($0, "=")+1) } END { print value }' "$INSTALL_RECEIPT"
+}
+receipt_default(){ [[ -n "$(receipt_value "$1")" ]] || receipt_set "$1" "$2"; }
 
 # Same entry point for a clean Ubuntu station and an existing installation.
 if [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" && "$CHECK_ONLY" == 0 ]]; then
@@ -46,6 +56,22 @@ fi
 
 say "Base Ubuntu dependencies"
 need_sudo
+sudo install -d -o root -g root -m 0755 "$(dirname "$INSTALL_RECEIPT")"
+if [[ ! -f "$INSTALL_RECEIPT" ]]; then
+  {
+    printf 'receipt_version=1\n'
+    printf 'project_root_b64=%s\n' "$(printf '%s' "$PROJECT_ROOT" | base64 -w0)"
+    printf 'install_user=%s\n' "$INSTALL_USER"
+    printf 'legacy_install=0\n'
+  } | sudo tee "$INSTALL_RECEIPT" >/dev/null
+fi
+sudo chmod 0644 "$INSTALL_RECEIPT"
+recorded_root="$(printf '%s' "$(receipt_value project_root_b64)" | base64 -d 2>/dev/null || true)"
+[[ "$recorded_root" == "$PROJECT_ROOT" ]] || { echo "FAIL: installation receipt belongs to $recorded_root"; exit 3; }
+id -nG "$INSTALL_USER" | tr ' ' '\n' | grep -Fxq plugdev && receipt_default group_plugdev_preexisting 1 || receipt_default group_plugdev_preexisting 0
+id -nG "$INSTALL_USER" | tr ' ' '\n' | grep -Fxq dialout && receipt_default group_dialout_preexisting 1 || receipt_default group_dialout_preexisting 0
+[[ -e /etc/AIS-catcher ]] && receipt_default ais_config_preexisting 1 || receipt_default ais_config_preexisting 0
+[[ -e /etc/default/readsb ]] && receipt_default readsb_config_preexisting 1 || receipt_default readsb_config_preexisting 0
 sudo apt-get update
 sudo apt-get install -y \
   python3 python3-venv python3-pip git curl ca-certificates rsync \
@@ -55,7 +81,7 @@ if ((SKIP_THIRD_PARTY)); then
   say "External runtime dependency check"
   "$SOURCE_ROOT/scripts/install/provision_external.sh" --check
 else
-  "$SOURCE_ROOT/scripts/install/provision_external.sh"
+  SDRCC_INSTALL_RECEIPT="$INSTALL_RECEIPT" SDRCC_INSTALL_TEST_MODE="${SDRCC_INSTALL_TEST_MODE:-0}" "$SOURCE_ROOT/scripts/install/provision_external.sh"
 fi
 
 say "Install SDRCC source"

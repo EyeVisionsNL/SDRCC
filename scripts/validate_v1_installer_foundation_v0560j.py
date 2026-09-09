@@ -20,6 +20,7 @@ check('sdrcc_apply_receiver_roles.py' in install and '/usr/local/sbin/sdrcc-appl
 check('systemctl enable sdrcc.service' in install,'SDRCC service is enabled')
 check('enable readsb' not in install and 'enable ais-catcher' not in install,'external receiver services are not auto-enabled')
 check('provision_external.sh' in install,'later installer retains explicit third-party boundary')
-check('--purge-data' in (ROOT/'uninstall.sh').read_text(),'uninstall preserves data unless purge is explicit')
+uninstall=(ROOT/'uninstall.sh').read_text()
+check('rm -rf -- "$ROOT"' in uninstall and '--purge-external' in uninstall,'uninstall removes FlexGround completely and protects pre-existing external software')
 check((ROOT/'docs/v1-installer-foundation-v0560j.md').exists(),'installer foundation documentation is present')
 print('VALIDATION PASS: SDRCC v0.56.0j v1.0 Installer Foundation')

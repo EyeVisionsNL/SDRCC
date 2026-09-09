@@ -10,8 +10,30 @@ CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
 sudo -v
+INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
+[[ "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] && INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-$INSTALL_RECEIPT}"
+if [[ ! -f "$INSTALL_RECEIPT" ]]; then
+  INSTALL_USER="$(stat -c %U "$PROJECT_ROOT")"
+  sudo install -d -o root -g root -m 0755 "$(dirname "$INSTALL_RECEIPT")"
+  {
+    printf 'receipt_version=1\n'
+    printf 'project_root_b64=%s\n' "$(printf '%s' "$PROJECT_ROOT" | base64 -w0)"
+    printf 'install_user=%s\n' "$INSTALL_USER"
+    printf 'legacy_install=1\n'
+    printf 'airband_installed=1\n'
+  } | sudo tee "$INSTALL_RECEIPT" >/dev/null
+  sudo chmod 0644 "$INSTALL_RECEIPT"
+else
+  [[ "$(stat -c %u "$INSTALL_RECEIPT")" == 0 || "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] || {
+    echo "FAIL: installation receipt is not owned by root: $INSTALL_RECEIPT"; exit 3;
+  }
+  RECORDED_ROOT="$(awk -F= '$1 == "project_root_b64" { value=substr($0, index($0, "=")+1) } END { print value }' "$INSTALL_RECEIPT" | base64 -d 2>/dev/null || true)"
+  [[ "$RECORDED_ROOT" == "$PROJECT_ROOT" ]] || {
+    echo "FAIL: installation receipt belongs to $RECORDED_ROOT"; exit 3;
+  }
+fi
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="$PROJECT_ROOT/.rollback/v0.56.0q-r3-$STAMP"
+BACKUP="$PROJECT_ROOT/.rollback/v0.56.0q-r4-$STAMP"
 mkdir -p "$BACKUP/files"
 cp -a "$PROJECT_ROOT/config" "$BACKUP/config"
 cp -a "$SOURCE_ROOT/scripts/install/rollback_code.py" "$BACKUP/rollback_code.py"
@@ -59,7 +81,7 @@ if [[ "$HTTP" != 200 ]]; then
   echo "Backup: $BACKUP"
   exit 4
 fi
-echo "PASS: FlexGround SDR 0.56.0q-r3; dashboard HTTP 200"
+echo "PASS: FlexGround SDR 0.56.0q-r4; dashboard HTTP 200"
 echo "Existing station, ISS Voice, Traffic Voice and receiver configuration preserved."
 echo "Backup: $BACKUP"
 echo "Code rollback (when no receiver activity/recovery is pending):"

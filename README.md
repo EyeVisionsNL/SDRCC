@@ -232,7 +232,8 @@ Important installer properties:
 - FlexGround SDR service units, Traffic Voice service, sudoers boundary and receiver-role helper are reproducible from repository sources.
 - Third-party provisioning is pinned and validated.
 - Provisioning installs software but does not take receiver/service authority away from FlexGround SDR.
-- Uninstall preserves runtime data by default.
+- Uninstall removes FlexGround SDR source, configuration, runtime data, logs and system integration.
+- External radio applications are removed only when the root-owned installation receipt shows that `install.sh` added them; shared Ubuntu packages are preserved.
 - Installation and provisioning fail closed when required validation fails.
 
 ### Pinned external reference stack
@@ -249,7 +250,46 @@ Important installer properties:
 
 > v0.56.0k does not yet claim fully unattended first-run AIS managed-mode configuration. The installer reports that boundary instead of guessing station-specific AIS settings.
 
-Detailed clean-machine installation commands should be taken from the release package itself while v1.0 installer validation is still in progress.
+### Install on a Raspberry Pi
+
+Run the installer as the normal Raspberry Pi user, without putting `sudo` in front of `install.sh`. The script requests `sudo` itself when system changes are needed.
+
+Fresh installation from GitHub:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git
+git clone --depth 1 --branch main https://github.com/EyeVisionsNL/SDRCC.git ~/SDRCC
+cd ~/SDRCC
+./install.sh
+```
+
+Update an existing installation from a newly downloaded or extracted release directory:
+
+```bash
+cd ~/Downloads/flexground-sdr-v0.56.0q-r4-complete-uninstall
+SDRCC_ROOT=~/SDRCC ./install.sh
+```
+
+The update source must be outside `~/SDRCC`; station settings, receiver bindings and runtime data are preserved by the update workflow.
+
+### Uninstall from a Raspberry Pi
+
+For an installation made with the current `install.sh`:
+
+```bash
+~/SDRCC/uninstall.sh
+```
+
+This permanently removes FlexGround SDR, including its source tree, virtual environment, configuration, data, logs, services, sudoers rules and privileged helper. External radio applications are removed only when the installation receipt proves that FlexGround SDR installed them.
+
+For an older installation without that receipt, use the following command only when SatDump, readsb, AIS-catcher, AIS-catcher-control and the FlexGround RTLSDR-Airband build must also be removed:
+
+```bash
+~/SDRCC/uninstall.sh --purge-external
+```
+
+Generic Ubuntu/build packages are deliberately preserved because other software on the Raspberry Pi may use them.
 
 ## Third-party software and credits
 

@@ -27,10 +27,29 @@ AIRBAND_BIN="$AIRBAND_ROOT/bin/rtl_airband"
 AIRBAND_PROVENANCE="$AIRBAND_ROOT/share/BUILD-PROVENANCE"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK=""
+INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-}"
+if [[ -n "$INSTALL_RECEIPT" && "$INSTALL_RECEIPT" != /var/lib/sdrcc/install-receipt && "${SDRCC_INSTALL_TEST_MODE:-0}" != 1 ]]; then
+  echo "FAIL: non-standard receipt paths are allowed only in installer tests"
+  exit 2
+fi
 
 say(){ printf '\n==> %s\n' "$*"; }
 cleanup(){ if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi; return 0; }
 trap cleanup EXIT
+receipt_set(){
+  [[ -n "$INSTALL_RECEIPT" ]] || return 0
+  printf '%s=%s\n' "$1" "$2" | sudo tee -a "$INSTALL_RECEIPT" >/dev/null
+}
+receipt_value(){
+  [[ -n "$INSTALL_RECEIPT" && -r "$INSTALL_RECEIPT" ]] || return 0
+  awk -F= -v key="$1" '$1 == key { value=substr($0, index($0, "=")+1) } END { print value }' "$INSTALL_RECEIPT"
+}
+receipt_default(){ [[ -n "$(receipt_value "$1")" ]] || receipt_set "$1" "$2"; }
+record_service_state(){
+  local key="$1" service="$2"
+  systemctl is-enabled --quiet "$service" 2>/dev/null && receipt_default "${key}_enabled" 1 || receipt_default "${key}_enabled" 0
+  systemctl is-active --quiet "$service" 2>/dev/null && receipt_default "${key}_active" 1 || receipt_default "${key}_active" 0
+}
 
 version_line(){ "$1" -v 2>&1 | head -1 || true; }
 service_disable(){
@@ -102,6 +121,9 @@ install_satdump_from_source(){
 
   cmake --build "$build" --parallel "$(nproc)"
   sudo cmake --install "$build"
+  if [[ -n "$INSTALL_RECEIPT" && -f "$build/install_manifest.txt" ]]; then
+    sudo install -o root -g root -m 0600 "$build/install_manifest.txt" "$(dirname "$INSTALL_RECEIPT")/satdump-install-manifest.txt"
+  fi
   command -v satdump >/dev/null 2>&1
 }
 
@@ -143,6 +165,16 @@ command -v sudo >/dev/null || { echo "FAIL: sudo is required"; exit 2; }
 sudo -v
 WORK="$(mktemp -d /tmp/sdrcc-v0560k-provision.XXXXXX)"
 
+command -v satdump >/dev/null 2>&1 && receipt_default satdump_preexisting 1 || receipt_default satdump_preexisting 0
+command -v readsb >/dev/null 2>&1 && receipt_default readsb_preexisting 1 || receipt_default readsb_preexisting 0
+command -v AIS-catcher >/dev/null 2>&1 && receipt_default ais_catcher_preexisting 1 || receipt_default ais_catcher_preexisting 0
+command -v AIS-catcher-control >/dev/null 2>&1 && receipt_default ais_control_preexisting 1 || receipt_default ais_control_preexisting 0
+[[ -x "$AIRBAND_BIN" ]] && receipt_default airband_preexisting 1 || receipt_default airband_preexisting 0
+getent passwd aiscatcher >/dev/null 2>&1 && receipt_default ais_user_preexisting 1 || receipt_default ais_user_preexisting 0
+record_service_state readsb_service readsb.service
+record_service_state ais_service ais-catcher.service
+record_service_state ais_control_service ais-catcher-control.service
+
 say "Ubuntu packages"
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
@@ -153,14 +185,21 @@ sudo apt-get install -y --no-install-recommends \
 
 say "SatDump"
 if command -v satdump >/dev/null 2>&1; then
+  receipt_default satdump_installed 0
   echo "KEEP existing SatDump: $(command -v satdump)"
 elif apt-cache show satdump >/dev/null 2>&1 && apt-cache show satdump-data >/dev/null 2>&1; then
   echo "Installing SatDump from configured Ubuntu repositories"
   sudo apt-get install -y --no-install-recommends satdump satdump-data
+  receipt_set satdump_installed 1
+  receipt_set satdump_method apt
 elif install_satdump_official_deb; then
+  receipt_set satdump_installed 1
+  receipt_set satdump_method apt
   echo "Installed SatDump from pinned official release package"
 else
   install_satdump_from_source
+  receipt_set satdump_installed 1
+  receipt_set satdump_method source
 fi
 
 command -v satdump >/dev/null 2>&1 || { echo "FAIL: SatDump installation did not provide satdump on PATH"; exit 3; }
@@ -179,7 +218,9 @@ if ! command -v readsb >/dev/null 2>&1; then
   mapfile -t debs < <(find "$WORK" -maxdepth 1 -type f -name 'readsb_*.deb' -print)
   ((${#debs[@]})) || { echo "FAIL: readsb package was not produced"; exit 3; }
   sudo apt-get install -y "${debs[@]}"
+  receipt_set readsb_installed 1
 else
+  receipt_default readsb_installed 0
   echo "KEEP existing readsb: $(readsb --version 2>&1 | head -1)"
 fi
 service_disable readsb.service
@@ -189,7 +230,9 @@ if ! command -v AIS-catcher >/dev/null 2>&1; then
   curl -fL --retry 3 "$AIS_INSTALLER" -o "$WORK/aiscatcher-install"
   grep -q 'aiscatcher' "$WORK/aiscatcher-install" || { echo "FAIL: unexpected AIS-catcher installer content"; exit 3; }
   sudo bash "$WORK/aiscatcher-install" -p
+  receipt_set ais_catcher_installed 1
 else
+  receipt_default ais_catcher_installed 0
   echo "KEEP existing AIS-catcher: $(command -v AIS-catcher)"
 fi
 service_disable ais-catcher.service
@@ -199,7 +242,9 @@ if ! command -v AIS-catcher-control >/dev/null 2>&1; then
   curl -fL --retry 3 "$AIS_CONTROL_INSTALLER" -o "$WORK/ais-control-install"
   grep -Eq 'RELEASE_TAG=.*v0\.1' "$WORK/ais-control-install" || { echo "FAIL: AIS-catcher-control installer no longer pins v0.1"; exit 3; }
   sudo bash "$WORK/ais-control-install"
+  receipt_set ais_control_installed 1
 else
+  receipt_default ais_control_installed 0
   echo "KEEP existing AIS-catcher-control: $(command -v AIS-catcher-control)"
 fi
 service_disable ais-catcher-control.service
@@ -235,6 +280,9 @@ SDRCC v0.56.0f auto-gain patch
 behavior gain<0 => rtlsdr_set_tuner_gain_mode(dev,0); gain>=0 => existing manual path
 EOF
   sudo install -m 0644 "$WORK/BUILD-PROVENANCE" "$AIRBAND_PROVENANCE"
+  receipt_set airband_installed 1
+else
+  receipt_default airband_installed 0
 fi
 service_disable sdrcc-traffic-voice.service
 
