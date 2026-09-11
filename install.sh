@@ -15,6 +15,7 @@ PYTHON="$PROJECT_ROOT/venv/bin/python"
 CHECK_ONLY=0
 NON_INTERACTIVE=0
 SKIP_THIRD_PARTY=0
+AIS_SETUP_ONLY=0
 INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
 [[ "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] && INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-$INSTALL_RECEIPT}"
 
@@ -23,6 +24,7 @@ while (($#)); do
     --check) CHECK_ONLY=1 ;;
     --non-interactive) NON_INTERACTIVE=1 ;;
     --skip-third-party) SKIP_THIRD_PARTY=1 ;;
+    --ais-setup) AIS_SETUP_ONLY=1 ;;
     --destination) shift; PROJECT_ROOT="$1"; PYTHON="$PROJECT_ROOT/venv/bin/python" ;;
     *) echo "Unknown option: $1"; exit 2 ;;
   esac
@@ -39,6 +41,24 @@ receipt_value(){
   awk -F= -v key="$1" '$1 == key { value=substr($0, index($0, "=")+1) } END { print value }' "$INSTALL_RECEIPT"
 }
 receipt_default(){ [[ -n "$(receipt_value "$1")" ]] || receipt_set "$1" "$2"; }
+
+# Explicit resume path: no reinstall, update, or station configuration rewrite.
+if ((AIS_SETUP_ONLY)); then
+  ((CHECK_ONLY == 0 && NON_INTERACTIVE == 0)) || { echo "FAIL: --ais-setup requires interactive setup, without --check."; exit 2; }
+  [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" ]] || { echo "FAIL: install FlexGround before resuming AIS setup."; exit 2; }
+  need_sudo
+  sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py"
+  sudo systemctl enable --now sdrcc.service
+  HTTP=000
+  for attempt in {1..60}; do
+    HTTP="$(curl --max-time 5 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/status || true)"
+    [[ "$HTTP" == 200 ]] && break
+    sleep 1
+  done
+  [[ "$HTTP" == 200 ]] || { echo "FAIL: dashboard HTTP $HTTP; inspect journalctl -u sdrcc.service."; exit 4; }
+  echo "FlexGround autostart enabled; dashboard HTTP 200 on port 8080."
+  exit 0
+fi
 
 # Same entry point for a clean Ubuntu station and an existing installation.
 if [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" && "$CHECK_ONLY" == 0 ]]; then
@@ -201,6 +221,10 @@ fi
 "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
   --station-name "$STATION_NAME" --location "$LOCATION" \
   --latitude "$LATITUDE" --longitude "$LONGITUDE" --altitude-m "$ALTITUDE" --apply
+say "AIS-catcher setup wizard"
+ais_setup_args=()
+((NON_INTERACTIVE)) && ais_setup_args+=(--non-interactive)
+sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" "${ais_setup_args[@]}"
 sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/initialize_external.py"
 "$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" || true
 echo "Receiver binding is handled by Receiver Manager after startup; no dongles are required."
@@ -219,4 +243,7 @@ echo "Dashboard API: HTTP $HTTP"
 
 echo
 echo "SDRCC clean-machine provisioning stage complete in $PROJECT_ROOT"
-echo "AIS-catcher managed input may still require its first-run setup before SDRCC can transactionally swap AIS/readsb roles."
+if ! sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" --check; then
+  echo "AIS setup deferred. Resume with: $PROJECT_ROOT/install.sh --ais-setup"
+fi
+echo "FlexGround starts automatically at boot. Receiver services are started on demand by FlexGround."

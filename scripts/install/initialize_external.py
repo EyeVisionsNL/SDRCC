@@ -16,6 +16,9 @@ def atomic(path, text):
     with os.fdopen(fd, 'w') as handle:
         handle.write(text); handle.flush(); os.fsync(handle.fileno())
     os.chmod(temp, path.stat().st_mode & 0o777 if path.exists() else 0o644)
+    if path.exists():
+        previous = path.stat()
+        os.chown(temp, previous.st_uid, previous.st_gid)
     os.replace(temp, path)
 
 def initialize(ais=Path('/etc/AIS-catcher/aiscatcher.json'), readsb=Path('/etc/default/readsb')):

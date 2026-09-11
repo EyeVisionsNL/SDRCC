@@ -5,7 +5,7 @@ PROJECT_ROOT="$2"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 export PYTHONPATH="$PROJECT_ROOT"
 CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
-[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s ]] || { echo "FAIL: expected 0.56.0p, 0.56.0q, 0.56.0r or 0.56.0s, found $CURRENT"; exit 2; }
+[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t ]] || { echo "FAIL: expected 0.56.0p, 0.56.0q, 0.56.0r, 0.56.0s or 0.56.0t, found $CURRENT"; exit 2; }
 [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]] || { echo "FAIL: extract the update next to SDRCC (for example in Downloads), then run its install.sh."; exit 2; }
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
@@ -36,7 +36,7 @@ else
   }
 fi
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="$PROJECT_ROOT/.rollback/v0.56.0s-r1-$STAMP"
+BACKUP="$PROJECT_ROOT/.rollback/v0.56.0t-r1-$STAMP"
 mkdir -p "$BACKUP/files"
 cp -a "$PROJECT_ROOT/config" "$BACKUP/config"
 cp -a "$SOURCE_ROOT/scripts/install/rollback_code.py" "$BACKUP/rollback_code.py"
@@ -104,7 +104,7 @@ if [[ "$HTTP" != 200 ]]; then
   echo "Backup: $BACKUP"
   exit 4
 fi
-echo "PASS: FlexGround SDR 0.56.0s-r1; dashboard HTTP 200"
+echo "PASS: FlexGround SDR 0.56.0t-r1; dashboard HTTP 200"
 echo "Existing station, ISS Voice, Traffic Voice and receiver configuration preserved."
 echo "This update did not replace the existing Home Position."
 echo "To change it: System -> Advanced Maintenance -> Home Position."

@@ -36,6 +36,7 @@ with tempfile.TemporaryDirectory(prefix="sdrcc-uninstall-test-") as temporary:
     installed_paths = [
         "/etc/systemd/system/sdrcc.service",
         "/etc/systemd/system/sdrcc-traffic-voice.service",
+        "/etc/systemd/system/ais-catcher.service.d/90-flexground-managed.conf",
         "/etc/sudoers.d/sdrcc-services",
         "/usr/local/sbin/sdrcc-apply-receiver-roles",
         "/usr/bin/AIS-catcher",
@@ -98,6 +99,7 @@ with tempfile.TemporaryDirectory(prefix="sdrcc-uninstall-test-") as temporary:
     check(not project.exists(), "project source, configuration, data and logs are removed")
     check(not receipt.exists(), "root-owned installation receipt is removed")
     check(not (system / "etc/systemd/system/sdrcc.service").exists(), "systemd integration is removed")
+    check(not (system / "etc/systemd/system/ais-catcher.service.d/90-flexground-managed.conf").exists(), "managed AIS override is removed")
     check(not (system / "usr/local/sbin/sdrcc-apply-receiver-roles").exists(), "privileged helper is removed")
     check(not (system / "etc/AIS-catcher").exists(), "installer-owned AIS configuration is removed")
     check(not (system / "opt/sdrcc/traffic_voice").exists(), "installer-owned RTLSDR-Airband build is removed")

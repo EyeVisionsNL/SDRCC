@@ -256,7 +256,18 @@ Important installer properties:
 
 `provision_external.sh --check` is read-only and `--plan` prints the pinned provisioning plan. `install.sh --skip-third-party` is intended only for systems where the complete reference stack is already present and passes validation.
 
-> v0.56.0k does not yet claim fully unattended first-run AIS managed-mode configuration. The installer reports that boundary instead of guessing station-specific AIS settings.
+The interactive installer opens an AIS setup stage using AIS-catcher's own managed-mode wizard. Open the displayed address (normally port 8118), choose one RTL-SDR and the desired outputs, save the wizard, then return to the terminal and press Enter. Passwords and sharing choices are entered directly in AIS-catcher. A missing receiver or a skipped wizard is reported as deferred, not configured.
+
+After setup, the installer stops AIS-catcher, its legacy control service, readsb and Traffic Voice, and verifies that their boot autostart is disabled. FlexGround itself remains enabled at boot and controls receiver services on demand. An installed AIS-catcher binary with managed-mode (`-E`) support is required; older binaries produce an explicit error without reinstalling them silently.
+
+To finish AIS setup on an existing installation, or after choosing **d** to defer:
+
+```bash
+cd ~/SDRCC
+./install.sh --ais-setup
+```
+
+This explicit setup command temporarily stops FlexGround and receiver services; stop active missions and Radio Receiver sessions first. Ordinary updates preserve the existing AIS configuration and do not run the wizard. Non-interactive clean installations defer the browser wizard when AIS is not configured.
 
 ### Install on Ubuntu
 

@@ -169,6 +169,11 @@ else
   restore_service_state readsb_service readsb.service
 fi
 
+# Remove only our managed-mode override, including when the external AIS install is kept.
+sudo rm -f -- "$(sys /etc/systemd/system/ais-catcher.service.d/90-flexground-managed.conf)"
+sudo rmdir "$(sys /etc/systemd/system/ais-catcher.service.d)" 2>/dev/null || true
+sudo systemctl daemon-reload
+
 if ((remove_control)); then
   sudo systemctl disable --now ais-catcher-control.service >/dev/null 2>&1 || true
   sudo rm -f "$(sys /usr/bin/AIS-catcher-control)" "$(sys /etc/systemd/system/ais-catcher-control.service)"
