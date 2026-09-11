@@ -127,7 +127,9 @@ sudo rm -f \
   "$(sys /etc/sudoers.d/sdrcc-service-handover)" \
   "$(sys /etc/sudoers.d/sdrcc-services)" \
   "$(sys /etc/sudoers.d/sdrcc-traffic-voice)" \
-  "$(sys /usr/local/sbin/sdrcc-apply-receiver-roles)"
+  "$(sys /etc/sudoers.d/sdrcc-ais-autostart)" \
+  "$(sys /usr/local/sbin/sdrcc-apply-receiver-roles)" \
+  "$(sys /usr/local/sbin/sdrcc-disable-ais-autostart)"
 
 remove_satdump=0; remove_readsb=0; remove_ais=0; remove_control=0; remove_airband=0
 remove_component satdump_installed && remove_satdump=1 || true

@@ -104,6 +104,7 @@ sudo usermod -a -G plugdev,dialout "$INSTALL_USER"
 
 say "Install privileged receiver helper"
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_apply_receiver_roles.py" /usr/local/sbin/sdrcc-apply-receiver-roles
+sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_disable_ais_autostart.py" /usr/local/sbin/sdrcc-disable-ais-autostart
 
 say "Install sudoers boundaries"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
@@ -133,6 +134,9 @@ EOF
 cat >"$tmp/sdrcc-traffic-voice" <<EOF
 Cmnd_Alias SDRCC_TRAFFIC_VOICE = /usr/bin/systemctl start sdrcc-traffic-voice.service, /usr/bin/systemctl stop sdrcc-traffic-voice.service
 eyeuser ALL=(root) NOPASSWD: SDRCC_TRAFFIC_VOICE
+EOF
+cat >"$tmp/sdrcc-ais-autostart" <<EOF
+eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-ais-autostart
 EOF
 for f in "$tmp"/sdrcc-*; do
   sed -i "s/^eyeuser /$INSTALL_USER /" "$f"

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import json
 import subprocess
 import threading
 import time
@@ -71,6 +72,7 @@ app = Flask(__name__)
 LOG_FILE = PROJECT_ROOT / "logs" / "sdrcc.log"
 SDRCC_SCRIPT = PROJECT_ROOT / "scripts" / "sdrcc.py"
 RECEIVER_ROLE_HELPER = Path("/usr/local/sbin/sdrcc-apply-receiver-roles")
+AIS_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-ais-autostart")
 AIS_CONTROL_SERVICE = "ais-catcher-control.service"
 
 IMAGE_DIRS = [
@@ -163,6 +165,7 @@ SDRCC_ACTIONS = {
     "schedule": {"label": "Planning tonen", "command": [sys.executable, str(SDRCC_SCRIPT), "schedule"], "mode": "run"},
     "simulate_record": {"label": "Simuleer opname", "command": [sys.executable, str(SDRCC_SCRIPT), "simulate-record"], "mode": "run"},
     "record": {"label": "Record NOW", "command": [sys.executable, str(SDRCC_SCRIPT), "record"], "mode": "start"},
+    "disable_ais_autostart": {"label": "Disable AIS autostart", "mode": "maintenance"},
 }
 
 ACTIONS = {}
@@ -1215,6 +1218,55 @@ def handle_maintenance_service_action(action_id, action):
         "automatic_restart_performed": False,
         "autostart_changed": False,
         "authority": "existing_dashboard_systemctl_path",
+    })
+
+
+def handle_ais_autostart_disable_action():
+    """Restore FlexGround's no-autostart policy after an AIS update.
+
+    The root-owned helper has no arguments and can only disable the two exact
+    AIS units.  It deliberately omits ``--now`` so current reception and the
+    temporary Control interface keep their runtime state.
+    """
+    services = ("ais-catcher.service", AIS_CONTROL_SERVICE)
+    before = {service: service_state(service) for service in services}
+    write_log("Disable AIS autostart: privileged fixed-target helper")
+    result = run_command(["sudo", "-n", str(AIS_AUTOSTART_HELPER)], timeout=30)
+    raw = (result.stdout or "").strip()
+    try:
+        helper = json.loads(raw) if raw else {}
+    except (TypeError, ValueError):
+        helper = {}
+    after = {service: service_state(service) for service in services}
+    disabled = all(
+        str(state.get("enabled") or "").lower() in {"disabled", "masked"}
+        for state in after.values()
+    )
+    if result.returncode != 0 or not helper.get("ok") or not disabled:
+        message = (
+            helper.get("message")
+            or result.stderr
+            or raw
+            or "AIS autostart state could not be verified"
+        ).strip()
+        write_log(f"Disable AIS autostart: failed - {message}")
+        return jsonify({
+            "ok": False,
+            "message": f"AIS autostart disable failed: {message}",
+            "before": before,
+            "after": after,
+            "runtime_state_changed": False,
+            "authority": "fixed_ais_autostart_helper",
+        }), 500
+
+    write_log("Disable AIS autostart: both AIS services disabled at boot")
+    return jsonify({
+        "ok": True,
+        "message": "AIS autostart disabled for AIS-Catcher and Control. Running services were not stopped.",
+        "before": before,
+        "after": after,
+        "runtime_state_changed": False,
+        "authority": "fixed_ais_autostart_helper",
     })
 
 
@@ -4272,6 +4324,9 @@ def api_action():
             if action.get("maintenance_service"):
                 return handle_maintenance_service_action(action_id, action)
             return handle_service_action(action_id, action)
+
+        if action_id == "disable_ais_autostart":
+            return handle_ais_autostart_disable_action()
 
         if action_id in SCHEDULER_ACTIONS:
             return handle_scheduler_action(action)

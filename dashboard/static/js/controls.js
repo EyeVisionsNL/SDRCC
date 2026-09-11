@@ -16,6 +16,14 @@ export function setupControls(refreshCallback) {
             const actionId = button.dataset.action;
             if (!actionId) return;
 
+            if (actionId === "disable_ais_autostart") {
+                const confirmed = confirm(
+                    "Disable boot autostart for AIS-Catcher and AIS-Catcher Control? "
+                    + "Services that are running now will keep running."
+                );
+                if (!confirmed) return;
+            }
+
             if (button.classList.contains("danger") && actionId === "record") {
                 const confirmed = confirm("Are you sure you want to start Record Now?");
                 if (!confirmed) return;
