@@ -5,7 +5,7 @@ PROJECT_ROOT="$2"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 export PYTHONPATH="$PROJECT_ROOT"
 CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
-[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r ]] || { echo "FAIL: expected 0.56.0p, 0.56.0q or 0.56.0r, found $CURRENT"; exit 2; }
+[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s ]] || { echo "FAIL: expected 0.56.0p, 0.56.0q, 0.56.0r or 0.56.0s, found $CURRENT"; exit 2; }
 [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]] || { echo "FAIL: extract the update next to SDRCC (for example in Downloads), then run its install.sh."; exit 2; }
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
@@ -36,7 +36,7 @@ else
   }
 fi
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="$PROJECT_ROOT/.rollback/v0.56.0r-r2-$STAMP"
+BACKUP="$PROJECT_ROOT/.rollback/v0.56.0s-r1-$STAMP"
 mkdir -p "$BACKUP/files"
 cp -a "$PROJECT_ROOT/config" "$BACKUP/config"
 cp -a "$SOURCE_ROOT/scripts/install/rollback_code.py" "$BACKUP/rollback_code.py"
@@ -70,12 +70,22 @@ PY
 sudo install -o root -g root -m 0755 \
   "$PROJECT_ROOT/scripts/sdrcc_disable_ais_autostart.py" \
   /usr/local/sbin/sdrcc-disable-ais-autostart
+sudo install -o root -g root -m 0755 \
+  "$PROJECT_ROOT/scripts/sdrcc_disable_self_autostart.py" \
+  /usr/local/sbin/sdrcc-disable-self-autostart
 SUDOERS_TMP="$(mktemp)"
 printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-ais-autostart\n' \
   "$INSTALL_USER" > "$SUDOERS_TMP"
 sudo visudo -cf "$SUDOERS_TMP" >/dev/null
 sudo install -o root -g root -m 0440 \
   "$SUDOERS_TMP" /etc/sudoers.d/sdrcc-ais-autostart
+rm -f "$SUDOERS_TMP"
+SUDOERS_TMP="$(mktemp)"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-self-autostart\n' \
+  "$INSTALL_USER" > "$SUDOERS_TMP"
+sudo visudo -cf "$SUDOERS_TMP" >/dev/null
+sudo install -o root -g root -m 0440 \
+  "$SUDOERS_TMP" /etc/sudoers.d/sdrcc-self-autostart
 rm -f "$SUDOERS_TMP"
 # On failure retain the backup and report diagnostics; do not reverse a completed
 # hardware transaction by restoring old receiver configuration.
@@ -94,7 +104,7 @@ if [[ "$HTTP" != 200 ]]; then
   echo "Backup: $BACKUP"
   exit 4
 fi
-echo "PASS: FlexGround SDR 0.56.0r-r2; dashboard HTTP 200"
+echo "PASS: FlexGround SDR 0.56.0s-r1; dashboard HTTP 200"
 echo "Existing station, ISS Voice, Traffic Voice and receiver configuration preserved."
 echo "This update did not replace the existing Home Position."
 echo "To change it: System -> Advanced Maintenance -> Home Position."

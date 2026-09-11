@@ -83,7 +83,10 @@ def validate_integration() -> None:
         "sdrcc-disable-ais-autostart" in uninstaller and "sdrcc-ais-autostart" in uninstaller,
         "uninstaller removes the new integration",
     )
-    check("0.56.0r" == (ROOT / "VERSION").read_text().strip(), "release version is 0.56.0r")
+    check(
+        (ROOT / "VERSION").read_text().strip() in {"0.56.0r", "0.56.0s"},
+        "AIS autostart guard remains present in the current release",
+    )
 
 
 def validate_dashboard_action() -> None:

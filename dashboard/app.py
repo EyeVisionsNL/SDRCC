@@ -73,6 +73,7 @@ LOG_FILE = PROJECT_ROOT / "logs" / "sdrcc.log"
 SDRCC_SCRIPT = PROJECT_ROOT / "scripts" / "sdrcc.py"
 RECEIVER_ROLE_HELPER = Path("/usr/local/sbin/sdrcc-apply-receiver-roles")
 AIS_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-ais-autostart")
+SDRCC_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-self-autostart")
 AIS_CONTROL_SERVICE = "ais-catcher-control.service"
 
 IMAGE_DIRS = [
@@ -166,6 +167,7 @@ SDRCC_ACTIONS = {
     "simulate_record": {"label": "Simuleer opname", "command": [sys.executable, str(SDRCC_SCRIPT), "simulate-record"], "mode": "run"},
     "record": {"label": "Record NOW", "command": [sys.executable, str(SDRCC_SCRIPT), "record"], "mode": "start"},
     "disable_ais_autostart": {"label": "Disable AIS autostart", "mode": "maintenance"},
+    "disable_sdrcc_autostart": {"label": "Disable FlexGround autostart", "mode": "maintenance"},
 }
 
 ACTIONS = {}
@@ -1267,6 +1269,51 @@ def handle_ais_autostart_disable_action():
         "after": after,
         "runtime_state_changed": False,
         "authority": "fixed_ais_autostart_helper",
+    })
+
+
+def handle_sdrcc_autostart_disable_action():
+    """Disable only FlexGround boot autostart without stopping this process."""
+    service = "sdrcc.service"
+    before = service_state(service)
+    write_log("Disable FlexGround autostart: privileged fixed-target helper")
+    result = run_command(["sudo", "-n", str(SDRCC_AUTOSTART_HELPER)], timeout=30)
+    raw = (result.stdout or "").strip()
+    try:
+        helper = json.loads(raw) if raw else {}
+    except (TypeError, ValueError):
+        helper = {}
+    after = service_state(service)
+    disabled = str(after.get("enabled") or "").lower() in {"disabled", "masked"}
+    runtime_changed = bool(before.get("active")) != bool(after.get("active"))
+    if result.returncode != 0 or not helper.get("ok") or not disabled or runtime_changed:
+        message = (
+            helper.get("message")
+            or result.stderr
+            or raw
+            or "FlexGround autostart state could not be verified"
+        ).strip()
+        write_log(f"Disable FlexGround autostart: failed - {message}")
+        return jsonify({
+            "ok": False,
+            "message": f"FlexGround autostart disable failed: {message}",
+            "before": before,
+            "after": after,
+            "runtime_state_changed": runtime_changed,
+            "authority": "fixed_sdrcc_autostart_helper",
+        }), 500
+
+    write_log("Disable FlexGround autostart: sdrcc.service disabled at boot")
+    return jsonify({
+        "ok": True,
+        "message": (
+            "FlexGround autostart disabled. The current dashboard keeps running. "
+            "After reboot, restore with: sudo systemctl enable --now sdrcc.service"
+        ),
+        "before": before,
+        "after": after,
+        "runtime_state_changed": False,
+        "authority": "fixed_sdrcc_autostart_helper",
     })
 
 
@@ -4327,6 +4374,9 @@ def api_action():
 
         if action_id == "disable_ais_autostart":
             return handle_ais_autostart_disable_action()
+
+        if action_id == "disable_sdrcc_autostart":
+            return handle_sdrcc_autostart_disable_action()
 
         if action_id in SCHEDULER_ACTIONS:
             return handle_scheduler_action(action)
