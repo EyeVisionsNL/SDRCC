@@ -28,7 +28,7 @@
         const protocol = window.location.protocol === "https:" ? "https:" : "http:";
         return {
             adsb: `${protocol}//${hostname}/tar1090/`,
-            ais: `${protocol}//${hostname}:8100/`,
+            ais: `${protocol}//${hostname}:8119/`,
         };
     }
 

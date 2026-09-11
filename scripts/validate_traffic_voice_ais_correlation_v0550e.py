@@ -69,7 +69,7 @@ def validate_source_contract() -> None:
 
     require('VERSION = "0.56.0h"' in traffic, "current Traffic Voice backend retains the ATIS/AIS contract")
     require(
-        monitor.count('"http://127.0.0.1:8100/ships.json"') == 1,
+        monitor.count('"http://127.0.0.1:8119/ships.json"') == 1,
         "receiver_monitor retains one canonical AIS-Catcher endpoint",
     )
     require(

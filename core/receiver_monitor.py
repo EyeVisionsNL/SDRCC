@@ -37,8 +37,8 @@ READSB_AIRCRAFT_MAX_AGE_SECONDS = 5.0
 READSB_STATS_MAX_AGE_SECONDS = 15.0
 
 AIS_SHIPS_URLS = (
-    "http://127.0.0.1:8100/ships.json",
-    "http://localhost:8100/ships.json",
+    "http://127.0.0.1:8119/ships.json",
+    "http://localhost:8119/ships.json",
 )
 AIS_VESSEL_MAX_AGE_SECONDS = 30.0
 
@@ -442,7 +442,7 @@ def get_ais_metrics(service_active: bool) -> dict[str, Any]:
 
     payload, source = _read_ais_ships()
     if payload is None:
-        result["detail"] = "AIS-service actief; ships.json niet bereikbaar op poort 8100"
+        result["detail"] = "AIS-service actief; ships.json niet bereikbaar op poort 8119"
         return result
 
     ships = _extract_list(payload, ("ships", "vessels", "targets", "data"))
