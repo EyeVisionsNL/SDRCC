@@ -13,6 +13,12 @@ export function setupControls(refreshCallback) {
                 return;
             }
 
+            const openPort = button.dataset.openPort;
+            if (openPort) {
+                window.open(`http://${window.location.hostname}:${openPort}/`, "_blank", "noopener");
+                return;
+            }
+
             const actionId = button.dataset.action;
             if (!actionId) return;
 
