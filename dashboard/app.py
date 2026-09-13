@@ -3244,6 +3244,20 @@ def _apply_receiver_assignment_changes(changes):
         return {"ok": False, "message": blocked}, 409
     reservation_keys = []
     try:
+        # Reject invalid requests before interrupting reception. End the voice
+        # session before reservations capture the service states for handover.
+        _, candidate = config_core.validate_assignment_changes(changes)
+        receiver_authority.service_serials(candidate)
+        receiver_authority.service_serials(config_core.get_receiver_assignments())
+        receiver_manager.cancel_service_recovery("traffic_voice")
+        traffic_voice_controller.stop(
+            service_state=service_state,
+            service_action=run_systemctl,
+            wait_for_service=wait_for_service,
+            restore_voice=False,
+        )
+        if service_state(traffic_voice_controller.VOICE_SERVICE).get("active"):
+            raise RuntimeError("Traffic Voice houdt de receiver nog bezet")
         reservation_keys = _reserve_assignment_transaction_receivers()
         result = receiver_authority.apply_assignments(
             changes,
@@ -3254,7 +3268,7 @@ def _apply_receiver_assignment_changes(changes):
     except RuntimeError as error:
         return {
             "ok": False,
-            "message": f"Receiver Manager kon de assignment transaction niet reserveren: {error}",
+            "message": f"Receiverwisseling afgebroken: {error}",
         }, 409
     except Exception as error:
         return {"ok": False, "message": str(error)}, 500

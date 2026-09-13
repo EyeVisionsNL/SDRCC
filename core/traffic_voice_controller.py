@@ -461,6 +461,7 @@ def stop(
     service_state: ServiceState,
     service_action: ServiceAction,
     wait_for_service: ServiceWait,
+    restore_voice: bool = True,
 ) -> dict[str, Any]:
     """Stop voice and restore the topology captured by the first mode start."""
     with _LOCK:
@@ -495,8 +496,12 @@ def stop(
             ))
         restored = False
         if session is not None:
+            previous_services = deepcopy(session["previous_services"])
+            if not restore_voice:
+                # Receiver reassignment must not reopen the dongle after stopping.
+                previous_services[VOICE_SERVICE]["active"] = False
             restore_actions, restore_errors = _restore(
-                session["previous_services"],
+                previous_services,
                 session["previous_assignments"],
                 service_state=service_state,
                 service_action=service_action,
