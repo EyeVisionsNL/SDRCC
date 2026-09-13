@@ -799,3 +799,19 @@
 .traffic-voice-channel-list-tools span { display:block; margin-top:3px; color:#8fa7c5; font-size:.76rem; }
 .traffic-voice-channel-list-actions { display:flex; gap:8px; flex-wrap:wrap; }
 @media (max-width:700px) { .traffic-voice-channel-list-tools { align-items:flex-start; flex-direction:column; } }
+
+.traffic-voice-ais-zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.traffic-voice-ais-zoom input {
+    width: 64px;
+    padding: 5px 6px;
+    color: inherit;
+    background: var(--bg-primary, #101827);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 5px;
+}

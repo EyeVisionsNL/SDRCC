@@ -13,6 +13,8 @@
     let gainSignature = "";
     let aisAutoEnabled = false;
     let lastAutoAisMmsi = "";
+    let aisZoom = 14;
+    const aisZoomStorageKey = "sdrcc.trafficVoice.aisZoom";
 
     function byId(id) {
         return document.getElementById(id);
@@ -89,6 +91,31 @@
         maybeAutoFollowAis(match);
     }
 
+    function initializeAisZoom() {
+        const input = byId("traffic-voice-ais-zoom");
+        if (!input) return;
+        try {
+            const saved = Number(window.localStorage.getItem(aisZoomStorageKey));
+            if (Number.isInteger(saved) && saved >= 3 && saved <= 18) aisZoom = saved;
+        } catch (_) { /* Zoom remains usable when browser storage is disabled. */ }
+        input.value = String(aisZoom);
+        input.addEventListener("change", () => {
+            const value = Number(input.value);
+            if (!Number.isInteger(value) || value < 3 || value > 18) {
+                input.value = String(aisZoom);
+                text("traffic-voice-action-message", "Enter a zoom level from 3 to 18.");
+                return;
+            }
+            aisZoom = value;
+            try { window.localStorage.setItem(aisZoomStorageKey, String(aisZoom)); } catch (_) {}
+            if (aisAutoEnabled && lastAutoAisMmsi) {
+                if (!window.sdrccRadioView?.updateAisAutoWindow(lastAutoAisMmsi, aisZoom)) {
+                    disableAisAuto("AIS Auto stopped because its map window was closed.");
+                }
+            }
+        });
+    }
+
     function renderAisAutoButton() {
         const button = byId("traffic-voice-auto-ais-vessel");
         if (!button) return;
@@ -110,7 +137,7 @@
             return;
         }
         const mmsi = String(byId("traffic-voice-show-ais-vessel")?.dataset.mmsi || "");
-        const opened = window.sdrccRadioView?.openAisAutoWindow(mmsi, 14);
+        const opened = window.sdrccRadioView?.openAisAutoWindow(mmsi, aisZoom);
         if (!opened) {
             disableAisAuto("AIS Auto needs permission to open the map window.");
             return;
@@ -130,7 +157,7 @@
         if (!aisAutoEnabled) return;
         const mmsi = String(match?.mmsi || "");
         if (!/^\d{9}$/.test(mmsi) || mmsi === lastAutoAisMmsi) return;
-        if (!window.sdrccRadioView?.updateAisAutoWindow(mmsi, 14)) {
+        if (!window.sdrccRadioView?.updateAisAutoWindow(mmsi, aisZoom)) {
             disableAisAuto("AIS Auto stopped because its map window was closed.");
             return;
         }
@@ -597,7 +624,7 @@
     function showAisVessel() {
         const button = byId("traffic-voice-show-ais-vessel");
         const mmsi = String(button?.dataset.mmsi || "");
-        const opened = window.sdrccRadioView?.openAisVessel(mmsi, 14);
+        const opened = window.sdrccRadioView?.openAisVessel(mmsi, aisZoom);
         if (!opened) {
             text("traffic-voice-action-message", "AIS map could not open this vessel.");
         }
@@ -624,6 +651,7 @@
     }
 
     function initialize() {
+        initializeAisZoom();
         document.querySelector('.tab-button[data-tab="traffic-voice"]')
             ?.addEventListener("click", () => window.setTimeout(() => refresh(true), 0));
         byId("traffic-voice-start")
