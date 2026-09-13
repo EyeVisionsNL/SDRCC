@@ -356,7 +356,7 @@
 
 .traffic-voice-receiver-controls {
     display: grid;
-    grid-template-columns: minmax(150px, 1fr) minmax(170px, 1.3fr) minmax(110px, 0.7fr) minmax(180px, 1.2fr) auto auto;
+    grid-template-columns: minmax(150px, 1fr) minmax(170px, 1.3fr) minmax(110px, 0.7fr) minmax(180px, 1.2fr) minmax(180px, 1.2fr);
     align-items: end;
     gap: 9px;
     margin-top: 10px;
@@ -391,6 +391,28 @@
 .traffic-voice-audio-controls input[type="range"] {
     width: 100%;
     accent-color: var(--traffic-cyan);
+}
+
+#traffic-voice-apply-settings {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+#traffic-voice-open-squelch {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.traffic-voice-scan-speed-control {
+    grid-column: 4 / 6;
+    grid-row: 2;
+}
+
+.traffic-voice-scan-speed-control small {
+    color: #607895;
+    font-size: 0.62rem;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .traffic-voice-button.is-test {
@@ -669,6 +691,13 @@
 
     .traffic-voice-receiver-controls {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    #traffic-voice-apply-settings,
+    #traffic-voice-open-squelch,
+    .traffic-voice-scan-speed-control {
+        grid-column: auto;
+        grid-row: auto;
     }
 }
 

@@ -135,7 +135,7 @@ SDRCC external provisioning plan
   AIS-catcher         official installer pinned to $AIS_TAG
   AIS-catcher-control official installer, required release $AIS_CONTROL_TAG
   RTLSDR-Airband      $AIRBAND_REPO $AIRBAND_TAG @ $AIRBAND_COMMIT
-  RTLSDR-Airband      SDRCC native Auto Gain patch retained
+  RTLSDR-Airband      SDRCC native Auto Gain + configurable scan interval patches retained
 Policy: readsb/AIS/Traffic Voice services end disabled and stopped.
 EOF
 }
@@ -148,10 +148,10 @@ check_all(){
   if command -v AIS-catcher-control >/dev/null 2>&1; then echo "PASS external AIS-catcher-control: $(command -v AIS-catcher-control)"; else echo "MISS external AIS-catcher-control"; failed=1; fi
   if [[ -x "$AIRBAND_BIN" ]]; then
     echo "PASS external RTLSDR-Airband: $(version_line "$AIRBAND_BIN")"
-    if [[ -f "$AIRBAND_PROVENANCE" ]] && grep -Fq "$AIRBAND_COMMIT" "$AIRBAND_PROVENANCE" && grep -Fq 'SDRCC v0.56.0f auto-gain patch' "$AIRBAND_PROVENANCE"; then
-      echo "PASS RTLSDR-Airband provenance and Auto Gain patch"
+    if [[ -f "$AIRBAND_PROVENANCE" ]] && grep -Fq "$AIRBAND_COMMIT" "$AIRBAND_PROVENANCE" && grep -Fq 'SDRCC v0.56.0f auto-gain patch' "$AIRBAND_PROVENANCE" && grep -Fq 'SDRCC v0.56.0w scan-interval patch' "$AIRBAND_PROVENANCE"; then
+      echo "PASS RTLSDR-Airband provenance, Auto Gain and scan interval patches"
     else
-      echo "FAIL RTLSDR-Airband provenance/Auto Gain patch"; failed=1
+      echo "FAIL RTLSDR-Airband provenance/patch set"; failed=1
     fi
   else echo "MISS external RTLSDR-Airband"; failed=1; fi
   return "$failed"
@@ -249,11 +249,12 @@ else
 fi
 service_disable ais-catcher-control.service
 
-say "RTLSDR-Airband $AIRBAND_TAG with SDRCC Auto Gain"
+say "RTLSDR-Airband $AIRBAND_TAG with SDRCC Auto Gain + scan speed"
 rebuild_airband=1
 if [[ -x "$AIRBAND_BIN" && -f "$AIRBAND_PROVENANCE" ]] \
    && grep -Fq "$AIRBAND_COMMIT" "$AIRBAND_PROVENANCE" \
-   && grep -Fq 'SDRCC v0.56.0f auto-gain patch' "$AIRBAND_PROVENANCE"; then
+   && grep -Fq 'SDRCC v0.56.0f auto-gain patch' "$AIRBAND_PROVENANCE" \
+   && grep -Fq 'SDRCC v0.56.0w scan-interval patch' "$AIRBAND_PROVENANCE"; then
   rebuild_airband=0
   echo "KEEP existing pinned/patched RTLSDR-Airband"
 fi
@@ -261,12 +262,14 @@ if ((rebuild_airband)); then
   git clone --quiet --branch "$AIRBAND_TAG" --depth 1 "$AIRBAND_REPO" "$WORK/airband"
   [[ "$(git -C "$WORK/airband" rev-parse HEAD)" == "$AIRBAND_COMMIT" ]] || { echo "FAIL: RTLSDR-Airband commit mismatch"; exit 3; }
   python3 "$HERE/patch_rtlsdr_airband_auto_gain.py" "$WORK/airband/src/input-rtlsdr.cpp"
+  python3 "$HERE/patch_rtlsdr_airband_scan_interval.py" "$WORK/airband/src/rtl_airband.cpp"
   cmake -S "$WORK/airband" -B "$WORK/airband-build" \
     -DNFM=ON -DRTLSDR=ON -DMIRISDR=OFF -DSOAPYSDR=OFF -DPULSEAUDIO=OFF -DPLATFORM=native
   cmake --build "$WORK/airband-build" -j "$(nproc)"
   NEW_BIN="$(find "$WORK/airband-build" -type f -name rtl_airband -perm -111 -print -quit)"
   [[ -n "$NEW_BIN" ]] || { echo "FAIL: RTLSDR-Airband binary not produced"; exit 3; }
   grep -aFq 'automatic tuner gain enabled' "$NEW_BIN" || { echo "FAIL: patched Auto Gain marker missing"; exit 3; }
+  grep -aFq 'scan_interval_ms must be 100..500 ms' "$NEW_BIN" || { echo "FAIL: patched scan interval marker missing"; exit 3; }
   sudo install -d -m 0755 "$AIRBAND_ROOT/bin" "$AIRBAND_ROOT/share"
   sudo install -m 0755 "$NEW_BIN" "$AIRBAND_BIN"
   git -C "$WORK/airband" archive --format=tar.gz --prefix=RTLSDR-Airband-5.2.0/ -o "$WORK/RTLSDR-Airband-5.2.0.tar.gz" HEAD
@@ -278,6 +281,8 @@ source git tag $AIRBAND_TAG
 build options NFM=ON RTLSDR=ON MIRISDR=OFF SOAPYSDR=OFF PULSEAUDIO=OFF PLATFORM=native
 SDRCC v0.56.0f auto-gain patch
 behavior gain<0 => rtlsdr_set_tuner_gain_mode(dev,0); gain>=0 => existing manual path
+SDRCC v0.56.0w scan-interval patch
+behavior scan_interval_ms=100..500 in 50 ms steps; default 200 ms
 EOF
   sudo install -m 0644 "$WORK/BUILD-PROVENANCE" "$AIRBAND_PROVENANCE"
   receipt_set airband_installed 1

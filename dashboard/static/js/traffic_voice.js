@@ -236,6 +236,7 @@
         const autoGain = byId("traffic-voice-auto-gain");
         const tuningMode = byId("traffic-voice-tuning-mode");
         const squelch = byId("traffic-voice-squelch");
+        const scanInterval = byId("traffic-voice-scan-interval");
 
         const nextChannelSignature = String(settings.mode_id || "") + "|" + channels
             .map(item => item.id + ":" + item.frequency_mhz + ":" + (item.channel_mhz || "")).join("|");
@@ -264,11 +265,16 @@
             if (autoGain) autoGain.checked = settings.gain_mode !== "manual";
             if (gainSelect) gainSelect.value = String(settings.gain_db ?? "28");
             if (squelch) squelch.value = String(settings.squelch_snr_db ?? "6");
+            if (scanInterval) scanInterval.value = String(settings.scan_interval_ms ?? "200");
         }
         if (gainSelect) gainSelect.disabled = Boolean(autoGain?.checked);
         text(
             "traffic-voice-squelch-value",
             Number(squelch?.value || settings.squelch_snr_db || 0).toFixed(1) + " dB",
+        );
+        text(
+            "traffic-voice-scan-interval-value",
+            Math.round(Number(scanInterval?.value || settings.scan_interval_ms || 200)) + " ms/ch",
         );
 
         const open = Boolean(settings.open_squelch);
@@ -597,6 +603,7 @@
             auto_gain: Boolean(byId("traffic-voice-auto-gain")?.checked),
             gain_db: Number(byId("traffic-voice-gain")?.value || 0),
             squelch_snr_db: Number(byId("traffic-voice-squelch")?.value || 0),
+            scan_interval_ms: Number(byId("traffic-voice-scan-interval")?.value || 200),
             open_squelch: Boolean((lastPayload?.receiver_settings || {}).open_squelch),
         };
     }
@@ -694,6 +701,10 @@
         byId("traffic-voice-squelch")?.addEventListener("input", event => {
             settingsDirty = true;
             text("traffic-voice-squelch-value", Number(event.target.value).toFixed(1) + " dB");
+        });
+        byId("traffic-voice-scan-interval")?.addEventListener("input", event => {
+            settingsDirty = true;
+            text("traffic-voice-scan-interval-value", Math.round(Number(event.target.value)) + " ms/ch");
         });
         document.addEventListener("visibilitychange", refresh);
         refreshTimer = window.setInterval(refresh, 3000);
