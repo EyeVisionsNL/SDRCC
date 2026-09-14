@@ -77,10 +77,15 @@ def validate_source_contract() -> None:
         "AIS metrics and correlation reuse the shared ships reader",
     )
     require(
-        "ais_matcher = receiver_monitor.match_ais_callsign" in traffic,
-        "Traffic Voice delegates vessel correlation to receiver_monitor",
+        "ais_matcher = receiver_monitor.match_ais_atis" in traffic,
+        "Traffic Voice delegates ATIS vessel correlation to receiver_monitor",
     )
-    require("receiver_monitor" not in decoder, "passive ATIS decoder remains AIS-independent")
+    require(
+        "from core import receiver_monitor" not in decoder
+        and "import receiver_monitor" not in decoder
+        and "match_ais_" not in decoder,
+        "passive ATIS decoder remains AIS-independent",
+    )
     require("url.searchParams.set(\"mmsi\"" in radio_view, "AIS viewer uses the MMSI deep link")
     require("url.searchParams.set(\"zoom\"" in radio_view, "AIS viewer uses bounded map zoom")
     require('link.target = "_blank"' in radio_view, "matched vessel opens in the full AIS viewer")
@@ -140,10 +145,24 @@ def validate_matching() -> None:
     ambiguous = receiver_monitor.match_ais_callsign("PC4621", payload=duplicate)
     require(ambiguous["status"] == "ambiguous" and not ambiguous["matched"], "duplicate call sign fails closed")
 
+    delayed_payload = deepcopy(live)
+    delayed_payload["ships"][0]["last_signal"] = 31
+    delayed = receiver_monitor.match_ais_callsign("PC4621", payload=delayed_payload)
+    require(
+        delayed["matched"] is True and delayed["last_signal_seconds"] == 31.0,
+        "AIS position older than 30 seconds remains usable",
+    )
+
+    delayed_atis = receiver_monitor.match_ais_atis("9244034621", payload=delayed_payload)
+    require(
+        delayed_atis["matched"] is True,
+        "validated ATIS keeps matching an AIS vessel with an older known position",
+    )
+
     stale_payload = deepcopy(live)
-    stale_payload["ships"][0]["last_signal"] = 31
+    stale_payload["ships"][0]["last_signal"] = receiver_monitor.AIS_VESSEL_MAX_AGE_SECONDS + 1
     stale = receiver_monitor.match_ais_callsign("PC4621", payload=stale_payload)
-    require(stale["status"] == "stale" and not stale["matched"], "stale AIS position fails closed")
+    require(stale["status"] == "stale" and not stale["matched"], "AIS position older than the retention window fails closed")
 
     unvalidated_payload = deepcopy(live)
     unvalidated_payload["ships"][0]["validated"] = 0
@@ -161,8 +180,17 @@ def validate_matching() -> None:
     snapshot = traffic_voice.get_snapshot(
         service_reader=lambda service: {"service": service, "active": False, "state": "inactive"},
         audio_reader=lambda: {"ok": True, "available": False, "stream_state": "WAITING"},
-        atis_reader=lambda: {"latest": {"fresh": True, "callsign": "PC4621"}},
-        ais_matcher=lambda callsign: receiver_monitor.match_ais_callsign(callsign, payload=live),
+        atis_reader=lambda: {
+            "latest": {
+                "fresh": True,
+                "atis_code": "9244034621",
+                "callsign": "PC4621",
+            }
+        },
+        ais_matcher=lambda atis_code: receiver_monitor.match_ais_atis(
+            atis_code,
+            payload=live,
+        ),
     )
     require(snapshot["ais_match"]["mmsi"] == "244670658", "Traffic Voice API exposes the exact AIS match")
     require(
