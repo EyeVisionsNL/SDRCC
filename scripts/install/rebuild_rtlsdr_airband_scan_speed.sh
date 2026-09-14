@@ -14,7 +14,7 @@ trap 'rm -rf "$WORK"' EXIT
 for cmd in git cmake python3; do command -v "$cmd" >/dev/null || { echo "FAIL: missing $cmd"; exit 2; }; done
 sudo -v
 
-echo "==> Rebuild pinned RTLSDR-Airband with FlexGround patches"
+echo "==> Rebuild pinned RTLSDR-Airband with SDRCC patches"
 git clone --quiet --branch "$AIRBAND_TAG" --depth 1 "$AIRBAND_REPO" "$WORK/airband"
 [[ "$(git -C "$WORK/airband" rev-parse HEAD)" == "$AIRBAND_COMMIT" ]] || { echo "FAIL: RTLSDR-Airband commit mismatch"; exit 3; }
 python3 "$ROOT/scripts/install/patch_rtlsdr_airband_auto_gain.py" "$WORK/airband/src/input-rtlsdr.cpp"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Disable FlexGround boot autostart without stopping the running dashboard."""
+"""Disable SDRCC boot autostart without stopping the running dashboard."""
 from __future__ import annotations
 
 import json
@@ -29,8 +29,8 @@ def disable_self_autostart(run=_run) -> dict:
     return {
         "ok": ok,
         "message": (
-            "FlexGround is disabled at boot. The running dashboard was not stopped."
-            if ok else detail or "Unable to verify disabled FlexGround autostart state."
+            "SDRCC is disabled at boot. The running dashboard was not stopped."
+            if ok else detail or "Unable to verify disabled SDRCC autostart state."
         ),
         "load_state": load_state,
         "enabled_state": enabled_state,

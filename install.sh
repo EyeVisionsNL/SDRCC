@@ -45,7 +45,7 @@ receipt_default(){ [[ -n "$(receipt_value "$1")" ]] || receipt_set "$1" "$2"; }
 # Explicit resume path: no reinstall, update, or station configuration rewrite.
 if ((AIS_SETUP_ONLY)); then
   ((CHECK_ONLY == 0 && NON_INTERACTIVE == 0)) || { echo "FAIL: --ais-setup requires interactive setup, without --check."; exit 2; }
-  [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" ]] || { echo "FAIL: install FlexGround before resuming AIS setup."; exit 2; }
+  [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" ]] || { echo "FAIL: install SDRCC before resuming AIS setup."; exit 2; }
   need_sudo
   sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py"
   sudo systemctl enable --now sdrcc.service
@@ -56,7 +56,7 @@ if ((AIS_SETUP_ONLY)); then
     sleep 1
   done
   [[ "$HTTP" == 200 ]] || { echo "FAIL: dashboard HTTP $HTTP; inspect journalctl -u sdrcc.service."; exit 4; }
-  echo "FlexGround autostart enabled; dashboard HTTP 200 on port 8080."
+  echo "SDRCC autostart enabled; dashboard HTTP 200 on port 8080."
   exit 0
 fi
 
@@ -191,7 +191,7 @@ if ((NON_INTERACTIVE)); then
   : "${SDRCC_LOCATION:?Set SDRCC_LOCATION}"
   : "${SDRCC_LATITUDE:?Set SDRCC_LATITUDE}"
   : "${SDRCC_LONGITUDE:?Set SDRCC_LONGITUDE}"
-  STATION_NAME="${SDRCC_STATION_NAME:-FlexGround SDR}"
+  STATION_NAME="${SDRCC_STATION_NAME:-SDRCC}"
   LOCATION="$SDRCC_LOCATION"; LATITUDE="$SDRCC_LATITUDE"; LONGITUDE="$SDRCC_LONGITUDE"
   ALTITUDE="${SDRCC_ALTITUDE_M:-0}"
 else
@@ -199,8 +199,8 @@ else
   echo "Latitude, longitude and altitude are used for satellite pass planning, Radio View and Doppler correction."
   echo "Use decimal degrees with a dot, for example 51.908401 and 4.351168."
   while true; do
-    read -r -p "1/5 Station name (saved identifier) [FlexGround SDR]: " STATION_NAME
-    STATION_NAME="${STATION_NAME:-FlexGround SDR}"
+    read -r -p "1/5 Station name (saved identifier) [SDRCC]: " STATION_NAME
+    STATION_NAME="${STATION_NAME:-SDRCC}"
     read -r -p "2/5 Location or city (shown in Home Position): " LOCATION
     read -r -p "3/5 Latitude (-90 to 90, decimal degrees): " LATITUDE
     read -r -p "4/5 Longitude (-180 to 180, decimal degrees): " LONGITUDE
@@ -246,4 +246,4 @@ echo "SDRCC clean-machine provisioning stage complete in $PROJECT_ROOT"
 if ! sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" --check; then
   echo "AIS setup deferred. Resume with: $PROJECT_ROOT/install.sh --ais-setup"
 fi
-echo "FlexGround starts automatically at boot. Receiver services are started on demand by FlexGround."
+echo "SDRCC starts automatically at boot. Receiver services are started on demand by SDRCC."

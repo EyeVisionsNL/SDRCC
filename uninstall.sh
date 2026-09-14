@@ -15,13 +15,13 @@ usage(){
   cat <<'EOF'
 Usage: ./uninstall.sh [--yes] [--purge-external]
 
-Removes FlexGround SDR completely: source, virtual environment, configuration,
+Removes SDRCC completely: source, virtual environment, configuration,
 runtime data, logs, services, sudoers rules and privileged helper.
 
 By default, external radio applications are removed only when the installation
 receipt proves that install.sh added them. Use --purge-external for an older
 installation without a receipt, or to remove the complete radio stack even when
-some components existed before FlexGround SDR.
+some components existed before SDRCC.
 EOF
 }
 
@@ -49,7 +49,7 @@ validate_project_root(){
     echo "FAIL: refusing to remove a home directory: $ROOT"; exit 3;
   }
   [[ -f "$ROOT/VERSION" && -f "$ROOT/install.sh" && -d "$ROOT/core" && -d "$ROOT/dashboard" ]] || {
-    echo "FAIL: $ROOT is not recognisable as a FlexGround SDR installation"; exit 3;
+    echo "FAIL: $ROOT is not recognisable as an SDRCC installation"; exit 3;
   }
 }
 
@@ -104,7 +104,7 @@ if [[ ! -r "$RECEIPT" && "$PURGE_EXTERNAL" == 0 ]]; then
   echo "      Use --purge-external only if you also want the complete radio stack removed."
 fi
 
-echo "This will permanently remove the complete FlexGround SDR installation at:"
+echo "This will permanently remove the complete SDRCC installation at:"
 echo "  $ROOT"
 ((PURGE_EXTERNAL)) && echo "It will also remove the complete external radio stack."
 if ((ASSUME_YES == 0)); then
@@ -114,11 +114,11 @@ fi
 
 sudo -v
 
-echo "==> Stop FlexGround SDR services"
+echo "==> Stop SDRCC services"
 sudo systemctl disable --now sdrcc.service >/dev/null 2>&1 || true
 sudo systemctl disable --now sdrcc-traffic-voice.service >/dev/null 2>&1 || true
 
-echo "==> Remove FlexGround SDR system integration"
+echo "==> Remove SDRCC system integration"
 sudo rm -f \
   "$(sys /etc/systemd/system/sdrcc.service)" \
   "$(sys /etc/systemd/system/sdrcc-traffic-voice.service)" \
@@ -141,7 +141,7 @@ remove_component ais_control_installed && remove_control=1 || true
 remove_component airband_installed && remove_airband=1 || true
 
 if ((remove_satdump || remove_readsb || remove_ais || remove_control || remove_airband)); then
-  echo "==> Remove external radio applications installed by FlexGround SDR"
+  echo "==> Remove external radio applications installed by SDRCC"
 fi
 
 if ((remove_satdump)); then
@@ -223,10 +223,10 @@ if [[ -n "$RECEIPT" ]]; then
   sudo rmdir "$receipt_dir" >/dev/null 2>&1 || true
 fi
 
-echo "==> Remove FlexGround SDR source, configuration, data and logs"
+echo "==> Remove SDRCC source, configuration, data and logs"
 rm -rf -- "$ROOT"
 
-echo "FlexGround SDR has been completely removed."
+echo "SDRCC has been completely removed."
 if ((PURGE_EXTERNAL == 0)); then
   echo "Pre-existing external radio applications and shared Ubuntu packages were preserved."
 fi

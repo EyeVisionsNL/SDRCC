@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Disable boot autostart for the exact AIS services managed by FlexGround."""
+"""Disable boot autostart for the exact AIS services managed by SDRCC."""
 from __future__ import annotations
 
 import json

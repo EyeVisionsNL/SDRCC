@@ -1,27 +1,27 @@
 <p align="center">
-  <img src="dashboard/static/assets/flexground-sdr.png" alt="FlexGround SDR logo" width="220">
+  <img src="dashboard/static/assets/sdrcc.png" alt="SDRCC logo" width="220">
 </p>
 
-<h1 align="center">FlexGround SDR</h1>
+<h1 align="center">SDRCC — SDR Control Center</h1>
 
 <p align="center">
-  Flexible SDR Ground Station for satellite reception, AIS, ADS-B, intelligent traffic voice and wideband live radio monitoring.
+  SDR Control Center for satellite reception, AIS, ADS-B, intelligent traffic voice and wideband live radio monitoring.
 </p>
 
 <p align="center">
-  <strong>Current development line: v0.56.0w · v1.0 preparation</strong><br>
+  <strong>Current development line: v0.56.0x · v1.0 preparation</strong><br>
   Ubuntu 26.04.1 LTS AMD64 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb · RTLSDR-Airband
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/mission-control.png" alt="FlexGround SDR Mission Control" width="100%">
+  <img src="dashboard/static/assets/sdrcc-banner.png" alt="SDRCC — SDR Control Center dashboard banner" width="100%">
 </p>
 
-## What is FlexGround SDR?
+## What is SDRCC?
 
-**FlexGround SDR** is a flexible software-defined-radio ground station for local radio monitoring and automated satellite missions. It combines multiple physical RTL-SDR receivers, continuous radio services and scheduled missions in one dashboard. It plans satellite passes, assigns work to the correct receiver, coordinates temporary receiver handovers, records mission lifecycle events and restores the exact pre-mission receiver context when work finishes or fails.
+**SDRCC** is a flexible software-defined-radio ground station for local radio monitoring and automated satellite missions. It combines multiple physical RTL-SDR receivers, continuous radio services and scheduled missions in one dashboard. It plans satellite passes, assigns work to the correct receiver, coordinates temporary receiver handovers, records mission lifecycle events and restores the exact pre-mission receiver context when work finishes or fails.
 
-The project was previously presented as **SDR Control Center (SDRCC)**. Existing technical identifiers such as `sdrcc.service`, `/home/eyevisions/SDRCC`, environment variables, API contracts and browser events are intentionally retained for backward compatibility.
+**SDRCC — SDR Control Center** is the project name again from v0.56.0x, following the name used by its community. Releases v0.56.0n–w used the name FlexGround SDR. The repository, `sdrcc.service`, CLI commands, API identifiers and existing station configuration remain compatible.
 
 The following example uses two RTL-SDR receivers with replaceable local hardware bindings:
 
@@ -34,7 +34,7 @@ These roles are configurable. **System → Receiver hardware + bindings** maps d
 
 ## Supported platform
 
-FlexGround SDR targets an x86-64 mini PC running **Ubuntu 26.04.1 LTS 64-bit (AMD64)**. AMD64 is Ubuntu's architecture name for both 64-bit Intel and AMD processors. Ubuntu Desktop is the reference installation; Ubuntu Server can be used when the dashboard is operated remotely.
+SDRCC targets an x86-64 mini PC running **Ubuntu 26.04.1 LTS 64-bit (AMD64)**. AMD64 is Ubuntu's architecture name for both 64-bit Intel and AMD processors. Ubuntu Desktop is the reference installation; Ubuntu Server can be used when the dashboard is operated remotely.
 
 | Support level | Processor | Memory | Storage |
 |---|---|---|---|
@@ -64,13 +64,15 @@ FlexGround SDR targets an x86-64 mini PC running **Ubuntu 26.04.1 LTS 64-bit (AM
 
 ## Dashboard
 
+The screenshots below document earlier releases and may show a previous project name. The banner above shows the current SDRCC identity.
+
 The current navigation is:
 
 `System · Radio Control · Radio View · Traffic Voice · Radio Receiver · Mission Control · Mission Planner · Mission Operations · Mission History · Mission Analytics · Logs`
 
 ### System
 
-System Health, physical receiver inventory and bindings, manual AIS/ADS-B service control and advanced maintenance actions, including AIS and FlexGround boot-autostart controls.
+System Health, physical receiver inventory and bindings, manual AIS/ADS-B service control and advanced maintenance actions, including AIS and SDRCC boot-autostart controls.
 
 ![System](docs/screenshots/system.png)
 
@@ -88,7 +90,7 @@ A shared live overview of ADS-B traffic, AIS traffic and satellite positions/gro
 
 ### Traffic Voice
 
-Traffic Voice is more than a channel scanner: it combines live voice reception with the traffic context already available to FlexGround SDR.
+Traffic Voice is more than a channel scanner: it combines live voice reception with the traffic context already available to SDRCC.
 
 - **Marine Voice + AIS** — NFM marine VHF while AIS remains the live vessel context.
 - **Airband Voice + ADS-B** — AM aviation voice while ADS-B remains the live aircraft context.
@@ -104,11 +106,11 @@ The **Scan speed** slider below **Squelch** sets the scan interval from **100 to
 
 Scan speed controls channel stepping when there is no signal. Squelch controls which signals keep the receiver on a channel; increasing squelch can reject weak signals but does not change the scan interval. Active transmissions still hold the scanner.
 
-This feature requires the FlexGround-patched RTLSDR-Airband build with scan-interval support. Fresh installations provision that build. Existing installations need the backend rebuild described below.
+This feature requires the SDRCC-patched RTLSDR-Airband build with scan-interval support. Fresh installations provision that build. Existing installations need the backend rebuild described below.
 
 #### Marine ATIS decoding, AIS correlation and Auto follow
 
-In **Marine Voice + AIS**, FlexGround SDR decodes the marine **ATIS (Automatic Transmitter Identification System)** identity transmitted with VHF traffic. After validation, that ATIS identity is correlated with current AIS data to identify a **Possible Speaker**. The local matcher supports the RAINWAT second/third callsign-letter form as well as the direct `9 + MMSI` form used for visiting vessels, without an external vessel database. A validated match exposes the vessel identity and AIS context directly beside the live audio controls.
+In **Marine Voice + AIS**, SDRCC decodes the marine **ATIS (Automatic Transmitter Identification System)** identity transmitted with VHF traffic. After validation, that ATIS identity is correlated with current AIS data to identify a **Possible Speaker**. The local matcher supports the RAINWAT second/third callsign-letter form as well as the direct `9 + MMSI` form used for visiting vessels, without an external vessel database. A validated match exposes the vessel identity and AIS context directly beside the live audio controls.
 
 The **Auto** button turns the ATIS-to-AIS correlation into an operator workflow: when **Auto: on** is enabled, newly validated vessel matches are followed automatically in the operator-approved AIS-Catcher map window. The same map window is reused instead of opening a new window for every match.
 
@@ -124,7 +126,7 @@ The normal **Show on full AIS map** action remains available for manual verifica
 
 ### Radio Receiver
 
-The **Radio Receiver** is the general-purpose live SDR workspace. It expands the former HF Amateur Monitor into a receiver that can free-tune across the practical RTL-SDR range used by FlexGround SDR: **0.5 to 1766 MHz**.
+The **Radio Receiver** is the general-purpose live SDR workspace. It expands the former HF Amateur Monitor into a receiver that can free-tune across the practical RTL-SDR range used by SDRCC: **0.5 to 1766 MHz**.
 
 Frequency presets provide quick starting points for amateur HF bands, shortwave, Airband, Marine VHF, 2 m, broadcast FM, 70 cm, PMR446 and ADS-B, while **Custom / free tune** allows direct frequency entry.
 
@@ -166,11 +168,11 @@ Mission Analytics aggregates stored mission history into receiver and satellite 
 
 ### Logs
 
-The Logs page provides the operational log view for FlexGround SDR and its relevant mission/runtime sources. Runtime log retention rotates the legacy-compatible `logs/sdrcc.log` at 10 MiB with three retained backups.
+The Logs page provides the operational log view for SDRCC and its relevant mission/runtime sources. Runtime log retention rotates the legacy-compatible `logs/sdrcc.log` at 10 MiB with three retained backups.
 
 ## Architecture and authority
 
-FlexGround SDR follows a single-owner rule: every operational state or hardware action has one authority. UI pages and observer components may project that state, but must not create a competing truth.
+SDRCC follows a single-owner rule: every operational state or hardware action has one authority. UI pages and observer components may project that state, but must not create a competing truth.
 
 ```text
 Pass Prediction / Planning Policy
@@ -222,15 +224,15 @@ Radio Receiver and Traffic Voice reuse these boundaries. Neither introduces a se
 
 Mission History remains the manual whole-mission deletion authority.
 
-For successful ISS Voice captures, FlexGround SDR may remove `recording.iq` only after WAV validation and successful receiver-context restoration. Failed or incomplete missions retain raw IQ for diagnosis. Setting `iss_voice.storage.keep_raw_iq: true` disables automatic IQ removal.
+For successful ISS Voice captures, SDRCC may remove `recording.iq` only after WAV validation and successful receiver-context restoration. Failed or incomplete missions retain raw IQ for diagnosis. Setting `iss_voice.storage.keep_raw_iq: true` disables automatic IQ removal.
 
-The main FlexGround SDR runtime log rotates at 10 MiB with three retained backups.
+The main SDRCC runtime log rotates at 10 MiB with three retained backups.
 
 ## Important services
 
 | Service | Purpose |
 |---|---|
-| `sdrcc.service` | FlexGround SDR Flask dashboard and runtime |
+| `sdrcc.service` | SDRCC Flask dashboard and runtime |
 | `ais-catcher.service` | Continuous AIS reception |
 | `ais-catcher-control.service` | AIS-Catcher maintenance/control interface |
 | `readsb.service` | Continuous ADS-B reception |
@@ -240,17 +242,17 @@ External receiver services are deliberately not enabled automatically by the v1 
 
 ## v1.0 installation foundation
 
-v0.56.0j/k introduced the generic installer and external provisioning foundation. The legacy-compatible technical identifiers remain unchanged during the FlexGround SDR rebrand.
+v0.56.0j/k introduced the generic installer and external provisioning foundation. The current SDRCC naming keeps the established technical identifiers.
 
 Important installer properties:
 
 - Default project location: `<install-user-home>/SDRCC`.
 - No reference-user or reference-city values are embedded in the installer.
 - RTL-SDR identity is persisted by serial, never by USB index.
-- FlexGround SDR service units, Traffic Voice service, sudoers boundary and receiver-role helper are reproducible from repository sources.
+- SDRCC service units, Traffic Voice service, sudoers boundary and receiver-role helper are reproducible from repository sources.
 - Third-party provisioning is pinned and validated.
-- Provisioning installs software but does not take receiver/service authority away from FlexGround SDR.
-- Uninstall removes FlexGround SDR source, configuration, runtime data, logs and system integration.
+- Provisioning installs software but does not take receiver/service authority away from SDRCC.
+- Uninstall removes SDRCC source, configuration, runtime data, logs and system integration.
 - External radio applications are removed only when the root-owned installation receipt shows that `install.sh` added them; shared Ubuntu packages are preserved.
 - Installation and provisioning fail closed when required validation fails.
 
@@ -268,7 +270,7 @@ Important installer properties:
 
 The interactive installer opens an AIS setup stage using AIS-catcher's own managed-mode wizard. Open the displayed address (normally port 8118), choose one RTL-SDR and the desired outputs, save the wizard, then return to the terminal and press Enter. Passwords and sharing choices are entered directly in AIS-catcher. A missing receiver or a skipped wizard is reported as deferred, not configured.
 
-After setup, the installer stops AIS-catcher, its legacy control service, readsb and Traffic Voice, and verifies that their boot autostart is disabled. FlexGround itself remains enabled at boot and controls receiver services on demand. An installed AIS-catcher binary with managed-mode (`-E`) support is required; older binaries produce an explicit error without reinstalling them silently.
+After setup, the installer stops AIS-catcher, its legacy control service, readsb and Traffic Voice, and verifies that their boot autostart is disabled. SDRCC itself remains enabled at boot and controls receiver services on demand. An installed AIS-catcher binary with managed-mode (`-E`) support is required; older binaries produce an explicit error without reinstalling them silently.
 
 To finish AIS setup on an existing installation, or after choosing **d** to defer:
 
@@ -277,7 +279,7 @@ cd ~/SDRCC
 ./install.sh --ais-setup
 ```
 
-This explicit setup command temporarily stops FlexGround and receiver services; stop active missions and Radio Receiver sessions first. Ordinary updates preserve the existing AIS configuration and do not run the wizard. Non-interactive clean installations defer the browser wizard when AIS is not configured.
+This explicit setup command temporarily stops SDRCC and receiver services; stop active missions and Radio Receiver sessions first. Ordinary updates preserve the existing AIS configuration and do not run the wizard. Non-interactive clean installations defer the browser wizard when AIS is not configured.
 
 ### Install on Ubuntu
 
@@ -306,7 +308,7 @@ cd ~/SDRCC
 ./scripts/install/rebuild_rtlsdr_airband_scan_speed.sh
 ```
 
-The script builds the pinned RTLSDR-Airband source with both FlexGround patches and requests `sudo` to install it. Start the desired Traffic Voice mode again from the dashboard after completion. Pulling the application code alone does not add scan-speed support to an older installed backend.
+The script builds the pinned RTLSDR-Airband source with both SDRCC patches and requests `sudo` to install it. Start the desired Traffic Voice mode again from the dashboard after completion. Pulling the application code alone does not add scan-speed support to an older installed backend.
 
 An update does not ask for or replace latitude, longitude and altitude. Change an existing location in **System → Advanced Maintenance → Home Position**.
 
@@ -318,9 +320,9 @@ For an installation made with the current `install.sh`:
 ~/SDRCC/uninstall.sh
 ```
 
-This permanently removes FlexGround SDR, including its source tree, virtual environment, configuration, data, logs, services, sudoers rules and privileged helper. External radio applications are removed only when the installation receipt proves that FlexGround SDR installed them.
+This permanently removes SDRCC, including its source tree, virtual environment, configuration, data, logs, services, sudoers rules and privileged helper. External radio applications are removed only when the installation receipt proves that SDRCC installed them.
 
-For an older installation without that receipt, use the following command only when SatDump, readsb, AIS-catcher, AIS-catcher-control and the FlexGround RTLSDR-Airband build must also be removed:
+For an older installation without that receipt, use the following command only when SatDump, readsb, AIS-catcher, AIS-catcher-control and the SDRCC RTLSDR-Airband build must also be removed:
 
 ```bash
 ~/SDRCC/uninstall.sh --purge-external
@@ -330,18 +332,18 @@ Generic Ubuntu/build packages are deliberately preserved because other software 
 
 ## Third-party software and credits
 
-FlexGround SDR coordinates and integrates several independent open-source projects. Those projects remain separate works with their own authors, licenses and support channels.
+SDRCC coordinates and integrates several independent open-source projects. Those projects remain separate works with their own authors, licenses and support channels.
 
-| Project | Role in the FlexGround SDR reference stack | Upstream |
+| Project | Role in the SDRCC reference stack | Upstream |
 |---|---|---|
 | SatDump | Satellite demodulation and decoding, including METEOR LRPT | https://github.com/SatDump/SatDump |
 | AIS-catcher | AIS reception, decoding, statistics and local vessel viewer | https://github.com/jvde-github/AIS-catcher |
 | AIS-catcher-control | Companion management/control layer for AIS-catcher | https://github.com/jvde-github/AIS-catcher-control |
 | readsb | ADS-B reception and aircraft data | https://github.com/wiedehopf/readsb |
 | RTLSDR-Airband | Marine/Airband Traffic Voice backend in the v1 reference stack | https://github.com/rtl-airband/RTLSDR-Airband |
-| librtlsdr / rtl-sdr | RTL2832U receiver access used by FlexGround SDR and supporting tools | https://github.com/steve-m/librtlsdr |
+| librtlsdr / rtl-sdr | RTL2832U receiver access used by SDRCC and supporting tools | https://github.com/steve-m/librtlsdr |
 
-FlexGround SDR does not claim authorship of these upstream projects. Where the installer provisions an external component, the pinned reference version or commit is documented and validated by the provisioning scripts. See each upstream project for its license, source, documentation and attribution requirements.
+SDRCC does not claim authorship of these upstream projects. Where the installer provisions an external component, the pinned reference version or commit is documented and validated by the provisioning scripts. See each upstream project for its license, source, documentation and attribution requirements.
 
 ## Dashboard access
 
@@ -362,7 +364,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/api/status
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/status` | General FlexGround SDR status |
+| `GET /api/status` | General SDRCC status |
 | `GET /api/mission-operations` | Aggregated operational projection |
 | `GET /api/mission-queue` | Receiver-specific planned missions |
 | `GET /api/mission-engine` | Active Mission Engine status |
@@ -397,11 +399,11 @@ SDRCC/
 
 ## Development status
 
-The active development branch is `develop`.
+The active development branch is `develop`. Update and rollback instructions for this naming release are in the [v0.56.0x release notes](docs/sdrcc-branding-v0560x.md).
 
-The current development line is **v0.56.0w / v1.0 preparation**. It includes flexible receiver bindings, receipt-aware uninstall, AIS managed-mode setup, autostart maintenance controls, safe receiver reassignment with Traffic Voice shutdown, a persistent AIS follow zoom and configurable Traffic Voice scan speed. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
+The current development line is **v0.56.0x / v1.0 preparation**. This release restores the SDRCC name, original logo, favicon, banner and startup screen. It includes flexible receiver bindings, receipt-aware uninstall, AIS managed-mode setup, autostart maintenance controls, safe receiver reassignment with Traffic Voice shutdown, a persistent AIS follow zoom and configurable Traffic Voice scan speed. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
 
-FlexGround SDR development follows small, reviewable changes with architecture/duplication checks before new functionality, fail-closed runtime behaviour and validation before commit.
+SDRCC development follows small, reviewable changes with architecture/duplication checks before new functionality, fail-closed runtime behaviour and validation before commit.
 
 Typical pre-commit checks include:
 
@@ -418,6 +420,7 @@ The `docs/` directory contains architecture references and version-specific impl
 
 ## Selected release notes
 
+- [SDRCC name, banner and logo restoration in v0.56.0x](docs/sdrcc-branding-v0560x.md)
 - [Flexible receiver bindings and replacement](docs/flexible-receiver-binding-v0560q-r2.md)
 - [AIS managed-mode installation setup](docs/ais-setup-v0560t-r1.md)
 - [Receiver reassignment with Traffic Voice shutdown](docs/receiver-assignment-traffic-voice-v0560u.md)

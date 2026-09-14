@@ -32,7 +32,7 @@ export function setupControls(refreshCallback) {
 
             if (actionId === "disable_sdrcc_autostart") {
                 const confirmed = confirm(
-                    "Disable FlexGround boot autostart? The dashboard will keep running now, "
+                    "Disable SDRCC boot autostart? The dashboard will keep running now, "
                     + "but it will not start after a reboot until you restore it from a terminal."
                 );
                 if (!confirmed) return;

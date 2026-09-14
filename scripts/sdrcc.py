@@ -19,11 +19,11 @@ from core import state
 from core import system
 from core import tle
 
-VERSION = "0.4.0"
+VERSION = (PROJECT_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
 def print_header():
-    print(f"\nFlexGround SDR v{VERSION}")
+    print(f"\nSDRCC — SDR Control Center v{VERSION}")
     print("=" * 40)
 
 

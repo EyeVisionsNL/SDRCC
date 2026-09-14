@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the upstream managed-mode wizard, then return receivers to FlexGround.
+"""Run the upstream managed-mode wizard, then return receivers to SDRCC.
 
 This is an explicit install/setup operation, never part of ordinary updates.
 The browser owns all device, password and sharing choices.
@@ -120,7 +120,7 @@ def check_reservations():
     if path.exists():
         value = json.loads(path.read_text())
         if value.get('reservations') or value.get('reservation'):
-            raise RuntimeError('Stop active missions/Radio Receiver sessions in FlexGround before AIS setup.')
+            raise RuntimeError('Stop active missions/Radio Receiver sessions in SDRCC before AIS setup.')
 
 
 def prepare_managed_service():
@@ -238,7 +238,7 @@ def setup(non_interactive=False):
         return True
     finally:
         # Also executed on browser failure, EOF, Ctrl-C and a normal termination.
-        # Do not restart FlexGround if service cleanup could not be verified.
+        # Do not restart SDRCC if service cleanup could not be verified.
         quiet_receivers()
         if was_active:
             run('systemctl', 'start', 'sdrcc.service')

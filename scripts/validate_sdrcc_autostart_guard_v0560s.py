@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the fixed-target FlexGround autostart maintenance guard."""
+"""Validate the fixed-target SDRCC autostart maintenance guard."""
 from __future__ import annotations
 
 import ast
@@ -40,7 +40,7 @@ def validate_helper() -> None:
         return SimpleNamespace(returncode=1, stdout="disabled\n", stderr="")
 
     payload = helper.disable_self_autostart(run=run)
-    check(payload["ok"], "helper verifies FlexGround autostart disabled")
+    check(payload["ok"], "helper verifies SDRCC autostart disabled")
     check(
         ["/usr/bin/systemctl", "disable", "sdrcc.service"] in calls,
         "helper targets only sdrcc.service",
@@ -102,7 +102,7 @@ def validate_integration() -> None:
 
     check('"disable_sdrcc_autostart"' in app, "backend action is explicitly allow-listed")
     check("SDRCC_AUTOSTART_HELPER" in app, "backend uses the fixed-target helper")
-    check("FlexGround test mode" in template, "Advanced Maintenance contains the control")
+    check("SDRCC test mode" in template, "Advanced Maintenance contains the control")
     check("enable --now sdrcc.service" in template, "UI shows the recovery command")
     check("disable_sdrcc_autostart" in controls and "confirm(" in controls, "button requires confirmation")
     for source, label in ((installer, "clean installer"), (updater, "update installer")):
@@ -112,14 +112,14 @@ def validate_integration() -> None:
         "sdrcc-disable-self-autostart" in uninstaller and "sdrcc-self-autostart" in uninstaller,
         "uninstaller removes the integration",
     )
-    check((ROOT / "VERSION").read_text().strip() == "0.56.0s", "release version is 0.56.0s")
+    check((ROOT / "VERSION").read_text().strip() == "0.56.0x", "release version is 0.56.0x")
 
 
 def main() -> None:
     validate_helper()
     validate_dashboard_action()
     validate_integration()
-    print("PASS: v0.56.0s-r1 FlexGround autostart guard validation complete")
+    print("PASS: v0.56.0s-r1 SDRCC autostart guard validation complete")
 
 
 if __name__ == "__main__":

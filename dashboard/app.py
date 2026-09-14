@@ -167,7 +167,7 @@ SDRCC_ACTIONS = {
     "simulate_record": {"label": "Simuleer opname", "command": [sys.executable, str(SDRCC_SCRIPT), "simulate-record"], "mode": "run"},
     "record": {"label": "Record NOW", "command": [sys.executable, str(SDRCC_SCRIPT), "record"], "mode": "start"},
     "disable_ais_autostart": {"label": "Disable AIS autostart", "mode": "maintenance"},
-    "disable_sdrcc_autostart": {"label": "Disable FlexGround autostart", "mode": "maintenance"},
+    "disable_sdrcc_autostart": {"label": "Disable SDRCC autostart", "mode": "maintenance"},
 }
 
 ACTIONS = {}
@@ -1224,7 +1224,7 @@ def handle_maintenance_service_action(action_id, action):
 
 
 def handle_ais_autostart_disable_action():
-    """Restore FlexGround's no-autostart policy after an AIS update.
+    """Restore SDRCC's no-autostart policy after an AIS update.
 
     The root-owned helper has no arguments and can only disable the two exact
     AIS units.  It deliberately omits ``--now`` so current reception and the
@@ -1273,10 +1273,10 @@ def handle_ais_autostart_disable_action():
 
 
 def handle_sdrcc_autostart_disable_action():
-    """Disable only FlexGround boot autostart without stopping this process."""
+    """Disable only SDRCC boot autostart without stopping this process."""
     service = "sdrcc.service"
     before = service_state(service)
-    write_log("Disable FlexGround autostart: privileged fixed-target helper")
+    write_log("Disable SDRCC autostart: privileged fixed-target helper")
     result = run_command(["sudo", "-n", str(SDRCC_AUTOSTART_HELPER)], timeout=30)
     raw = (result.stdout or "").strip()
     try:
@@ -1291,23 +1291,23 @@ def handle_sdrcc_autostart_disable_action():
             helper.get("message")
             or result.stderr
             or raw
-            or "FlexGround autostart state could not be verified"
+            or "SDRCC autostart state could not be verified"
         ).strip()
-        write_log(f"Disable FlexGround autostart: failed - {message}")
+        write_log(f"Disable SDRCC autostart: failed - {message}")
         return jsonify({
             "ok": False,
-            "message": f"FlexGround autostart disable failed: {message}",
+            "message": f"SDRCC autostart disable failed: {message}",
             "before": before,
             "after": after,
             "runtime_state_changed": runtime_changed,
             "authority": "fixed_sdrcc_autostart_helper",
         }), 500
 
-    write_log("Disable FlexGround autostart: sdrcc.service disabled at boot")
+    write_log("Disable SDRCC autostart: sdrcc.service disabled at boot")
     return jsonify({
         "ok": True,
         "message": (
-            "FlexGround autostart disabled. The current dashboard keeps running. "
+            "SDRCC autostart disabled. The current dashboard keeps running. "
             "After reboot, restore with: sudo systemctl enable --now sdrcc.service"
         ),
         "before": before,
@@ -4560,7 +4560,7 @@ def run():
     event_bus.publish_system(
         "SYSTEM",
         "Event Bus started",
-        "FlexGround SDR operator event storage and API are active.",
+        "SDRCC operator event storage and API are active.",
     )
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()

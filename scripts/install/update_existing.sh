@@ -104,7 +104,7 @@ if [[ "$HTTP" != 200 ]]; then
   echo "Backup: $BACKUP"
   exit 4
 fi
-echo "PASS: FlexGround SDR 0.56.0t-r1; dashboard HTTP 200"
+echo "PASS: SDRCC $(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION"); dashboard HTTP 200"
 echo "Existing station, ISS Voice, Traffic Voice and receiver configuration preserved."
 echo "This update did not replace the existing Home Position."
 echo "To change it: System -> Advanced Maintenance -> Home Position."
