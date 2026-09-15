@@ -5,7 +5,7 @@ PROJECT_ROOT="$2"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 export PYTHONPATH="$PROJECT_ROOT"
 CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
-[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t || "$CURRENT" == 0.56.0x || "$CURRENT" == 0.56.0x-r1 ]] || { echo "FAIL: unsupported installed version $CURRENT"; exit 2; }
+[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t || "$CURRENT" == 0.56.0x || "$CURRENT" == 0.56.0x-r1 || "$CURRENT" == 0.56.0x-r2 ]] || { echo "FAIL: unsupported installed version $CURRENT"; exit 2; }
 [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]] || { echo "FAIL: extract the update next to SDRCC (for example in Downloads), then run its install.sh."; exit 2; }
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
@@ -36,7 +36,7 @@ else
   }
 fi
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="$PROJECT_ROOT/.rollback/v0.56.0x-r1-$STAMP"
+BACKUP="$PROJECT_ROOT/.rollback/v0.56.0x-r2-$STAMP"
 mkdir -p "$BACKUP/files"
 cp -a "$PROJECT_ROOT/config" "$BACKUP/config"
 cp -a "$SOURCE_ROOT/scripts/install/rollback_code.py" "$BACKUP/rollback_code.py"
@@ -73,6 +73,9 @@ sudo install -o root -g root -m 0755 \
 sudo install -o root -g root -m 0755 \
   "$PROJECT_ROOT/scripts/sdrcc_disable_self_autostart.py" \
   /usr/local/sbin/sdrcc-disable-self-autostart
+sudo install -o root -g root -m 0755 \
+  "$PROJECT_ROOT/scripts/sdrcc_sync_readsb_position.py" \
+  /usr/local/sbin/sdrcc-sync-readsb-position
 SUDOERS_TMP="$(mktemp)"
 printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-ais-autostart\n' \
   "$INSTALL_USER" > "$SUDOERS_TMP"
@@ -87,6 +90,22 @@ sudo visudo -cf "$SUDOERS_TMP" >/dev/null
 sudo install -o root -g root -m 0440 \
   "$SUDOERS_TMP" /etc/sudoers.d/sdrcc-self-autostart
 rm -f "$SUDOERS_TMP"
+SUDOERS_TMP="$(mktemp)"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-sync-readsb-position *\n' \
+  "$INSTALL_USER" > "$SUDOERS_TMP"
+sudo visudo -cf "$SUDOERS_TMP" >/dev/null
+sudo install -o root -g root -m 0440 \
+  "$SUDOERS_TMP" /etc/sudoers.d/sdrcc-readsb-position
+rm -f "$SUDOERS_TMP"
+
+HOME_POSITION="$("$PYTHON" - <<'PYHOME'
+from core.config import get_home_position
+position = get_home_position()
+print(f"{position['latitude']}\t{position['longitude']}")
+PYHOME
+)"
+IFS=$'\t' read -r HOME_LAT HOME_LON <<< "$HOME_POSITION"
+sudo /usr/local/sbin/sdrcc-sync-readsb-position "$HOME_LAT" "$HOME_LON"
 # On failure retain the backup and report diagnostics; do not reverse a completed
 # hardware transaction by restoring old receiver configuration.
 if ! "$PYTHON" -m compileall -q "$PROJECT_ROOT/core" "$PROJECT_ROOT/dashboard"; then

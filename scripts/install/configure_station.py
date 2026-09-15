@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Apply initial station identity/location and receiver serial mapping.
+"""Apply initial station identity/location and optional receiver serial mapping.
 
-This changes only config/station.yaml and config/receivers.yaml. It does not
-start services and does not edit readsb/AIS-catcher configuration.
+config/station.yaml remains the Home Position authority. Latitude/longitude are
+mirrored to readsb DECODER_OPTIONS through the bounded privileged helper.
+AIS-catcher configuration and receiver-role policy are not changed here.
 """
 from __future__ import annotations
-import argparse, os, tempfile
+import argparse, copy, os, subprocess, tempfile
 from pathlib import Path
 import sys
 import yaml
@@ -15,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 from core.config import normalize_home_position
 
 STATION=ROOT/'config/station.yaml'; RECEIVERS=ROOT/'config/receivers.yaml'
+READSB_POSITION_HELPER=Path('/usr/local/sbin/sdrcc-sync-readsb-position')
 
 def atomic_yaml(path:Path,payload:dict):
     fd,tmp=tempfile.mkstemp(prefix=path.name+'.',suffix='.tmp',dir=path.parent)
@@ -52,6 +54,7 @@ def main():
     except ValueError as error:
         p.error(str(error))
     station=yaml.safe_load(STATION.read_text()) or {}; receivers=yaml.safe_load(RECEIVERS.read_text()) or {}
+    station_before=copy.deepcopy(station)
     st=station.setdefault('station',{}); st.update({'name':station_name,**position})
     rs=receivers.setdefault('receivers',{})
     for key,serial in [('receiver01',a.sdr1_serial),('receiver02',a.sdr2_serial)]:
@@ -65,7 +68,25 @@ def main():
     if not a.apply:
         print('Dry run only; pass --apply to write configuration.')
         return 0
-    atomic_yaml(STATION,station); atomic_yaml(RECEIVERS,receivers)
-    print(f'Station configuration saved to {STATION}. External AIS/readsb roles are unchanged.')
+    atomic_yaml(STATION,station)
+    try:
+        result=subprocess.run(
+            [
+                'sudo','-n',str(READSB_POSITION_HELPER),
+                f"{position['latitude']:.6f}",
+                f"{position['longitude']:.6f}",
+            ],
+            text=True,capture_output=True,timeout=60,check=False,
+        )
+        if result.returncode:
+            raise RuntimeError(
+                (result.stderr or result.stdout or 'readsb position sync failed').strip()
+            )
+    except Exception as error:
+        atomic_yaml(STATION,station_before)
+        raise SystemExit(f'Home Position readsb sync failed: {error}') from error
+
+    atomic_yaml(RECEIVERS,receivers)
+    print(f'Station configuration saved to {STATION}. readsb Home Position synchronized; receiver roles unchanged.')
     return 0
 if __name__=='__main__': raise SystemExit(main())

@@ -3,6 +3,7 @@
 from pathlib import Path
 import math
 import os
+import subprocess
 import threading
 import yaml
 
@@ -10,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 
 STATION_CONFIG = CONFIG_DIR / "station.yaml"
+READSB_POSITION_HELPER = Path("/usr/local/sbin/sdrcc-sync-readsb-position")
 SATELLITES_CONFIG = CONFIG_DIR / "satellites.yaml"
 SCHEDULER_CONFIG = CONFIG_DIR / "scheduler.yaml"
 RECEIVERS_CONFIG = CONFIG_DIR / "receivers.yaml"
@@ -208,12 +210,39 @@ def get_home_position():
     })
 
 
+def _sync_readsb_home_position(position):
+    """Synchronise the derived readsb position through the bounded root helper."""
+    if not READSB_POSITION_HELPER.exists():
+        raise OSError(f"readsb position helper is missing: {READSB_POSITION_HELPER}")
+
+    result = subprocess.run(
+        [
+            "sudo",
+            "-n",
+            str(READSB_POSITION_HELPER),
+            f"{position['latitude']:.6f}",
+            f"{position['longitude']:.6f}",
+        ],
+        text=True,
+        capture_output=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode:
+        raise OSError(
+            (result.stderr or result.stdout or "readsb position sync failed").strip()
+        )
+
+
 def set_home_position(payload):
-    """Update only station location fields and preserve all other station.yaml state."""
+    """Update station authority and keep the derived readsb position synchronized."""
     position = normalize_home_position(payload)
     data = load_station() or {}
     if not isinstance(data, dict):
         raise ValueError("station.yaml must contain a YAML mapping")
+
+    previous = yaml.safe_load(yaml.safe_dump(data, sort_keys=False)) or {}
+
     station = data.setdefault("station", {})
     if not isinstance(station, dict):
         raise ValueError("station must be a YAML mapping")
@@ -222,7 +251,14 @@ def set_home_position(payload):
     station["latitude"] = position["latitude"]
     station["longitude"] = position["longitude"]
     station["altitude_m"] = position["altitude_m"]
+
     save_station(data)
+    try:
+        _sync_readsb_home_position(position)
+    except Exception:
+        save_station(previous)
+        raise
+
     return position
 
 

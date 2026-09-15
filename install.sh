@@ -132,6 +132,7 @@ say "Install privileged receiver helper"
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_apply_receiver_roles.py" /usr/local/sbin/sdrcc-apply-receiver-roles
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_disable_ais_autostart.py" /usr/local/sbin/sdrcc-disable-ais-autostart
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_disable_self_autostart.py" /usr/local/sbin/sdrcc-disable-self-autostart
+sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_sync_readsb_position.py" /usr/local/sbin/sdrcc-sync-readsb-position
 
 say "Install sudoers boundaries"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
@@ -140,6 +141,9 @@ eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl start readsb.service, /usr/bin/s
 EOF
 cat >"$tmp/sdrcc-receiver-roles" <<EOF
 eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-apply-receiver-roles *
+EOF
+cat >"$tmp/sdrcc-readsb-position" <<EOF
+eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-sync-readsb-position *
 EOF
 cat >"$tmp/sdrcc-service-handover" <<EOF
 # SDRCC controlled receiver-service handover only.

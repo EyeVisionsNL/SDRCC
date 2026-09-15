@@ -215,7 +215,11 @@ class Flexibility(unittest.TestCase):
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         station=self.root/'station.yaml';station.write_text('station: {}\n')
         args=['configure_station','--location','Test','--latitude','1','--longitude','2','--apply']
-        with patch.object(module,'STATION',station),patch.object(module,'RECEIVERS',self.registry),patch.object(sys,'argv',args):
+        fake_result=type('Result',(),{'returncode':0,'stdout':'','stderr':''})()
+        with patch.object(module,'STATION',station),\
+             patch.object(module,'RECEIVERS',self.registry),\
+             patch.object(module.subprocess,'run',return_value=fake_result),\
+             patch.object(sys,'argv',args):
             module.main()
         self.assertEqual(yaml.safe_load(station.read_text())['station']['location'],'Test')
         saved=yaml.safe_load(station.read_text())['station']
@@ -231,13 +235,31 @@ class Flexibility(unittest.TestCase):
         initial=module('initial',ROOT/'scripts/install/initialize_external.py')
         helper=module('helper',ROOT/'scripts/sdrcc_apply_receiver_roles.py')
         ais=self.root/'ais.json';readsb=self.root/'readsb'
-        ais.write_text(json.dumps({'config':'aiscatcher','viewer':{'lat':1}}))
+        ais.write_text(json.dumps({
+            'config':'aiscatcher',
+            'viewer':{'lat':1},
+            'receiver':[{
+                'active':True,
+                'input':'RTLSDR',
+                'serial':'OLD-A'
+            }]
+        }))
         readsb.write_text('RECEIVER_OPTIONS="--device-type rtlsdr --gain auto"\n')
-        initial.initialize(ais,readsb)
+
+        ais_before=ais.read_bytes()
+        initial.initialize(readsb=readsb)
+
+        self.assertEqual(ais.read_bytes(),ais_before)
+        self.assertIn('--device UNBOUND_ADSB',readsb.read_text())
+
         with patch.object(helper,'AIS_CONFIG',ais),patch.object(helper,'READSB_CONFIG',readsb):
             helper.write_ais_serial('NEW-A');helper.write_readsb_serial('NEW-B')
-            self.assertEqual(helper.read_ais_serial(),'NEW-A');self.assertEqual(helper.read_readsb_serial(),'NEW-B')
-        before=(ais.read_bytes(),readsb.read_bytes());initial.initialize(ais,readsb)
+            self.assertEqual(helper.read_ais_serial(),'NEW-A')
+            self.assertEqual(helper.read_readsb_serial(),'NEW-B')
+
+        before=(ais.read_bytes(),readsb.read_bytes())
+        initial.initialize(readsb=readsb)
+
         self.assertEqual(before,(ais.read_bytes(),readsb.read_bytes()))
         self.assertEqual(json.loads(ais.read_text())['viewer'],{'lat':1})
     def test_controller_defers_only_missing_service(self):

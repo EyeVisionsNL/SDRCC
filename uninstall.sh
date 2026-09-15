@@ -124,12 +124,14 @@ sudo rm -f \
   "$(sys /etc/systemd/system/sdrcc-traffic-voice.service)" \
   "$(sys /etc/sudoers.d/sdrcc-readsb)" \
   "$(sys /etc/sudoers.d/sdrcc-receiver-roles)" \
+  "$(sys /etc/sudoers.d/sdrcc-readsb-position)" \
   "$(sys /etc/sudoers.d/sdrcc-service-handover)" \
   "$(sys /etc/sudoers.d/sdrcc-services)" \
   "$(sys /etc/sudoers.d/sdrcc-traffic-voice)" \
   "$(sys /etc/sudoers.d/sdrcc-ais-autostart)" \
   "$(sys /etc/sudoers.d/sdrcc-self-autostart)" \
   "$(sys /usr/local/sbin/sdrcc-apply-receiver-roles)" \
+  "$(sys /usr/local/sbin/sdrcc-sync-readsb-position)" \
   "$(sys /usr/local/sbin/sdrcc-disable-ais-autostart)" \
   "$(sys /usr/local/sbin/sdrcc-disable-self-autostart)"
 
