@@ -51,11 +51,8 @@ def read_config():
     return value
 
 
-def configured(value):
-    """A dismissed wizard or UNBOUND placeholder is not a configured receiver."""
-    control = value.get('control', {})
-    if not isinstance(control, dict) or control.get('wizard') not in (False, 'off', 'false'):
-        return False
+def receiver_configured(value):
+    """Require exactly one active RTL-SDR with a real serial."""
     receivers = value.get('receiver')
     if not isinstance(receivers, list):
         return False
@@ -67,6 +64,20 @@ def configured(value):
     serial = str(receiver.get('serial') or '').strip()
     return (str(receiver.get('input', '')).upper() == 'RTLSDR'
             and bool(serial) and not serial.startswith('UNBOUND'))
+
+
+def configured(value):
+    """Return True only for a fully completed AIS setup."""
+    control = value.get('control', {})
+    return (isinstance(control, dict)
+            and control.get('wizard') in (False, 'off', 'false')
+            and receiver_configured(value))
+
+
+def wizard_saved(value):
+    """Detect Save & Close when upstream leaves wizard=true behind."""
+    return (receiver_configured(value)
+            and str(value.get('engine') or '').strip().lower() == 'on')
 
 
 def save_config(value):
@@ -225,6 +236,14 @@ def setup(non_interactive=False):
                     return False
                 value = read_config()
                 if configured(value):
+                    break
+                if wizard_saved(value):
+                    control = value.setdefault('control', {})
+                    if not isinstance(control, dict):
+                        raise RuntimeError('AIS control section is not an object; existing configuration preserved.')
+                    control['wizard'] = False
+                    save_config(value)
+                    print('PASS: AIS wizard saved; normalized lingering wizard flag.')
                     break
                 print('AIS setup is incomplete: save one active RTL-SDR with a real serial in the wizard.')
         # Stop before saving engine=on: systemd start/stop must control reception.
