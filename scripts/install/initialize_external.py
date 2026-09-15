@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Prepare clean-install service placeholders while all receiver services are stopped.
+"""Prepare clean-install readsb placeholder while receiver services are stopped.
 
-Existing configured receivers are preserved. Real serials are later set by the
-established privileged transaction helper. Never used by the update path.
+AIS-catcher is deliberately left untouched here. Its initial receiver and output
+configuration is owned by the upstream AIS-catcher wizard at the end of install.
+Never used by the update path.
 """
 from pathlib import Path
-import json, re, os, tempfile, shutil
+import re, os, tempfile, shutil
 
 def atomic(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -21,11 +22,7 @@ def atomic(path, text):
         os.chown(temp, previous.st_uid, previous.st_gid)
     os.replace(temp, path)
 
-def initialize(ais=Path('/etc/AIS-catcher/aiscatcher.json'), readsb=Path('/etc/default/readsb')):
-    payload = json.loads(ais.read_text()) if ais.exists() else {'config': 'aiscatcher', 'version': 1}
-    if not payload.get('receiver'):
-        payload['receiver'] = [{'input': 'RTLSDR', 'serial': 'UNBOUND_AIS'}]
-        atomic(ais, json.dumps(payload, indent=2) + '\n')
+def initialize(readsb=Path('/etc/default/readsb')):
     text = readsb.read_text() if readsb.exists() else ''
     if not any('--device ' in line or '--device=' in line for line in text.splitlines() if not line.lstrip().startswith('#')):
         match = re.search(r'(?m)^RECEIVER_OPTIONS="([^"\n]*)"[ \t]*$', text)
