@@ -34,6 +34,11 @@ PROJECT_ROOT="$(realpath -m "$PROJECT_ROOT")"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 
 say(){ printf '\n==> %s\n' "$*"; }
+show_rtlsdr_choices(){
+  say "RTL-SDR receivers available for AIS setup"
+  "$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" || true
+  echo "Choose the intended RTL-SDR serial in the AIS-catcher wizard below."
+}
 need_sudo(){ sudo -v; }
 receipt_set(){ printf '%s=%s\n' "$1" "$2" | sudo tee -a "$INSTALL_RECEIPT" >/dev/null; }
 receipt_value(){
@@ -47,6 +52,7 @@ if ((AIS_SETUP_ONLY)); then
   ((CHECK_ONLY == 0 && NON_INTERACTIVE == 0)) || { echo "FAIL: --ais-setup requires interactive setup, without --check."; exit 2; }
   [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" ]] || { echo "FAIL: install SDRCC before resuming AIS setup."; exit 2; }
   need_sudo
+  show_rtlsdr_choices
   sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py"
   sudo systemctl enable --now sdrcc.service
   HTTP=000
@@ -221,13 +227,12 @@ fi
 "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
   --station-name "$STATION_NAME" --location "$LOCATION" \
   --latitude "$LATITUDE" --longitude "$LONGITUDE" --altitude-m "$ALTITUDE" --apply
-say "AIS-catcher setup wizard"
-ais_setup_args=()
-((NON_INTERACTIVE)) && ais_setup_args+=(--non-interactive)
-sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" "${ais_setup_args[@]}"
+say "Initialise external service configs"
 sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/initialize_external.py"
+
+say "Detect receivers"
 "$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" || true
-echo "Receiver binding is handled by Receiver Manager after startup; no dongles are required."
+echo "Later receiver role and binding changes are handled by Receiver Manager in SDRCC."
 
 say "Start and validate SDRCC"
 sudo systemctl restart sdrcc.service
@@ -239,6 +244,23 @@ for attempt in {1..60}; do
   sleep 1
 done
 echo "Dashboard API: HTTP $HTTP"
+[[ "$HTTP" == 200 ]] || exit 4
+
+say "Final AIS-catcher setup"
+show_rtlsdr_choices
+ais_setup_args=()
+((NON_INTERACTIVE)) && ais_setup_args+=(--non-interactive)
+sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" "${ais_setup_args[@]}"
+
+# setup_ais.py temporarily stops SDRCC while the AIS configuration page owns
+# the receiver. It restores SDRCC afterwards when it was already running.
+HTTP=000
+for attempt in {1..60}; do
+  HTTP="$(curl --max-time 5 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/status || true)"
+  [[ "$HTTP" == 200 ]] && break
+  sleep 1
+done
+echo "Dashboard API after AIS setup: HTTP $HTTP"
 [[ "$HTTP" == 200 ]] || exit 4
 
 echo
