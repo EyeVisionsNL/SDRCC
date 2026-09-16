@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="dashboard/static/assets/sdrcc.png" alt="SDRCC logo" width="220">
+  <img src="dashboard/static/assets/sdrcc.png" alt="SDRCC logo — AIS, ATIS, ADS-B and satellite reception" width="360">
 </p>
 
 <h1 align="center">SDRCC — SDR Control Center</h1>

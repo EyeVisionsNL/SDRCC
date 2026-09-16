@@ -27,7 +27,7 @@ class ContractParser(HTMLParser):
             self.ids.append(values["id"] or "")
         if tag == "a" and values.get("href") == PROJECT_URL:
             self.github_links.append(values)
-        if tag == "img" and values.get("src") == "/static/assets/sdrcc.png":
+        if tag == "img" and (values.get("src") or "").split("?", 1)[0] == "/static/assets/sdrcc.png":
             self.logo_sources.append(values.get("src") or "")
 
 
@@ -65,7 +65,7 @@ def main() -> None:
     check("Mission Control · Satellite Reception · Air Traffic · Maritime" not in template, "old generic banner subtitle is removed")
     check(len(parser.logo_sources) >= 2, "SDRCC logo is reused in splash and banner")
     check('id="sdrcc-startup-splash"' in template and " hidden" in template, "startup splash defaults to hidden")
-    check('/static/css/header_theme.css?v=0.56.0x' in template, "header theme uses the current branding cache key")
+    check('/static/css/header_theme.css?v=0.56.0x-r3' in template, "header theme uses the current branding cache key")
     check('/static/js/startup_splash.js?v=0.54.0v-r1' in template, "startup behavior uses the v0.54.0v cache key")
 
     check(len(parser.github_links) == 1, "one canonical project link is present")
@@ -82,7 +82,7 @@ def main() -> None:
     actions = css_rule(header_css, ".topbar-actions")
     check("min-height: 88px" in topbar and "padding: 10px 26px" in topbar, "desktop header height is compact")
     check("flex-direction: row" in brand and "align-items: center" in brand, "title copy sits beside the logo")
-    check("width: 72px" in logo and "height: 72px" in logo, "banner logo remains prominent without forcing extra height")
+    check("width: 88px" in logo and "height: 88px" in logo, "banner logo remains prominent without forcing extra height")
     check("flex-direction: row" in actions and "align-items: center" in actions, "GitHub and LIVE controls share one row")
 
     for token, label in (
