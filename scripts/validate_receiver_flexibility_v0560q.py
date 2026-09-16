@@ -176,12 +176,18 @@ class Flexibility(unittest.TestCase):
     def test_duplicate_mapping_rejected(self):
         self.usb_add('A');self.usb_add('B')
         with self.assertRaises(ValueError):self.bind(mapping={'receiver01':'A','receiver02':'A'})
-    def test_recovery_survives_restart(self):
+    def test_recovery_does_not_survive_runtime_restart(self):
         self.bound();self.services['ais-catcher.service']=True;self.tick()
         self.usb_clear();self.tick()
+        self.assertEqual(
+            manager.binding_status()['recovery']['receiver01']['services'],
+            ['ais-catcher.service'],
+        )
         manager._previous_active={}
-        self.usb_add('A');self.usb_add('B');self.tick()
-        self.assertTrue(self.services['ais-catcher.service'])
+        with patch.object(manager, '_hardware_recovery_generation', 'restarted-runtime'):
+            self.usb_add('A');self.usb_add('B');self.tick()
+        self.assertFalse(self.services['ais-catcher.service'])
+        self.assertFalse(manager.binding_status()['recovery'])
     def test_explicit_stop_cancels_recovery(self):
         self.bound();self.services['ais-catcher.service']=True;self.tick()
         self.usb_clear();self.tick();manager.cancel_service_recovery('ais')

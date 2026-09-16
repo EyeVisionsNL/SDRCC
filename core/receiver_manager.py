@@ -15,6 +15,7 @@ from threading import RLock
 from typing import Any, Callable, Iterable
 import json
 import time
+from uuid import uuid4
 
 from core import event_bus
 from core.device_manager import get_assigned_device, get_device, get_devices
@@ -858,7 +859,23 @@ def release(*, mission_key: str | None = None, detail: str = "Missie afgerond") 
 # Hardware lifecycle belongs to this existing manager. GET snapshots never bind.
 _binding_message = 'Waiting for hardware observation'
 _previous_active = {}
+_hardware_recovery_generation = uuid4().hex
 _tick_lock = RLock()
+
+
+def _current_hardware_recovery(state, key):
+    """Return a recovery intent owned by this SDRCC runtime.
+
+    Hardware service recovery is intentionally process-local. Persisted intents
+    from an earlier SDRCC runtime are stale and must never start services after
+    a dashboard or machine restart.
+    """
+    recoveries = state.setdefault('hardware_recovery', {})
+    recovery = recoveries.get(key)
+    if not isinstance(recovery, dict) or recovery.get('runtime_generation') != _hardware_recovery_generation:
+        recovery = {'services': [], 'status': 'WAITING', 'runtime_generation': _hardware_recovery_generation}
+        recoveries[key] = recovery
+    return recovery
 
 
 def hardware_ready(receiver_id):
@@ -1025,8 +1042,7 @@ def hardware_tick(*, service_state, service_action, wait_for_service, stop_recei
                 continue
             with _LOCK:
                 state = _load_state()
-                recoveries = state.setdefault('hardware_recovery', {})
-                recovery = recoveries.setdefault(key, {'services': [], 'status': 'WAITING'})
+                recovery = _current_hardware_recovery(state, key)
                 for service in active + _previous_active.get(key, []):
                     if service not in recovery['services']: recovery['services'].append(service)
                 reservation = deepcopy(state['reservations'].get(key))
@@ -1049,6 +1065,12 @@ def hardware_tick(*, service_state, service_action, wait_for_service, stop_recei
                 if not device or not device.get('present') or key in state['reservations']:
                     continue
                 recovery = state['hardware_recovery'][key]
+                if recovery.get('runtime_generation') != _hardware_recovery_generation:
+                    # A previous SDRCC runtime may have remembered an active
+                    # service. Never turn that into autostart after reboot.
+                    del state['hardware_recovery'][key]
+                    _save_state(state)
+                    continue
                 for service in sorted(recovery['services'], key=lambda name: (name.endswith('-control.service'), name)):
                     result = service_action('start', service)
                     if not _result_ok(result) or not wait_for_service(service, 'active', 15):
@@ -1081,7 +1103,7 @@ def defer_missing_service(service):
         for device in get_devices():
             if service in get_conflicting_services(device['registry_id']) and device['presence'] == 'MISSING':
                 state = _load_state()
-                recovery = state.setdefault('hardware_recovery', {}).setdefault(device['registry_id'], {'services': [], 'status': 'WAITING'})
+                recovery = _current_hardware_recovery(state, device['registry_id'])
                 if service not in recovery['services']: recovery['services'].append(service)
                 _save_state(state)
                 return True
