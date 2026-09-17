@@ -448,7 +448,17 @@
         }
     }
 
+    function renderChannelListControls() {
+        // Channel lists are configuration and do not require a running receiver.
+        ["traffic-voice-channel-list-load", "traffic-voice-channel-list-export"]
+            .forEach(id => {
+                const button = byId(id);
+                if (button) button.disabled = actionBusy;
+            });
+    }
+
     function render(payload) {
+        renderChannelListControls();
         lastPayload = payload;
         const status = byId("traffic-voice-status");
         const serviceBadge = byId("traffic-voice-service-state");
@@ -590,6 +600,7 @@
             text("traffic-voice-action-message", "Action failed: " + error.message);
         } finally {
             actionBusy = false;
+            renderChannelListControls();
             await refresh(true);
         }
         return succeeded;
