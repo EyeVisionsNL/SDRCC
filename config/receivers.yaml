@@ -7,7 +7,7 @@ receivers:
     enabled: true
     hardware:
       driver: rtlsdr
-      serial: 05419737
+      serial: ''
     aliases:
     - sdr1
     capabilities:
@@ -28,7 +28,7 @@ receivers:
     enabled: true
     hardware:
       driver: rtlsdr
-      serial: '24006572'
+      serial: ''
     aliases:
     - sdr2
     capabilities:
