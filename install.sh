@@ -228,11 +228,11 @@ else
     echo "Re-enter the station settings."
   done
 fi
+say "Initialise external service configs"
+sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/initialize_external.py"
 "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
   --station-name "$STATION_NAME" --location "$LOCATION" \
   --latitude "$LATITUDE" --longitude "$LONGITUDE" --altitude-m "$ALTITUDE" --apply
-say "Initialise external service configs"
-sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/initialize_external.py"
 
 say "Detect receivers"
 "$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" || true
