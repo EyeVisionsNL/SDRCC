@@ -5,7 +5,7 @@ PROJECT_ROOT="$2"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 export PYTHONPATH="$PROJECT_ROOT"
 CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
-[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t || "$CURRENT" == 0.56.0x || "$CURRENT" == 0.56.0x-r1 || "$CURRENT" == 0.56.0x-r2 || "$CURRENT" == 0.56.0x-r3 || "$CURRENT" == 0.56.0x-r4 || "$CURRENT" == 0.56.0x-r5 || "$CURRENT" == 0.56.0x-r6 ]] || { echo "FAIL: unsupported installed version $CURRENT"; exit 2; }
+[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t || "$CURRENT" == 0.56.0x || "$CURRENT" == 0.56.0x-r1 || "$CURRENT" == 0.56.0x-r2 || "$CURRENT" == 0.56.0x-r3 || "$CURRENT" == 0.56.0x-r4 || "$CURRENT" == 0.56.0x-r5 || "$CURRENT" == 0.56.0x-r6 || "$CURRENT" == 0.56.0x-r7 || "$CURRENT" == 0.56.0x-r8 ]] || { echo "FAIL: unsupported installed version $CURRENT"; exit 2; }
 [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]] || { echo "FAIL: extract the update next to SDRCC (for example in Downloads), then run its install.sh."; exit 2; }
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
@@ -76,6 +76,9 @@ sudo install -o root -g root -m 0755 \
 sudo install -o root -g root -m 0755 \
   "$PROJECT_ROOT/scripts/sdrcc_sync_readsb_position.py" \
   /usr/local/sbin/sdrcc-sync-readsb-position
+sudo install -o root -g root -m 0755 \
+  "$PROJECT_ROOT/scripts/sdrcc_update.py" \
+  /usr/local/sbin/sdrcc-update
 SUDOERS_TMP="$(mktemp)"
 printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-ais-autostart\n' \
   "$INSTALL_USER" > "$SUDOERS_TMP"
@@ -96,6 +99,13 @@ printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-sync-readsb-position *\n' 
 sudo visudo -cf "$SUDOERS_TMP" >/dev/null
 sudo install -o root -g root -m 0440 \
   "$SUDOERS_TMP" /etc/sudoers.d/sdrcc-readsb-position
+rm -f "$SUDOERS_TMP"
+SUDOERS_TMP="$(mktemp)"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""\n' \
+  "$INSTALL_USER" > "$SUDOERS_TMP"
+sudo visudo -cf "$SUDOERS_TMP" >/dev/null
+sudo install -o root -g root -m 0440 \
+  "$SUDOERS_TMP" /etc/sudoers.d/sdrcc-update
 rm -f "$SUDOERS_TMP"
 
 HOME_POSITION="$("$PYTHON" - <<'PYHOME'

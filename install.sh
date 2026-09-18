@@ -133,6 +133,7 @@ sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_apply_receiver
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_disable_ais_autostart.py" /usr/local/sbin/sdrcc-disable-ais-autostart
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_disable_self_autostart.py" /usr/local/sbin/sdrcc-disable-self-autostart
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_sync_readsb_position.py" /usr/local/sbin/sdrcc-sync-readsb-position
+sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_update.py" /usr/local/sbin/sdrcc-update
 
 say "Install sudoers boundaries"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
@@ -171,6 +172,9 @@ eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-ais-autostart
 EOF
 cat >"$tmp/sdrcc-self-autostart" <<EOF
 eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-self-autostart
+EOF
+cat >"$tmp/sdrcc-update" <<EOF
+eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""
 EOF
 for f in "$tmp"/sdrcc-*; do
   sed -i "s/^eyeuser /$INSTALL_USER /" "$f"

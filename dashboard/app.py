@@ -66,6 +66,7 @@ from core import traffic_voice_controller
 from core import hf_monitor as hf_monitor_core
 from core import hf_monitor_backend
 from core import hf_monitor_controller
+from core import update_manager
 
 app = Flask(__name__)
 
@@ -74,6 +75,7 @@ SDRCC_SCRIPT = PROJECT_ROOT / "scripts" / "sdrcc.py"
 RECEIVER_ROLE_HELPER = Path("/usr/local/sbin/sdrcc-apply-receiver-roles")
 AIS_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-ais-autostart")
 SDRCC_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-self-autostart")
+SDRCC_UPDATE_HELPER = Path("/usr/local/sbin/sdrcc-update")
 AIS_CONTROL_SERVICE = "ais-catcher-control.service"
 
 IMAGE_DIRS = [
@@ -4369,6 +4371,78 @@ def api_capture_status():
     })
 
 
+
+@app.route("/api/update-status")
+def api_update_status():
+    refresh = str(request.args.get("refresh") or "").strip().lower() in {"1", "true", "yes"}
+    if refresh:
+        return jsonify(update_manager.check_remote_version())
+    return jsonify(update_manager.get_status())
+
+
+@app.route("/api/update/install", methods=["POST"])
+def api_update_install():
+    receiver_status = receiver_manager.get_status()
+    reservations = receiver_status.get("canonical_reservations") or {}
+    binding = receiver_manager.binding_status()
+    if reservations or binding.get("transaction") or binding.get("recovery"):
+        return jsonify({
+            "ok": False,
+            "message": (
+                "Resolve active receiver work, hardware binding or recovery "
+                "before installing an SDRCC update."
+            ),
+            "reservations": reservations,
+            "binding": binding,
+        }), 409
+
+    status = update_manager.check_remote_version()
+    if status.get("check_error"):
+        return jsonify({
+            "ok": False,
+            "message": "Update check failed: " + str(status["check_error"]),
+        }), 503
+    if not status.get("update_available"):
+        message = (
+            f"Installed {status.get('installed_version')} is already current."
+            if status.get("same_version")
+            else f"No newer main release is available (installed {status.get('installed_version')}, main {status.get('latest_version')})."
+        )
+        return jsonify({"ok": False, "message": message}), 409
+    if not SDRCC_UPDATE_HELPER.exists():
+        return jsonify({
+            "ok": False,
+            "message": f"Managed update helper missing: {SDRCC_UPDATE_HELPER}",
+        }), 500
+
+    write_log(
+        "Managed SDRCC update requested: "
+        f"{status.get('installed_version')} -> {status.get('latest_version')}"
+    )
+    result = run_command(["sudo", "-n", str(SDRCC_UPDATE_HELPER)], timeout=30)
+    raw = (result.stdout or "").strip()
+    try:
+        payload = json.loads(raw) if raw else {}
+    except (TypeError, ValueError):
+        payload = {}
+    if result.returncode != 0 or not payload.get("ok"):
+        message = (
+            payload.get("message")
+            or result.stderr
+            or raw
+            or "Managed update helper failed to start"
+        ).strip()
+        write_log(f"Managed SDRCC update start failed: {message}")
+        return jsonify({"ok": False, "message": message}), 500
+
+    return jsonify({
+        "ok": True,
+        "message": payload.get("message") or "SDRCC update started.",
+        "installed_version": status.get("installed_version"),
+        "latest_version": status.get("latest_version"),
+    }), 202
+
+
 @app.route("/api/action", methods=["POST"])
 def api_action():
     payload = request.get_json(silent=True) or {}
@@ -4562,6 +4636,7 @@ def run():
         "Event Bus started",
         "SDRCC operator event storage and API are active.",
     )
+    threading.Thread(target=update_manager.check_remote_version, name="update-check", daemon=True).start()
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
     app.run(

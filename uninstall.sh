@@ -115,6 +115,7 @@ fi
 sudo -v
 
 echo "==> Stop SDRCC services"
+sudo systemctl stop sdrcc-update.service >/dev/null 2>&1 || true
 sudo systemctl disable --now sdrcc.service >/dev/null 2>&1 || true
 sudo systemctl disable --now sdrcc-traffic-voice.service >/dev/null 2>&1 || true
 
@@ -130,10 +131,17 @@ sudo rm -f \
   "$(sys /etc/sudoers.d/sdrcc-traffic-voice)" \
   "$(sys /etc/sudoers.d/sdrcc-ais-autostart)" \
   "$(sys /etc/sudoers.d/sdrcc-self-autostart)" \
+  "$(sys /etc/sudoers.d/sdrcc-update)" \
   "$(sys /usr/local/sbin/sdrcc-apply-receiver-roles)" \
   "$(sys /usr/local/sbin/sdrcc-sync-readsb-position)" \
   "$(sys /usr/local/sbin/sdrcc-disable-ais-autostart)" \
-  "$(sys /usr/local/sbin/sdrcc-disable-self-autostart)"
+  "$(sys /usr/local/sbin/sdrcc-disable-self-autostart)" \
+  "$(sys /usr/local/sbin/sdrcc-update)"
+
+sudo rm -f \
+  "$(sys /var/lib/sdrcc/update-status.json)" \
+  "$(sys /var/log/sdrcc-update.log)" \
+  "$(sys /run/lock/sdrcc-update.lock)"
 
 remove_satdump=0; remove_readsb=0; remove_ais=0; remove_control=0; remove_airband=0
 remove_component satdump_installed && remove_satdump=1 || true

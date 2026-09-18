@@ -38,7 +38,12 @@ with tempfile.TemporaryDirectory(prefix="sdrcc-uninstall-test-") as temporary:
         "/etc/systemd/system/sdrcc-traffic-voice.service",
         "/etc/systemd/system/ais-catcher.service.d/90-flexground-managed.conf",
         "/etc/sudoers.d/sdrcc-services",
+        "/etc/sudoers.d/sdrcc-update",
         "/usr/local/sbin/sdrcc-apply-receiver-roles",
+        "/usr/local/sbin/sdrcc-update",
+        "/var/lib/sdrcc/update-status.json",
+        "/var/log/sdrcc-update.log",
+        "/run/lock/sdrcc-update.lock",
         "/usr/bin/AIS-catcher",
         "/usr/bin/AIS-catcher-control",
         "/usr/bin/satdump",
@@ -101,6 +106,11 @@ with tempfile.TemporaryDirectory(prefix="sdrcc-uninstall-test-") as temporary:
     check(not (system / "etc/systemd/system/sdrcc.service").exists(), "systemd integration is removed")
     check(not (system / "etc/systemd/system/ais-catcher.service.d/90-flexground-managed.conf").exists(), "managed AIS override is removed")
     check(not (system / "usr/local/sbin/sdrcc-apply-receiver-roles").exists(), "privileged helper is removed")
+    check(not (system / "usr/local/sbin/sdrcc-update").exists(), "managed update helper is removed")
+    check(not (system / "etc/sudoers.d/sdrcc-update").exists(), "managed update sudoers boundary is removed")
+    check(not (system / "var/lib/sdrcc/update-status.json").exists(), "managed update status is removed")
+    check(not (system / "var/log/sdrcc-update.log").exists(), "managed update log is removed")
+    check(not (system / "run/lock/sdrcc-update.lock").exists(), "managed update lock is removed")
     check(not (system / "etc/AIS-catcher").exists(), "installer-owned AIS configuration is removed")
     check(not (system / "opt/sdrcc/traffic_voice").exists(), "installer-owned RTLSDR-Airband build is removed")
     logged = command_log.read_text()

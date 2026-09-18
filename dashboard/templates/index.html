@@ -385,6 +385,24 @@
                         </div>
                     </form>
                 </section>
+                <section class="system-maintenance-group-v0540f" data-control-scope="sdrcc-update" aria-labelledby="sdrcc-update-title">
+                    <div class="system-maintenance-heading-v0540f">
+                        <div>
+                            <h3 id="sdrcc-update-title">⬆ SDRCC Update</h3>
+                            <p class="muted">Checks GitHub main at startup. Installation uses the managed rollback-aware updater and restarts SDRCC automatically.</p>
+                        </div>
+                        <span class="system-maintenance-warning-v0540f" id="sdrcc-update-badge">CHECKING</span>
+                    </div>
+                    <div class="system-mission-tools-grid">
+                        <div><span class="muted">Installed</span><br><strong id="sdrcc-update-installed">-</strong></div>
+                        <div><span class="muted">Latest</span><br><strong id="sdrcc-update-latest">-</strong></div>
+                    </div>
+                    <div class="system-mission-tools-grid">
+                        <button type="button" class="control-button" id="sdrcc-update-check">↻ Check for update</button>
+                        <button type="button" class="control-button" id="sdrcc-update-install" disabled>⬆ Install update</button>
+                    </div>
+                    <p class="control-result" id="sdrcc-update-result">Checking GitHub main for a newer SDRCC version...</p>
+                </section>
                 <section class="system-maintenance-group-v0540f" data-control-scope="ais-control" aria-labelledby="ais-control-maintenance-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
@@ -1468,6 +1486,7 @@
 <script src="/static/dashboard.js?v=0.54.0t-r1&feature=0.56.0x"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
+<script src="/static/js/update_manager.js?v=0.56.0x-r8"></script>
 <script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
 <script src="/static/js/radio.js?v=0.56.0b"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>

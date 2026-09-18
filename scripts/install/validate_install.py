@@ -22,6 +22,7 @@ def main():
       'ais_service': service_exists('ais-catcher.service'),
       'traffic_voice_service': service_exists('sdrcc-traffic-voice.service'),
       'receiver_helper': Path('/usr/local/sbin/sdrcc-apply-receiver-roles').exists(),
+      'update_helper': Path('/usr/local/sbin/sdrcc-update').exists(),
       'satdump': shutil.which('satdump') is not None,
       'readsb': shutil.which('readsb') is not None,
       'ais_catcher': shutil.which('AIS-catcher') is not None,
