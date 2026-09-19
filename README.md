@@ -122,7 +122,6 @@ SDRCC stands on the shoulders of some excellent open-source projects. These are 
 |---|---|
 | [SatDump](https://github.com/SatDump/SatDump) | Satellite demodulation, decoding and METEOR LRPT products |
 | [AIS-catcher](https://github.com/jvde-github/AIS-catcher) | AIS reception, decoding, statistics and vessel viewer |
-| [AIS-catcher-control](https://github.com/jvde-github/AIS-catcher-control) | AIS-catcher management/control tooling |
 | [readsb](https://github.com/wiedehopf/readsb) | ADS-B reception and aircraft data |
 | [RTLSDR-Airband](https://github.com/rtl-airband/RTLSDR-Airband) | Marine and Airband Traffic Voice backend |
 | [librtlsdr / rtl-sdr](https://github.com/steve-m/librtlsdr) | Access to RTL2832U-based SDR receivers |
