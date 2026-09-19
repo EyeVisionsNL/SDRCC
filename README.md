@@ -106,6 +106,22 @@ The receiver identity is kept by serial rather than by a changing USB index. A s
 
 Roles such as AIS and ADS-B can be reassigned from the dashboard. SDRCC stops conflicting Traffic Voice activity before applying those assignments so a forgotten voice session does not quietly keep the dongle busy.
 
+## 📡 The antenna side of things
+
+SDRCC is software, but eventually every signal has to come in through some metal in the sky. 😄
+
+The current station uses a **Scan-King Royal Discone 2000** at about **15 metres**, connected with **Ultraflex 7** coax to a **Mini-Circuits ZFSC-4-1** splitter.
+
+From there the RF is shared between:
+
+- **✈️ ADS-B** → NooElec NESDR SMArt v5
+- **🚢 AIS** → NooElec LaNA → NooElec NESDR SMArt v5
+- **📻 Local listening** → Radtel RT-950 Pro
+
+**Royal Discone → Ultraflex 7 → Mini-Circuits splitter → ADS-B / AIS / Radtel**
+
+It isn't a required SDRCC configuration — just the antenna setup currently feeding the station.
+
 ## 🗺️ A little extra around Rotterdam
 
 Some development screenshots may show **VTS Rijnmond sectors and VHF channels** on the AIS-catcher map.
