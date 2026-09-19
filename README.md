@@ -5,289 +5,139 @@
 <h1 align="center">SDRCC — SDR Control Center</h1>
 
 <p align="center">
-  SDR Control Center for satellite reception, AIS, ADS-B, intelligent traffic voice and wideband live radio monitoring.
+  <strong>Listen · Decode · Analyze · Share</strong>
 </p>
 
 <p align="center">
-  <strong>Current development line: v0.56.0x · v1.0 preparation</strong><br>
-  Ubuntu 26.04.1 LTS AMD64 · Python 3.14 · Flask · RTL-SDR · SatDump · AIS-catcher · readsb · RTLSDR-Airband
+  Radio, ships, aircraft and satellites — brought together in one SDR control center.
 </p>
 
 <p align="center">
-  <img src="dashboard/static/assets/sdrcc-banner.png" alt="SDRCC — SDR Control Center dashboard banner" width="100%">
+  <img src="dashboard/static/assets/sdrcc-banner.png" alt="SDRCC — SDR Control Center" width="100%">
 </p>
 
-## What is SDRCC?
+## 📡 What is SDRCC?
 
-**SDRCC** is a flexible software-defined-radio ground station for local radio monitoring and automated satellite missions. It combines multiple physical RTL-SDR receivers, continuous radio services and scheduled missions in one dashboard. It plans satellite passes, assigns work to the correct receiver, coordinates temporary receiver handovers, records mission lifecycle events and restores the exact pre-mission receiver context when work finishes or fails.
+What started with a couple of SDR receivers and the question *“what else can we do with these?”* has grown into **SDRCC**.
 
-**SDRCC — SDR Control Center** is the project name again from v0.56.0x, following the name used by its community. Releases v0.56.0n–w used the name FlexGround SDR. The repository, `sdrcc.service`, CLI commands, API identifiers and existing station configuration remain compatible.
+SDRCC brings **radio reception, AIS and marine ATIS, ADS-B and satellite missions** together in one browser dashboard. Listen to radio traffic, follow ships and aircraft, plan satellite passes and let SDRCC manage which receiver is needed where.
 
-The following example uses two RTL-SDR receivers with replaceable local hardware bindings:
+No cloud platform required. Just radios, antennas, Linux... and probably a few more cables than originally planned. 😄
 
-| Receiver | Normal context | Mission / temporary roles |
-|---|---|---|
-| SDR1 | AIS | Weather / METEOR LRPT, Airband Voice |
-| SDR2 | ADS-B | ISS Voice, Marine Voice, Radio Receiver |
+SDRCC is designed around multiple RTL-SDR receivers, but the logical SDR slots are not tied forever to one physical dongle. Receivers can be replaced or rebound from the dashboard while Receiver Manager handles reservations, temporary handovers and restoration of the previous service.
 
-These roles are configurable. **System → Receiver hardware + bindings** maps detected physical receivers to logical SDR slots; choose **None** for an unused slot. Installation can continue without attached receivers, with receiver configuration deferred. Serial-based identity is retained while allowing dongles to be replaced without editing reference serial numbers by hand.
+## 🌍 One screen, several worlds
 
-## Supported platform
+**✈️ Aircraft · 🚢 Ships · 🛰️ Satellites · 📻 Radio**
 
-SDRCC targets an x86-64 mini PC running **Ubuntu 26.04.1 LTS 64-bit (AMD64)**. AMD64 is Ubuntu's architecture name for both 64-bit Intel and AMD processors. Ubuntu Desktop is the reference installation; Ubuntu Server can be used when the dashboard is operated remotely.
+![SDRCC Radio View](docs/screenshots/radio-view.png)
 
-| Support level | Processor | Memory | Storage |
-|---|---|---|---|
-| Minimum | Intel Core i3 mini PC or comparable AMD x86-64 processor | 16 GB RAM | SSD |
+**Radio View** gives you the quick picture: aircraft from ADS-B, vessels from AIS and satellites currently moving over the station.
 
-## Main capabilities
+## 🎙️ Wait... which ship was that?
 
-- Flexible physical receiver bindings with serial-based identity, unused slots and receiver-specific planning.
-- Automated METEOR-M2 3 / METEOR-M2 4 LRPT missions through SatDump.
-- ISS Voice pass planning, controlled wideband-IQ capture and offline audio processing.
-- Mission Scheduler with `AUTO`, `MANUAL` and `PAUSED` modes.
-- Per-satellite minimum peak, rising start angle and falling close angle.
-- Receiver Manager handover with reservation and exact pre-start service restoration.
-- Continuous AIS and ADS-B reception with live statistics and embedded viewers.
-- Marine NFM + AIS and Airband AM + ADS-B Traffic Voice modes.
-- Traffic Voice fixed-channel/scan operation, scan exclusions, adjustable scan speed, squelch, native Auto Gain and Excel channel-list import/export.
-- **Marine ATIS decoding + AIS correlation:** decodes and validates the **Automatic Transmitter Identification System (ATIS)** identity from marine VHF traffic, correlates it with live AIS vessel data and can automatically follow validated vessel matches with **Auto** mode.
-- General **Radio Receiver** with free tuning from 0.5 to 1766 MHz, frequency presets and LSB, USB, CW, AM, NFM, FM and WFM modes.
-- Measured spectrum and waterfall from the same live IQ stream used for browser audio.
-- Spectrum hover measurement with frequency/dBFS/offset, click-to-tune, tuning steps and live frequency retuning.
-- Radio Receiver Auto Gain/manual gain and RF-power squelch.
-- Mission Operations workspace for live missions and decoded results.
-- Persistent Mission History with mission diagnostics, files, telemetry and images.
-- Mission Analytics with receiver/satellite performance, Peak SNR and historical RF-gain comparison.
-- Multi-source logs and bounded runtime/log retention.
-- v1.0 installer foundation with pinned third-party provisioning and fail-closed validation.
+Traffic Voice is where radio audio meets the traffic data SDRCC already has.
 
-## Dashboard
+In **Marine Voice + AIS**, SDRCC can scan marine VHF channels, decode marine **ATIS (Automatic Transmitter Identification System)** identities and correlate validated ATIS traffic with current AIS vessel data.
 
-The screenshots below document earlier releases and may show a previous project name. The banner above shows the current SDRCC identity.
+When a correlation is found, **Possible Speaker** shows the vessel, callsign and matching information next to the live receiver.
 
-The current navigation is:
+![Traffic Voice ATIS and AIS Possible Speaker](docs/screenshots/traffic-voice-ais-match.png)
 
-`System · Radio Control · Radio View · Traffic Voice · Radio Receiver · Mission Control · Mission Planner · Mission Operations · Mission History · Mission Analytics · Logs`
+The **Auto** function can follow newly validated matches in the AIS-catcher map. The same map window is reused, and the chosen zoom level is retained.
 
-### System
+![Matched Possible Speaker on AIS map](docs/screenshots/traffic-voice-ais-map.png)
 
-System Health, physical receiver inventory and bindings, manual AIS/ADS-B service control and advanced maintenance actions, including AIS and SDRCC boot-autostart controls.
+> Hearing marine traffic is fun. Knowing which ship you're hearing makes it a little more interesting. 🚢🎙️
 
-![System](docs/screenshots/system.png)
+A match depends on the ATIS and AIS information available at that moment, so **Possible Speaker** is exactly what the name says: useful correlation information for the operator, not a claim that every transmission can always be identified.
 
-### Radio Control
+Traffic Voice also supports **Airband Voice + ADS-B**, fixed-channel listening, channel scanning, scan exclusions, adjustable scan speed, squelch, Auto Gain/manual gain and Excel channel-list import/export.
 
-Operational receiver status, read-only runtime diagnostics, receiver-role assignments and Weather/METEOR and ISS Voice RF settings. Persistent role assignment remains separate from temporary runtime handover. Changing receiver assignments first stops Traffic Voice, for both Marine and Airband, and releases its receiver before applying the AIS/ADS-B changes. Traffic Voice remains stopped after the change; start the desired voice mode again when needed.
+## 📻 Sometimes you just want a radio
 
-![Radio Control](docs/screenshots/radio-control.png)
+![SDRCC Radio Receiver spectrum and waterfall](docs/screenshots/radio-receiver.png)
 
-### Radio View
+Not everything needs to be a mission.
 
-A shared live overview of ADS-B traffic, AIS traffic and satellite positions/ground tracks.
+The built-in **Radio Receiver** turns an available RTL-SDR into a browser-controlled receiver with live audio, spectrum and waterfall.
 
-![Radio View](docs/screenshots/radio-view.png)
+Tune directly or use presets. Supported modes include **LSB, USB, CW, AM, NFM, FM and WFM**, with tuning steps, click-to-tune, RF-power squelch and Auto Gain/manual gain.
 
-### Traffic Voice
+Receiver Manager takes care of borrowing the SDR from another role and restoring its previous job when you're finished.
 
-Traffic Voice is more than a channel scanner: it combines live voice reception with the traffic context already available to SDRCC.
+## 🛰️ Satellites don't wait for you
 
-- **Marine Voice + AIS** — NFM marine VHF while AIS remains the live vessel context.
-- **Airband Voice + ADS-B** — AM aviation voice while ADS-B remains the live aircraft context.
-- Fixed-channel listening or scanning with per-channel scan exclusions.
-- Live browser audio, squelch, native RTL-SDR Auto Gain/manual gain and validated `.xlsx` channel-list import/export.
-- Transaction-safe switching and exact receiver/service restoration through Receiver Manager.
+Fortunately, SDRCC can do the waiting.
 
-![Traffic Voice](docs/screenshots/traffic-voice.png)
+**Mission Planner** calculates upcoming passes and applies the reception rules configured for each satellite.
 
-#### Scan speed
+![SDRCC Mission Planner](docs/screenshots/mission-planner.png)
 
-The **Scan speed** slider below **Squelch** sets the scan interval from **100 to 500 ms per channel**, in **50 ms steps**. The default is **200 ms/ch**; lower values scan faster. Select scan mode, adjust the slider and click **Apply settings**. The setting is saved in `config/traffic_voice.yaml`.
+**Mission Control** shows what's coming next, which receiver will be used and what the scheduler is doing.
 
-Scan speed controls channel stepping when there is no signal. Squelch controls which signals keep the receiver on a channel; increasing squelch can reject weak signals but does not change the scan interval. Active transmissions still hold the scanner.
+![SDRCC Mission Control](docs/screenshots/mission-control.png)
 
-This feature requires the SDRCC-patched RTLSDR-Airband build with scan-interval support. Fresh installations provision that build. Existing installations need the backend rebuild described below.
+When it's time, SDRCC reserves the required receiver, handles conflicting receiver services and starts the mission. After the pass, the receiver is released and its previous context can be restored.
 
-#### Marine ATIS decoding, AIS correlation and Auto follow
+### And hopefully...
 
-In **Marine Voice + AIS**, SDRCC decodes the marine **ATIS (Automatic Transmitter Identification System)** identity transmitted with VHF traffic. After validation, that ATIS identity is correlated with current AIS data to identify a **Possible Speaker**. The local matcher supports the RAINWAT second/third callsign-letter form as well as the direct `9 + MMSI` form used for visiting vessels, without an external vessel database. A validated match exposes the vessel identity and AIS context directly beside the live audio controls.
+![Decoded METEOR result in Mission Operations](docs/screenshots/mission-operations.png)
 
-The **Auto** button turns the ATIS-to-AIS correlation into an operator workflow: when **Auto: on** is enabled, newly validated vessel matches are followed automatically in the operator-approved AIS-Catcher map window. The same map window is reused instead of opening a new window for every match.
+...you get something from space. 🌍📡
 
-The **Zoom** field in **Possible Speaker** accepts levels **3–18** (default **14**). The chosen level is retained when Auto follows the next matched vessel and is remembered in this browser. It is also used when opening a vessel manually.
+**Mission Operations** keeps received products with their mission. Mission History and Mission Analytics provide the deeper view when you want to inspect results, telemetry, Peak SNR and receiver performance.
 
-![Traffic Voice AIS speaker match with Auto enabled](docs/screenshots/traffic-voice-ais-match.png)
+SDRCC currently supports automated **METEOR-M2 3 / METEOR-M2 4 LRPT** reception through SatDump and **ISS Voice** pass planning and reception.
 
-The normal **Show on full AIS map** action remains available for manual verification. This makes it possible to move directly from *hearing a transmission* to *seeing the likely vessel and its live position*.
+## 🚢 AIS, ✈️ ADS-B and a bit more
 
-![Matched speaker on AIS map](docs/screenshots/traffic-voice-ais-map.png)
+SDRCC doesn't try to reinvent everything.
 
-`config/traffic_voice.yaml` remains the Traffic Voice configuration authority. ATIS decoding, AIS correlation and Auto follow do not create a second receiver or service authority; receiver handover remains owned by Receiver Manager.
+It connects several excellent open-source radio projects and adds receiver management, automation and one common dashboard around them.
 
-### Radio Receiver
+Continuous AIS and ADS-B reception can run alongside temporary jobs such as Traffic Voice, the Radio Receiver and satellite missions. SDRCC's Receiver Manager coordinates the handover when two jobs want the same physical receiver.
 
-The **Radio Receiver** is the general-purpose live SDR workspace. It expands the former HF Amateur Monitor into a receiver that can free-tune across the practical RTL-SDR range used by SDRCC: **0.5 to 1766 MHz**.
+## 🔌 Receiver management without the USB-number headache
 
-Frequency presets provide quick starting points for amateur HF bands, shortwave, Airband, Marine VHF, 2 m, broadcast FM, 70 cm, PMR446 and ADS-B, while **Custom / free tune** allows direct frequency entry.
+Physical receivers are mapped to logical **SDR1 / SDR2** slots under **System → Receiver hardware + bindings**.
 
-Supported modes are **LSB, USB, CW, AM, NFM, FM and WFM**. The same measured `librtlsdr` IQ stream supplies the spectrum, waterfall, DSP and browser audio.
+The receiver identity is kept by serial rather than by a changing USB index. A slot can also be set to **None**, so installation and configuration do not require every receiver to be connected permanently.
 
-![Radio Receiver live spectrum and waterfall](docs/screenshots/radio-receiver.png)
+Roles such as AIS and ADS-B can be reassigned from the dashboard. SDRCC stops conflicting Traffic Voice activity before applying those assignments so a forgotten voice session does not quietly keep the dongle busy.
 
-The live RF display supports frequency divisions, hover measurement with **MHz, dBFS and frequency offset**, spectrum/waterfall click-to-tune, selectable tuning steps and `− / +` fine tuning. Auto Gain/manual tuner gain and RF-power squelch remain available. Below 25 MHz the existing Q-branch direct-sampling path is used; above it the normal tuner path is used. Receiver Manager retains the handover and restores the exact pre-start service state after Stop or failure.
+## 🗺️ A little extra around Rotterdam
 
-### Mission Control
+Some development screenshots may show **VTS Rijnmond sectors and VHF channels** on the AIS-catcher map.
 
-Mission Control is the operational cockpit: receiver-specific Mission Queue, next mission for SDR1/SDR2, scheduler controls, stop controls, Live Event Timeline and the read-only Execution Journal.
+That overlay is a separate EyeVisionsNL project built around public Rijkswaterstaat VTS data. It is not required for SDRCC and is not part of AIS-catcher itself.
 
-![Mission Control](docs/screenshots/mission-control.png)
+It is simply one of those *“wouldn't it be useful if...”* side projects that grew around the station. 😄
 
-### Mission Planner
+## ❤️ Projects that make SDRCC possible
 
-Mission Planner combines pass prediction, per-satellite planning policy, receiver assignment, conflict detection and the final planning decision. Each satellite can have its own downlink, minimum peak elevation, rising start angle and falling close angle.
+SDRCC stands on the shoulders of some excellent open-source projects. These are independent projects with their own authors, licenses and communities — and they deserve the credit.
 
-![Mission Planner](docs/screenshots/mission-planner.png)
-
-### Mission Operations
-
-Mission Operations is the live and result workspace. During a mission it presents active receiver details; outside a mission it keeps historical products available. Decoded Weather products can be browsed directly from the recording library and result viewer.
-
-![Mission Operations](docs/screenshots/mission-operations.png)
-
-### Mission History
-
-Mission History is the persistent record of completed, failed, no-sync and cancelled missions. It exposes mission quality, receiver/frequency/pipeline metadata, files, telemetry and decoded images without turning historical data into active runtime state.
-
-![Mission History](docs/screenshots/mission-history.png)
-
-### Mission Analytics
-
-Mission Analytics aggregates stored mission history into receiver and satellite performance, Peak SNR trends, images per mission, result/quality distributions and **RF Gain vs Peak SNR**. Historical Auto Gain is shown as `Auto Gain`; older records without gain metadata remain explicitly unknown.
-
-![Mission Analytics](docs/screenshots/mission-analytics.png)
-
-### Logs
-
-The Logs page provides the operational log view for SDRCC and its relevant mission/runtime sources. Runtime log retention rotates the legacy-compatible `logs/sdrcc.log` at 10 MiB with three retained backups.
-
-## Architecture and authority
-
-SDRCC follows a single-owner rule: every operational state or hardware action has one authority. UI pages and observer components may project that state, but must not create a competing truth.
-
-```text
-Pass Prediction / Planning Policy
-              ↓
-       Mission Scheduler
-       + Mission Queue
-              ↓
-         Mission Engine
-              ↓
-        Receiver Manager
-        ↙             ↘
- Receiver handover   Execution/runtime adapters
-        ↓                    ↓
- AIS / ADS-B / Radio Receiver / Voice / SatDump / Capture
-              ↓
- Mission History · Analytics · Operations · Journal
-```
-
-Core boundaries:
-
-| Concern | Authority |
+| Project | What SDRCC uses it for |
 |---|---|
-| Physical receiver identity / serial | Receiver Registry |
-| Persistent receiver roles | Station assignment configuration |
-| Receiver reservation, handover and exact restoration | Receiver Manager |
-| Future mission queue and scheduler mode | Mission Scheduler |
-| Active mission lifecycle and result | Mission Engine |
-| Hardware/backend execution | Existing bounded plugin/adapter/backend |
-| Historical mission records | Mission History |
-| Historical aggregation | Mission Analytics |
-| Execution lifecycle observation | Execution Journal — observer only |
-| UI/API presentation | Dashboard — not an independent state authority |
+| [SatDump](https://github.com/SatDump/SatDump) | Satellite demodulation, decoding and METEOR LRPT products |
+| [AIS-catcher](https://github.com/jvde-github/AIS-catcher) | AIS reception, decoding, statistics and vessel viewer |
+| [AIS-catcher-control](https://github.com/jvde-github/AIS-catcher-control) | AIS-catcher management/control tooling |
+| [readsb](https://github.com/wiedehopf/readsb) | ADS-B reception and aircraft data |
+| [RTLSDR-Airband](https://github.com/rtl-airband/RTLSDR-Airband) | Marine and Airband Traffic Voice backend |
+| [librtlsdr / rtl-sdr](https://github.com/steve-m/librtlsdr) | Access to RTL2832U-based SDR receivers |
 
-Radio Receiver and Traffic Voice reuse these boundaries. Neither introduces a second receiver registry, lock mechanism or service controller.
+If SDRCC is useful to you, please have a look at the upstream projects too. ❤️
 
-## Mission lifecycle
+## 🔧 Getting started
 
-| Moment | Action |
-|---|---|
-| T-5 min | Preflight and policy checks |
-| T-90 s | Prepare receiver and dependencies |
-| T-30 s | Reserve receiver and capture restore context |
-| T-0 | Start capture/decoder execution |
-| During pass | Update measured status, events and telemetry |
-| After LOS | Finish processing and classify the result |
-| Completion | Archive history and restore/release the receiver |
+SDRCC is developed and tested on **Ubuntu Linux x86-64**. Ubuntu Desktop is the main development/test environment; Ubuntu Server can also be used when the dashboard is operated remotely.
 
-## Runtime data and retention
+The full SDRCC workload is intended for a small x86-64 PC rather than a Raspberry Pi. Raspberry Pi OS is used for some separate EyeVisionsNL AIS experiments and companion projects, but is not the reference SDRCC runtime.
 
-Mission History remains the manual whole-mission deletion authority.
+### Fresh installation
 
-For successful ISS Voice captures, SDRCC may remove `recording.iq` only after WAV validation and successful receiver-context restoration. Failed or incomplete missions retain raw IQ for diagnosis. Setting `iss_voice.storage.keep_raw_iq: true` disables automatic IQ removal.
-
-The main SDRCC runtime log rotates at 10 MiB with three retained backups.
-
-## Important services
-
-| Service | Purpose |
-|---|---|
-| `sdrcc.service` | SDRCC Flask dashboard and runtime |
-| `ais-catcher.service` | Continuous AIS reception |
-| `ais-catcher-control.service` | AIS-Catcher maintenance/control interface |
-| `readsb.service` | Continuous ADS-B reception |
-| `sdrcc-traffic-voice.service` | Selected Marine NFM or Airband AM reception |
-
-External receiver services are deliberately not enabled automatically by the v1 installer provisioning stage.
-
-## v1.0 installation foundation
-
-v0.56.0j/k introduced the generic installer and external provisioning foundation. The current SDRCC naming keeps the established technical identifiers.
-
-Important installer properties:
-
-- Default project location: `<install-user-home>/SDRCC`.
-- No reference-user or reference-city values are embedded in the installer.
-- RTL-SDR identity is persisted by serial, never by USB index.
-- SDRCC service units, Traffic Voice service, sudoers boundary and receiver-role helper are reproducible from repository sources.
-- Third-party provisioning is pinned and validated.
-- Provisioning installs software but does not take receiver/service authority away from SDRCC.
-- Uninstall removes SDRCC source, configuration, runtime data, logs and system integration.
-- External radio applications are removed only when the root-owned installation receipt shows that `install.sh` added them; shared Ubuntu packages are preserved.
-- Installation and provisioning fail closed when required validation fails.
-
-### Pinned external reference stack
-
-| Component | Current pinned reference |
-|---|---|
-| SatDump | Ubuntu `satdump` + `satdump-data`; Ubuntu 26.04 reference package 1.2.2+gb79af48-2 |
-| readsb | `wiedehopf/readsb`, commit `cc0d099`, Debian package with RTL-SDR support |
-| AIS-catcher | official installer pinned to release `v0.70` |
-| AIS-catcher-control | official installer, validated as release `v0.1` before execution |
-| RTLSDR-Airband | tag `v5.2.0`, commit `61c5c4061967752da6b491a924664d72184b38fa`, SDRCC Auto Gain and configurable scan-interval patches |
-
-`provision_external.sh --check` is read-only and `--plan` prints the pinned provisioning plan. `install.sh --skip-third-party` is intended only for systems where the complete reference stack is already present and passes validation.
-
-The interactive installer opens an AIS setup stage using AIS-catcher's own managed-mode wizard. Open the displayed address (normally port 8118), choose one RTL-SDR and the desired outputs, save the wizard, then return to the terminal and press Enter. Passwords and sharing choices are entered directly in AIS-catcher. A missing receiver or a skipped wizard is reported as deferred, not configured.
-
-After setup, the installer stops AIS-catcher, its legacy control service, readsb and Traffic Voice, and verifies that their boot autostart is disabled. SDRCC itself remains enabled at boot and controls receiver services on demand. An installed AIS-catcher binary with managed-mode (`-E`) support is required; older binaries produce an explicit error without reinstalling them silently.
-
-To finish AIS setup on an existing installation, or after choosing **d** to defer:
-
-```bash
-cd ~/SDRCC
-./install.sh --ais-setup
-```
-
-This explicit setup command temporarily stops SDRCC and receiver services; stop active missions and Radio Receiver sessions first. Ordinary updates preserve the existing AIS configuration and do not run the wizard. Non-interactive clean installations defer the browser wizard when AIS is not configured.
-
-### Install on Ubuntu
-
-Install Ubuntu 26.04.1 LTS 64-bit (AMD64), then run the installer as the normal Ubuntu user without putting `sudo` in front of `install.sh`. The script requests `sudo` itself when system changes are needed.
-
-During a fresh installation the installer clearly asks for five station values: station name, location/city, latitude, longitude and altitude above sea level. Latitude, longitude and altitude are used by satellite pass planning, Radio View and station-relative Doppler correction. Use decimal degrees with a dot. The installer shows a summary for confirmation before saving the values to `config/station.yaml`.
-
-Fresh installation from GitHub:
+Run the installer as your normal Ubuntu user. Do **not** put `sudo` in front of `./install.sh`; the installer requests elevated privileges itself when needed.
 
 ```bash
 sudo apt-get update
@@ -297,131 +147,66 @@ cd ~/SDRCC
 ./install.sh
 ```
 
-### Existing installations and the v0.56.0w backend
+During installation SDRCC asks for the station name, location, latitude, longitude and altitude. These values are used for station-relative functions such as satellite pass planning.
 
-The packaged update workflow preserves station settings, receiver bindings and runtime data, and requires a source directory outside `~/SDRCC`. Its current version gate still accepts only `0.56.0p` through `0.56.0t`; it is not a general updater for the newer releases. The update path also does not rebuild RTLSDR-Airband automatically.
+The installer also guides the AIS-catcher setup. Receiver hardware can be configured later if the SDRs are not connected during installation.
 
-After updating an existing checkout to v0.56.0w, stop Traffic Voice in the dashboard and run the dedicated backend rebuild as the normal Ubuntu user:
+### Existing installation
+
+Current SDRCC installations include the managed updater in **System → Advanced Maintenance**. It checks the published SDRCC update metadata, shows the available version and release notes, and runs the managed update workflow when you explicitly start it.
+
+Local station settings, receiver bindings and runtime data are kept outside the code replacement path.
+
+### AIS setup later
+
+If AIS setup was deferred during installation:
 
 ```bash
 cd ~/SDRCC
-./scripts/install/rebuild_rtlsdr_airband_scan_speed.sh
+./install.sh --ais-setup
 ```
 
-The script builds the pinned RTLSDR-Airband source with both SDRCC patches and requests `sudo` to install it. Start the desired Traffic Voice mode again from the dashboard after completion. Pulling the application code alone does not add scan-speed support to an older installed backend.
+Stop active missions and Radio Receiver sessions before running the explicit AIS setup workflow.
 
-An update does not ask for or replace latitude, longitude and altitude. Change an existing location in **System → Advanced Maintenance → Home Position**.
-
-### Uninstall from Ubuntu
-
-For an installation made with the current `install.sh`:
+### Uninstall
 
 ```bash
 ~/SDRCC/uninstall.sh
 ```
 
-This permanently removes SDRCC, including its source tree, virtual environment, configuration, data, logs, services, sudoers rules and privileged helper. External radio applications are removed only when the installation receipt proves that SDRCC installed them.
+The receipt-aware uninstall removes SDRCC and removes externally provisioned radio applications only when the installation receipt shows that SDRCC installed them. Shared Ubuntu packages are preserved.
 
-For an older installation without that receipt, use the following command only when SatDump, readsb, AIS-catcher, AIS-catcher-control and the SDRCC RTLSDR-Airband build must also be removed:
+## 🖥️ Dashboard
 
-```bash
-~/SDRCC/uninstall.sh --purge-external
-```
+The navigation brings the station together in one place:
 
-Generic Ubuntu/build packages are deliberately preserved because other software on the mini PC may use them.
+`System · Radio Control · Radio View · Traffic Voice · Radio Receiver · Mission Control · Mission Planner · Mission Operations · Mission History · Mission Analytics · Logs`
 
-## Third-party software and credits
+**System** handles health, detected hardware, receiver bindings and maintenance.
 
-SDRCC coordinates and integrates several independent open-source projects. Those projects remain separate works with their own authors, licenses and support channels.
+**Radio Control** shows receiver status, assignments and RF settings.
 
-| Project | Role in the SDRCC reference stack | Upstream |
-|---|---|---|
-| SatDump | Satellite demodulation and decoding, including METEOR LRPT | https://github.com/SatDump/SatDump |
-| AIS-catcher | AIS reception, decoding, statistics and local vessel viewer | https://github.com/jvde-github/AIS-catcher |
-| AIS-catcher-control | Companion management/control layer for AIS-catcher | https://github.com/jvde-github/AIS-catcher-control |
-| readsb | ADS-B reception and aircraft data | https://github.com/wiedehopf/readsb |
-| RTLSDR-Airband | Marine/Airband Traffic Voice backend in the v1 reference stack | https://github.com/rtl-airband/RTLSDR-Airband |
-| librtlsdr / rtl-sdr | RTL2832U receiver access used by SDRCC and supporting tools | https://github.com/steve-m/librtlsdr |
+**Mission History & Analytics** keep the technical detail available without turning the README into an operations manual.
 
-SDRCC does not claim authorship of these upstream projects. Where the installer provisions an external component, the pinned reference version or commit is documented and validated by the provisioning scripts. See each upstream project for its license, source, documentation and attribution requirements.
+The deeper architecture, validation notes and version-specific implementation details live in the [docs](docs/) directory.
 
-## Dashboard access
+## 🧪 Still evolving
 
-The local dashboard currently listens on:
+SDRCC is an active project and is currently on the **v0.56.0x / v1.0 preparation** development line.
 
-```text
-http://127.0.0.1:8080
-```
+A lot of its features came from actually using the station: receivers fighting over the same dongle, wondering which vessel was talking, missing a satellite pass, wanting to borrow the ADS-B receiver as an ordinary radio...
 
-Basic runtime check:
+Usually the next feature starts with:
 
-```bash
-systemctl status sdrcc.service --no-pager -l
-curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/api/status
-```
+**“Wouldn't it be nice if...”**
 
-## Selected API endpoints
+...and then somehow turns into another button. 😄
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/status` | General SDRCC status |
-| `GET /api/mission-operations` | Aggregated operational projection |
-| `GET /api/mission-queue` | Receiver-specific planned missions |
-| `GET /api/mission-engine` | Active Mission Engine status |
-| `GET /api/mission-scheduler` | Scheduler status and mode |
-| `GET /api/automation-controller` | Automation projection |
-| `GET /api/receiver-contexts` | Receiver assignments/default contexts |
-| `GET /api/receiver-runtime` | Read-only receiver runtime |
-| `GET /api/receiver-monitor` | Receiver/AIS/ADS-B/mission statistics |
-| `GET /api/traffic-voice` | Traffic Voice configuration and live status |
-| `POST /api/traffic-voice/action` | Bounded Traffic Voice actions/settings |
-| `GET /api/live-rf` | Live decoder/RF telemetry |
-| `GET /api/execution-journal` | Read-only execution lifecycle |
-| `GET /api/mission-history` | Stored missions/results |
-| `GET /api/capture-status` | Latest available image product |
+Development happens on the `develop` branch first. Changes are reviewed and validated before they move to `main`.
 
-The endpoint table is intentionally a selected operator-facing overview, not a complete API contract.
+---
 
-## Project structure
-
-```text
-SDRCC/
-├── config/                     # Station, receiver and feature configuration
-├── core/                       # Planning, mission, receiver and execution logic
-├── dashboard/                  # Flask API and web interface
-├── data/                       # TLE, state, recordings and mission results
-├── docs/                       # Architecture and release documentation
-│   └── screenshots/            # README screenshots
-├── scripts/                    # Installer, validators and maintenance tools
-├── README.md
-└── VERSION
-```
-
-## Development status
-
-The active development branch is `develop`. Update and rollback instructions for this naming release are in the [v0.56.0x release notes](docs/sdrcc-branding-v0560x.md).
-
-The current development line is **v0.56.0x / v1.0 preparation**. This release restores the SDRCC name, original logo, favicon, banner and startup screen. It includes flexible receiver bindings, receipt-aware uninstall, AIS managed-mode setup, autostart maintenance controls, safe receiver reassignment with Traffic Voice shutdown, a persistent AIS follow zoom and configurable Traffic Voice scan speed. Clean-machine installer testing remains part of the v1.0 preparation work and is being validated separately; this development line does not yet claim that the final v1.0 installation experience is complete.
-
-SDRCC development follows small, reviewable changes with architecture/duplication checks before new functionality, fail-closed runtime behaviour and validation before commit.
-
-Typical pre-commit checks include:
-
-```bash
-git status
-git diff --check
-python3 -m compileall -q core dashboard scripts
-```
-
-## Documentation status
-
-The `docs/` directory contains architecture references and version-specific implementation notes. Older release notes describe the boundary of the release in which a feature was introduced and may therefore intentionally describe capabilities that were expanded by later releases.
-
-
-## Selected release notes
-
-- [SDRCC name, banner and logo restoration in v0.56.0x](docs/sdrcc-branding-v0560x.md)
-- [Flexible receiver bindings and replacement](docs/flexible-receiver-binding-v0560q-r2.md)
-- [AIS managed-mode installation setup](docs/ais-setup-v0560t-r1.md)
-- [Receiver reassignment with Traffic Voice shutdown](docs/receiver-assignment-traffic-voice-v0560u.md)
-- [Traffic Voice scan speed in v0.56.0w](docs/traffic-voice-scan-speed-v0560w.md)
+<p align="center">
+  <strong>SDRCC — SDR Control Center</strong><br>
+  Radio · AIS · ATIS · ADS-B · Satellites
+</p>
