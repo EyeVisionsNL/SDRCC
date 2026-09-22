@@ -500,6 +500,7 @@
     max-height: 360px;
     object-fit: contain;
     border-radius: 6px;
+    transform: rotate(180deg);
 }
 
 .history-preview small {
@@ -629,6 +630,7 @@
     object-fit: cover;
     border-radius: 5px;
     background: #020817;
+    transform: rotate(180deg);
 }
 
 .history-gallery-thumb span {
