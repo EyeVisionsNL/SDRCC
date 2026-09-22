@@ -380,6 +380,7 @@
     border: 1px solid rgba(148, 163, 184, .25);
     border-radius: 9px;
     background: #020617;
+    transform: rotate(180deg);
 }
 
 .mission-operations-preview-empty,
@@ -619,6 +620,7 @@
     border: 1px solid rgba(148, 163, 184, .22);
     border-radius: 9px;
     background: #020617;
+    transform: rotate(180deg);
 }
 
 .mission-operations-capture-meta {
