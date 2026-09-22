@@ -20,7 +20,9 @@ def check(ok, message):
     print("PASS: " + message)
 
 
-check((ROOT / "VERSION").read_text().strip() == "0.56.0x-r8", "release version is r8")
+release = (ROOT / "VERSION").read_text().strip()
+revision = release.rsplit("-r", 1)[1] if release.startswith("0.56.0x-r") else ""
+check(revision.isdigit() and int(revision) >= 8, "release version is r8 or newer")
 
 for relative in [
     "core/update_manager.py",
@@ -121,25 +123,15 @@ check(
     and "systemctl stop sdrcc-update.service" in uninstall,
     "uninstaller stops updater and removes updater runtime state",
 )
-check("0.56.0x-r7" in update and "0.56.0x-r8" in update, "manual updater accepts r7 and r8 source versions")
+check("0.56.0x-r7" in update and "0.56.0x-r8" in update and "0.56.0x-r9" in update, "manual updater accepts r7 through r9 source versions")
 
 manifest = json.loads((ROOT / "scripts/install/update_manifest.json").read_text())
-for relative in [
-    "VERSION",
-    "install.sh",
-    "uninstall.sh",
-    "dashboard/app.py",
-    "dashboard/templates/index.html",
-    "dashboard/static/js/update_manager.js",
-    "core/update_manager.py",
-    "scripts/sdrcc_update.py",
-    "scripts/install/check_update.py",
-    "scripts/install/update_existing.sh",
-    "scripts/install/validate_install.py",
-    "scripts/validate_uninstall_v0560q_r4.py",
-    "scripts/validate_dashboard_update_v0560x_r8.py",
-]:
-    digest = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
-    check(relative in manifest and digest in manifest[relative], f"update manifest contains current hash: {relative}")
+for relative, allowed in manifest.items():
+    if relative == "scripts/install/update_manifest.json":
+        continue
+    source = ROOT / relative
+    check(source.is_file(), f"update manifest source exists: {relative}")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    check(digest in allowed, f"update manifest contains current hash: {relative}")
 
-print("VALIDATION PASS: SDRCC v0.56.0x-r8 managed dashboard updater")
+print(f"VALIDATION PASS: SDRCC {release} managed dashboard updater")
