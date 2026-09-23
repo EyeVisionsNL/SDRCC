@@ -22,7 +22,6 @@ from core.device_manager import get_assigned_device, get_device, get_devices
 from core.receiver_registry import resolve_id, resolve_runtime_id
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "data" / "state"
-STATE_DIR.mkdir(parents=True, exist_ok=True)
 STATE_FILE = STATE_DIR / "receiver_manager.json"
 _LOCK = RLock()
 
@@ -165,6 +164,7 @@ def _load_state() -> dict[str, Any]:
 
 def _save_state(state: dict[str, Any]) -> None:
     normalised = _normalise_state(state)
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     temp = STATE_FILE.with_suffix(".json.tmp")
     temp.write_text(json.dumps(normalised, indent=2, ensure_ascii=False), encoding="utf-8")
     temp.replace(STATE_FILE)
