@@ -40,7 +40,7 @@ AIS_SHIPS_URLS = (
     "http://127.0.0.1:8119/ships.json",
     "http://localhost:8119/ships.json",
 )
-AIS_VESSEL_MAX_AGE_SECONDS = 600.0
+AIS_VESSEL_MAX_AGE_SECONDS = 1800.0
 
 _rate_lock = threading.RLock()
 _rate_state: dict[str, tuple[float, int]] = {}
