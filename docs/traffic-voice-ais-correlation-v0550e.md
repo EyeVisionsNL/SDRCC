@@ -43,7 +43,7 @@ A vessel is selected only when all conditions hold:
    246, letter code 01–26) can instead match the exact trimmed, upper-case
    `P` + letter + four digits call sign;
 3. AIS-Catcher reports `validated = 1`;
-4. `last_signal` is between 0 and 600 seconds (or the caller's explicit limit);
+4. `last_signal` is between 0 and 1800 seconds (or the caller's explicit limit);
 5. MMSI and latitude/longitude are valid.
 
 No match, duplicate call signs, stale data, an unvalidated record or an invalid
