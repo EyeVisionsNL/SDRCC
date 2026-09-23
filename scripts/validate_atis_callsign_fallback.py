@@ -19,6 +19,14 @@ def barendsz(**changes):
 
 
 class CallsignFallbackTests(unittest.TestCase):
+    def test_thirty_minute_boundary(self):
+        for code in ("9244044821", "9205044821", "9205595190"):
+            for age in (31, 601, 1799, 1800, 1801):
+                with self.subTest(code=code, age=age):
+                    result = self.match(barendsz(last_signal=age), code=code)
+                    self.assertEqual(result["matched"], age <= 1800)
+                    self.assertEqual(result["status"], "matched" if age <= 1800 else "stale")
+
     def match(self, *ships, code="9244044821", **kwargs):
         return monitor.match_ais_atis(code, payload={"ships": list(ships)}, **kwargs)
 
@@ -33,7 +41,7 @@ class CallsignFallbackTests(unittest.TestCase):
 
     def test_fallback_keeps_validation(self):
         for changes, status in [
-            ({"last_signal": 601}, "stale"),
+            ({"last_signal": 1801}, "stale"),
             ({"last_signal": None}, "stale"),
             ({"validated": 0}, "not_validated"),
             ({"lat": 91}, "invalid_position"),
@@ -63,7 +71,7 @@ class CallsignFallbackTests(unittest.TestCase):
         self.assertEqual(result["match_method"], "callsign_standard")
 
     def test_standard_rejection_not_bypassed(self):
-        standard = barendsz(mmsi=244595190, last_signal=601)
+        standard = barendsz(mmsi=244595190, last_signal=1801)
         self.assertEqual(self.match(standard, barendsz())["status"], "stale")
         self.assertEqual(self.match(standard, barendsz(mmsi=244595191), barendsz())["status"], "ambiguous")
 
