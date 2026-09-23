@@ -23,7 +23,8 @@
     "5c03fa2b1d34420ee9422c4c54c2a0cee6e80defdcbc9cbfca121671d378a029",
     "1224c1eba1dc600f2c7cf8d77360c25f5b38ebdf80cf6a3241a751dc6a769db9",
     "9dee482a873c71a39a01d7c8f572ba06200ccf4b3036017b4db0375b9eb05bc4",
-    "9f092d9840a25629d3179ee1c8f44a387c4a9e3c92fe6eaa1494e76d04f22a49"
+    "9f092d9840a25629d3179ee1c8f44a387c4a9e3c92fe6eaa1494e76d04f22a49",
+    "c399b4d28b00aad518e3f62a7f8e3649eb9d88cb44c96e8deac5bb71e5e9d51f"
   ],
   "core/device_manager.py": [
     "dd5d589b6d7660623df7f5adf3324716b43a1e67d31ef3ea8f43688d42b72797",
@@ -312,5 +313,9 @@
   "dashboard/static/css/mission_recordings.css": [
     "73d3560553e40719e2274b29947e13c6fde4257614e770d06aaa6bd29937fa49",
     "16a0dc178bfb89d98d5be6874dd1ffeaec7cb8e290872b04f44c6eaecf1a6086"
+  ],
+  "dashboard/static/js/traffic_voice.js": [
+    "ca1cd8371dfdf53494b33dac7a332bea67b7e7e3cda82b4727c1d28e60eaa76e",
+    "c6d0f9febc3a9755d35efa2499999d9aae477f53fbffd84a7c0d208767eee862"
   ]
 }
