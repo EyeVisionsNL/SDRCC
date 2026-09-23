@@ -417,6 +417,20 @@ def match_ais_atis(
             candidates.append((ship, method))
     result["candidate_count"] = len(candidates)
     if not candidates:
+        # Dutch ATIS can retain its identity after a vessel changes AIS flag.
+        # Use the same bounded P + letter + four digits projection as the
+        # decoder; never guess prefixes for foreign ATIS identities. Only try
+        # this when the standard match has no candidates, so ambiguity or a
+        # rejected standard candidate cannot be bypassed by the fallback.
+        letter_code = int(normalized[4:6])
+        if normalized[1:4] in {"244", "245", "246"} and 1 <= letter_code <= 26:
+            callsign = f"P{chr(64 + letter_code)}{normalized[6:]}"
+            fallback = match_ais_callsign(
+                callsign, payload=payload, max_age_seconds=max_age_seconds,
+            )
+            result.update(fallback)
+            result["source"] = source
+            result["match_method"] = "callsign_exact_fallback"
         return result
     if len(candidates) != 1:
         result["status"] = "ambiguous"

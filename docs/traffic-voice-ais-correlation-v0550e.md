@@ -37,15 +37,27 @@ speaker` and enables `Show on full AIS map` in Traffic Voice.
 
 A vessel is selected only when all conditions hold:
 
-1. the ATIS result is fresh and contains a call sign;
-2. exactly one live AIS record has the same trimmed, upper-case call sign;
+1. the validated ATIS result is fresh;
+2. exactly one AIS record matches the standard ATIS identity derived from its
+   MMSI/call sign. If no standard candidate exists, Dutch ATIS (MID 244, 245 or
+   246, letter code 01–26) can instead match the exact trimmed, upper-case
+   `P` + letter + four digits call sign;
 3. AIS-Catcher reports `validated = 1`;
-4. `last_signal` is between 0 and 30 seconds;
+4. `last_signal` is between 0 and 600 seconds (or the caller's explicit limit);
 5. MMSI and latitude/longitude are valid.
 
 No match, duplicate call signs, stale data, an unvalidated record or an invalid
 position remain explicit non-matches. SDRCC never chooses the nearest vessel as
 a substitute.
+
+The fallback supports vessels such as BARENDSZ (`PD4821`) whose AIS MMSI is
+Belgian (`205595190`) while their Dutch ATIS identity is retained. It reuses
+the same feed and validation checks and reports
+`match_method: callsign_exact_fallback`. It never overrides an ambiguous or
+rejected standard candidate and does not reconstruct foreign call signs.
+Run `python3 scripts/validate_atis_callsign_fallback.py` for the offline
+regression tests. The BARENDSZ test's ATIS code is reconstructed from PD4821;
+the original received packet was not retained.
 
 ## Returned projection
 
