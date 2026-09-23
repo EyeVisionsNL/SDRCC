@@ -689,7 +689,6 @@
         byId("traffic-voice-channel-list-file")?.addEventListener("change", event => importChannelList(event.target.files?.[0]));
         byId("traffic-voice-open-squelch")?.addEventListener("click", async () => {
             const open = Boolean((lastPayload?.receiver_settings || {}).open_squelch);
-            if (!open) await startAudio();
             await applySettings({open_squelch: !open});
             if (!open) await startAudio();
         });
