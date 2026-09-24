@@ -144,9 +144,54 @@ def get_status() -> dict[str, Any]:
         }
 
 
+class MarineSpeechFilter:
+    """3 kHz fourth-order Butterworth low-pass for browser PCM only.
+
+    Two biquads retain their state across chunks. No dependencies or changes
+    to demodulation, de-emphasis, squelch or the ATIS observer are required.
+    """
+
+    def __init__(self, sample_rate: int) -> None:
+        if sample_rate <= 6000:
+            raise ValueError("Marine speech filter needs a sample rate above 6 kHz")
+        omega = 2.0 * math.pi * 3000.0 / sample_rate
+        cosine, sine = math.cos(omega), math.sin(omega)
+        self.sections = []
+        for q in (0.541196100146197, 1.306562964876377):
+            alpha = sine / (2.0 * q)
+            a0 = 1.0 + alpha
+            b0 = (1.0 - cosine) / (2.0 * a0)
+            self.sections.append((b0, 2.0 * b0, b0,
+                                  -2.0 * cosine / a0, (1.0 - alpha) / a0))
+        self.reset()
+
+    def reset(self) -> None:
+        self.state = [[0.0, 0.0] for _ in self.sections]
+
+    def process(self, pcm: bytes) -> bytes:
+        output = bytearray(len(pcm))
+        for index, (sample,) in enumerate(struct.iter_unpack("<h", pcm)):
+            value = float(sample)
+            for coefficients, state in zip(self.sections, self.state):
+                b0, b1, b2, a1, a2 = coefficients
+                filtered = b0 * value + state[0]
+                state[0] = b1 * value - a1 * filtered + state[1]
+                state[1] = b2 * value - a2 * filtered
+                value = filtered
+            struct.pack_into("<h", output, index * 2,
+                             max(-32768, min(32767, round(value))))
+        return bytes(output)
+
+
 class LiveWavStream:
     def __init__(self) -> None:
         global _active_clients, _total_clients
+        self._closed = True
+        self._sample_rate = _settings()[2]
+        self._speech_filter = MarineSpeechFilter(self._sample_rate)
+        self._marine_audio = False
+        self._mode_check_at = 0.0
+        self._last_chunk_at = 0.0
         ensure_listener()
         with _lock:
             if _active_clients >= MAX_CLIENTS:
@@ -165,14 +210,31 @@ class LiveWavStream:
             raise StopIteration
         if not self._header_sent:
             self._header_sent = True
-            return _wav_header(_settings()[2])
+            return _wav_header(self._sample_rate)
+        chunk, discontinuity = self._next_chunk()
+        now = time.monotonic()
+        if now >= self._mode_check_at:
+            marine = config.get_traffic_voice_config().get("selected_mode") == "marine_ais"
+            if marine != self._marine_audio:
+                self._speech_filter.reset()
+            self._marine_audio = marine
+            self._mode_check_at = now + 1.0
+        if discontinuity or now - self._last_chunk_at > 0.5:
+            self._speech_filter.reset()
+        self._last_chunk_at = now
+        # Filter outside the shared queue lock; ATIS consumes the original
+        # float32 datagrams in _listen and never sees this per-client audio.
+        return self._speech_filter.process(chunk) if self._marine_audio else chunk
+
+    def _next_chunk(self) -> tuple[bytes, bool]:
         deadline = time.monotonic() + 12.0
         with _lock:
             while not self._closed:
                 for sequence, chunk in _chunks:
                     if sequence >= self._next_sequence:
+                        discontinuity = sequence != self._next_sequence
                         self._next_sequence = sequence + 1
-                        return chunk
+                        return chunk, discontinuity
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     self.close()
