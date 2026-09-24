@@ -410,6 +410,23 @@ def match_ais_atis(
         result["status"] = "source_unavailable"
         return result
     ships = _extract_list(payload, ("ships", "vessels", "targets", "data"))
+    callsign_count = sum(1 for ship in ships if _normalized_callsign(ship.get("callsign")))
+    validated_count = sum(1 for ship in ships if _safe_number(ship.get("validated")) == 1)
+    fresh_count = sum(
+        1
+        for ship in ships
+        if (
+            (age := _first_number(ship, ("last_signal", "last_signal_seconds", "age"))) is not None
+            and 0 <= age <= float(max_age_seconds)
+        )
+    )
+    result.update({
+        "ais_vessel_count": len(ships),
+        "ais_with_callsign_count": callsign_count,
+        "ais_without_callsign_count": len(ships) - callsign_count,
+        "ais_validated_count": validated_count,
+        "ais_fresh_count": fresh_count,
+    })
     candidates: list[tuple[dict[str, Any], str]] = []
     for ship in ships:
         method = _atis_codes_for_ais_vessel(ship).get(normalized)

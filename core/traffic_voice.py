@@ -9,12 +9,14 @@ from pathlib import Path
 from io import BytesIO
 import re
 import subprocess
+import threading
 from typing import Any, Callable
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 
 from core import config as config_core
+from core import logger as sdrcc_logger
 from core import plugin_registry, receiver_registry
 
 
@@ -43,6 +45,10 @@ _METRIC_RE = re.compile(
     r'^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)\{(?P<labels>[^}]*)\}\s+(?P<value>[-+0-9.eE]+)$'
 )
 _LABEL_RE = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:\\.|[^"])*)"')
+
+_ATIS_AIS_LOG_LOCK = threading.Lock()
+_ATIS_AIS_LAST_EVENT_ID: str | None = None
+_ATIS_AIS_LAST_STATUS: str | None = None
 
 
 def _now() -> str:
@@ -665,6 +671,67 @@ def render_rtlsdr_airband_config() -> str:
     ))
 
 
+def _log_atis_ais_result_once(
+    latest_atis: dict[str, Any],
+    ais_match: dict[str, Any],
+) -> None:
+    """Write useful ATIS/AIS misses to the existing SDRCC log without poll spam."""
+    global _ATIS_AIS_LAST_EVENT_ID, _ATIS_AIS_LAST_STATUS
+
+    atis_code = str(latest_atis.get("atis_code") or "").strip()
+    if not atis_code:
+        return
+    received_at = str(latest_atis.get("received_at") or "").strip()
+    event_id = f"{atis_code}|{received_at or 'unknown-time'}"
+    status = str(ais_match.get("status") or "unknown").strip().lower()
+    matched = bool(ais_match.get("matched"))
+
+    with _ATIS_AIS_LOG_LOCK:
+        previous_event = _ATIS_AIS_LAST_EVENT_ID
+        previous_status = _ATIS_AIS_LAST_STATUS
+        if previous_event == event_id and previous_status == status:
+            return
+        _ATIS_AIS_LAST_EVENT_ID = event_id
+        _ATIS_AIS_LAST_STATUS = status
+
+    # Successful first-pass matches are already visible in Traffic Voice and
+    # would make the general log noisy on busy marine channels. Log failures,
+    # status changes and a later recovery of the same ATIS event.
+    recovered = previous_event == event_id and previous_status not in (None, "matched") and matched
+    if matched and not recovered:
+        return
+
+    projected_callsign = str(latest_atis.get("callsign") or "-").strip() or "-"
+    vessel_count = ais_match.get("ais_vessel_count")
+    with_callsign = ais_match.get("ais_with_callsign_count")
+    without_callsign = ais_match.get("ais_without_callsign_count")
+    fresh_count = ais_match.get("ais_fresh_count")
+    candidate_count = ais_match.get("candidate_count")
+    base = (
+        "Traffic Voice ATIS/AIS"
+        f" | ATIS={atis_code}"
+        f" | projected_callsign={projected_callsign}"
+        f" | status={status.upper()}"
+        f" | AIS_vessels={vessel_count if vessel_count is not None else '-'}"
+        f" | with_callsign={with_callsign if with_callsign is not None else '-'}"
+        f" | without_callsign={without_callsign if without_callsign is not None else '-'}"
+        f" | fresh={fresh_count if fresh_count is not None else '-'}"
+        f" | candidates={candidate_count if candidate_count is not None else '-'}"
+    )
+    if matched:
+        vessel = str(ais_match.get("shipname") or "-").strip() or "-"
+        callsign = str(ais_match.get("callsign") or "-").strip() or "-"
+        mmsi = str(ais_match.get("mmsi") or "-").strip() or "-"
+        method = str(ais_match.get("match_method") or "-").strip() or "-"
+        sdrcc_logger.info(
+            base
+            + f" | recovered=YES | vessel={vessel} | callsign={callsign}"
+            + f" | MMSI={mmsi} | method={method}"
+        )
+    else:
+        sdrcc_logger.warning(base)
+
+
 def get_snapshot(
     *,
     service_reader: Callable[[str], dict[str, Any]] | None = None,
@@ -767,6 +834,7 @@ def get_snapshot(
                 from core import receiver_monitor
                 ais_matcher = receiver_monitor.match_ais_atis
             ais_match = ais_matcher(atis_code)
+            _log_atis_ais_result_once(latest_atis, ais_match)
             if ais_match.get("matched"):
                 callsign = ais_match.get("callsign")
                 vessel = ais_match.get("shipname") or callsign or atis_code

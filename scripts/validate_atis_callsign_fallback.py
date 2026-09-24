@@ -30,6 +30,18 @@ class CallsignFallbackTests(unittest.TestCase):
     def match(self, *ships, code="9244044821", **kwargs):
         return monitor.match_ais_atis(code, payload={"ships": list(ships)}, **kwargs)
 
+    def test_match_diagnostics_expose_missing_callsigns(self):
+        result = self.match(
+            barendsz(callsign=""),
+            barendsz(mmsi=205595191, callsign="PD4822", last_signal=31),
+        )
+        self.assertFalse(result["matched"])
+        self.assertEqual(result["ais_vessel_count"], 2)
+        self.assertEqual(result["ais_with_callsign_count"], 1)
+        self.assertEqual(result["ais_without_callsign_count"], 1)
+        self.assertEqual(result["ais_validated_count"], 2)
+        self.assertEqual(result["ais_fresh_count"], 2)
+
     def test_cross_flag_match(self):
         for mid in (244, 245, 246):
             with self.subTest(mid=mid):
@@ -90,6 +102,46 @@ class CallsignFallbackTests(unittest.TestCase):
         self.assertEqual(result["atis_code"], "9244044821")
         with patch.object(monitor, "_read_ais_ships", return_value=(None, None)):
             self.assertEqual(monitor.match_ais_atis("9244044821")["status"], "source_unavailable")
+
+    def test_unmatched_atis_is_logged_once_and_recovery_is_logged(self):
+        latest = {
+            "fresh": True,
+            "atis_code": "9244044821",
+            "callsign": "PD4821",
+            "received_at": "2026-09-24T18:00:00+02:00",
+        }
+        missing = {
+            "matched": False,
+            "status": "not_found",
+            "candidate_count": 0,
+            "ais_vessel_count": 37,
+            "ais_with_callsign_count": 25,
+            "ais_without_callsign_count": 12,
+            "ais_fresh_count": 34,
+        }
+        recovered = {
+            **missing,
+            "matched": True,
+            "status": "matched",
+            "candidate_count": 1,
+            "mmsi": "205595190",
+            "callsign": "PD4821",
+            "shipname": "BARENDSZ",
+            "match_method": "callsign_exact_fallback",
+        }
+        with patch.object(traffic_voice.sdrcc_logger, "warning") as warning, patch.object(
+            traffic_voice.sdrcc_logger, "info"
+        ) as info:
+            traffic_voice._ATIS_AIS_LAST_EVENT_ID = None
+            traffic_voice._ATIS_AIS_LAST_STATUS = None
+            traffic_voice._log_atis_ais_result_once(latest, missing)
+            traffic_voice._log_atis_ais_result_once(latest, missing)
+            warning.assert_called_once()
+            self.assertIn("AIS_vessels=37", warning.call_args.args[0])
+            self.assertIn("without_callsign=12", warning.call_args.args[0])
+            traffic_voice._log_atis_ais_result_once(latest, recovered)
+            info.assert_called_once()
+            self.assertIn("recovered=YES", info.call_args.args[0])
 
     def test_traffic_voice_projection(self):
         for fresh in (True, False):
