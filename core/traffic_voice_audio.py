@@ -20,6 +20,8 @@ from core import config
 from core import traffic_voice_atis
 
 
+SPEECH_FILTERS = {"off": None, "light": 3800.0, "normal": 3000.0, "strong": 2400.0}
+
 MAX_CLIENTS = 3
 MAX_CHUNKS = 96
 _lock = threading.Condition(threading.RLock())
@@ -151,10 +153,10 @@ class MarineSpeechFilter:
     to demodulation, de-emphasis, squelch or the ATIS observer are required.
     """
 
-    def __init__(self, sample_rate: int) -> None:
-        if sample_rate <= 6000:
-            raise ValueError("Marine speech filter needs a sample rate above 6 kHz")
-        omega = 2.0 * math.pi * 3000.0 / sample_rate
+    def __init__(self, sample_rate: int, cutoff_hz: float = 3000.0) -> None:
+        if not 0 < cutoff_hz < sample_rate / 2:
+            raise ValueError("Marine speech filter cutoff must be below Nyquist")
+        omega = 2.0 * math.pi * cutoff_hz / sample_rate
         cosine, sine = math.cos(omega), math.sin(omega)
         self.sections = []
         for q in (0.541196100146197, 1.306562964876377):
@@ -184,11 +186,15 @@ class MarineSpeechFilter:
 
 
 class LiveWavStream:
-    def __init__(self) -> None:
+    def __init__(self, speech_filter: str = "normal") -> None:
         global _active_clients, _total_clients
         self._closed = True
+        if speech_filter not in SPEECH_FILTERS:
+            raise ValueError("Unknown speech filter")
+        self._filter_enabled = speech_filter != "off"
         self._sample_rate = _settings()[2]
-        self._speech_filter = MarineSpeechFilter(self._sample_rate)
+        self._speech_filter = MarineSpeechFilter(
+            self._sample_rate, SPEECH_FILTERS[speech_filter] or 3000.0)
         self._marine_audio = False
         self._mode_check_at = 0.0
         self._last_chunk_at = 0.0
@@ -224,7 +230,7 @@ class LiveWavStream:
         self._last_chunk_at = now
         # Filter outside the shared queue lock; ATIS consumes the original
         # float32 datagrams in _listen and never sees this per-client audio.
-        return self._speech_filter.process(chunk) if self._marine_audio else chunk
+        return self._speech_filter.process(chunk) if self._marine_audio and self._filter_enabled else chunk
 
     def _next_chunk(self) -> tuple[bytes, bool]:
         deadline = time.monotonic() + 12.0
@@ -258,5 +264,5 @@ class LiveWavStream:
             pass
 
 
-def stream_wav() -> Iterator[bytes]:
-    return LiveWavStream()
+def stream_wav(speech_filter: str = "normal") -> Iterator[bytes]:
+    return LiveWavStream(speech_filter)

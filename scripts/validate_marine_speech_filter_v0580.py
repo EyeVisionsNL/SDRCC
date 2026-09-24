@@ -73,6 +73,30 @@ def main():
             stream.close()
         assert audio._active_clients == 0
     print('PASS: ATIS input unchanged; only marine playback filtered; airband bypass and mode reset work')
+    levels = []
+    settings['selected_mode'] = 'marine_ais'
+    with patch.object(audio, 'ensure_listener'), patch.object(audio.config, 'get_traffic_voice_config', return_value=settings):
+        for preset in ('off', 'light', 'normal', 'strong'):
+            stream = audio.stream_wav(preset)
+            try:
+                next(stream)
+                audio._sequence += 1
+                audio._chunks.append((audio._sequence, source))
+                filtered = next(stream)
+                if preset == 'off': assert filtered == source
+                levels.append(rms(filtered))
+            finally:
+                stream.close()
+        try:
+            audio.stream_wav('invalid')
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Invalid filter accepted')
+        assert audio._active_clients == 0
+    assert all(a > b for a, b in zip(levels, levels[1:])), levels
+    print('PASS: off is bit-exact; light/normal/strong progressively reduce treble; invalid preset rejected')
+
 
 
 if __name__ == '__main__':

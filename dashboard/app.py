@@ -2859,7 +2859,10 @@ def api_traffic_voice_action():
 def api_traffic_voice_audio_stream():
     """Stream the localhost backend audio bridge as PCM16 WAV."""
     try:
-        generator = traffic_voice_audio.stream_wav()
+        speech_filter = request.args.get("speech_filter", "normal")
+        if speech_filter not in traffic_voice_audio.SPEECH_FILTERS:
+            return jsonify({"ok": False, "error": "Unknown speech filter"}), 400
+        generator = traffic_voice_audio.stream_wav(speech_filter)
         return Response(
             stream_with_context(generator),
             mimetype="audio/wav",

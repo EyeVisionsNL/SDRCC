@@ -12,6 +12,9 @@
     let channelSignature = "";
     let gainSignature = "";
     let audioOperation = 0;
+    const speechFilterStorageKey = "sdrcc.trafficVoice.speechFilter";
+    const speechFilterOptions = ["off", "light", "normal", "strong"];
+    let speechFilter = "normal";
     let aisAutoEnabled = false;
     let lastAutoAisMmsi = "";
     let aisZoom = 14;
@@ -427,7 +430,8 @@
 
         const operation = ++audioOperation;
         audio.volume = Number(byId("traffic-voice-volume")?.value || 0.85);
-        audio.src = streamUrl + (streamUrl.includes("?") ? "&" : "?") + "live=" + Date.now();
+        audio.src = streamUrl + (streamUrl.includes("?") ? "&" : "?") + "live=" + Date.now()
+            + "&speech_filter=" + encodeURIComponent(speechFilter);
 
         try {
             await audio.play();
@@ -445,6 +449,8 @@
         const audio = byId("traffic-voice-audio");
         const button = byId("traffic-voice-audio-toggle");
         const audioState = payload.audio || {};
+        const filterControl = byId("traffic-voice-speech-filter-control");
+        if (filterControl) filterControl.hidden = payload.selected_mode !== "marine_ais";
         text("traffic-voice-audio-state", audioState.stream_state || "WAITING");
         if (!audio) return;
         audio.dataset.streamUrl = audioState.stream_url || "";
@@ -676,6 +682,22 @@
     }
 
     function initialize() {
+        try {
+            const saved = localStorage.getItem(speechFilterStorageKey);
+            if (speechFilterOptions.includes(saved)) speechFilter = saved;
+        } catch (_) { /* Keep the default when browser storage is unavailable. */ }
+        const filterSelect = byId("traffic-voice-speech-filter");
+        if (filterSelect) {
+            filterSelect.value = speechFilter;
+            filterSelect.addEventListener("change", () => {
+                if (!speechFilterOptions.includes(filterSelect.value)) return;
+                speechFilter = filterSelect.value;
+                try { localStorage.setItem(speechFilterStorageKey, speechFilter); } catch (_) {}
+                const audio = byId("traffic-voice-audio");
+                // Reopen only this browser's stream; never restart the receiver.
+                if (audio?.getAttribute("src")) startAudio();
+            });
+        }
         initializeAisZoom();
         document.querySelector('.tab-button[data-tab="traffic-voice"]')
             ?.addEventListener("click", () => window.setTimeout(() => refresh(true), 0));

@@ -42,3 +42,12 @@ sudo systemctl restart sdrcc.service
 Restart browser listening after the service restart. Local station and receiver
 configuration is not part of this change. The update manifest includes both
 the original audio bridge hash and its new hash for subsequent updates.
+
+## 0.58.0-r1 — adjustable listening filter
+
+The Speech filter selector beside Browser volume offers Off (original audio),
+Light (3.8 kHz), Normal (3 kHz, the 0.58.0 default), and Strong (2.4 kHz).
+The choice is saved in browser local storage, with Normal as the default.
+Switching briefly reopens only that browser's stream with the selected filter;
+it does not restart the receiver or change ATIS input. Each client has its own
+filter state. The selector is hidden for airband, which always bypasses filtering.

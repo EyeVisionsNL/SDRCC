@@ -377,7 +377,8 @@
     text-transform: uppercase;
 }
 
-.traffic-voice-receiver-controls select {
+.traffic-voice-receiver-controls select,
+.traffic-voice-audio-controls select {
     width: 100%;
     min-height: 34px;
     padding: 6px 8px;
@@ -844,3 +845,6 @@
     border: 1px solid var(--border-color, #334155);
     border-radius: 5px;
 }
+
+.traffic-voice-audio-controls label[hidden] { display: none; }
+.traffic-voice-audio-controls > span { grid-column: 1 / -1; }
