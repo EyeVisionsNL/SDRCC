@@ -11,6 +11,7 @@
     let lastPayload = null;
     let channelSignature = "";
     let gainSignature = "";
+    let audioOperation = 0;
     let aisAutoEnabled = false;
     let lastAutoAisMmsi = "";
     let aisZoom = 14;
@@ -410,6 +411,7 @@
     function stopAudio() {
         const audio = byId("traffic-voice-audio");
         if (!audio) return;
+        audioOperation += 1;
         audio.pause();
         audio.removeAttribute("src");
         audio.load();
@@ -422,14 +424,19 @@
         const audio = byId("traffic-voice-audio");
         const streamUrl = audio?.dataset.streamUrl || "";
         if (!audio || !streamUrl) return;
+
+        const operation = ++audioOperation;
         audio.volume = Number(byId("traffic-voice-volume")?.value || 0.85);
         audio.src = streamUrl + (streamUrl.includes("?") ? "&" : "?") + "live=" + Date.now();
+
         try {
             await audio.play();
+            if (operation !== audioOperation) return;
             const button = byId("traffic-voice-audio-toggle");
             if (button) button.textContent = "■ Stop audio";
             text("traffic-voice-audio-detail", "Playing the live stream; no artificial duration is shown.");
         } catch (error) {
+            if (operation !== audioOperation || error?.name === "AbortError") return;
             text("traffic-voice-audio-detail", "Browser audio could not start: " + error.message);
         }
     }
