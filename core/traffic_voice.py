@@ -16,7 +16,6 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 
 from core import config as config_core
-from core import logger as sdrcc_logger
 from core import plugin_registry, receiver_registry
 
 
@@ -671,6 +670,16 @@ def render_rtlsdr_airband_config() -> str:
     ))
 
 
+def _write_sdrcc_log(level: str, message: str) -> None:
+    """Import the file logger only in dashboard runtime, never in service pre-start."""
+    from core import logger as sdrcc_logger
+
+    if level == "warning":
+        sdrcc_logger.warning(message)
+    else:
+        sdrcc_logger.info(message)
+
+
 def _log_atis_ais_result_once(
     latest_atis: dict[str, Any],
     ais_match: dict[str, Any],
@@ -723,13 +732,14 @@ def _log_atis_ais_result_once(
         callsign = str(ais_match.get("callsign") or "-").strip() or "-"
         mmsi = str(ais_match.get("mmsi") or "-").strip() or "-"
         method = str(ais_match.get("match_method") or "-").strip() or "-"
-        sdrcc_logger.info(
+        _write_sdrcc_log(
+            "info",
             base
             + f" | recovered=YES | vessel={vessel} | callsign={callsign}"
-            + f" | MMSI={mmsi} | method={method}"
+            + f" | MMSI={mmsi} | method={method}",
         )
     else:
-        sdrcc_logger.warning(base)
+        _write_sdrcc_log("warning", base)
 
 
 def get_snapshot(

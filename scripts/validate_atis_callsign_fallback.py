@@ -129,19 +129,19 @@ class CallsignFallbackTests(unittest.TestCase):
             "shipname": "BARENDSZ",
             "match_method": "callsign_exact_fallback",
         }
-        with patch.object(traffic_voice.sdrcc_logger, "warning") as warning, patch.object(
-            traffic_voice.sdrcc_logger, "info"
-        ) as info:
+        with patch.object(traffic_voice, "_write_sdrcc_log") as write_log:
             traffic_voice._ATIS_AIS_LAST_EVENT_ID = None
             traffic_voice._ATIS_AIS_LAST_STATUS = None
             traffic_voice._log_atis_ais_result_once(latest, missing)
             traffic_voice._log_atis_ais_result_once(latest, missing)
-            warning.assert_called_once()
-            self.assertIn("AIS_vessels=37", warning.call_args.args[0])
-            self.assertIn("without_callsign=12", warning.call_args.args[0])
+            self.assertEqual(write_log.call_count, 1)
+            self.assertEqual(write_log.call_args.args[0], "warning")
+            self.assertIn("AIS_vessels=37", write_log.call_args.args[1])
+            self.assertIn("without_callsign=12", write_log.call_args.args[1])
             traffic_voice._log_atis_ais_result_once(latest, recovered)
-            info.assert_called_once()
-            self.assertIn("recovered=YES", info.call_args.args[0])
+            self.assertEqual(write_log.call_count, 2)
+            self.assertEqual(write_log.call_args.args[0], "info")
+            self.assertIn("recovered=YES", write_log.call_args.args[1])
 
     def test_traffic_voice_projection(self):
         for fresh in (True, False):
