@@ -393,6 +393,15 @@ def worker() -> int:
             )
             source_preflight(source, project, install_user)
 
+            # Optional experiment: dependency failure must not block normal audio.
+            comparison_setup = source / "scripts/install/prepare_audio_comparison.sh"
+            try:
+                result = run(["/bin/bash", comparison_setup, project, "--refresh"], timeout=600)
+                if result.returncode:
+                    print("WARNING: audio comparison dependencies unavailable; speech filter remains usable.", flush=True)
+            except subprocess.TimeoutExpired:
+                print("WARNING: audio comparison setup timed out; speech filter remains usable.", flush=True)
+
             write_status(
                 "backing_up",
                 f"Creating rollback backup for {current}.",
@@ -420,7 +429,6 @@ def worker() -> int:
             )
             deploy_manifest(source, project, backup, install_user, install_group)
             install_privileged_helpers(source, install_user)
-
             latitude, longitude = home_position(project, install_user)
             run(
                 ["/usr/local/sbin/sdrcc-sync-readsb-position", latitude, longitude],

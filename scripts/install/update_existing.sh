@@ -5,11 +5,15 @@ PROJECT_ROOT="$2"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 export PYTHONPATH="$PROJECT_ROOT"
 CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
-[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t || "$CURRENT" == 0.56.0x || "$CURRENT" == 0.56.0x-r1 || "$CURRENT" == 0.56.0x-r2 || "$CURRENT" == 0.56.0x-r3 || "$CURRENT" == 0.56.0x-r4 || "$CURRENT" == 0.56.0x-r5 || "$CURRENT" == 0.56.0x-r6 || "$CURRENT" == 0.56.0x-r7 || "$CURRENT" == 0.56.0x-r8 || "$CURRENT" == 0.56.0x-r9 ]] || { echo "FAIL: unsupported installed version $CURRENT"; exit 2; }
+[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t || "$CURRENT" == 0.56.0x || "$CURRENT" == 0.56.0x-r1 || "$CURRENT" == 0.56.0x-r2 || "$CURRENT" == 0.56.0x-r3 || "$CURRENT" == 0.56.0x-r4 || "$CURRENT" == 0.56.0x-r5 || "$CURRENT" == 0.56.0x-r6 || "$CURRENT" == 0.56.0x-r7 || "$CURRENT" == 0.56.0x-r8 || "$CURRENT" == 0.56.0x-r9 || "$CURRENT" =~ ^0\.(57|58)\.0(-r[0-9]+)?$ ]] || { echo "FAIL: unsupported installed version $CURRENT"; exit 2; }
 [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]] || { echo "FAIL: extract the update next to SDRCC (for example in Downloads), then run its install.sh."; exit 2; }
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
 sudo -v
+# Maintain dependencies only on stations opted into the offline comparison.
+if ! sudo bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --refresh; then
+  echo "WARNING: audio comparison dependencies unavailable; existing speech filter remains usable."
+fi
 INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
 [[ "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] && INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-$INSTALL_RECEIPT}"
 INSTALL_USER="$(stat -c %U "$PROJECT_ROOT")"

@@ -16,6 +16,7 @@ CHECK_ONLY=0
 NON_INTERACTIVE=0
 SKIP_THIRD_PARTY=0
 AIS_SETUP_ONLY=0
+AUDIO_COMPARISON_ONLY=0
 INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
 [[ "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] && INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-$INSTALL_RECEIPT}"
 
@@ -25,6 +26,7 @@ while (($#)); do
     --non-interactive) NON_INTERACTIVE=1 ;;
     --skip-third-party) SKIP_THIRD_PARTY=1 ;;
     --ais-setup) AIS_SETUP_ONLY=1 ;;
+    --audio-comparison) AUDIO_COMPARISON_ONLY=1 ;;
     --destination) shift; PROJECT_ROOT="$1"; PYTHON="$PROJECT_ROOT/venv/bin/python" ;;
     *) echo "Unknown option: $1"; exit 2 ;;
   esac
@@ -46,6 +48,14 @@ receipt_value(){
   awk -F= -v key="$1" '$1 == key { value=substr($0, index($0, "=")+1) } END { print value }' "$INSTALL_RECEIPT"
 }
 receipt_default(){ [[ -n "$(receipt_value "$1")" ]] || receipt_set "$1" "$2"; }
+
+# Standalone opt-in: no SDR installation, service restart or config rewrite.
+if ((AUDIO_COMPARISON_ONLY)); then
+  ((AIS_SETUP_ONLY == 0)) || { echo "FAIL: choose one setup mode"; exit 2; }
+  AUDIO_MODE=--install
+  ((CHECK_ONLY)) && AUDIO_MODE=--check
+  exec bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" "$AUDIO_MODE"
+fi
 
 # Explicit resume path: no reinstall, update, or station configuration rewrite.
 if ((AIS_SETUP_ONLY)); then
