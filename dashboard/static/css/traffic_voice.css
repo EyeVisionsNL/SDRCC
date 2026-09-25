@@ -460,7 +460,7 @@
 
 .traffic-voice-audio-controls {
     display: grid;
-    grid-template-columns: auto minmax(150px, 240px) minmax(160px, 1fr);
+    grid-template-columns: auto minmax(120px, 1fr) minmax(110px, 1fr) minmax(120px, 1fr);
     align-items: center;
     gap: 12px;
     margin-top: 10px;

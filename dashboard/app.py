@@ -2862,7 +2862,11 @@ def api_traffic_voice_audio_stream():
         speech_filter = request.args.get("speech_filter", "normal")
         if speech_filter not in traffic_voice_audio.SPEECH_FILTERS:
             return jsonify({"ok": False, "error": "Unknown speech filter"}), 400
-        generator = traffic_voice_audio.stream_wav(speech_filter)
+        denoise = request.args.get("denoise", "off")
+        mode = request.args.get("mode")
+        if denoise not in ("off", "speex", "rnnoise") or mode not in (None, "marine_ais", "airband_adsb"):
+            return jsonify({"ok": False, "error": "Unknown audio processing setting"}), 400
+        generator = traffic_voice_audio.stream_wav(speech_filter, denoise, mode)
         return Response(
             stream_with_context(generator),
             mimetype="audio/wav",

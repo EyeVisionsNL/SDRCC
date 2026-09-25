@@ -26,7 +26,7 @@ while (($#)); do
     --non-interactive) NON_INTERACTIVE=1 ;;
     --skip-third-party) SKIP_THIRD_PARTY=1 ;;
     --ais-setup) AIS_SETUP_ONLY=1 ;;
-    --audio-comparison) AUDIO_COMPARISON_ONLY=1 ;;
+    --audio-comparison|--audio-processing) AUDIO_COMPARISON_ONLY=1 ;;
     --destination) shift; PROJECT_ROOT="$1"; PYTHON="$PROJECT_ROOT/venv/bin/python" ;;
     *) echo "Unknown option: $1"; exit 2 ;;
   esac
@@ -129,6 +129,11 @@ if [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]]; then
 fi
 sudo chown -R "$INSTALL_USER:$PROJECT_GROUP" "$PROJECT_ROOT"
 mkdir -p "$PROJECT_ROOT/data" "$PROJECT_ROOT/logs"
+
+say "Traffic Voice audio libraries"
+if ! bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
+  echo "WARNING: noise reduction unavailable; built-in speech filters remain usable."
+fi
 
 say "Python environment"
 if [[ ! -x "$PYTHON" ]]; then python3 -m venv "$PROJECT_ROOT/venv"; fi

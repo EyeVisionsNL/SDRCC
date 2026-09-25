@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.56.0x-r3">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.58.0-r1">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.58.0-r3">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
 </head>
 <body>
@@ -828,13 +828,21 @@
                     <input id="traffic-voice-volume" type="range" min="0" max="1" step="0.05" value="0.85">
                 </label>
                 <label id="traffic-voice-speech-filter-control">Speech filter
-                    <select id="traffic-voice-speech-filter" title="Marine listening only; ATIS is unchanged">
+                    <select id="traffic-voice-speech-filter" title="Listening audio only; ATIS is unchanged">
                         <option value="off">Off</option>
                         <option value="light">Light</option>
                         <option value="normal" selected>Normal</option>
                         <option value="strong">Strong</option>
                     </select>
                 </label>
+                <label>Noise reduction
+                    <select id="traffic-voice-denoise">
+                        <option value="off">Off</option>
+                        <option value="speex">SpeexDSP</option>
+                        <option value="rnnoise">RNNoise</option>
+                    </select>
+                </label>
+                <span id="traffic-voice-processing-detail">Preferences are saved separately for Marine and Airband.</span>
                 <span id="traffic-voice-audio-detail">Waiting for Voice.</span>
                 <audio id="traffic-voice-audio" preload="none"></audio>
             </div>
@@ -1504,7 +1512,7 @@
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
-<script src="/static/js/traffic_voice.js?v=0.58.0-r1"></script>
+<script src="/static/js/traffic_voice.js?v=0.58.0-r3"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>

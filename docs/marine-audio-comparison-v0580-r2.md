@@ -1,5 +1,8 @@
 # SDRCC 0.58.0-r2 — compare Marine Traffic noise suppression
 
+Historical comparison stage: v0.58.0-r3 adds selectable live processing for both
+modes; see `live-audio-processing-v0580-r3.md`. The offline tool remains available.
+
 This is an opt-in offline experiment. The dashboard keeps the established
 Off / Light / Normal / Strong filters. ATIS, receiver gain, squelch, de-emphasis
 and channel bandwidth are unchanged. No denoiser is loaded by the live dashboard.

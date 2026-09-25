@@ -15,6 +15,42 @@
     const speechFilterStorageKey = "sdrcc.trafficVoice.speechFilter";
     const speechFilterOptions = ["off", "light", "normal", "strong"];
     let speechFilter = "normal";
+    let denoise = "off";
+    let audioMode = "marine_ais";
+    const audioPreferences = {
+        marine_ais: {filter: "normal", denoise: "off"},
+        airband_adsb: {filter: "off", denoise: "off"}
+    };
+
+    function loadAudioPreferences() {
+        for (const mode of Object.keys(audioPreferences)) {
+            try {
+                const saved = JSON.parse(localStorage.getItem("sdrcc.trafficVoice.audio." + mode) || "null");
+                const legacy = mode === "marine_ais" ? localStorage.getItem(speechFilterStorageKey) : null;
+                const filter = saved?.filter || legacy;
+                if (speechFilterOptions.includes(filter)) audioPreferences[mode].filter = filter;
+                if (["off", "speex", "rnnoise"].includes(saved?.denoise)) audioPreferences[mode].denoise = saved.denoise;
+            } catch (_) { /* Defaults work without storage. */ }
+        }
+        selectAudioMode(audioMode);
+    }
+
+    function selectAudioMode(mode) {
+        if (!audioPreferences[mode]) return;
+        audioMode = mode;
+        speechFilter = audioPreferences[mode].filter;
+        denoise = audioPreferences[mode].denoise;
+        const filter = byId("traffic-voice-speech-filter");
+        const engine = byId("traffic-voice-denoise");
+        if (filter) filter.value = speechFilter;
+        if (engine) engine.value = denoise;
+    }
+
+    function saveAudioPreferences() {
+        audioPreferences[audioMode] = {filter: speechFilter, denoise};
+        try { localStorage.setItem("sdrcc.trafficVoice.audio." + audioMode, JSON.stringify(audioPreferences[audioMode])); } catch (_) {}
+        if (byId("traffic-voice-audio")?.getAttribute("src")) startAudio();
+    }
     let aisAutoEnabled = false;
     let lastAutoAisMmsi = "";
     let aisZoom = 14;
@@ -431,7 +467,8 @@
         const operation = ++audioOperation;
         audio.volume = Number(byId("traffic-voice-volume")?.value || 0.85);
         audio.src = streamUrl + (streamUrl.includes("?") ? "&" : "?") + "live=" + Date.now()
-            + "&speech_filter=" + encodeURIComponent(speechFilter);
+            + "&speech_filter=" + encodeURIComponent(speechFilter)
+            + "&denoise=" + encodeURIComponent(denoise) + "&mode=" + encodeURIComponent(audioMode);
 
         try {
             await audio.play();
@@ -449,11 +486,25 @@
         const audio = byId("traffic-voice-audio");
         const button = byId("traffic-voice-audio-toggle");
         const audioState = payload.audio || {};
-        const filterControl = byId("traffic-voice-speech-filter-control");
-        if (filterControl) filterControl.hidden = payload.selected_mode !== "marine_ais";
+        const modeChanged = payload.selected_mode !== audioMode && Boolean(audioPreferences[payload.selected_mode]);
+        const wasListening = Boolean(audio?.getAttribute("src"));
+        if (modeChanged) selectAudioMode(payload.selected_mode);
+        const engineSelect = byId("traffic-voice-denoise");
+        if (engineSelect) {
+            for (const option of engineSelect.options) {
+                const available = option.value === "off" || audioState.denoisers?.[option.value]?.available;
+                option.disabled = !available;
+            }
+        }
+        const capability = audioState.denoisers?.[denoise];
+        const warning = denoise !== "off" && (!capability?.available || capability?.last_error);
+        text("traffic-voice-processing-detail", warning
+            ? "Noise reduction unavailable or failed; speech filter remains active. Check audio dependencies."
+            : (audioMode === "marine_ais" ? "Marine" : "Airband") + " preferences · ATIS input unchanged");
         text("traffic-voice-audio-state", audioState.stream_state || "WAITING");
         if (!audio) return;
         audio.dataset.streamUrl = audioState.stream_url || "";
+        if (modeChanged && wasListening && audioState.stream_url) startAudio();
         if (button) button.disabled = actionBusy || !audioState.stream_url;
         if (!audioState.stream_url && audio.getAttribute("src")) stopAudio();
         if (!audioState.stream_url) {
@@ -682,22 +733,17 @@
     }
 
     function initialize() {
-        try {
-            const saved = localStorage.getItem(speechFilterStorageKey);
-            if (speechFilterOptions.includes(saved)) speechFilter = saved;
-        } catch (_) { /* Keep the default when browser storage is unavailable. */ }
-        const filterSelect = byId("traffic-voice-speech-filter");
-        if (filterSelect) {
-            filterSelect.value = speechFilter;
-            filterSelect.addEventListener("change", () => {
-                if (!speechFilterOptions.includes(filterSelect.value)) return;
-                speechFilter = filterSelect.value;
-                try { localStorage.setItem(speechFilterStorageKey, speechFilter); } catch (_) {}
-                const audio = byId("traffic-voice-audio");
-                // Reopen only this browser's stream; never restart the receiver.
-                if (audio?.getAttribute("src")) startAudio();
-            });
-        }
+        loadAudioPreferences();
+        byId("traffic-voice-speech-filter")?.addEventListener("change", event => {
+            if (!speechFilterOptions.includes(event.target.value)) return;
+            speechFilter = event.target.value;
+            saveAudioPreferences();
+        });
+        byId("traffic-voice-denoise")?.addEventListener("change", event => {
+            if (!["off", "speex", "rnnoise"].includes(event.target.value)) return;
+            denoise = event.target.value;
+            saveAudioPreferences();
+        });
         initializeAisZoom();
         document.querySelector('.tab-button[data-tab="traffic-voice"]')
             ?.addEventListener("click", () => window.setTimeout(() => refresh(true), 0));

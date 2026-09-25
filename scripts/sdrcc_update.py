@@ -393,10 +393,10 @@ def worker() -> int:
             )
             source_preflight(source, project, install_user)
 
-            # Optional experiment: dependency failure must not block normal audio.
+            # Prepare selectable live denoisers before stopping SDRCC; fail open.
             comparison_setup = source / "scripts/install/prepare_audio_comparison.sh"
             try:
-                result = run(["/bin/bash", comparison_setup, project, "--refresh"], timeout=600)
+                result = run(["/bin/bash", comparison_setup, project, "--install"], timeout=600)
                 if result.returncode:
                     print("WARNING: audio comparison dependencies unavailable; speech filter remains usable.", flush=True)
             except subprocess.TimeoutExpired:

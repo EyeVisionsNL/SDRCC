@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Optional offline comparison dependencies; never changes SDR receiver services.
+# Shared live/offline audio libraries; never changes SDR receiver services.
 set -euo pipefail
 PROJECT_ROOT="$(realpath "${1:?SDRCC project path required}")"
 MODE="${2:---install}"
@@ -9,7 +9,7 @@ MODEL="rnnoise_data-0b50c45.tar.gz"
 MODEL_SHA="4ac81c5c0884ec4bd5907026aaae16209b7b76cd9d7f71af582094a2f98f4b43"
 case "$MODE" in --install|--refresh|--check) ;; *) echo 'Unknown mode'; exit 2;; esac
 [[ -f "$PROJECT_ROOT/VERSION" ]] || { echo 'Not an SDRCC project'; exit 2; }
-# Normal installs/updates do not opt users into the comparison experiment.
+# --refresh remains a compatibility option for older updater helpers.
 if [[ "$MODE" == --refresh && ! -f "$RUNTIME/BUILD-PROVENANCE" ]]; then exit 0; fi
 runtime_ready(){
   [[ -f "$RUNTIME/BUILD-PROVENANCE" ]] || return 1
@@ -28,7 +28,7 @@ except (OSError, AttributeError):
     raise SystemExit(1)
 PY
 }
-if runtime_ready; then echo 'PASS: audio comparison dependencies ready'; exit 0; fi
+if runtime_ready; then echo 'PASS: audio processing dependencies ready'; exit 0; fi
 if [[ "$MODE" == --check ]]; then echo 'Audio comparison dependencies missing'; exit 1; fi
 as_root(){ if [[ "$EUID" == 0 ]]; then "$@"; else sudo "$@"; fi; }
 as_root apt-get update
@@ -70,4 +70,4 @@ PY
 if [[ -d "$RUNTIME" ]]; then mv "$RUNTIME" "$STAGE/previous-runtime"; fi
 mv "$STAGE" "$RUNTIME"
 if [[ "$EUID" == 0 ]]; then chown -R "$(stat -c '%u:%g' "$PROJECT_ROOT")" "$PROJECT_ROOT/data/audio-comparison"; fi
-echo 'PASS: comparison dependencies installed; live audio and ATIS unchanged'
+echo 'PASS: audio libraries installed; receiver settings and ATIS unchanged'

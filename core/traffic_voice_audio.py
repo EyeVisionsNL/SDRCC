@@ -17,7 +17,7 @@ import time
 from typing import Any, Iterator
 
 from core import config
-from core import traffic_voice_atis
+from core import traffic_voice_atis, traffic_voice_denoise
 
 
 SPEECH_FILTERS = {"off": None, "light": 3800.0, "normal": 3000.0, "strong": 2400.0}
@@ -121,6 +121,7 @@ def ensure_listener() -> None:
 def get_status() -> dict[str, Any]:
     ensure_listener()
     host, port, sample_rate = _settings()
+    denoisers = traffic_voice_denoise.capabilities()
     with _lock:
         age = time.time() - _last_packet_epoch if _last_packet_epoch else None
         available = bool(_last_packet_epoch and age is not None and age < 3.0 and not _listener_error)
@@ -142,6 +143,7 @@ def get_status() -> dict[str, Any]:
             "last_packet_age_seconds": round(age, 2) if age is not None else None,
             "listener_error": _listener_error,
             "observers": ["traffic_voice_atis"],
+            "denoisers": denoisers,
             "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         }
 
@@ -186,9 +188,17 @@ class MarineSpeechFilter:
 
 
 class LiveWavStream:
-    def __init__(self, speech_filter: str = "normal") -> None:
+    def __init__(self, speech_filter: str = "normal", denoise: str = "off", mode: str | None = None) -> None:
         global _active_clients, _total_clients
         self._closed = True
+        self._processor = None
+        self._processing_lock = threading.RLock()
+        if denoise not in traffic_voice_denoise.ENGINES:
+            raise ValueError("Unknown denoiser")
+        if mode not in (None, "marine_ais", "airband_adsb"):
+            raise ValueError("Unknown audio mode")
+        self._requested_engine = denoise
+        self._explicit_mode = mode
         if speech_filter not in SPEECH_FILTERS:
             raise ValueError("Unknown speech filter")
         self._filter_enabled = speech_filter != "off"
@@ -207,6 +217,7 @@ class LiveWavStream:
             self._next_sequence = _sequence + 1
         self._closed = False
         self._header_sent = False
+        self._reset_processor()
 
     def __iter__(self) -> "LiveWavStream":
         return self
@@ -219,18 +230,49 @@ class LiveWavStream:
             return _wav_header(self._sample_rate)
         chunk, discontinuity = self._next_chunk()
         now = time.monotonic()
-        if now >= self._mode_check_at:
-            marine = config.get_traffic_voice_config().get("selected_mode") == "marine_ais"
-            if marine != self._marine_audio:
+        with self._processing_lock:
+            if self._closed:
+                raise StopIteration
+            if now >= self._mode_check_at:
+                active_mode = config.get_traffic_voice_config().get("selected_mode")
+                # Explicit per-mode streams end when the station changes mode.
+                if self._explicit_mode and active_mode != self._explicit_mode:
+                    self.close()
+                    raise StopIteration
+                marine = active_mode == "marine_ais"
+                if marine != self._marine_audio:
+                    self._speech_filter.reset()
+                    self._reset_processor()
+                self._marine_audio = marine
+                self._mode_check_at = now + 1.0
+            if discontinuity or (self._last_chunk_at and now - self._last_chunk_at > 0.5):
                 self._speech_filter.reset()
-            self._marine_audio = marine
-            self._mode_check_at = now + 1.0
-        if discontinuity or now - self._last_chunk_at > 0.5:
-            self._speech_filter.reset()
-        self._last_chunk_at = now
-        # Filter outside the shared queue lock; ATIS consumes the original
-        # float32 datagrams in _listen and never sees this per-client audio.
-        return self._speech_filter.process(chunk) if self._marine_audio and self._filter_enabled else chunk
+                self._reset_processor()
+            self._last_chunk_at = now
+            # Both processors run after the ATIS fork, outside the queue lock.
+            if self._processor:
+                try:
+                    chunk = self._processor.process(chunk)
+                except (OSError, RuntimeError, ValueError) as error:
+                    traffic_voice_denoise.report_error(self._requested_engine, error)
+                    self._processor.close()
+                    self._processor = None
+            enabled = self._filter_enabled and (self._explicit_mode is not None or self._marine_audio)
+            return self._speech_filter.process(chunk) if enabled else chunk
+
+    def _reset_processor(self):
+        if self._processor:
+            self._processor.close()
+            self._processor = None
+        if self._requested_engine != "off":
+            try:
+                if self._sample_rate != 16000:
+                    raise ValueError("Denoising requires 16 kHz audio")
+                self._processor = traffic_voice_denoise.Denoiser(self._requested_engine)
+                traffic_voice_denoise.report_error(self._requested_engine, None)
+            except (OSError, RuntimeError, ValueError, AttributeError) as error:
+                traffic_voice_denoise.report_error(self._requested_engine, error)
+
 
     def _next_chunk(self) -> tuple[bytes, bool]:
         deadline = time.monotonic() + 12.0
@@ -243,19 +285,25 @@ class LiveWavStream:
                         return chunk, discontinuity
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    self.close()
-                    raise StopIteration
+                    break
                 _lock.wait(min(1.0, remaining))
+        self.close()
         raise StopIteration
 
     def close(self) -> None:
         global _active_clients
         if self._closed:
             return
-        with _lock:
-            self._closed = True
-            _active_clients = max(0, _active_clients - 1)
-            _lock.notify_all()
+        with self._processing_lock:
+            if self._closed:
+                return
+            with _lock:
+                self._closed = True
+                _active_clients = max(0, _active_clients - 1)
+                _lock.notify_all()
+            if self._processor:
+                self._processor.close()
+                self._processor = None
 
     def __del__(self) -> None:
         try:
@@ -264,5 +312,5 @@ class LiveWavStream:
             pass
 
 
-def stream_wav(speech_filter: str = "normal") -> Iterator[bytes]:
-    return LiveWavStream(speech_filter)
+def stream_wav(speech_filter: str = "normal", denoise: str = "off", mode: str | None = None) -> Iterator[bytes]:
+    return LiveWavStream(speech_filter, denoise, mode)

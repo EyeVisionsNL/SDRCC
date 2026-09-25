@@ -10,8 +10,8 @@ CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
 sudo -v
-# Maintain dependencies only on stations opted into the offline comparison.
-if ! sudo bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --refresh; then
+# Install/maintain both selectable live audio denoisers.
+if ! sudo bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
   echo "WARNING: audio comparison dependencies unavailable; existing speech filter remains usable."
 fi
 INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
