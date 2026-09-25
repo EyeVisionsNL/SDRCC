@@ -4409,7 +4409,7 @@ def api_update_install():
             "ok": False,
             "message": "Update check failed: " + str(status["check_error"]),
         }), 503
-    if not status.get("update_available"):
+    if not (status.get("update_available") or status.get("can_complete_audio_setup")):
         message = (
             f"Installed {status.get('installed_version')} is already current."
             if status.get("same_version")

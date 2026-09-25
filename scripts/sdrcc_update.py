@@ -326,6 +326,17 @@ def wait_dashboard(timeout: int = 75) -> None:
     raise RuntimeError("Dashboard did not return HTTP 200 after update")
 
 
+def prepare_audio_dependencies(source: Path, project: Path) -> bool:
+    """Runs in the root-owned worker, including a same-release repair pass."""
+    try:
+        result = run(["/bin/bash", source / "scripts/install/prepare_audio_comparison.sh",
+                      project, "--install"], timeout=600)
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        log("Audio library setup timed out; speech filtering remains available.")
+        return False
+
+
 def worker() -> int:
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     lock_handle = LOCK_FILE.open("w", encoding="utf-8")
@@ -369,12 +380,22 @@ def worker() -> int:
                 check=True,
             ).stdout.strip()
 
-            if comparison >= 0:
-                message = (
-                    "SDRCC is already up to date."
-                    if comparison == 0
-                    else f"Installed version {current} is ahead of main ({target}); no update installed."
-                )
+            if comparison == 0:
+                # Older installed workers deploy the new helper but do not yet
+                # prepare its new libraries. The dashboard can complete that
+                # installation using this same-version pass, with all checks.
+                source_preflight(source, project, install_user)
+                write_status("installing", "Completing audio library setup.",
+                             current_version=current, target_version=target)
+                if not prepare_audio_dependencies(source, project):
+                    raise RuntimeError("Audio library setup failed; see /var/log/sdrcc-update.log and retry Complete audio setup.")
+                write_status("success", "Audio libraries are ready; reopen listening if needed.",
+                             current_version=current, target_version=target,
+                             installed_version=current, audio_setup_attempted=True)
+                return 0
+
+            if comparison > 0:
+                message = f"Installed version {current} is ahead of main ({target}); no update installed."
                 write_status(
                     "up_to_date",
                     message,
@@ -393,14 +414,7 @@ def worker() -> int:
             )
             source_preflight(source, project, install_user)
 
-            # Prepare selectable live denoisers before stopping SDRCC; fail open.
-            comparison_setup = source / "scripts/install/prepare_audio_comparison.sh"
-            try:
-                result = run(["/bin/bash", comparison_setup, project, "--install"], timeout=600)
-                if result.returncode:
-                    print("WARNING: audio comparison dependencies unavailable; speech filter remains usable.", flush=True)
-            except subprocess.TimeoutExpired:
-                print("WARNING: audio comparison setup timed out; speech filter remains usable.", flush=True)
+            audio_setup_ok = prepare_audio_dependencies(source, project)
 
             write_status(
                 "backing_up",
@@ -464,10 +478,11 @@ def worker() -> int:
 
             write_status(
                 "success",
-                f"SDRCC updated successfully to {target}.",
+                f"SDRCC updated successfully to {target}." + ("" if audio_setup_ok else " Audio setup needs completion; use Complete audio setup."),
                 current_version=current,
                 target_version=target,
                 installed_version=installed,
+                audio_setup_attempted=True,
                 source_commit=commit,
                 backup=str(backup),
             )

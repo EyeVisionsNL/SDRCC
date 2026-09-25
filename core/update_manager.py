@@ -113,12 +113,23 @@ def check_remote_version(timeout: float = 5.0) -> dict:
     return get_status()
 
 
+def audio_setup_required() -> bool:
+    try:
+        from core.traffic_voice_denoise import capabilities
+        engines = capabilities()
+        return any(not engines.get(name, {}).get("available") for name in ("speex", "rnnoise"))
+    except (ImportError, OSError, RuntimeError):
+        return True
+
+
 def get_status() -> dict:
     local = installed_version()
     with _LOCK:
         check = dict(_CHECK)
     latest = check.get("latest_version")
     comparison = compare_versions(local, latest) if latest else None
+    worker = _read_worker_status()
+    setup_required = audio_setup_required()
     return {
         "ok": check.get("check_error") is None,
         "installed_version": local,
@@ -128,5 +139,7 @@ def get_status() -> dict:
         "same_version": comparison == 0,
         "last_checked_at": check.get("last_checked_at"),
         "check_error": check.get("check_error"),
-        "worker": _read_worker_status(),
+        "worker": worker,
+        "audio_setup_required": setup_required,
+        "can_complete_audio_setup": comparison == 0 and setup_required,
     }
