@@ -107,13 +107,13 @@
     <button class="tab-button active" data-tab="system">🖥 System</button>
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
     <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>
-    <button class="tab-button" data-tab="traffic-voice">🎙 Traffic Voice</button>
-    <button class="tab-button" data-tab="hf-monitor">〰 Radio Receiver</button>
-    <button class="tab-button" data-tab="mission">🛰 Mission Control</button>
-    <button class="tab-button" data-tab="mission-planner">🗓 Mission Planner</button>
-    <button class="tab-button" data-tab="images">🛰️ Mission Operations</button>
-    <button class="tab-button" data-tab="history">🗂 Mission History</button>
-    <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>
+{% if features.traffic_voice %}    <button class="tab-button" data-tab="traffic-voice">🎙 Traffic Voice</button>{% endif %}
+{% if features.radio_receiver %}    <button class="tab-button" data-tab="hf-monitor">〰 Radio Receiver</button>{% endif %}
+{% if features.satellite %}    <button class="tab-button" data-tab="mission">🛰 Mission Control</button>{% endif %}
+{% if features.satellite %}    <button class="tab-button" data-tab="mission-planner">🗓 Mission Planner</button>{% endif %}
+{% if features.satellite %}    <button class="tab-button" data-tab="images">🛰️ Mission Operations</button>{% endif %}
+{% if features.satellite %}    <button class="tab-button" data-tab="history">🗂 Mission History</button>{% endif %}
+{% if features.satellite %}    <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>{% endif %}
     <button class="tab-button" data-tab="logs">📜 Logs</button>
 </nav>
 
@@ -702,6 +702,7 @@
     </div>
 </section>
 
+{% if features.traffic_voice %}
 <section class="tab-page" id="tab-traffic-voice">
     <div class="traffic-voice-page">
         <section class="card traffic-voice-header">
@@ -871,6 +872,8 @@
 </section>
 
 
+{% endif %}
+{% if features.radio_receiver %}
 <section class="tab-page" id="tab-hf-monitor">
     <div class="hf-monitor-page">
         <section class="card hf-monitor-header">
@@ -1009,6 +1012,8 @@
 </section>
 
 
+{% endif %}
+{% if features.satellite %}
 <section class="tab-page" id="tab-mission-planner">
     <div class="mission-planner-layout">
         <section class="card mission-planner-header">
@@ -1503,7 +1508,8 @@
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/update_manager.js?v=0.59.0"></script>
-<script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
+{% endif %}
+{% if features.satellite %}<script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>{% endif %}
 <script src="/static/js/radio.js?v=0.56.0b"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
@@ -1512,7 +1518,7 @@
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
-<script src="/static/js/traffic_voice.js?v=0.59.0"></script>
-<script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
+{% if features.traffic_voice %}<script src="/static/js/traffic_voice.js?v=0.59.0"></script>{% endif %}
+{% if features.radio_receiver %}<script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>{% endif %}
 </body>
 </html>
