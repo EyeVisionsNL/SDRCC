@@ -17,6 +17,9 @@ NON_INTERACTIVE=0
 SKIP_THIRD_PARTY=0
 AIS_SETUP_ONLY=0
 AUDIO_COMPARISON_ONLY=0
+FEATURE_SATELLITE=1
+FEATURE_TRAFFIC_VOICE=1
+FEATURE_RADIO_RECEIVER=1
 INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
 [[ "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] && INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-$INSTALL_RECEIPT}"
 
@@ -86,7 +89,7 @@ python3 "$SOURCE_ROOT/scripts/install/preflight.py" || {
   echo "Missing dependencies will be installed below."
 }
 if ((CHECK_ONLY)); then
-  "$SOURCE_ROOT/scripts/install/provision_external.sh" --check || true
+  SDRCC_FEATURE_SATELLITE="$FEATURE_SATELLITE" SDRCC_FEATURE_TRAFFIC_VOICE="$FEATURE_TRAFFIC_VOICE" "$SOURCE_ROOT/scripts/install/provision_external.sh" --check || true
   exit 0
 fi
 
@@ -113,11 +116,25 @@ sudo apt-get install -y \
   python3 python3-venv python3-pip git curl ca-certificates rsync \
   build-essential cmake pkg-config rtl-sdr librtlsdr-dev
 
+if ((NON_INTERACTIVE)); then
+  FEATURE_SATELLITE="${SDRCC_FEATURE_SATELLITE:-1}"
+  FEATURE_TRAFFIC_VOICE="${SDRCC_FEATURE_TRAFFIC_VOICE:-1}"
+  FEATURE_RADIO_RECEIVER="${SDRCC_FEATURE_RADIO_RECEIVER:-1}"
+else
+  say "Optional SDRCC features"
+  read -r -p "Install satellite reception (SatDump + Mission tabs)? [Y/n] " ANSWER
+  [[ "$ANSWER" =~ ^[Nn]$ ]] && FEATURE_SATELLITE=0
+  read -r -p "Install Traffic Voice (including ATIS support)? [Y/n] " ANSWER
+  [[ "$ANSWER" =~ ^[Nn]$ ]] && FEATURE_TRAFFIC_VOICE=0
+  read -r -p "Enable Radio Receiver? [Y/n] " ANSWER
+  [[ "$ANSWER" =~ ^[Nn]$ ]] && FEATURE_RADIO_RECEIVER=0
+fi
+
 if ((SKIP_THIRD_PARTY)); then
   say "External runtime dependency check"
   "$SOURCE_ROOT/scripts/install/provision_external.sh" --check
 else
-  SDRCC_INSTALL_RECEIPT="$INSTALL_RECEIPT" SDRCC_INSTALL_TEST_MODE="${SDRCC_INSTALL_TEST_MODE:-0}" "$SOURCE_ROOT/scripts/install/provision_external.sh"
+  SDRCC_FEATURE_SATELLITE="$FEATURE_SATELLITE" SDRCC_FEATURE_TRAFFIC_VOICE="$FEATURE_TRAFFIC_VOICE" SDRCC_INSTALL_RECEIPT="$INSTALL_RECEIPT" SDRCC_INSTALL_TEST_MODE="${SDRCC_INSTALL_TEST_MODE:-0}" "$SOURCE_ROOT/scripts/install/provision_external.sh"
 fi
 
 say "Install SDRCC source"
@@ -129,9 +146,15 @@ if [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]]; then
 fi
 sudo chown -R "$INSTALL_USER:$PROJECT_GROUP" "$PROJECT_ROOT"
 mkdir -p "$PROJECT_ROOT/data" "$PROJECT_ROOT/logs"
+cat >"$PROJECT_ROOT/config/features.yaml" <<EOF
+features:
+  satellite: $([[ "$FEATURE_SATELLITE" == 1 ]] && echo true || echo false)
+  traffic_voice: $([[ "$FEATURE_TRAFFIC_VOICE" == 1 ]] && echo true || echo false)
+  radio_receiver: $([[ "$FEATURE_RADIO_RECEIVER" == 1 ]] && echo true || echo false)
+EOF
 
 say "Traffic Voice audio libraries"
-if ! bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
+if ((FEATURE_TRAFFIC_VOICE)) && ! bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
   echo "WARNING: noise reduction unavailable; built-in speech filters remain usable."
 fi
 
