@@ -624,7 +624,7 @@
         <span id="radio-view-status" class="radio-view-status">Live overview</span>
     </section>
 
-    <div class="radio-view-grid">
+    <div class="radio-view-grid{% if not features.satellite %} without-satellite{% endif %}">
         <article class="card radio-view-panel is-adsb">
             <div class="radio-view-panel-heading">
                 <div>
