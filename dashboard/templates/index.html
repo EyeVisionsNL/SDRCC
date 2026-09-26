@@ -3,6 +3,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% if security_enabled %}
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/js/security.js?v=0.60.0-r1"></script>
+    {% endif %}
     <title>SDRCC – SDR Control Center</title>
     <link rel="icon" type="image/png" href="/static/assets/sdrcc-favicon.png?v=0.56.0x-r3">
     <link rel="stylesheet" href="/static/css/base.css">
@@ -81,6 +85,7 @@
         </div>
     </div>
     <div class="topbar-actions">
+        {% if security_enabled %}<form action="/logout" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Uitloggen</button></form>{% endif %}
         <a
             class="github-project-link"
             href="https://github.com/EyeVisionsNL/SDRCC"

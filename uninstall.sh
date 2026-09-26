@@ -119,6 +119,15 @@ sudo systemctl stop sdrcc-update.service >/dev/null 2>&1 || true
 sudo systemctl disable --now sdrcc.service >/dev/null 2>&1 || true
 sudo systemctl disable --now sdrcc-traffic-voice.service >/dev/null 2>&1 || true
 
+# Remove only the HTTPS site owned by SDRCC; leave other nginx sites intact.
+if [[ -f "$(sys /etc/nginx/conf.d/sdrcc-https.conf)" ]] && grep -q '^# Managed by SDRCC HTTPS setup$' "$(sys /etc/nginx/conf.d/sdrcc-https.conf)"; then
+  sudo systemctl disable --now sdrcc-cert-renew.timer >/dev/null 2>&1 || true
+  sudo systemctl stop sdrcc-cert-renew.service >/dev/null 2>&1 || true
+  sudo rm -f "$(sys /etc/nginx/conf.d/sdrcc-https.conf)"
+  sudo systemctl reload nginx.service >/dev/null 2>&1 || true
+fi
+sudo rm -f "$(sys /etc/systemd/system/sdrcc-cert-renew.timer)" "$(sys /etc/systemd/system/sdrcc-cert-renew.service)" "$(sys /etc/systemd/system/sdrcc.service.d/https.conf)"
+
 echo "==> Remove SDRCC system integration"
 sudo rm -f \
   "$(sys /etc/systemd/system/sdrcc.service)" \
