@@ -11,6 +11,7 @@ AIS state.
 from __future__ import annotations
 
 from datetime import datetime
+from itertools import product
 import math
 import queue
 import threading
@@ -22,7 +23,7 @@ import numpy as np
 from core import config
 
 
-DECODER_VERSION = 2
+DECODER_VERSION = 3
 SAMPLE_RATE_HZ = 16_000
 BIT_RATE = 1_200.0
 LOW_TONE_HZ = 1_300.0
@@ -33,6 +34,22 @@ BUFFER_SECONDS = 1.0
 SCAN_INTERVAL_SECONDS = 0.25
 RESULT_FRESH_SECONDS = 120.0
 QUEUE_BLOCKS = 64
+
+# Weak-signal recovery is deliberately conservative.  Candidate acquisition
+# may tolerate a handful of damaged phasing units, but a decoded identity is
+# only published when redundant copies, fixed control symbols and ECC agree.
+_PHASING_MAX_BIT_ERRORS = 18
+_PHASING_MIN_SCORE = 0.72
+_PHASING_MIN_EXACT_SYMBOLS = 12
+_PHASING_MIN_MEAN_SYMBOL_SCORE = 0.50
+_CONTROL_MIN_EXPECTED_SCORE = 0.25
+_CONTROL_MAX_SCORE_GAP = 0.18
+_SOFT_PAIR_CANDIDATES = 4
+_SOFT_ECC_CANDIDATES = 8
+_SOFT_MIN_PAIR_SCORE = 0.35
+_SOFT_MAX_SELECTED_GAP = 0.24
+_SOFT_MIN_MEAN_SCORE = 0.45
+_SOFT_MIN_SOLUTION_MARGIN = 0.12
 
 _PHASING_SYMBOLS = (
     125, 111, 125, 110, 125, 109, 125, 108,
@@ -98,6 +115,13 @@ _PHASING_BITS = np.asarray(
     dtype=np.int8,
 )
 _PHASING_POLARITY = np.where(_PHASING_BITS == 1, 1.0, -1.0)
+_SYMBOL_POLARITY = np.asarray(
+    [
+        np.where(np.asarray(_ten_unit_bits(value), dtype=np.int8) == 1, 1.0, -1.0)
+        for value in range(128)
+    ],
+    dtype=np.float64,
+)
 
 
 def _decode_symbol(bits: np.ndarray, position: int) -> tuple[int | None, bool]:
@@ -129,6 +153,57 @@ def _choose_time_diverse_symbol(
     if second_ok:
         return second, True
     return None, False
+
+
+def _soft_symbol_scores(observed: np.ndarray) -> np.ndarray:
+    """Return confidence scores for all valid ten-unit ATIS symbols."""
+    values = np.asarray(observed, dtype=np.float64).reshape(-1)
+    if len(values) != 10:
+        raise ValueError("ATIS soft symbol observation must contain ten units")
+    return (_SYMBOL_POLARITY @ values) / (np.sum(np.abs(values)) + 1e-9)
+
+
+def _pair_soft_scores(
+    values: np.ndarray,
+    primary: int,
+    repeated: int,
+) -> np.ndarray:
+    """Combine both time-diverse copies before making a symbol decision."""
+    first = values[(primary - 1) * 10:primary * 10]
+    second = values[(repeated - 1) * 10:repeated * 10]
+    return 0.5 * (_soft_symbol_scores(first) + _soft_symbol_scores(second))
+
+
+def _best_soft_candidates(
+    scores: np.ndarray,
+    allowed: range | tuple[int, ...] | None = None,
+    limit: int = 4,
+) -> list[tuple[int, float]]:
+    values = (
+        np.arange(128, dtype=np.int16)
+        if allowed is None
+        else np.asarray(tuple(allowed), dtype=np.int16)
+    )
+    order = np.argsort(scores[values])[::-1][:limit]
+    return [(int(values[index]), float(scores[values[index]])) for index in order]
+
+
+def _pair_recovery_kind(
+    symbols: dict[int, tuple[int | None, bool]],
+    primary: int,
+    repeated: int,
+    selected: int,
+) -> str:
+    first, first_ok = symbols[primary]
+    second, second_ok = symbols[repeated]
+    if first_ok and second_ok and first == second == selected:
+        return "exact"
+    hard_value, hard_corrected = _choose_time_diverse_symbol(
+        symbols, primary, repeated,
+    )
+    if hard_value == selected:
+        return "time_diversity" if hard_corrected else "exact"
+    return "soft"
 
 
 def _identity_projection(groups: list[int]) -> dict[str, Any] | None:
@@ -170,61 +245,203 @@ def _decode_packet(
         for position in range(1, PACKET_SYMBOLS + 1)
     }
 
-    # A complete phasing sequence prevents a speech-like false positive from
-    # reaching the message parser.
-    if any(
-        not symbols[position][1] or symbols[position][0] != expected
-        for position, expected in enumerate(_PHASING_SYMBOLS, start=1)
+    # The full 160-unit phasing pattern was already correlated during candidate
+    # acquisition.  Do not throw away a weak but coherent packet because one
+    # or two ten-unit phasing symbols failed their hard checksum.
+    phasing_exact = 0
+    phasing_expected_scores: list[float] = []
+    for position, expected in enumerate(_PHASING_SYMBOLS, start=1):
+        hard_value, hard_ok = symbols[position]
+        if hard_ok and hard_value == expected:
+            phasing_exact += 1
+        observed = values[(position - 1) * 10:position * 10]
+        phasing_expected_scores.append(float(_soft_symbol_scores(observed)[expected]))
+    phasing_mean_score = float(np.mean(phasing_expected_scores))
+    if (
+        phasing_exact < _PHASING_MIN_EXACT_SYMBOLS
+        or phasing_mean_score < _PHASING_MIN_MEAN_SYMBOL_SCORE
     ):
         return None
 
+    # Preserve the old hard-decision path first.  Clean packets and ordinary
+    # one-copy time-diversity recovery therefore behave exactly as before.
     format_one, corrected_one = _choose_time_diverse_symbol(symbols, 13, 18)
     format_two, corrected_two = _choose_time_diverse_symbol(symbols, 15, 20)
-    if format_one != 121 or format_two != 121:
-        return None
+    hard_groups: list[int] = []
+    hard_corrections = int(corrected_one) + int(corrected_two)
+    hard_ok = format_one == 121 and format_two == 121
+    if hard_ok:
+        for primary, repeated in ((17, 22), (19, 24), (21, 26), (23, 28), (25, 30)):
+            value, corrected = _choose_time_diverse_symbol(symbols, primary, repeated)
+            if value is None:
+                hard_ok = False
+                break
+            hard_groups.append(value)
+            hard_corrections += int(corrected)
+    if hard_ok:
+        eos, corrected = _choose_time_diverse_symbol(symbols, 27, 32)
+        hard_corrections += int(corrected)
+        hard_ok = eos == 127
+    else:
+        eos = None
+    if hard_ok:
+        received_ecc, corrected = _choose_time_diverse_symbol(symbols, 29, 34)
+        hard_corrections += int(corrected)
+        hard_ok = received_ecc is not None
+    else:
+        received_ecc = None
+    if hard_ok and received_ecc is not None:
+        calculated_ecc = 121
+        for value in hard_groups:
+            calculated_ecc ^= value
+        calculated_ecc ^= 127
+        hard_ok = received_ecc == calculated_ecc
+    if hard_ok:
+        identity = _identity_projection(hard_groups)
+        if identity is not None:
+            return {
+                **identity,
+                "format_specifier": 121,
+                "end_of_sequence": 127,
+                "ecc_received": int(received_ecc),
+                "ecc_calculated": int(received_ecc),
+                "time_diversity_used": hard_corrections > 0,
+                "corrected_symbols": hard_corrections,
+                "soft_decoding_used": False,
+                "soft_corrected_symbols": 0,
+                "phasing_exact_symbols": phasing_exact,
+                "phasing_mean_score": round(phasing_mean_score, 4),
+                "phasing_score": round(float(phasing_score), 4),
+                "sample_index": int(round(start_sample)),
+                "sample_time_seconds": round(float(start_sample) / sample_rate, 6),
+                "validation": "ten_unit_time_diversity_ecc",
+            }
 
-    groups: list[int] = []
-    corrections = int(corrected_one) + int(corrected_two)
-    for primary, repeated in ((17, 22), (19, 24), (21, 26), (23, 28), (25, 30)):
-        value, corrected = _choose_time_diverse_symbol(symbols, primary, repeated)
-        if value is None:
+    # Hard decoding failed.  Keep the analogue discriminator confidence and let
+    # the repeated copies vote together.  Fixed control symbols must still be
+    # close to the best observation; this prevents ECC from rescuing arbitrary
+    # speech/noise.
+    control_scores: list[float] = []
+    control_recovery: list[str] = []
+    for primary, repeated, expected in (
+        (13, 18, 121),
+        (15, 20, 121),
+        (27, 32, 127),
+    ):
+        scores = _pair_soft_scores(values, primary, repeated)
+        best_value, best_score = _best_soft_candidates(scores, limit=1)[0]
+        expected_score = float(scores[expected])
+        if (
+            expected_score < _CONTROL_MIN_EXPECTED_SCORE
+            or (best_value != expected and best_score - expected_score > _CONTROL_MAX_SCORE_GAP)
+        ):
             return None
-        groups.append(value)
-        corrections += int(corrected)
+        control_scores.append(expected_score)
+        control_recovery.append(
+            _pair_recovery_kind(symbols, primary, repeated, expected),
+        )
 
-    eos, corrected = _choose_time_diverse_symbol(symbols, 27, 32)
-    corrections += int(corrected)
-    if eos != 127:
-        return None
-    received_ecc, corrected = _choose_time_diverse_symbol(symbols, 29, 34)
-    corrections += int(corrected)
-    if received_ecc is None:
+    pair_positions = ((17, 22), (19, 24), (21, 26), (23, 28), (25, 30))
+    group_candidates: list[list[tuple[int, float]]] = []
+    group_best_scores: list[float] = []
+    for index, (primary, repeated) in enumerate(pair_positions):
+        scores = _pair_soft_scores(values, primary, repeated)
+        allowed = range(90, 100) if index == 0 else range(100)
+        ranked = _best_soft_candidates(
+            scores,
+            allowed=allowed,
+            limit=_SOFT_PAIR_CANDIDATES,
+        )
+        best_score = ranked[0][1]
+        plausible = [
+            candidate for candidate in ranked
+            if candidate[1] >= _SOFT_MIN_PAIR_SCORE
+            and best_score - candidate[1] <= _SOFT_MAX_SELECTED_GAP
+        ]
+        if not plausible:
+            return None
+        group_candidates.append(plausible)
+        group_best_scores.append(best_score)
+
+    ecc_scores = _pair_soft_scores(values, 29, 34)
+    ecc_ranked = _best_soft_candidates(
+        ecc_scores,
+        allowed=range(128),
+        limit=_SOFT_ECC_CANDIDATES,
+    )
+    ecc_best_score = ecc_ranked[0][1]
+    ecc_candidates = {
+        value: score
+        for value, score in ecc_ranked
+        if score >= _SOFT_MIN_PAIR_SCORE
+        and ecc_best_score - score <= _SOFT_MAX_SELECTED_GAP
+    }
+    if not ecc_candidates:
         return None
 
-    calculated_ecc = 121
-    for value in groups:
-        calculated_ecc ^= value
-    calculated_ecc ^= 127
-    if received_ecc != calculated_ecc:
+    solutions: list[tuple[float, list[int], int, list[float]]] = []
+    for combination in product(*group_candidates):
+        groups = [candidate[0] for candidate in combination]
+        if _identity_projection(groups) is None:
+            continue
+        calculated_ecc = 121
+        for value in groups:
+            calculated_ecc ^= value
+        calculated_ecc ^= 127
+        ecc_score = ecc_candidates.get(calculated_ecc)
+        if ecc_score is None:
+            continue
+        selected_scores = [candidate[1] for candidate in combination]
+        message_scores = selected_scores + [float(ecc_score)]
+        mean_score = float(np.mean(message_scores))
+        if mean_score < _SOFT_MIN_MEAN_SCORE:
+            continue
+        solutions.append((sum(message_scores), groups, calculated_ecc, message_scores))
+
+    if not solutions:
         return None
+    solutions.sort(key=lambda item: item[0], reverse=True)
+    best_total, groups, received_ecc, message_scores = solutions[0]
+    solution_margin = None
+    if len(solutions) > 1:
+        solution_margin = float(best_total - solutions[1][0])
+        if solution_margin < _SOFT_MIN_SOLUTION_MARGIN:
+            return None
 
     identity = _identity_projection(groups)
     if identity is None:
         return None
+
+    recovery_kinds = [
+        _pair_recovery_kind(symbols, primary, repeated, selected)
+        for (primary, repeated), selected in zip(pair_positions, groups)
+    ]
+    ecc_kind = _pair_recovery_kind(symbols, 29, 34, received_ecc)
+    all_recovery = control_recovery + recovery_kinds + [ecc_kind]
+    corrected = sum(kind != "exact" for kind in all_recovery)
+    soft_corrected = sum(kind == "soft" for kind in all_recovery)
+
     return {
         **identity,
         "format_specifier": 121,
         "end_of_sequence": 127,
         "ecc_received": int(received_ecc),
-        "ecc_calculated": int(calculated_ecc),
-        "time_diversity_used": corrections > 0,
-        "corrected_symbols": corrections,
+        "ecc_calculated": int(received_ecc),
+        "time_diversity_used": corrected > 0,
+        "corrected_symbols": corrected,
+        "soft_decoding_used": True,
+        "soft_corrected_symbols": soft_corrected,
+        "soft_mean_score": round(float(np.mean(message_scores)), 4),
+        "soft_solution_margin": (
+            round(solution_margin, 4) if solution_margin is not None else None
+        ),
+        "phasing_exact_symbols": phasing_exact,
+        "phasing_mean_score": round(phasing_mean_score, 4),
         "phasing_score": round(float(phasing_score), 4),
         "sample_index": int(round(start_sample)),
         "sample_time_seconds": round(float(start_sample) / sample_rate, 6),
-        "validation": "ten_unit_time_diversity_ecc",
+        "validation": "soft_time_diversity_ecc",
     }
-
 
 def _tone_discriminator(samples: np.ndarray, sample_rate: int) -> np.ndarray:
     window_length = max(9, int(round(sample_rate / BIT_RATE)))
@@ -284,7 +501,7 @@ def decode_samples(samples: np.ndarray, sample_rate: int = SAMPLE_RATE_HZ) -> li
     discriminator = _tone_discriminator(audio, sample_rate)
     step = sample_rate / BIT_RATE
     template_length = len(_PHASING_POLARITY)
-    minimum_matches = template_length - 10
+    minimum_matches = template_length - _PHASING_MAX_BIT_ERRORS
     candidates: list[tuple[float, float]] = []
     axis = np.arange(len(discriminator))
 
@@ -304,7 +521,9 @@ def decode_samples(samples: np.ndarray, sample_rate: int = SAMPLE_RATE_HZ) -> li
             np.abs(values), np.ones(template_length), mode="valid",
         ) + 1e-9
         scores = numerator / denominator
-        indexes = np.flatnonzero((hard_matches >= minimum_matches) & (scores >= 0.85))
+        indexes = np.flatnonzero(
+            (hard_matches >= minimum_matches) & (scores >= _PHASING_MIN_SCORE)
+        )
         for index in indexes:
             start = phase + float(index) * step
             if start + (PACKET_BITS + 1) * step < len(discriminator):
@@ -326,7 +545,7 @@ def decode_samples(samples: np.ndarray, sample_rate: int = SAMPLE_RATE_HZ) -> li
         refined_start, bit_rate, score, matches = _refine_candidate(
             discriminator, start, sample_rate,
         )
-        if matches < minimum_matches or score < 0.85:
+        if matches < minimum_matches or score < _PHASING_MIN_SCORE:
             continue
         decoded = _decode_packet(
             discriminator, refined_start, sample_rate, bit_rate, score,
