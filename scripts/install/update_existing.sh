@@ -10,8 +10,19 @@ CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
 sudo -v
-# Install/maintain both selectable live audio denoisers.
-if ! sudo bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
+# Install/maintain Traffic Voice audio helpers only when that feature is enabled.
+TRAFFIC_VOICE_ENABLED="$("$PYTHON" - <<'PYFEATURE'
+from pathlib import Path
+import yaml
+path = Path("config/features.yaml")
+if not path.exists():
+    print("1")
+else:
+    data = yaml.safe_load(path.read_text()) or {}
+    print("1" if bool((data.get("features") or {}).get("traffic_voice", True)) else "0")
+PYFEATURE
+)"
+if [[ "$TRAFFIC_VOICE_ENABLED" == 1 ]] && ! sudo bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
   echo "WARNING: audio comparison dependencies unavailable; existing speech filter remains usable."
 fi
 INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
