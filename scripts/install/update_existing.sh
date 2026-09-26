@@ -11,10 +11,11 @@ CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
 sudo -v
 # Install/maintain Traffic Voice audio helpers only when that feature is enabled.
-TRAFFIC_VOICE_ENABLED="$("$PYTHON" - <<'PYFEATURE'
+TRAFFIC_VOICE_ENABLED="$(FEATURE_CONFIG="$PROJECT_ROOT/config/features.yaml" "$PYTHON" - <<'PYFEATURE'
 from pathlib import Path
+import os
 import yaml
-path = Path("config/features.yaml")
+path = Path(os.environ["FEATURE_CONFIG"])
 if not path.exists():
     print("1")
 else:
