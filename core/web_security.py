@@ -120,7 +120,10 @@ class Security:
         if public:
             request.max_content_length = 8192
         if not public and (not g.auth_session or g.auth_session['phase'] != 'authenticated'):
-            if request.path.startswith('/api/') or request.method not in ('GET', 'HEAD'):
+            if (request.path.startswith(('/api/', '/static/'))
+                    or request.path == '/favicon.ico'
+                    or request.method not in ('GET', 'HEAD')
+                    or request.headers.get('Sec-Fetch-Dest') in ('image', 'script', 'style', 'audio', 'video', 'font')):
                 return jsonify(ok=False, message='Login required'), 401
             return redirect('/login')
         if request.method not in ('GET', 'HEAD', 'OPTIONS'):
@@ -153,7 +156,10 @@ class Security:
         if g.auth_session and g.auth_session['phase'] == 'authenticated':
             return redirect('/')
         if request.method == 'GET':
-            self.new_session('anonymous')
+            # Background requests and another login tab must not invalidate an
+            # already displayed password form. Rotate after successful factors.
+            if not g.auth_session or g.auth_session['phase'] != 'anonymous':
+                self.new_session('anonymous')
             return self.page('password')
         if not self.rate_allowed():
             return self.page('password', 'Te veel pogingen. Probeer over vijf minuten opnieuw.', 429)

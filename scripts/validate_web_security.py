@@ -118,6 +118,24 @@ class Authentication(unittest.TestCase):
         self.assertIsNone(self.security.session(sid))
         self.assertEqual(self.request('GET','/api/audio').status_code,401)
 
+    def test_favicon_does_not_replace_login_session(self):
+        token = self.token(self.request('GET', '/login'))
+        original = self.client.get_cookie(COOKIE, domain='8.8.8.8').value
+        for path in ('/favicon.ico', '/static/assets/sdrcc-favicon.png', '/missing-image.png'):
+            response = self.request('GET', path, headers={'Sec-Fetch-Dest':'image'}, follow_redirects=True)
+            self.assertEqual(response.status_code, 401)
+            self.assertEqual(self.client.get_cookie(COOKIE, domain='8.8.8.8').value, original)
+        # Even an unrelated redirect or another tab cannot rotate the password session.
+        second = self.request('GET', '/login')
+        self.assertEqual(self.token(second), token)
+        response = self.request('POST', '/login', data={'username':'admin', 'password':PASSWORD, 'csrf_token':token})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, '/login/code')
+        pending = self.client.get_cookie(COOKIE, domain='8.8.8.8').value
+        self.request('GET', '/favicon.ico', follow_redirects=True)
+        self.assertEqual(self.client.get_cookie(COOKIE, domain='8.8.8.8').value, pending)
+        self.assertEqual(self.request('GET', '/login/code').status_code, 200)
+
     def test_login_csrf_and_wrong_password(self):
         token=self.token(self.request('GET','/login'))
         self.assertEqual(self.request('POST','/login',data={'username':'admin','password':PASSWORD}).status_code,403)
