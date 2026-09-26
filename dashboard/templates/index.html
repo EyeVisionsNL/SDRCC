@@ -3,10 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    {% if security_enabled %}
-    <meta name="csrf-token" content="{{ csrf_token }}">
-    <script src="/static/js/security.js?v=0.60.0-r1"></script>
-    {% endif %}
     <title>SDRCC – SDR Control Center</title>
     <link rel="icon" type="image/png" href="/static/assets/sdrcc-favicon.png?v=0.56.0x-r3">
     <link rel="stylesheet" href="/static/css/base.css">
@@ -85,7 +81,6 @@
         </div>
     </div>
     <div class="topbar-actions">
-        {% if security_enabled %}<form action="/logout" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Uitloggen</button></form>{% endif %}
         <a
             class="github-project-link"
             href="https://github.com/EyeVisionsNL/SDRCC"
@@ -1515,7 +1510,7 @@
 <script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
-<script src="/static/js/radio_view.js?v=0.60.0-r3"></script>
+<script src="/static/js/radio_view.js?v=0.56.0o"></script>
 <script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
 <script src="/static/js/traffic_voice.js?v=0.59.0"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>

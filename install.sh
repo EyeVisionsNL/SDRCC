@@ -17,7 +17,6 @@ NON_INTERACTIVE=0
 SKIP_THIRD_PARTY=0
 AIS_SETUP_ONLY=0
 AUDIO_COMPARISON_ONLY=0
-HTTPS_SETUP_ONLY=0
 INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
 [[ "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] && INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-$INSTALL_RECEIPT}"
 
@@ -26,7 +25,6 @@ while (($#)); do
     --check) CHECK_ONLY=1 ;;
     --non-interactive) NON_INTERACTIVE=1 ;;
     --skip-third-party) SKIP_THIRD_PARTY=1 ;;
-    --https-setup) HTTPS_SETUP_ONLY=1 ;;
     --ais-setup) AIS_SETUP_ONLY=1 ;;
     --audio-comparison|--audio-processing) AUDIO_COMPARISON_ONLY=1 ;;
     --destination) shift; PROJECT_ROOT="$1"; PYTHON="$PROJECT_ROOT/venv/bin/python" ;;
@@ -50,11 +48,6 @@ receipt_value(){
   awk -F= -v key="$1" '$1 == key { value=substr($0, index($0, "=")+1) } END { print value }' "$INSTALL_RECEIPT"
 }
 receipt_default(){ [[ -n "$(receipt_value "$1")" ]] || receipt_set "$1" "$2"; }
-
-if ((HTTPS_SETUP_ONLY)); then
-  ((AIS_SETUP_ONLY == 0 && AUDIO_COMPARISON_ONLY == 0 && CHECK_ONLY == 0 && NON_INTERACTIVE == 0)) || { echo "FAIL: --https-setup requires a separate interactive run."; exit 2; }
-  exec bash "$SOURCE_ROOT/scripts/install/setup_https.sh" "$PROJECT_ROOT"
-fi
 
 # Standalone opt-in: no SDR installation, service restart or config rewrite.
 if ((AUDIO_COMPARISON_ONLY)); then

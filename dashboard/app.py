@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-import os
 import json
 import subprocess
 import threading
@@ -69,12 +68,7 @@ from core import hf_monitor_backend
 from core import hf_monitor_controller
 from core import update_manager
 
-from core.web_security import Security
-from core.web_views import register as register_web_views
-
 app = Flask(__name__)
-web_security = Security(app, PROJECT_ROOT, required=os.environ.get("SDRCC_REQUIRE_AUTH") == "1")
-register_web_views(app)
 
 LOG_FILE = PROJECT_ROOT / "logs" / "sdrcc.log"
 SDRCC_SCRIPT = PROJECT_ROOT / "scripts" / "sdrcc.py"
@@ -4652,12 +4646,6 @@ def run():
     threading.Thread(target=update_manager.check_remote_version, name="update-check", daemon=True).start()
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
-    if web_security.enabled:
-        from waitress import serve
-        serve(app, host="127.0.0.1", port=8080, threads=24,
-              trusted_proxy="127.0.0.1", trusted_proxy_headers={"x-forwarded-proto", "x-forwarded-for"},
-              max_request_body_size=16 * 1024 * 1024, ident="SDRCC")
-        return
     app.run(
         host="0.0.0.0",
         port=8080,

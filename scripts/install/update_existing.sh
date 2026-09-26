@@ -5,7 +5,7 @@ PROJECT_ROOT="$2"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 export PYTHONPATH="$PROJECT_ROOT"
 CURRENT="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
-[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t || "$CURRENT" == 0.56.0x || "$CURRENT" == 0.56.0x-r1 || "$CURRENT" == 0.56.0x-r2 || "$CURRENT" == 0.56.0x-r3 || "$CURRENT" == 0.56.0x-r4 || "$CURRENT" == 0.56.0x-r5 || "$CURRENT" == 0.56.0x-r6 || "$CURRENT" == 0.56.0x-r7 || "$CURRENT" == 0.56.0x-r8 || "$CURRENT" == 0.56.0x-r9 || "$CURRENT" == 0.56.0x-r10 || "$CURRENT" =~ ^0\.(57|58|59|60)\.[0-9]+(-r[0-9]+)?$ ]] || { echo "FAIL: unsupported installed version $CURRENT"; exit 2; }
+[[ "$CURRENT" == 0.56.0p || "$CURRENT" == 0.56.0q || "$CURRENT" == 0.56.0r || "$CURRENT" == 0.56.0s || "$CURRENT" == 0.56.0t || "$CURRENT" == 0.56.0x || "$CURRENT" == 0.56.0x-r1 || "$CURRENT" == 0.56.0x-r2 || "$CURRENT" == 0.56.0x-r3 || "$CURRENT" == 0.56.0x-r4 || "$CURRENT" == 0.56.0x-r5 || "$CURRENT" == 0.56.0x-r6 || "$CURRENT" == 0.56.0x-r7 || "$CURRENT" == 0.56.0x-r8 || "$CURRENT" == 0.56.0x-r9 || "$CURRENT" == 0.56.0x-r10 || "$CURRENT" =~ ^0\.(57|58|59)\.[0-9]+(-r[0-9]+)?$ ]] || { echo "FAIL: unsupported installed version $CURRENT"; exit 2; }
 [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]] || { echo "FAIL: extract the update next to SDRCC (for example in Downloads), then run its install.sh."; exit 2; }
 "$PYTHON" "$SOURCE_ROOT/scripts/install/check_update.py" "$SOURCE_ROOT" "$PROJECT_ROOT"
 "$PYTHON" "$SOURCE_ROOT/scripts/validate_receiver_flexibility_v0560q.py"
