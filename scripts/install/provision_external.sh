@@ -33,6 +33,9 @@ if [[ -n "$INSTALL_RECEIPT" && "$INSTALL_RECEIPT" != /var/lib/sdrcc/install-rece
   exit 2
 fi
 
+FEATURE_SATELLITE="${SDRCC_FEATURE_SATELLITE:-1}"
+FEATURE_TRAFFIC_VOICE="${SDRCC_FEATURE_TRAFFIC_VOICE:-1}"
+
 say(){ printf '\n==> %s\n' "$*"; }
 cleanup(){ if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi; return 0; }
 trap cleanup EXIT
@@ -142,11 +145,15 @@ EOF
 
 check_all(){
   local failed=0
-  for cmd in satdump readsb AIS-catcher; do
+  local commands=(readsb AIS-catcher)
+  [[ "$FEATURE_SATELLITE" == 1 ]] && commands=(satdump "${commands[@]}")
+  for cmd in "${commands[@]}"; do
     if command -v "$cmd" >/dev/null 2>&1; then echo "PASS external $cmd: $(command -v "$cmd")"; else echo "MISS external $cmd"; failed=1; fi
   done
   if command -v AIS-catcher-control >/dev/null 2>&1; then echo "PASS external AIS-catcher-control: $(command -v AIS-catcher-control)"; else echo "MISS external AIS-catcher-control"; failed=1; fi
-  if [[ -x "$AIRBAND_BIN" ]]; then
+  if [[ "$FEATURE_TRAFFIC_VOICE" != 1 ]]; then
+    echo "SKIP external RTLSDR-Airband: Traffic Voice disabled"
+  elif [[ -x "$AIRBAND_BIN" ]]; then
     echo "PASS external RTLSDR-Airband: $(version_line "$AIRBAND_BIN")"
     if [[ -f "$AIRBAND_PROVENANCE" ]] && grep -Fq "$AIRBAND_COMMIT" "$AIRBAND_PROVENANCE" && grep -Fq 'SDRCC v0.56.0f auto-gain patch' "$AIRBAND_PROVENANCE" && grep -Fq 'SDRCC v0.56.0w scan-interval patch' "$AIRBAND_PROVENANCE"; then
       echo "PASS RTLSDR-Airband provenance, Auto Gain and scan interval patches"
@@ -183,6 +190,7 @@ sudo apt-get install -y --no-install-recommends \
   debhelper fakeroot help2man libusb-1.0-0-dev libncurses-dev zlib1g-dev libzstd-dev \
   'libconfig++-dev' libfftw3-dev libmp3lame-dev libshout3-dev
 
+if [[ "$FEATURE_SATELLITE" == 1 ]]; then
 say "SatDump"
 if command -v satdump >/dev/null 2>&1; then
   receipt_default satdump_installed 0
@@ -204,6 +212,11 @@ fi
 
 command -v satdump >/dev/null 2>&1 || { echo "FAIL: SatDump installation did not provide satdump on PATH"; exit 3; }
 echo "PASS external SatDump: $(command -v satdump)"
+
+else
+  say "SatDump"
+  echo "SKIP SatDump: satellite reception disabled"
+fi
 
 say "readsb $READSB_COMMIT"
 if ! command -v readsb >/dev/null 2>&1; then
@@ -249,6 +262,7 @@ else
 fi
 service_disable ais-catcher-control.service
 
+if [[ "$FEATURE_TRAFFIC_VOICE" == 1 ]]; then
 say "RTLSDR-Airband $AIRBAND_TAG with SDRCC Auto Gain + scan speed"
 rebuild_airband=1
 if [[ -x "$AIRBAND_BIN" && -f "$AIRBAND_PROVENANCE" ]] \
@@ -288,6 +302,10 @@ EOF
   receipt_set airband_installed 1
 else
   receipt_default airband_installed 0
+fi
+else
+  say "RTLSDR-Airband"
+  echo "SKIP RTLSDR-Airband: Traffic Voice disabled"
 fi
 service_disable sdrcc-traffic-voice.service
 
