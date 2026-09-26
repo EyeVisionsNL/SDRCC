@@ -106,7 +106,7 @@
 <nav class="tabs">
     <button class="tab-button active" data-tab="system">🖥 System</button>
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
-    <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>
+{% if features.satellite %}    <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>{% endif %}
 {% if features.traffic_voice %}    <button class="tab-button" data-tab="traffic-voice">🎙 Traffic Voice</button>{% endif %}
 {% if features.radio_receiver %}    <button class="tab-button" data-tab="hf-monitor">〰 Radio Receiver</button>{% endif %}
 {% if features.satellite %}    <button class="tab-button" data-tab="mission">🛰 Mission Control</button>{% endif %}
