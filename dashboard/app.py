@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from flask import Flask, Response, jsonify, render_template, request, send_file, abort, stream_with_context
+from core.features import get_features
 
 from core import device_manager
 from core import weather_planning as weather_planning_core
@@ -2456,7 +2457,7 @@ def start_mission_autopilot():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", features=get_features())
 
 
 @app.route("/api/status")
