@@ -132,7 +132,7 @@ fi
 
 if ((SKIP_THIRD_PARTY)); then
   say "External runtime dependency check"
-  "$SOURCE_ROOT/scripts/install/provision_external.sh" --check
+  SDRCC_FEATURE_SATELLITE="$FEATURE_SATELLITE" SDRCC_FEATURE_TRAFFIC_VOICE="$FEATURE_TRAFFIC_VOICE" "$SOURCE_ROOT/scripts/install/provision_external.sh" --check
 else
   SDRCC_FEATURE_SATELLITE="$FEATURE_SATELLITE" SDRCC_FEATURE_TRAFFIC_VOICE="$FEATURE_TRAFFIC_VOICE" SDRCC_INSTALL_RECEIPT="$INSTALL_RECEIPT" SDRCC_INSTALL_TEST_MODE="${SDRCC_INSTALL_TEST_MODE:-0}" "$SOURCE_ROOT/scripts/install/provision_external.sh"
 fi
