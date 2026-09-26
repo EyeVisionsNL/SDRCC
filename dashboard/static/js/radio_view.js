@@ -24,6 +24,12 @@
     let aisAutoWindow = null;
 
     function buildViewerUrls() {
+        if (window.location.protocol === "https:") {
+            return {
+                adsb: new URL("/web/adsb/", window.location.origin).href,
+                ais: new URL("/web/ais/", window.location.origin).href,
+            };
+        }
         const hostname = window.location.hostname;
         const protocol = window.location.protocol === "https:" ? "https:" : "http:";
         return {

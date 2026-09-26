@@ -70,9 +70,11 @@ from core import hf_monitor_controller
 from core import update_manager
 
 from core.web_security import Security
+from core.web_views import register as register_web_views
 
 app = Flask(__name__)
 web_security = Security(app, PROJECT_ROOT, required=os.environ.get("SDRCC_REQUIRE_AUTH") == "1")
+register_web_views(app)
 
 LOG_FILE = PROJECT_ROOT / "logs" / "sdrcc.log"
 SDRCC_SCRIPT = PROJECT_ROOT / "scripts" / "sdrcc.py"

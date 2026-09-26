@@ -1,4 +1,4 @@
-# HTTPS en tweestapsverificatie — 0.60.0-r1 (develop)
+# HTTPS en tweestapsverificatie — 0.60.0-r3 (develop)
 
 Een optionele beveiligde ingang voor SDRCC via **https://jouw-publieke-IPv4**.
 Inloggen gaat met gebruikersnaam/wachtwoord en daarna een zescijferige code uit
@@ -61,9 +61,16 @@ komt niet overeen met het publieke IP op het certificaat.
   onbeveiligde toegang. Verwijder de configuratie dus niet om een login te resetten.
 - De updateknop blijft werken. De lokale updater ziet uitsluitend een minimale
   statusrespons zonder stationinformatie; externe API-verzoeken vereisen login.
-- Andere webdiensten, zoals rechtstreeks geopende AIS-catcher/readsb-kaarten op
-  eigen poorten, krijgen hiermee geen SDRCC-login. Deze setup publiceert alleen
-  SDRCC. Bestaande externe kaart-URLs worden niet herschreven.
+- Marine Traffic en ADS-B Radar gebruiken vanaf r3 dezelfde HTTPS-ingang:
+  `/web/ais/` en `/web/adsb/`. De ingebouwde webviews, volledige kaart en
+  ATIS/AIS-scheepslinks gebruiken deze paden automatisch op HTTPS.
+  Bestanden en live gegevens vereisen dezelfde SDRCC-login. Intern blijven
+  AIS-catcher (`127.0.0.1:8119`) en tar1090 (`127.0.0.1:80/tar1090/`) op HTTP.
+  Een gewone SDRCC-update activeert dit; de HTTPS-setup hoeft niet opnieuw.
+- Afzonderlijke beheerinterfaces, zoals de knop Open AIS Control op poort 8118,
+  zijn geen kaartwebview en worden hiermee niet gepubliceerd of aangepast.
+  Verwijder oude router-forwardings naar losse kaartpoorten als je uitsluitend
+  toegang met SDRCC-login wilt aanbieden.
 - Verwijderen van SDRCC verwijdert de eigen nginx-site en vernieuwingstimer, maar
   laat nginx en de Certbot-omgeving/certificaatarchieven staan voor beheer.
 
