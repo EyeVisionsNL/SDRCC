@@ -28,7 +28,9 @@ STATUS_FILE = Path("/var/lib/sdrcc/update-status.json")
 LOG_FILE = Path("/var/log/sdrcc-update.log")
 LOCK_FILE = Path("/run/lock/sdrcc-update.lock")
 REPOSITORY = "https://github.com/EyeVisionsNL/SDRCC.git"
-BRANCH = "main"
+DEFAULT_BRANCH = "main"
+ALLOWED_BRANCHES = {"main", "develop"}
+UPDATE_CHANNEL_RELATIVE = Path("data/state/update_channel.json")
 VERSION_RE = re.compile(
     r"^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"
     r"(?P<suffix>[A-Za-z]*)(?:-r(?P<revision>\d+))?$"
@@ -144,6 +146,44 @@ def installation() -> tuple[Path, str, str]:
             f"Installation receipt user {install_user} does not own {project_root} (owner={owner})"
         )
     return project_root, install_user, group
+
+
+def read_update_channel_state(project: Path) -> dict:
+    state = {"selected": DEFAULT_BRANCH, "installed": DEFAULT_BRANCH}
+    path = project / UPDATE_CHANNEL_RELATIVE
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, ValueError, TypeError):
+        return state
+    if not isinstance(payload, dict):
+        return state
+    selected = str(payload.get("selected") or DEFAULT_BRANCH).strip().lower()
+    installed = str(payload.get("installed") or DEFAULT_BRANCH).strip().lower()
+    state["selected"] = selected if selected in ALLOWED_BRANCHES else DEFAULT_BRANCH
+    state["installed"] = installed if installed in ALLOWED_BRANCHES else DEFAULT_BRANCH
+    return state
+
+
+def mark_installed_channel(
+    project: Path,
+    branch: str,
+    install_user: str,
+    install_group: str,
+) -> None:
+    state = read_update_channel_state(project)
+    state["selected"] = branch
+    state["installed"] = branch
+    path = project / UPDATE_CHANNEL_RELATIVE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
+    import pwd
+    import grp
+    uid = pwd.getpwnam(install_user).pw_uid
+    gid = grp.getgrnam(install_group).gr_gid
+    os.chown(temporary, uid, gid)
+    os.replace(temporary, path)
 
 
 def safe_relative(name: str) -> Path:
@@ -354,18 +394,34 @@ def worker() -> int:
 
     try:
         project, install_user, install_group = installation()
+        channel_state = read_update_channel_state(project)
+        branch = channel_state["selected"]
+        installed_branch = channel_state["installed"]
         current = (project / "VERSION").read_text(encoding="utf-8").strip()
-        write_status("starting", "Preparing SDRCC update.", current_version=current)
-        log(f"Managed update started from {current}")
+        write_status(
+            "starting",
+            f"Preparing SDRCC update from {branch}.",
+            current_version=current,
+            source_channel=branch,
+        )
+        log(
+            f"Managed update started from {current}; "
+            f"selected channel={branch}, installed channel={installed_branch}"
+        )
 
         with tempfile.TemporaryDirectory(prefix="sdrcc-update-", dir="/var/tmp") as temporary:
             os.chmod(temporary, 0o755)
             source = Path(temporary) / "source"
-            write_status("downloading", "Downloading current SDRCC main branch.", current_version=current)
+            write_status(
+                "downloading",
+                f"Downloading current SDRCC {branch} branch.",
+                current_version=current,
+                source_channel=branch,
+            )
             run(
                 [
                     "/usr/bin/git", "clone", "--quiet", "--depth", "1",
-                    "--branch", BRANCH, "--single-branch", REPOSITORY, source,
+                    "--branch", branch, "--single-branch", REPOSITORY, source,
                 ],
                 timeout=180,
                 check=True,
@@ -380,7 +436,9 @@ def worker() -> int:
                 check=True,
             ).stdout.strip()
 
-            if comparison == 0:
+            channel_changed = branch != installed_branch
+
+            if comparison == 0 and not channel_changed:
                 # Older installed workers deploy the new helper but do not yet
                 # prepare its new libraries. The dashboard can complete that
                 # installation using this same-version pass, with all checks.
@@ -395,13 +453,17 @@ def worker() -> int:
                 return 0
 
             if comparison > 0:
-                message = f"Installed version {current} is ahead of main ({target}); no update installed."
+                message = (
+                    f"Installed version {current} is ahead of {branch} ({target}); "
+                    "no downgrade was installed."
+                )
                 write_status(
                     "up_to_date",
                     message,
                     current_version=current,
                     target_version=target,
                     source_commit=commit,
+                    source_channel=branch,
                 )
                 return 0
 
@@ -411,6 +473,7 @@ def worker() -> int:
                 current_version=current,
                 target_version=target,
                 source_commit=commit,
+                source_channel=branch,
             )
             source_preflight(source, project, install_user)
 
@@ -467,6 +530,7 @@ def worker() -> int:
                 current_version=current,
                 target_version=target,
                 source_commit=commit,
+                source_channel=branch,
                 backup=str(backup),
             )
             run(["/usr/bin/systemctl", "start", "sdrcc.service"], timeout=45, check=True)
@@ -476,6 +540,8 @@ def worker() -> int:
             if installed != target:
                 raise RuntimeError(f"Installed VERSION mismatch: expected {target}, got {installed}")
 
+            mark_installed_channel(project, branch, install_user, install_group)
+
             write_status(
                 "success",
                 f"SDRCC updated successfully to {target}." + ("" if audio_setup_ok else " Audio setup needs completion; use Complete audio setup."),
@@ -484,9 +550,10 @@ def worker() -> int:
                 installed_version=installed,
                 audio_setup_attempted=True,
                 source_commit=commit,
+                source_channel=branch,
                 backup=str(backup),
             )
-            log(f"Managed update completed: {current} -> {target}")
+            log(f"Managed update completed via {branch}: {current} -> {target}")
             return 0
 
     except Exception as exc:
