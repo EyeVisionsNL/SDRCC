@@ -105,7 +105,8 @@
     "71377401bfd717dfa59bb8b51f006b4a4b6da14cdb0e209ffc38bb71615fe11e",
     "21139d83d4fb4a712f202ccd30998869b91be5d1f7457175d88f96ee609d2639",
     "c2aeb6d01eff5f6bbd8f950e2756c165f317c9b2194e1efacd80a52ebdf45c9f",
-    "f4f4d8fdfa7f46678d290ea94b6aeef568baca68fef445b70ec1cec61ee2b8ea"
+    "f4f4d8fdfa7f46678d290ea94b6aeef568baca68fef445b70ec1cec61ee2b8ea",
+    "3df7b7a18ef7d85cfa4218288d741de68c8c1c0e80f15ad3849b2e279d02b387"
   ],
   "dashboard/static/dashboard.js": [
     "d265546d4f7d51b2aa1314d6a4e3fe4244977f24b42f14106f53357c8789daf9",
@@ -226,7 +227,8 @@
   "scripts/install/validate_install.py": [
     "2eb26fe2cc11fd42a9a7670e6be16d8d331e77ea6168a14fc04ec5301e703399",
     "18dde40ef44a3ee42618282f66cdcda9fd4655f0f471498ebcfc0067ed0db562",
-    "b68d30ab60eb84e5ab335c739c19a4b31df99f6fa3e965dad239bccf21cd56b0"
+    "b68d30ab60eb84e5ab335c739c19a4b31df99f6fa3e965dad239bccf21cd56b0",
+    "f985d32dad9d7faca21daeaf98f12d646f44a3f4f41e66cb9b5f07256d6a5823"
   ],
   "scripts/validate_receiver_authority_v0540a.py": [
     "5ef5b370887c0e6b84b2bcb9b52b451fe89f5c9e76b21256dffa81f5929c8ff3",
@@ -412,5 +414,14 @@
   ],
   "core/features.py": [
     "085ecedc097ae0afade7925aa640fcb110bf2abe7cbee9dfbddbd807532c38e5"
+  ],
+  "core/traffic_voice_atis.py": [
+    "55518f852c07e20ca5f729fa0aa0e4d5bcbc2685fe9b06c69349ec67c1d92427"
+  ],
+  "dashboard/static/css/radio_view.css": [
+    "ba2c5aa9620efa24588c94ce85ad40f3c21c833b093e93f68a0b9463e01b611f"
+  ],
+  "scripts/validate_traffic_voice_atis_soft_v0590.py": [
+    "0524021cc817439d5137660c72d83cd6fe37b5859c04ceedf0822e9ca81469e8"
   ]
 }
