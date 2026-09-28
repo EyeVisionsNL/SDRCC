@@ -1089,8 +1089,19 @@ def cancel_service_recovery(plugin_id):
     cancelled = set(get_role_handover_services(plugin_id))
     with _LOCK:
         state = _load_state()
-        for recovery in state.get('hardware_recovery', {}).values():
-            recovery['services'] = [name for name in recovery['services'] if name not in cancelled]
+        recoveries = state.get('hardware_recovery', {})
+        for key, recovery in list(recoveries.items()):
+            if not isinstance(recovery, dict):
+                recoveries.pop(key, None)
+                continue
+            recovery['services'] = [
+                name for name in recovery.get('services', [])
+                if name not in cancelled
+            ]
+            # An empty recovery intent has nothing left to restore and must not
+            # keep maintenance/update operations blocked.
+            if not recovery['services']:
+                recoveries.pop(key, None)
         for key in _previous_active:
             _previous_active[key] = [name for name in _previous_active[key] if name not in cancelled]
         _save_state(state)

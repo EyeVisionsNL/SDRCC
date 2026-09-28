@@ -78,6 +78,8 @@ AIS_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-ais-autostart")
 SDRCC_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-self-autostart")
 SDRCC_UPDATE_HELPER = Path("/usr/local/sbin/sdrcc-update")
 AIS_CONTROL_SERVICE = "ais-catcher-control.service"
+UPDATE_SERVICE_STATE_FILE = PROJECT_ROOT / "data" / "state" / "update_service_state.json"
+UPDATE_RESTORE_SERVICES = ("readsb.service", "ais-catcher.service", AIS_CONTROL_SERVICE)
 
 IMAGE_DIRS = [
     PROJECT_ROOT / "data" / "images",
@@ -2457,7 +2459,7 @@ def start_mission_autopilot():
 
 @app.route("/")
 def index():
-    return render_template("index.html", features=get_features())
+    return render_template("index.html", features=get_features(), asset_version=update_manager.installed_version())
 
 
 @app.route("/api/status")
@@ -4412,22 +4414,203 @@ def api_update_channel():
     return jsonify(update_manager.set_beta_program(beta_program))
 
 
-@app.route("/api/update/install", methods=["POST"])
-def api_update_install():
-    receiver_status = receiver_manager.get_status()
-    reservations = receiver_status.get("canonical_reservations") or {}
-    binding = receiver_manager.binding_status()
-    if reservations or binding.get("transaction") or binding.get("recovery"):
-        return jsonify({
+def _update_receiver_runtime_active():
+    """Return True only for work that must not be interrupted by an update."""
+    mission = mission_engine_core.get_mission_status()
+    return bool(
+        mission.get("active_job") is not None
+        or mission_simulator.get_status().get("simulator", {}).get("active")
+        or autopilot_runtime.get("prepared")
+        or autopilot_runtime.get("locked")
+        or autopilot_runtime.get("record_started")
+        or autopilot_runtime.get("process") is not None
+        or autopilot_runtime.get("iss_execution_active")
+    )
+
+
+def _stop_service_group_for_update(plugin_id):
+    """Stop normal receiver services without restoring them during an update."""
+    receiver_manager.cancel_service_recovery(plugin_id)
+    stopped = []
+    for operation, target in _service_action_steps(plugin_id, "stop"):
+        if not service_state(target).get("active"):
+            continue
+        result = run_systemctl(operation, target)
+        reached = result.returncode == 0 and wait_for_service(target, "inactive", 15)
+        if not reached:
+            message = (result.stderr or result.stdout or "inactive state not reached").strip()
+            raise RuntimeError(f"Could not stop {target} for update: {message}")
+        stopped.append(target)
+        write_log(f"Managed update: stopped {target}")
+    return stopped
+
+
+def _write_update_service_plan(active_services):
+    """Persist the exact normal receiver-service state for the detached worker."""
+    wanted = set(active_services or [])
+    payload = {
+        "version": 1,
+        "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "active_services": [
+            service for service in UPDATE_RESTORE_SERVICES if service in wanted
+        ],
+    }
+    UPDATE_SERVICE_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temporary = UPDATE_SERVICE_STATE_FILE.with_name(
+        UPDATE_SERVICE_STATE_FILE.name + ".tmp"
+    )
+    temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(UPDATE_SERVICE_STATE_FILE)
+    return payload
+
+
+def _read_update_service_plan():
+    try:
+        payload = json.loads(UPDATE_SERVICE_STATE_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        raise RuntimeError("Update service-state plan is invalid")
+    active = payload.get("active_services")
+    if not isinstance(active, list) or any(
+        not isinstance(service, str) or service not in UPDATE_RESTORE_SERVICES
+        for service in active
+    ):
+        raise RuntimeError("Update service-state plan contains unsupported services")
+    return payload
+
+
+def _restore_update_service_plan():
+    """Best-effort exact restore when an update fails before the worker owns it."""
+    try:
+        payload = _read_update_service_plan()
+    except Exception as error:
+        return [str(error)]
+    if payload is None:
+        return []
+
+    wanted = set(payload.get("active_services") or [])
+    errors = []
+    stop_order = (AIS_CONTROL_SERVICE, "ais-catcher.service", "readsb.service")
+    start_order = ("readsb.service", "ais-catcher.service", AIS_CONTROL_SERVICE)
+
+    for service in stop_order:
+        if service in wanted or not service_state(service).get("active"):
+            continue
+        result = run_systemctl("stop", service)
+        if result.returncode != 0 or not wait_for_service(service, "inactive", 15):
+            errors.append(f"stop {service}")
+
+    for service in start_order:
+        if service not in wanted or service_state(service).get("active"):
+            continue
+        result = run_systemctl("start", service)
+        if result.returncode != 0 or not wait_for_service(service, "active", 15):
+            errors.append(f"start {service}")
+
+    if not errors:
+        UPDATE_SERVICE_STATE_FILE.unlink(missing_ok=True)
+    return errors
+
+
+def _prepare_receiver_work_for_update():
+    """Quiesce ordinary receiver work; preserve mission/hardware safety blocks."""
+    if _update_receiver_runtime_active():
+        return {
             "ok": False,
             "message": (
-                "Resolve active receiver work, hardware binding or recovery "
-                "before installing an SDRCC update."
+                "An active mission/recording is using a receiver. "
+                "Finish or stop that mission before updating SDRCC."
             ),
-            "reservations": reservations,
-            "binding": binding,
-        }), 409
+            "stopped_services": [],
+        }
 
+    stopped = []
+    try:
+        hf_session = hf_monitor_controller.get_session()
+        if hf_session is not None:
+            hf_monitor_controller.stop(
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+            )
+            stopped.append("HF Monitor")
+            write_log("Managed update: stopped HF Monitor")
+
+        receiver_status = get_reconciled_receiver_manager_status(recover=True)
+        reservations = receiver_status.get("canonical_reservations") or {}
+        if reservations:
+            return {
+                "ok": False,
+                "message": "Receiver reservation still requires attention before the update.",
+                "reservations": reservations,
+                "binding": receiver_manager.binding_status(),
+                "stopped_services": stopped,
+            }
+
+        voice_state = service_state(traffic_voice_controller.VOICE_SERVICE)
+        voice_session = getattr(traffic_voice_controller, "SESSION_FILE", None)
+        if voice_state.get("active") or (voice_session is not None and voice_session.exists()):
+            receiver_manager.cancel_service_recovery("traffic_voice")
+            traffic_voice_controller.stop(
+                service_state=service_state,
+                service_action=run_systemctl,
+                wait_for_service=wait_for_service,
+            )
+            stopped.append(traffic_voice_controller.VOICE_SERVICE)
+            write_log("Managed update: stopped Traffic Voice")
+
+        observed = {}
+        for plugin_id in ("ais", "adsb"):
+            observed.update(_observe_service_group(plugin_id))
+        service_plan = _write_update_service_plan([
+            service for service, item in observed.items()
+            if item.get("active")
+        ])
+
+        for plugin_id in ("ais", "adsb"):
+            stopped.extend(_stop_service_group_for_update(plugin_id))
+
+        receiver_status = get_reconciled_receiver_manager_status(recover=True)
+        reservations = receiver_status.get("canonical_reservations") or {}
+        binding = receiver_manager.binding_status()
+        if reservations or binding.get("transaction") or binding.get("recovery"):
+            restore_errors = _restore_update_service_plan()
+            return {
+                "ok": False,
+                "message": (
+                    "Receiver hardware binding or recovery still requires attention "
+                    "before installing the SDRCC update."
+                ),
+                "reservations": reservations,
+                "binding": binding,
+                "stopped_services": stopped,
+                "service_restore_errors": restore_errors,
+            }
+
+        return {
+            "ok": True,
+            "stopped_services": stopped,
+            "restore_services": service_plan.get("active_services") or [],
+            "reservations": {},
+            "binding": binding,
+        }
+    except Exception as error:
+        restore_errors = _restore_update_service_plan()
+        write_log(f"Managed update receiver shutdown failed: {error}")
+        return {
+            "ok": False,
+            "message": str(error),
+            "stopped_services": stopped,
+            "service_restore_errors": restore_errors,
+            "reservations": receiver_manager.get_status().get("canonical_reservations") or {},
+            "binding": receiver_manager.binding_status(),
+        }
+
+
+@app.route("/api/update/install", methods=["POST"])
+@receiver_manager.service_control_serialized
+def api_update_install():
     status = update_manager.check_remote_version()
     if status.get("check_error"):
         return jsonify({
@@ -4451,6 +4634,10 @@ def api_update_install():
             "message": f"Managed update helper missing: {SDRCC_UPDATE_HELPER}",
         }), 500
 
+    preparation = _prepare_receiver_work_for_update()
+    if not preparation.get("ok"):
+        return jsonify(preparation), 409
+
     write_log(
         "Managed SDRCC update requested: "
         f"{status.get('installed_version')} -> {status.get('latest_version')} "
@@ -4469,8 +4656,13 @@ def api_update_install():
             or raw
             or "Managed update helper failed to start"
         ).strip()
+        restore_errors = _restore_update_service_plan()
         write_log(f"Managed SDRCC update start failed: {message}")
-        return jsonify({"ok": False, "message": message}), 500
+        return jsonify({
+            "ok": False,
+            "message": message,
+            "service_restore_errors": restore_errors,
+        }), 500
 
     return jsonify({
         "ok": True,
@@ -4478,6 +4670,7 @@ def api_update_install():
         "installed_version": status.get("installed_version"),
         "latest_version": status.get("latest_version"),
         "source_channel": status.get("source_channel", "main"),
+        "stopped_services": preparation.get("stopped_services") or [],
     }), 202
 
 
