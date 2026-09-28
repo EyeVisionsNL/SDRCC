@@ -4388,6 +4388,30 @@ def api_update_status():
     return jsonify(update_manager.get_status())
 
 
+@app.route("/api/update/channel", methods=["POST"])
+def api_update_channel():
+    payload = request.get_json(silent=True) or {}
+    beta_program = payload.get("beta_program")
+    if not isinstance(beta_program, bool):
+        return jsonify({
+            "ok": False,
+            "message": "beta_program must be true or false.",
+        }), 400
+
+    status = update_manager.get_status()
+    worker_state = str((status.get("worker") or {}).get("state") or "")
+    if worker_state in {
+        "queued", "starting", "downloading", "validating",
+        "backing_up", "installing", "restarting",
+    }:
+        return jsonify({
+            "ok": False,
+            "message": "Update channel cannot be changed while an update is running.",
+        }), 409
+
+    return jsonify(update_manager.set_beta_program(beta_program))
+
+
 @app.route("/api/update/install", methods=["POST"])
 def api_update_install():
     receiver_status = receiver_manager.get_status()
@@ -4414,7 +4438,11 @@ def api_update_install():
         message = (
             f"Installed {status.get('installed_version')} is already current."
             if status.get("same_version")
-            else f"No newer main release is available (installed {status.get('installed_version')}, main {status.get('latest_version')})."
+            else (
+                f"No newer {status.get('source_channel', 'main')} release is available "
+                f"(installed {status.get('installed_version')}, "
+                f"{status.get('source_channel', 'main')} {status.get('latest_version')})."
+            )
         )
         return jsonify({"ok": False, "message": message}), 409
     if not SDRCC_UPDATE_HELPER.exists():
@@ -4425,7 +4453,8 @@ def api_update_install():
 
     write_log(
         "Managed SDRCC update requested: "
-        f"{status.get('installed_version')} -> {status.get('latest_version')}"
+        f"{status.get('installed_version')} -> {status.get('latest_version')} "
+        f"via {status.get('source_channel', 'main')}"
     )
     result = run_command(["sudo", "-n", str(SDRCC_UPDATE_HELPER)], timeout=30)
     raw = (result.stdout or "").strip()
@@ -4448,6 +4477,7 @@ def api_update_install():
         "message": payload.get("message") or "SDRCC update started.",
         "installed_version": status.get("installed_version"),
         "latest_version": status.get("latest_version"),
+        "source_channel": status.get("source_channel", "main"),
     }), 202
 
 
