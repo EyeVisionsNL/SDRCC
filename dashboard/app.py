@@ -2459,7 +2459,7 @@ def start_mission_autopilot():
 
 @app.route("/")
 def index():
-    return render_template("index.html", features=get_features())
+    return render_template("index.html", features=get_features(), asset_version=update_manager.installed_version())
 
 
 @app.route("/api/status")
