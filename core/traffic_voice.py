@@ -22,6 +22,10 @@ from core import plugin_registry, receiver_registry
 VERSION = "0.56.0h"
 SCHEMA_VERSION = 1
 MODE_ORDER = ("marine_ais", "airband_adsb")
+# Full complex-I/Q bandwidth, not the audio low-pass cutoff. The pinned NFM
+# backend runs at 16 kHz after channelization, so keep its cutoff below 8 kHz.
+# A conservative +/-7.5 kHz retains marine FM sidebands (including ATIS).
+MARINE_CHANNEL_BANDWIDTH_HZ = 15_000
 MODE_CONTRACTS = {
     "marine_ais": {
         "voice_profile": "marine_voice",
@@ -651,6 +655,8 @@ def render_rtlsdr_airband_config() -> str:
         "  (",
         "    {",
         f"      modulation = {_libconfig_string(mode['modulation'])};",
+        *((f"      bandwidth = {MARINE_CHANNEL_BANDWIDTH_HZ};",)
+          if selected_mode == "marine_ais" else ()),
         f"      freqs = ( {freqs} );",
         f"      labels = ( {labels} );",
         f"      squelch_snr_threshold = {squelch_snr_db:.1f};",
