@@ -126,7 +126,7 @@
         installButton.toggleAttribute("disabled", !installAllowed);
         installButton.setAttribute("aria-disabled", String(!installAllowed));
         installButton.classList.toggle("update-unavailable", !installAllowed);
-        if (data.same_version && !data.can_complete_audio_setup) {
+        if (data.same_version && !data.channel_change_pending && !data.can_complete_audio_setup) {
             installButton.textContent = "No update available";
         }
     }
