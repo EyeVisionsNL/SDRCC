@@ -221,6 +221,22 @@
     color: #64748b;
 }
 
+/* Update Manager: make the no-update state unmistakably inactive. */
+#tab-system #sdrcc-update-install.update-unavailable,
+#tab-system #sdrcc-update-install.update-unavailable:hover,
+#tab-system #sdrcc-update-install.update-unavailable:focus,
+#tab-system #sdrcc-update-install:disabled,
+#tab-system #sdrcc-update-install:disabled:hover,
+#tab-system #sdrcc-update-install:disabled:focus {
+    border-color: #334155 !important;
+    background: #111827 !important;
+    color: #64748b !important;
+    box-shadow: none !important;
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+
 /* Advanced Maintenance uses one warning identity throughout. */
 #tab-system .system-maintenance-summary-v0540f {
     border-bottom-color: color-mix(in srgb, var(--system-theme-amber) 24%, #334155);
