@@ -10,6 +10,7 @@ import re
 import subprocess
 from threading import RLock
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_FILE = ROOT / "VERSION"
@@ -144,8 +145,14 @@ def check_remote_version(timeout: float = 5.0) -> dict:
     error = None
     try:
         request = Request(
-            REMOTE_VERSION_TEMPLATE.format(channel=channel),
-            headers={"User-Agent": "SDRCC-update-check"},
+            # GitHub raw responses may be cached for five minutes. A manual
+            # recheck must not keep retrieving the same stale CDN cache entry.
+            REMOTE_VERSION_TEMPLATE.format(channel=channel) + f"?check={uuid4().hex}",
+            headers={
+                "User-Agent": "SDRCC-update-check",
+                "Cache-Control": "no-cache, no-store",
+                "Pragma": "no-cache",
+            },
         )
         with urlopen(request, timeout=timeout) as response:
             latest = response.read(256).decode("utf-8").strip()
