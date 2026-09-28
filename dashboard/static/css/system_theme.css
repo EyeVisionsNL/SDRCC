@@ -278,3 +278,48 @@
         padding: 10px;
     }
 }
+
+#tab-system .sdrcc-update-beta-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0 12px;
+    padding: 9px 11px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #0b1220;
+    cursor: pointer;
+}
+
+#tab-system .sdrcc-update-beta-toggle input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--system-theme-amber);
+}
+
+#tab-system .sdrcc-update-beta-toggle span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#tab-system .sdrcc-update-beta-toggle strong {
+    color: #e2e8f0;
+    font-size: .78rem;
+}
+
+#tab-system .sdrcc-update-beta-toggle small {
+    color: #8fa7c5;
+    font-size: .66rem;
+}
+
+#tab-system .sdrcc-update-beta-toggle:has(input:checked) {
+    border-color: color-mix(in srgb, var(--system-theme-amber) 72%, #334155);
+    background: color-mix(in srgb, var(--system-theme-amber) 12%, #0b1220);
+}
+
+#tab-system .sdrcc-update-beta-toggle:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: .55;
+}
