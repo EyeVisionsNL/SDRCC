@@ -22,6 +22,7 @@
     let selectedSatelliteKey = null;
     let lastQueueFetchMs = 0;
     let aisAutoWindow = null;
+    let speakerLayoutRestore = null;
 
     function buildViewerUrls() {
         const hostname = window.location.hostname;
@@ -92,10 +93,77 @@
         return url.toString();
     }
 
+    function applySpeakerWindowLayout() {
+        if (!aisAutoWindow || aisAutoWindow.closed) return false;
+
+        const screenLeft = Number.isFinite(window.screen.availLeft) ? window.screen.availLeft : 0;
+        const screenTop = Number.isFinite(window.screen.availTop) ? window.screen.availTop : 0;
+        const screenWidth = Math.max(640, Number(window.screen.availWidth) || window.screen.width || 1920);
+        const screenHeight = Math.max(480, Number(window.screen.availHeight) || window.screen.height || 1080);
+        const sdrccWidth = Math.max(360, Math.round(screenWidth * 0.30));
+        const aisWidth = Math.max(480, screenWidth - sdrccWidth);
+
+        if (!speakerLayoutRestore) {
+            speakerLayoutRestore = {
+                left: window.screenX,
+                top: window.screenY,
+                width: window.outerWidth,
+                height: window.outerHeight,
+            };
+        }
+
+        try {
+            window.moveTo(screenLeft, screenTop);
+            window.resizeTo(sdrccWidth, screenHeight);
+        } catch (_error) {
+            // Browsers may refuse moving/resizing an existing user-created window.
+        }
+
+        try {
+            aisAutoWindow.moveTo(screenLeft + sdrccWidth, screenTop);
+            aisAutoWindow.resizeTo(aisWidth, screenHeight);
+            aisAutoWindow.focus();
+        } catch (_error) {
+            // AIS Auto still works when the browser blocks window placement.
+        }
+        return true;
+    }
+
+    function restoreSpeakerWindowLayout() {
+        if (!speakerLayoutRestore) return;
+        const previous = speakerLayoutRestore;
+        speakerLayoutRestore = null;
+        try {
+            window.moveTo(previous.left, previous.top);
+            window.resizeTo(previous.width, previous.height);
+            window.focus();
+        } catch (_error) {
+            // Leave the current layout intact when browser window control is blocked.
+        }
+    }
+
     function openAisAutoWindow(mmsi = "", zoom = 14) {
-        aisAutoWindow = window.open(aisVesselUrl(mmsi, zoom), "flexground-sdr-ais-auto");
+        const screenWidth = Math.max(640, Number(window.screen.availWidth) || window.screen.width || 1920);
+        const screenHeight = Math.max(480, Number(window.screen.availHeight) || window.screen.height || 1080);
+        const screenLeft = Number.isFinite(window.screen.availLeft) ? window.screen.availLeft : 0;
+        const screenTop = Number.isFinite(window.screen.availTop) ? window.screen.availTop : 0;
+        const sdrccWidth = Math.max(360, Math.round(screenWidth * 0.30));
+        const aisWidth = Math.max(480, screenWidth - sdrccWidth);
+        const features = [
+            "popup=yes",
+            "left=" + (screenLeft + sdrccWidth),
+            "top=" + screenTop,
+            "width=" + aisWidth,
+            "height=" + screenHeight,
+        ].join(",");
+
+        aisAutoWindow = window.open(
+            aisVesselUrl(mmsi, zoom),
+            "flexground-sdr-ais-auto",
+            features,
+        );
         if (!aisAutoWindow) return false;
-        aisAutoWindow.focus();
+        applySpeakerWindowLayout();
         return true;
     }
 
@@ -427,6 +495,7 @@
         openAisVessel,
         openAisAutoWindow,
         updateAisAutoWindow,
+        restoreSpeakerWindowLayout,
     });
 
     if (document.readyState === "loading") {
