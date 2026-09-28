@@ -167,7 +167,6 @@
     function disableAisAuto(message = "") {
         aisAutoEnabled = false;
         lastAutoAisMmsi = "";
-        window.sdrccRadioView?.restoreSpeakerWindowLayout?.();
         renderAisAutoButton();
         if (message) text("traffic-voice-action-message", message);
     }
