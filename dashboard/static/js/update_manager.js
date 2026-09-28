@@ -93,6 +93,16 @@
         } else if (worker.state === "success" && !data.same_version && !data.can_complete_audio_setup) {
             setResult(worker.message || `SDRCC ${data.installed_version} installed successfully.`, "ok");
         }
+
+        // Final safety invariant: installation is only clickable when there is
+        // actually an update (or the separate audio completion action).
+        const installAllowed = Boolean(data.update_available || data.can_complete_audio_setup);
+        installButton.disabled = !installAllowed;
+        installButton.toggleAttribute("disabled", !installAllowed);
+        installButton.setAttribute("aria-disabled", String(!installAllowed));
+        if (data.same_version && !data.can_complete_audio_setup) {
+            installButton.textContent = "No update available";
+        }
     }
 
     async function loadStatus(refresh = false) {
