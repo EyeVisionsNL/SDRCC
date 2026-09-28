@@ -5,7 +5,8 @@
     const result = document.getElementById("sdrcc-update-result");
     const checkButton = document.getElementById("sdrcc-update-check");
     const installButton = document.getElementById("sdrcc-update-install");
-    if (!installed || !latest || !badge || !result || !checkButton || !installButton) return;
+    const betaToggle = document.getElementById("sdrcc-update-beta");
+    if (!installed || !latest || !badge || !result || !checkButton || !installButton || !betaToggle) return;
 
     const ACTIVE = new Set([
         "queued", "starting", "downloading", "validating",
@@ -32,6 +33,10 @@
             same_version: Boolean(data.same_version),
             check_error: data.check_error || "",
             can_complete_audio_setup: Boolean(data.can_complete_audio_setup),
+            beta_program: Boolean(data.beta_program),
+            source_channel: data.source_channel || "main",
+            installed_channel: data.installed_channel || "main",
+            channel_change_pending: Boolean(data.channel_change_pending),
             worker_state: worker.state || "",
             worker_message: worker.message || "",
             worker_target_version: worker.target_version || "",
@@ -43,41 +48,61 @@
 
         installed.textContent = data.installed_version || "-";
         latest.textContent = data.latest_version || "Unavailable";
+        betaToggle.checked = Boolean(data.beta_program);
+        betaToggle.title = data.beta_program
+            ? "Beta program enabled: updates use develop."
+            : "Stable program: updates use main.";
 
         lastWorker = worker;
         if (ACTIVE.has(worker.state)) {
             badge.textContent = "UPDATING";
             installButton.disabled = true;
             checkButton.disabled = true;
+            betaToggle.disabled = true;
             setResult(worker.message || "Update in progress...", "warn");
             return;
         }
 
         checkButton.disabled = false;
+        betaToggle.disabled = false;
 
-        installButton.textContent = data.can_complete_audio_setup ? "Complete audio setup" : "Install update";
+        installButton.textContent = data.can_complete_audio_setup
+            ? "Complete audio setup"
+            : (data.channel_change_pending
+                ? (data.beta_program ? "Install beta" : "Switch to stable")
+                : "Install update");
         if (data.can_complete_audio_setup) {
             badge.textContent = "AUDIO SETUP NEEDED";
             installButton.disabled = false;
             setResult("SDRCC is current; complete installation of the audio libraries.", "warn");
         } else if (data.update_available) {
-            badge.textContent = "UPDATE AVAILABLE";
+            badge.textContent = data.beta_program ? "BETA UPDATE" : "UPDATE AVAILABLE";
             installButton.disabled = false;
-            setResult(
-                `Update available: ${data.installed_version} → ${data.latest_version}`,
-                "warn",
-            );
+            if (data.channel_change_pending && data.same_version) {
+                setResult(
+                    `Update channel: ${data.installed_channel} → ${data.source_channel} (${data.latest_version}).`,
+                    "warn",
+                );
+            } else {
+                setResult(
+                    `${data.beta_program ? "Beta update" : "Update"} available: ${data.installed_version} → ${data.latest_version}`,
+                    "warn",
+                );
+            }
         } else if (data.local_ahead) {
             badge.textContent = "LOCAL AHEAD";
             installButton.disabled = true;
             setResult(
-                `Installed ${data.installed_version} is ahead of GitHub main (${data.latest_version}).`,
+                `Installed ${data.installed_version} is ahead of ${data.source_channel || "main"} (${data.latest_version}).`,
                 "ok",
             );
         } else if (data.same_version) {
             badge.textContent = "UP TO DATE";
             installButton.disabled = true;
-            setResult(`SDRCC ${data.installed_version} is up to date.`, "ok");
+            setResult(
+                `SDRCC ${data.installed_version} is up to date on ${data.source_channel || "main"}.`,
+                "ok",
+            );
         } else if (data.check_error) {
             badge.textContent = "CHECK UNAVAILABLE";
             installButton.disabled = true;
@@ -85,7 +110,7 @@
         } else {
             badge.textContent = "CHECKING";
             installButton.disabled = true;
-            setResult("Checking GitHub main for a newer SDRCC version...", "warn");
+            setResult(`Checking GitHub ${data.source_channel || "main"} for a newer SDRCC version...`, "warn");
         }
 
         if (worker.state === "failed" && !data.same_version) {
@@ -161,8 +186,9 @@
     checkButton.addEventListener("click", async () => {
         checkButton.disabled = true;
         installButton.disabled = true;
+        betaToggle.disabled = true;
         badge.textContent = "CHECKING";
-        setResult("Checking GitHub main...", "warn");
+        setResult(`Checking GitHub ${betaToggle.checked ? "develop" : "main"}...`, "warn");
         try {
             lastRenderSignature = "";
             await loadStatus(true);
@@ -170,6 +196,38 @@
             badge.textContent = "CHECK FAILED";
             setResult(`Update check failed: ${String(error)}`, "bad");
             checkButton.disabled = false;
+            betaToggle.disabled = false;
+        }
+    });
+
+    betaToggle.addEventListener("change", async () => {
+        const desired = betaToggle.checked;
+        checkButton.disabled = true;
+        installButton.disabled = true;
+        betaToggle.disabled = true;
+        badge.textContent = "CHECKING";
+        setResult(
+            `Switching update channel to ${desired ? "develop (beta)" : "main (stable)"}...`,
+            "warn",
+        );
+        try {
+            const response = await fetch("/api/update/channel", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({beta_program: desired}),
+            });
+            const data = await response.json();
+            if (!response.ok || data.ok === false) {
+                throw new Error(data.message || "Update channel could not be changed.");
+            }
+            lastRenderSignature = "";
+            render(data);
+        } catch (error) {
+            betaToggle.checked = !desired;
+            badge.textContent = "CHECK FAILED";
+            setResult(`Update channel change failed: ${String(error)}`, "bad");
+            checkButton.disabled = false;
+            betaToggle.disabled = false;
         }
     });
 
@@ -185,6 +243,7 @@
 
         installButton.disabled = true;
         checkButton.disabled = true;
+        betaToggle.disabled = true;
         badge.textContent = "STARTING";
         setResult("Starting managed SDRCC update...", "warn");
 
@@ -205,6 +264,7 @@
             setResult(`Update start failed: ${String(error)}`, "bad");
             checkButton.disabled = false;
             installButton.disabled = false;
+            betaToggle.disabled = false;
         }
     });
 
