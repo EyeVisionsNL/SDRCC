@@ -15,6 +15,7 @@
     let completingAudio = false;
     let completionAttempted = false;
     let lastWorker = {};
+    let lastRenderSignature = "";
 
     function setResult(message, kind = "") {
         result.textContent = message;
@@ -22,10 +23,27 @@
     }
 
     function render(data) {
+        const worker = data.worker || {};
+        const signature = JSON.stringify({
+            installed_version: data.installed_version || "",
+            latest_version: data.latest_version || "",
+            update_available: Boolean(data.update_available),
+            local_ahead: Boolean(data.local_ahead),
+            same_version: Boolean(data.same_version),
+            check_error: data.check_error || "",
+            can_complete_audio_setup: Boolean(data.can_complete_audio_setup),
+            worker_state: worker.state || "",
+            worker_message: worker.message || "",
+            worker_target_version: worker.target_version || "",
+            worker_current_version: worker.current_version || "",
+            worker_audio_setup_attempted: Boolean(worker.audio_setup_attempted),
+        });
+        if (signature === lastRenderSignature) return;
+        lastRenderSignature = signature;
+
         installed.textContent = data.installed_version || "-";
         latest.textContent = data.latest_version || "Unavailable";
 
-        const worker = data.worker || {};
         lastWorker = worker;
         if (ACTIVE.has(worker.state)) {
             badge.textContent = "UPDATING";
@@ -70,9 +88,9 @@
             setResult("Checking GitHub main for a newer SDRCC version...", "warn");
         }
 
-        if (worker.state === "failed") {
+        if (worker.state === "failed" && !data.same_version) {
             setResult(`Last update failed: ${worker.message || "unknown error"}`, "bad");
-        } else if (worker.state === "success" && data.same_version && !data.can_complete_audio_setup) {
+        } else if (worker.state === "success" && !data.same_version && !data.can_complete_audio_setup) {
             setResult(worker.message || `SDRCC ${data.installed_version} installed successfully.`, "ok");
         }
     }
@@ -135,6 +153,7 @@
         badge.textContent = "CHECKING";
         setResult("Checking GitHub main...", "warn");
         try {
+            lastRenderSignature = "";
             await loadStatus(true);
         } catch (error) {
             badge.textContent = "CHECK FAILED";
@@ -173,7 +192,7 @@
             badge.textContent = "UPDATE FAILED";
             setResult(`Update start failed: ${String(error)}`, "bad");
             checkButton.disabled = false;
-            await loadStatus(false).catch(() => {});
+            installButton.disabled = false;
         }
     });
 
