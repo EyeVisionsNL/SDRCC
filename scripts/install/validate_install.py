@@ -12,6 +12,16 @@ def service_exists(name):
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--json',action='store_true'); args=ap.parse_args()
+    features = {'satellite': True, 'traffic_voice': True, 'radio_receiver': True}
+    feature_path = ROOT/'config/features.yaml'
+    if feature_path.exists():
+      try:
+        configured = (yaml.safe_load(feature_path.read_text()) or {}).get('features', {})
+        for name in features:
+          if name in configured:
+            features[name] = bool(configured[name])
+      except Exception:
+        pass
     checks={
       'version': (ROOT/'VERSION').exists(),
       'venv_python': (ROOT/'venv/bin/python').exists(),
@@ -20,13 +30,13 @@ def main():
       'sdrcc_service': service_exists('sdrcc.service'),
       'readsb_service': service_exists('readsb.service'),
       'ais_service': service_exists('ais-catcher.service'),
-      'traffic_voice_service': service_exists('sdrcc-traffic-voice.service'),
+      'traffic_voice_service': (not features['traffic_voice']) or service_exists('sdrcc-traffic-voice.service'),
       'receiver_helper': Path('/usr/local/sbin/sdrcc-apply-receiver-roles').exists(),
       'update_helper': Path('/usr/local/sbin/sdrcc-update').exists(),
-      'satdump': shutil.which('satdump') is not None,
+      'satdump': (not features['satellite']) or shutil.which('satdump') is not None,
       'readsb': shutil.which('readsb') is not None,
       'ais_catcher': shutil.which('AIS-catcher') is not None,
-      'airband': Path('/opt/sdrcc/traffic_voice/bin/rtl_airband').exists(),
+      'airband': (not features['traffic_voice']) or Path('/opt/sdrcc/traffic_voice/bin/rtl_airband').exists(),
     }
     try:
       r=yaml.safe_load((ROOT/'config/receivers.yaml').read_text())['receivers']
