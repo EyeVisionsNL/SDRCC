@@ -100,6 +100,7 @@
         installButton.disabled = !installAllowed;
         installButton.toggleAttribute("disabled", !installAllowed);
         installButton.setAttribute("aria-disabled", String(!installAllowed));
+        installButton.classList.toggle("update-unavailable", !installAllowed);
         if (data.same_version && !data.can_complete_audio_setup) {
             installButton.textContent = "No update available";
         }
@@ -173,6 +174,7 @@
     });
 
     installButton.addEventListener("click", async () => {
+        if (installButton.disabled || installButton.classList.contains("update-unavailable")) return;
         const target = latest.textContent;
         const source = installed.textContent;
         if (!confirm(
