@@ -31,6 +31,8 @@ REPOSITORY = "https://github.com/EyeVisionsNL/SDRCC.git"
 DEFAULT_BRANCH = "main"
 ALLOWED_BRANCHES = {"main", "develop"}
 UPDATE_CHANNEL_RELATIVE = Path("data/state/update_channel.json")
+UPDATE_SERVICE_STATE_RELATIVE = Path("data/state/update_service_state.json")
+UPDATE_RESTORE_SERVICES = ("readsb.service", "ais-catcher.service", "ais-catcher-control.service")
 VERSION_RE = re.compile(
     r"^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"
     r"(?P<suffix>[A-Za-z]*)(?:-r(?P<revision>\d+))?$"
@@ -184,6 +186,74 @@ def mark_installed_channel(
     gid = grp.getgrnam(install_group).gr_gid
     os.chown(temporary, uid, gid)
     os.replace(temporary, path)
+
+
+def read_update_service_plan(project: Path):
+    path = project / UPDATE_SERVICE_STATE_RELATIVE
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError, TypeError) as error:
+        return {"path": path, "active_services": set(), "errors": [str(error)]}
+
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        return {"path": path, "active_services": set(), "errors": ["invalid service-state plan"]}
+
+    raw = payload.get("active_services")
+    if not isinstance(raw, list):
+        return {"path": path, "active_services": set(), "errors": ["invalid active_services list"]}
+
+    unknown = [service for service in raw if service not in UPDATE_RESTORE_SERVICES]
+    if unknown:
+        return {
+            "path": path,
+            "active_services": set(),
+            "errors": ["unsupported services: " + ", ".join(map(str, unknown))],
+        }
+
+    return {"path": path, "active_services": set(raw), "errors": []}
+
+
+def restore_update_service_plan(project: Path) -> dict:
+    """Restore the exact AIS/ADS-B runtime state captured before the update."""
+    plan = read_update_service_plan(project)
+    if plan is None:
+        return {"ok": True, "restored": False, "errors": []}
+
+    errors = list(plan.get("errors") or [])
+    wanted = set(plan.get("active_services") or [])
+    path = plan["path"]
+
+    def active(service: str) -> bool:
+        return run(
+            ["/usr/bin/systemctl", "is-active", "--quiet", service],
+            timeout=10,
+        ).returncode == 0
+
+    for service in ("ais-catcher-control.service", "ais-catcher.service", "readsb.service"):
+        if service in wanted or not active(service):
+            continue
+        result = run(["/usr/bin/systemctl", "stop", service], timeout=45)
+        if result.returncode or active(service):
+            errors.append(f"stop {service} failed")
+
+    for service in ("readsb.service", "ais-catcher.service", "ais-catcher-control.service"):
+        if service not in wanted or active(service):
+            continue
+        result = run(["/usr/bin/systemctl", "start", service], timeout=45)
+        if result.returncode or not active(service):
+            errors.append(f"start {service} failed")
+
+    if not errors:
+        path.unlink(missing_ok=True)
+
+    return {
+        "ok": not errors,
+        "restored": True,
+        "active_services": sorted(wanted),
+        "errors": errors,
+    }
 
 
 def safe_relative(name: str) -> Path:
@@ -447,9 +517,14 @@ def worker() -> int:
                              current_version=current, target_version=target)
                 if not prepare_audio_dependencies(source, project):
                     raise RuntimeError("Audio library setup failed; see /var/log/sdrcc-update.log and retry Complete audio setup.")
-                write_status("success", "Audio libraries are ready; reopen listening if needed.",
+                service_restore = restore_update_service_plan(project)
+                message = "Audio libraries are ready; reopen listening if needed."
+                if service_restore.get("errors"):
+                    message += " Receiver service restore requires attention."
+                write_status("success", message,
                              current_version=current, target_version=target,
-                             installed_version=current, audio_setup_attempted=True)
+                             installed_version=current, audio_setup_attempted=True,
+                             service_restore=service_restore)
                 return 0
 
             if comparison > 0:
@@ -457,6 +532,7 @@ def worker() -> int:
                     f"Installed version {current} is ahead of {branch} ({target}); "
                     "no downgrade was installed."
                 )
+                service_restore = restore_update_service_plan(project)
                 write_status(
                     "up_to_date",
                     message,
@@ -464,6 +540,7 @@ def worker() -> int:
                     target_version=target,
                     source_commit=commit,
                     source_channel=branch,
+                    service_restore=service_restore,
                 )
                 return 0
 
@@ -541,10 +618,17 @@ def worker() -> int:
                 raise RuntimeError(f"Installed VERSION mismatch: expected {target}, got {installed}")
 
             mark_installed_channel(project, branch, install_user, install_group)
+            service_restore = restore_update_service_plan(project)
+            success_message = (
+                f"SDRCC updated successfully to {target}."
+                + ("" if audio_setup_ok else " Audio setup needs completion; use Complete audio setup.")
+            )
+            if service_restore.get("errors"):
+                success_message += " Receiver service restore requires attention."
 
             write_status(
                 "success",
-                f"SDRCC updated successfully to {target}." + ("" if audio_setup_ok else " Audio setup needs completion; use Complete audio setup."),
+                success_message,
                 current_version=current,
                 target_version=target,
                 installed_version=installed,
@@ -552,6 +636,7 @@ def worker() -> int:
                 source_commit=commit,
                 source_channel=branch,
                 backup=str(backup),
+                service_restore=service_restore,
             )
             log(f"Managed update completed via {branch}: {current} -> {target}")
             return 0
@@ -564,12 +649,20 @@ def worker() -> int:
                 run(["/usr/bin/systemctl", "start", "sdrcc.service"], timeout=45)
             except Exception:
                 pass
+        service_restore = (
+            restore_update_service_plan(project)
+            if project is not None
+            else {"ok": True, "restored": False, "errors": []}
+        )
+        if service_restore.get("errors"):
+            message += "; receiver service restore requires attention"
         write_status(
             "failed",
             message,
             current_version=current,
             target_version=target,
             backup=str(backup) if backup else None,
+            service_restore=service_restore,
         )
         return 1
 

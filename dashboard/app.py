@@ -78,6 +78,8 @@ AIS_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-ais-autostart")
 SDRCC_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-self-autostart")
 SDRCC_UPDATE_HELPER = Path("/usr/local/sbin/sdrcc-update")
 AIS_CONTROL_SERVICE = "ais-catcher-control.service"
+UPDATE_SERVICE_STATE_FILE = PROJECT_ROOT / "data" / "state" / "update_service_state.json"
+UPDATE_RESTORE_SERVICES = ("readsb.service", "ais-catcher.service", AIS_CONTROL_SERVICE)
 
 IMAGE_DIRS = [
     PROJECT_ROOT / "data" / "images",
@@ -4443,6 +4445,74 @@ def _stop_service_group_for_update(plugin_id):
     return stopped
 
 
+def _write_update_service_plan(active_services):
+    """Persist the exact normal receiver-service state for the detached worker."""
+    wanted = set(active_services or [])
+    payload = {
+        "version": 1,
+        "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "active_services": [
+            service for service in UPDATE_RESTORE_SERVICES if service in wanted
+        ],
+    }
+    UPDATE_SERVICE_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temporary = UPDATE_SERVICE_STATE_FILE.with_name(
+        UPDATE_SERVICE_STATE_FILE.name + ".tmp"
+    )
+    temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(UPDATE_SERVICE_STATE_FILE)
+    return payload
+
+
+def _read_update_service_plan():
+    try:
+        payload = json.loads(UPDATE_SERVICE_STATE_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        raise RuntimeError("Update service-state plan is invalid")
+    active = payload.get("active_services")
+    if not isinstance(active, list) or any(
+        not isinstance(service, str) or service not in UPDATE_RESTORE_SERVICES
+        for service in active
+    ):
+        raise RuntimeError("Update service-state plan contains unsupported services")
+    return payload
+
+
+def _restore_update_service_plan():
+    """Best-effort exact restore when an update fails before the worker owns it."""
+    try:
+        payload = _read_update_service_plan()
+    except Exception as error:
+        return [str(error)]
+    if payload is None:
+        return []
+
+    wanted = set(payload.get("active_services") or [])
+    errors = []
+    stop_order = (AIS_CONTROL_SERVICE, "ais-catcher.service", "readsb.service")
+    start_order = ("readsb.service", "ais-catcher.service", AIS_CONTROL_SERVICE)
+
+    for service in stop_order:
+        if service in wanted or not service_state(service).get("active"):
+            continue
+        result = run_systemctl("stop", service)
+        if result.returncode != 0 or not wait_for_service(service, "inactive", 15):
+            errors.append(f"stop {service}")
+
+    for service in start_order:
+        if service not in wanted or service_state(service).get("active"):
+            continue
+        result = run_systemctl("start", service)
+        if result.returncode != 0 or not wait_for_service(service, "active", 15):
+            errors.append(f"start {service}")
+
+    if not errors:
+        UPDATE_SERVICE_STATE_FILE.unlink(missing_ok=True)
+    return errors
+
+
 def _prepare_receiver_work_for_update():
     """Quiesce ordinary receiver work; preserve mission/hardware safety blocks."""
     if _update_receiver_runtime_active():
@@ -4490,6 +4560,14 @@ def _prepare_receiver_work_for_update():
             stopped.append(traffic_voice_controller.VOICE_SERVICE)
             write_log("Managed update: stopped Traffic Voice")
 
+        observed = {}
+        for plugin_id in ("ais", "adsb"):
+            observed.update(_observe_service_group(plugin_id))
+        service_plan = _write_update_service_plan([
+            service for service, item in observed.items()
+            if item.get("active")
+        ])
+
         for plugin_id in ("ais", "adsb"):
             stopped.extend(_stop_service_group_for_update(plugin_id))
 
@@ -4497,6 +4575,7 @@ def _prepare_receiver_work_for_update():
         reservations = receiver_status.get("canonical_reservations") or {}
         binding = receiver_manager.binding_status()
         if reservations or binding.get("transaction") or binding.get("recovery"):
+            restore_errors = _restore_update_service_plan()
             return {
                 "ok": False,
                 "message": (
@@ -4506,20 +4585,24 @@ def _prepare_receiver_work_for_update():
                 "reservations": reservations,
                 "binding": binding,
                 "stopped_services": stopped,
+                "service_restore_errors": restore_errors,
             }
 
         return {
             "ok": True,
             "stopped_services": stopped,
+            "restore_services": service_plan.get("active_services") or [],
             "reservations": {},
             "binding": binding,
         }
     except Exception as error:
+        restore_errors = _restore_update_service_plan()
         write_log(f"Managed update receiver shutdown failed: {error}")
         return {
             "ok": False,
             "message": str(error),
             "stopped_services": stopped,
+            "service_restore_errors": restore_errors,
             "reservations": receiver_manager.get_status().get("canonical_reservations") or {},
             "binding": receiver_manager.binding_status(),
         }
@@ -4528,10 +4611,6 @@ def _prepare_receiver_work_for_update():
 @app.route("/api/update/install", methods=["POST"])
 @receiver_manager.service_control_serialized
 def api_update_install():
-    preparation = _prepare_receiver_work_for_update()
-    if not preparation.get("ok"):
-        return jsonify(preparation), 409
-
     status = update_manager.check_remote_version()
     if status.get("check_error"):
         return jsonify({
@@ -4555,6 +4634,10 @@ def api_update_install():
             "message": f"Managed update helper missing: {SDRCC_UPDATE_HELPER}",
         }), 500
 
+    preparation = _prepare_receiver_work_for_update()
+    if not preparation.get("ok"):
+        return jsonify(preparation), 409
+
     write_log(
         "Managed SDRCC update requested: "
         f"{status.get('installed_version')} -> {status.get('latest_version')} "
@@ -4573,8 +4656,13 @@ def api_update_install():
             or raw
             or "Managed update helper failed to start"
         ).strip()
+        restore_errors = _restore_update_service_plan()
         write_log(f"Managed SDRCC update start failed: {message}")
-        return jsonify({"ok": False, "message": message}), 500
+        return jsonify({
+            "ok": False,
+            "message": message,
+            "service_restore_errors": restore_errors,
+        }), 500
 
     return jsonify({
         "ok": True,

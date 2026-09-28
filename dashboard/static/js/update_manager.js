@@ -237,8 +237,9 @@
         const source = installed.textContent;
         if (!confirm(
             (installButton.textContent === "Complete audio setup" ? "Complete audio library installation?\n\n" : `Install SDRCC update ${source} → ${target}?\n\n`)
-            + "Active receiver work must be stopped."
-            + (installButton.textContent === "Complete audio setup" ? "" : " SDRCC will restart automatically.")
+            + (installButton.textContent === "Complete audio setup"
+                ? ""
+                : "SDRCC will stop normal AIS/ADS-B receiver services automatically and restore their previous state afterwards. Active missions must be stopped first. SDRCC will restart automatically.")
         )) return;
 
         installButton.disabled = true;
