@@ -277,6 +277,22 @@
         const tuningMode = byId("traffic-voice-tuning-mode");
         const squelch = byId("traffic-voice-squelch");
         const scanInterval = byId("traffic-voice-scan-interval");
+        const channelFilterButton = byId("traffic-voice-channel-filter");
+
+        if (channelFilterButton) {
+            const marine = settings.mode_id === "marine_ais";
+            const enabled = settings.channel_filter_enabled !== false;
+            channelFilterButton.hidden = !marine;
+            channelFilterButton.disabled = actionBusy || !running || !marine;
+            channelFilterButton.textContent = enabled
+                ? "Channel filter: ON · 15 kHz"
+                : "Channel filter: OFF";
+            channelFilterButton.setAttribute("aria-pressed", String(enabled));
+            channelFilterButton.classList.toggle("is-open", enabled);
+            channelFilterButton.title = enabled
+                ? "15 kHz RF channel filter is active before NFM demodulation. Click to compare without it."
+                : "RF channel filter is bypassed. Click to enable the 15 kHz pre-demod filter.";
+        }
 
         const nextChannelSignature = String(settings.mode_id || "") + "|" + channels
             .map(item => item.id + ":" + item.frequency_mhz + ":" + (item.channel_mhz || "")).join("|");
@@ -455,7 +471,10 @@
         audio.removeAttribute("src");
         audio.load();
         const button = byId("traffic-voice-audio-toggle");
-        if (button) button.textContent = "▶ Live audio";
+        if (button) {
+            button.textContent = "▶ Live audio";
+            button.disabled = actionBusy || !audio.dataset.streamUrl;
+        }
         text("traffic-voice-audio-detail", "Live audio stopped in this browser.");
     }
 
@@ -478,6 +497,13 @@
             text("traffic-voice-audio-detail", "Playing the live stream; no artificial duration is shown.");
         } catch (error) {
             if (operation !== audioOperation || error?.name === "AbortError") return;
+            audio.removeAttribute("src");
+            audio.load();
+            const button = byId("traffic-voice-audio-toggle");
+            if (button) {
+                button.textContent = "▶ Live audio";
+                button.disabled = actionBusy || !audio.dataset.streamUrl;
+            }
             text("traffic-voice-audio-detail", "Browser audio could not start: " + error.message);
         }
     }
@@ -505,10 +531,20 @@
         if (!audio) return;
         audio.dataset.streamUrl = audioState.stream_url || "";
         if (modeChanged && wasListening && audioState.stream_url) startAudio();
-        if (button) button.disabled = actionBusy || !audioState.stream_url;
-        if (!audioState.stream_url && audio.getAttribute("src")) stopAudio();
-        if (!audioState.stream_url) {
+
+        const browserListening = Boolean(audio.getAttribute("src"));
+        const voiceRunning = Boolean((payload.service || {}).active);
+        if (button) {
+            button.textContent = browserListening ? "■ Stop audio" : "▶ Live audio";
+            // A running browser stream must always remain stoppable, even when
+            // the backend temporarily reports no fresh packet during silence.
+            button.disabled = actionBusy || (!browserListening && !audioState.stream_url);
+        }
+        if (!voiceRunning && browserListening) stopAudio();
+        if (!audioState.stream_url && !browserListening) {
             text("traffic-voice-audio-detail", "Start Voice and wait for the local audio stream.");
+        } else if (!audioState.stream_url && browserListening) {
+            text("traffic-voice-audio-detail", "Live audio is waiting for the next receiver packet.");
         }
     }
 
@@ -769,8 +805,15 @@
         });
         byId("traffic-voice-audio-toggle")?.addEventListener("click", () => {
             const audio = byId("traffic-voice-audio");
-            if (audio && !audio.paused) stopAudio();
+            if (audio?.getAttribute("src")) stopAudio();
             else startAudio();
+        });
+        byId("traffic-voice-channel-filter")?.addEventListener("click", async () => {
+            const settings = lastPayload?.receiver_settings || {};
+            if (settings.mode_id !== "marine_ais") return;
+            await applySettings({
+                channel_filter_enabled: settings.channel_filter_enabled === false,
+            });
         });
         byId("traffic-voice-volume")?.addEventListener("input", event => {
             const audio = byId("traffic-voice-audio");
