@@ -417,6 +417,11 @@ def install_privileged_helpers(source: Path, install_user: str) -> None:
         "/etc/sudoers.d/sdrcc-update":
             f'{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""\n',
     }
+    rules["/etc/sudoers.d/sdrcc-update-services"] = "".join(
+        f"{install_user} ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block {action} {service}\n"
+        for service in (*UPDATE_RESTORE_SERVICES, "sdrcc-traffic-voice.service")
+        for action in ("start", "stop")
+    )
     for target, text in rules.items():
         temporary = Path(target + ".tmp")
         temporary.write_text(text, encoding="utf-8")

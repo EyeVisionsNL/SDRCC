@@ -220,10 +220,13 @@ def run_systemctl_for_update(action, service):
     """Issue update quiesce/restore service actions without blocking on systemd jobs."""
     if action not in {"start", "stop"}:
         raise ValueError(f"Unsupported update systemctl action: {action}")
-    return run_command(
-        ["sudo", "-n", "systemctl", "--no-block", action, service],
-        timeout=10,
-    )
+    # Older installations only allow the exact blocking start/stop command.
+    # Check permission before choosing a command; do not retry a failed action.
+    command = ["/usr/bin/systemctl", "--no-block", action, service]
+    permitted = run_command(["sudo", "-n", "-l", "--", *command], timeout=10)
+    if permitted.returncode != 0:
+        return run_systemctl(action, service)
+    return run_command(["sudo", "-n", *command], timeout=10)
 
 
 def _update_service_needs_stop(service_name):

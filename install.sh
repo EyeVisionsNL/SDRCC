@@ -214,6 +214,16 @@ EOF
 cat >"$tmp/sdrcc-update" <<EOF
 eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""
 EOF
+cat >"$tmp/sdrcc-update-services" <<EOF
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start readsb.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop readsb.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start ais-catcher.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop ais-catcher.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start ais-catcher-control.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop ais-catcher-control.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start sdrcc-traffic-voice.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop sdrcc-traffic-voice.service
+EOF
 for f in "$tmp"/sdrcc-*; do
   sed -i "s/^eyeuser /$INSTALL_USER /" "$f"
   sudo visudo -cf "$f" >/dev/null
