@@ -819,6 +819,22 @@
             const audio = byId("traffic-voice-audio");
             if (audio) audio.volume = Number(event.target.value);
         });
+        const liveAudio = byId("traffic-voice-audio");
+        ["ended", "error"].forEach(eventName => liveAudio?.addEventListener(eventName, () => {
+            if (!liveAudio.getAttribute("src")) return;
+            audioOperation += 1;
+            liveAudio.removeAttribute("src");
+            liveAudio.load();
+            const button = byId("traffic-voice-audio-toggle");
+            if (button) {
+                button.textContent = "▶ Live audio";
+                button.disabled = actionBusy || !liveAudio.dataset.streamUrl;
+            }
+            text(
+                "traffic-voice-audio-detail",
+                "Live audio stream ended; click Live audio to reconnect.",
+            );
+        }));
         ["traffic-voice-tuning-mode", "traffic-voice-channel-select", "traffic-voice-gain"]
             .forEach(id => byId(id)?.addEventListener("change", () => { settingsDirty = true; }));
         byId("traffic-voice-auto-gain")?.addEventListener("change", event => {
