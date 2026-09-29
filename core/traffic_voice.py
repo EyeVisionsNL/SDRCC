@@ -254,6 +254,7 @@ def get_receiver_settings(
         "squelch_snr_db": float(backend.get("squelch_snr_db") or 0.0),
         "scan_interval_ms": scan_interval_ms,
         "open_squelch": backend.get("open_squelch") is True,
+        "channel_filter_enabled": backend.get("channel_filter_enabled", True) is not False,
         "valid_gains": config_core.get_rtl_sdr_valid_gains(),
         "channels": channels,
         "scan_channel_ids": [
@@ -306,6 +307,11 @@ def normalize_receiver_settings(
     open_squelch = changes.get("open_squelch", current["open_squelch"])
     if not isinstance(open_squelch, bool):
         raise ValueError("Open squelch moet true of false zijn")
+    channel_filter_enabled = changes.get(
+        "channel_filter_enabled", current["channel_filter_enabled"]
+    )
+    if not isinstance(channel_filter_enabled, bool):
+        raise ValueError("Marine channel filter must be true or false")
     try:
         scan_interval_ms = int(changes.get("scan_interval_ms", current["scan_interval_ms"]))
     except (TypeError, ValueError) as error:
@@ -335,6 +341,7 @@ def normalize_receiver_settings(
         "squelch_snr_db": squelch_snr_db,
         "scan_interval_ms": scan_interval_ms,
         "open_squelch": open_squelch,
+        "channel_filter_enabled": channel_filter_enabled,
         "scan_channel_ids": scan_channel_ids,
     }
 
@@ -352,6 +359,7 @@ def save_receiver_settings(changes: dict[str, Any]) -> dict[str, Any]:
     backend["squelch_snr_db"] = normalized["squelch_snr_db"]
     backend["scan_interval_ms"] = normalized["scan_interval_ms"]
     backend["open_squelch"] = normalized["open_squelch"]
+    backend["channel_filter_enabled"] = normalized["channel_filter_enabled"]
     mode["tuning_mode"] = normalized["tuning_mode"]
     mode["selected_channel_id"] = normalized["selected_channel_id"]
     enabled_scan_ids = set(normalized["scan_channel_ids"])
@@ -656,7 +664,8 @@ def render_rtlsdr_airband_config() -> str:
         "    {",
         f"      modulation = {_libconfig_string(mode['modulation'])};",
         *((f"      bandwidth = {MARINE_CHANNEL_BANDWIDTH_HZ};",)
-          if selected_mode == "marine_ais" else ()),
+          if selected_mode == "marine_ais"
+          and receiver_settings["channel_filter_enabled"] else ()),
         f"      freqs = ( {freqs} );",
         f"      labels = ( {labels} );",
         f"      squelch_snr_threshold = {squelch_snr_db:.1f};",
