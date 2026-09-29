@@ -9,7 +9,8 @@
     "931c43dd69b9c75b0918d42b702c6b1099d2e07f3d81f492da69c909146663e7",
     "ee2cc9ea0f5df5a272be553418847fc72b8c49587ceaed8d9dc502c5eaf7028d",
     "2eaf814063b715a4bcdfa67b9a7ee62b782a505fbb6edb756942f5da62bca4be",
-    "db00dbc880b9a335bb27d84f56b51b0464bf50799636de14c3c0a8f454bce036"
+    "db00dbc880b9a335bb27d84f56b51b0464bf50799636de14c3c0a8f454bce036",
+    "1bfcc2f9788d7bcada1b564d745b647b9804618299e156967cae7be8ee4ff879"
   ],
   "VERSION": [
     "0ce5d24be6eb85807eb9fc6e1b43918738d830755dbf238e2a94f5eefb9e4470",
@@ -423,5 +424,26 @@
     "694356f17a97349a5559ba316b9b4e66078972fec9ce71ac4525439744190bfa",
     "7ca5046409944b0928a486a905ebc169c5e7c53a29d6b9fa54fb072e3f33d930",
     "76be63074ff30f52661f6b0c36d3c0cc98f8f4c555d32ed46057494af57b7e1e"
+  ],
+  "images/radio-view.png": [
+    "280d5aebc3aa14403c378e9cd38a63bbcc049f3a1afe96e4cc10bfe50247d7e6"
+  ],
+  "images/traffic-voice-atis-ais.png": [
+    "6019aaf49593244788e8ec7b366fd11f7def8b37c9d03b093d899f13644e6097"
+  ],
+  "images/ais-map-match.png": [
+    "b9f47005c371a838d4fdb21139a01257b768ac8a645ba678cc4ccb3d30e153bc"
+  ],
+  "images/radio-receiver.png": [
+    "6a4e9fba1985501c22b3a02e252e878eca1b573846237399a9035438140a7f60"
+  ],
+  "images/mission-planner.png": [
+    "3a09b52597d89984c72c0efa9dcbcacc6c4af0c899c178c46957f5fb3cfd4973"
+  ],
+  "images/mission-control.png": [
+    "61bd85700892d766ece54e1fde5e963c2749e6444fbf524c2e93631c10d31f41"
+  ],
+  "images/mission-operations.png": [
+    "af53a183cf58a1e74c485c3a88761670e1440b11522a26d94fec85005280a0e1"
   ]
 }
