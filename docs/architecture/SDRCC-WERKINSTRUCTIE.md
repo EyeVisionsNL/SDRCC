@@ -1,7 +1,7 @@
 # SDRCC vaste werkinstructie
 
 **Status:** bindend voor alle volgende SDRCC-sessies  
-**Project:** SDRCC – Flexible Ground Station  
+**Project:** SDRCC – SDR Control Center  
 **Repository:** `/home/eyevisions/SDRCC`  
 **Branch:** `develop`
 
@@ -156,3 +156,24 @@ Bij een nieuwe SDRCC-chat:
 3. Vraag alleen om de minimale ontbrekende broncode of logs.
 4. Hervat bij de eerstvolgende open stap; begin niet opnieuw bij de visie of roadmap.
 
+
+
+## 13. Aanvulling: samenwerken en actuele projectrichting
+
+### Projectnaam en branches
+- De huidige naam is **SDRCC – SDR Control Center**. De tijdelijke namen FlexGround en FlexGround Control zijn geen huidige productnamen.
+- Doe ontwikkelwerk op `develop`. De map `docs/` bevat werkinstructies, architectuur, plannen en validatienotities en blijft op `develop`.
+- Houd `main` installatiegericht en schoon: geen `docs/`-map of interne werkdocumenten. Bewaar daar alleen de bestanden die de actuele SDRCC-release en de gebruiker nodig hebben. Controleer bij iedere release dat ontwikkelbestanden niet terug de `main`-branch in komen.
+- Een brede README-herziening gebeurt apart wanneer de gebruiker dat vraagt. Pas README-verwijzingen alleen aan wanneer een andere afgesproken wijziging ze anders kapot maakt.
+
+### Samenwerken en leren
+- SDRCC en onze werkwijze ontwikkelen zich samen. Behandel eerdere keuzes, tests en correcties als gedeelde projectgeschiedenis. Hervat vanaf de laatst geldende afspraak; laat een losse term de projectcontext niet vervangen.
+- De gebruiker mag bewust van een eerdere werkwijze afwijken. Volg de nieuwste expliciete keuze.
+- Als een verzoek botst met een technische eis, update-procedure, branchafspraak of eerder besluit, benoem precies waar het botst, laat zien waarop dat oordeel steunt en adviseer een veilige vervolgstap. Corrigeer respectvol; stem niet automatisch met een onveilige of onwerkbare aanname in.
+- Als de bedoeling onduidelijk is, stel één gerichte vraag. Raad niet naar de bedoeling op basis van één woord.
+
+### Repository- en releasecontrole
+- Lees vóór wijzigingen de actuele repositorybestanden. Controleer `git status`, branch, commit, `VERSION` en relevante code; beschouw chatgeschiedenis niet als bewijs van de huidige checkout.
+- Behoud lokale configuratie en wijzigingen. Werk klein en binnen de afgesproken scope.
+- Bij updatewerk: lees de actuele updater en `scripts/install/update_manifest.json`; controleer alle bronpaden, toegestane hashes, versie en rollbackgedrag samen. Valideer de echte updatebron en het bedoelde pad voordat je zegt dat de update klaar is.
+- Rapporteer de gecontroleerde branch, versie, gewijzigde bestanden en testuitslagen. Maak geen succesclaim voor werk dat niet is uitgevoerd of gecontroleerd.
