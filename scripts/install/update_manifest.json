@@ -8,7 +8,8 @@
     "a7e032f72d6c08f72543843bdb631741e02f922896f7140e995db67ae5a7ea9c",
     "931c43dd69b9c75b0918d42b702c6b1099d2e07f3d81f492da69c909146663e7",
     "ee2cc9ea0f5df5a272be553418847fc72b8c49587ceaed8d9dc502c5eaf7028d",
-    "2eaf814063b715a4bcdfa67b9a7ee62b782a505fbb6edb756942f5da62bca4be"
+    "2eaf814063b715a4bcdfa67b9a7ee62b782a505fbb6edb756942f5da62bca4be",
+    "db00dbc880b9a335bb27d84f56b51b0464bf50799636de14c3c0a8f454bce036"
   ],
   "VERSION": [
     "0ce5d24be6eb85807eb9fc6e1b43918738d830755dbf238e2a94f5eefb9e4470",
@@ -150,20 +151,6 @@
     "5b4e684b7ac9d2bc12167f028abcc17fe077caf3af6b5fa6faec4ca782a4421c",
     "3f710814c2b2773cc7fae25615bf1812b4d26aed37170b9b34853f9c3a171805"
   ],
-  "docs/flexible-receiver-binding-v0560q-r2.md": [
-    "d72ce8389381b0e5f9aa5af7cc51492891a02f60c98cbbc7c8ab780a360fb966",
-    "ec07e9556fd344fa6ef611ee53d70582da462cfe47dc5a6a8dabb989ab5c776e"
-  ],
-  "docs/validation-v0560q-r2.txt": [
-    "3a476962991e2107b4b926eeb1d19d522f02db3fd7bcb981ee9e09533b8b2827",
-    "fbd5bd9653e864479ec3134e1201ed51104f57edd92aa261965e3f67ca2442b4"
-  ],
-  "docs/ais-autostart-guard-v0560r-r1.md": [
-    "edebb73af8e1df11ccde58c5d0d26efefc10367ab8ba91d0f830110a15dc9dc6"
-  ],
-  "docs/sdrcc-autostart-guard-v0560s-r1.md": [
-    "eb758cf6bab88d223208c83c69cb0fb393884fb9fa14d27734d1fbe0cf6c7023"
-  ],
   "install.sh": [
     "3daaffc46a4718c46a271d3a2fcf48d595ab7207b691be48a5df2c1b2b83c5ba",
     "17835ee06492fec2edd1f787b60dc677ad08af5858148809036d0d6ad7e4dc8c",
@@ -304,9 +291,6 @@
   "scripts/validate_ais_setup_v0560t.py": [
     "5a8d615df2520cace4e24c07d322ad8987eb7cf871738f6369741e0c54bb0ee3"
   ],
-  "docs/ais-setup-v0560t-r1.md": [
-    "44dd54ad51daba3ee1267f61df2bc37ef6d7314c72496563ca773c51e1807cd5"
-  ],
   "core/receiver_monitor.py": [
     "0dfb22f6b8a1d3a9035bcb3af97b6c621ca1e1701feba333a17b5519d8a51d66",
     "7064be29e62cd8fbbbf5a047f7cdb0b33bdcc3970e9a04c120f1382fe55fdaf6",
@@ -392,18 +376,10 @@
     "13892e3271b646a4d8bba430dc88bb7a3aa116f812c721b9e68148519a9a6ab7",
     "a75f819d82376c4fa22864d0c41567d139069ff3bc551628de40d1a742b4bcf6"
   ],
-  "docs/marine-speech-filter-v0580.md": [
-    "5eeec2e1b540a9f2b9da5d93ad6ad83030f145bbae2f3cb22ef986bf1e2c2414",
-    "0f4e4ad79530263165ef0c9bb044d9b7e89a5fc9b49451f607dc635ed3c37b79"
-  ],
   "dashboard/static/css/traffic_voice.css": [
     "feaada811b2d187b6273b3a49e45089d8096231321878f16dff3313ca70dbb6e",
     "8c2b45f77c6ea96e9c31cdd69eb2c60d683a457edfe8e4e86cae175fe1a749a5",
     "e0a5f98e12e0f65a6087baa4ca1eb9f5553870ed6301892407753bb880272e02"
-  ],
-  "docs/marine-audio-comparison-v0580-r2.md": [
-    "66dad727cd59475ec7c977636a06133438ab74e5cfe88652ca7d42ee9ef2ae65",
-    "450b6b7413374503c65e5445bbf59506af46931169970236e9fd33c1ccc6beca"
   ],
   "scripts/compare_marine_audio.py": [
     "1e2a7c302cd8936e7ec71345d30823540c27ee27e04c8233c73a7063783f02d3"
@@ -418,17 +394,11 @@
   "core/traffic_voice_denoise.py": [
     "99d432e2423cfb1e8ba7f5fc987c06f3ec826f932fcd6fdc6bc43987383d19a9"
   ],
-  "docs/live-audio-processing-v0580-r3.md": [
-    "8ee50619b65baf0053e8e17ef1dadb3db6af88f57dc4f58153b468b1f31f6c9f"
-  ],
   "scripts/validate_audio_preferences_v0580.cjs": [
     "2c70fcf9adc7d4bf03278a80a577d7a72828a77651b48668ac06c9318c4013d2"
   ],
   "scripts/validate_live_audio_v0580.py": [
     "ae39db9e7edafb82a06dfcf447529673d1c2231788667aee84cfa6f76ba3f5d4"
-  ],
-  "docs/release-v0590.md": [
-    "7c8a27bef676b93bbef6c5b0fc7d01308e3f3721859ddd9998ade3b4bbe13937"
   ],
   "scripts/validate_release_update_v0590.py": [
     "802d3002cdd2a6a9f17f38f378d20bd945c58c86deaee724ca73b2ebd3355a48"

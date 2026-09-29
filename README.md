@@ -30,7 +30,6 @@ SDRCC is designed around multiple RTL-SDR receivers, but the logical SDR slots a
 
 **✈️ Aircraft · 🚢 Ships · 🛰️ Satellites · 📻 Radio**
 
-![SDRCC Radio View](docs/screenshots/radioview.png)
 
 **Radio View** gives you the quick picture: aircraft from ADS-B, vessels from AIS and satellites currently moving over the station.
 
@@ -42,11 +41,9 @@ In **Marine Voice + AIS**, SDRCC can scan marine VHF channels, decode marine **A
 
 When a correlation is found, **Possible Speaker** shows the vessel, callsign and matching information next to the live receiver.
 
-![Traffic Voice ATIS and AIS Possible Speaker](docs/screenshots/ATIS%20on.png)
 
 The **Auto** function can follow newly validated matches in the AIS-catcher map. The same map window is reused, and the chosen zoom level is retained.
 
-![Matched Possible Speaker on AIS map](docs/screenshots/ATISmap.png)
 
 > Hearing marine traffic is fun. Knowing which ship you're hearing makes it a little more interesting. 🚢🎙️
 
@@ -56,7 +53,6 @@ Traffic Voice also supports **Airband Voice + ADS-B**, fixed-channel listening, 
 
 ## 📻 Sometimes you just want a radio
 
-![SDRCC Radio Receiver spectrum and waterfall](docs/screenshots/raadioreceiver.png)
 
 Not everything needs to be a mission.
 
@@ -72,17 +68,14 @@ Fortunately, SDRCC can do the waiting.
 
 **Mission Planner** calculates upcoming passes and applies the reception rules configured for each satellite.
 
-![SDRCC Mission Planner](docs/screenshots/mission%20planner.png)
 
 **Mission Control** shows what's coming next, which receiver will be used and what the scheduler is doing.
 
-![SDRCC Mission Control](docs/screenshots/mission%20control.png)
 
 When it's time, SDRCC reserves the required receiver, handles conflicting receiver services and starts the mission. After the pass, the receiver is released and its previous context can be restored.
 
 ### And hopefully...
 
-![Decoded METEOR result in Mission Operations](docs/screenshots/missionoperations.png)
 
 ...you get something from space. 🌍📡
 
@@ -203,7 +196,6 @@ The navigation brings the station together in one place:
 
 **Mission History & Analytics** keep the technical detail available without turning the README into an operations manual.
 
-The deeper architecture, validation notes and version-specific implementation details live in the [docs](docs/) directory.
 
 ## 🧪 Still evolving
 
