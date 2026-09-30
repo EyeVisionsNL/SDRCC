@@ -79,9 +79,41 @@ if ((AIS_SETUP_ONLY)); then
   exit 0
 fi
 
-# Same entry point for a clean Ubuntu station and an existing installation.
+# Existing legacy installs use the package updater. Current installs use the
+# managed updater so receiver checks, rollback and service restoration stay in
+# the same path as System -> Advanced Maintenance.
 if [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" && "$CHECK_ONLY" == 0 ]]; then
-  exec bash "$SOURCE_ROOT/scripts/install/update_existing.sh" "$SOURCE_ROOT" "$PROJECT_ROOT"
+  CURRENT_VERSION="$(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION")"
+  LEGACY_UPDATE_SOURCE_SUPPORTED=0
+  case "$CURRENT_VERSION" in
+    0.56.0p|0.56.0q|0.56.0r|0.56.0s|0.56.0t|0.56.0x|0.56.0x-r[1-9]|0.56.0x-r10)
+      LEGACY_UPDATE_SOURCE_SUPPORTED=1
+      ;;
+  esac
+  if [[ "$CURRENT_VERSION" =~ ^0\.(57|58|59)\.[0-9]+(-r[0-9]+)?$ ]]; then
+    LEGACY_UPDATE_SOURCE_SUPPORTED=1
+  fi
+
+  if ((LEGACY_UPDATE_SOURCE_SUPPORTED)) && [[ "$SOURCE_ROOT" != "$PROJECT_ROOT" ]]; then
+    exec bash "$SOURCE_ROOT/scripts/install/update_existing.sh" "$SOURCE_ROOT" "$PROJECT_ROOT"
+  fi
+
+  UPDATE_HELPER="/usr/local/sbin/sdrcc-update"
+  if [[ -x "$UPDATE_HELPER" ]]; then
+    echo "Existing SDRCC $CURRENT_VERSION detected; starting the managed updater."
+    if sudo -n "$UPDATE_HELPER"; then
+      exit 0
+    fi
+    echo "FAIL: could not start the managed updater. Check Advanced Maintenance and update status before retrying."
+    exit 3
+  fi
+
+  if ((LEGACY_UPDATE_SOURCE_SUPPORTED)); then
+    echo "FAIL: SDRCC $CURRENT_VERSION needs a separate update source. Extract the update package beside SDRCC, then run its install.sh."
+  else
+    echo "FAIL: SDRCC $CURRENT_VERSION is already installed, but /usr/local/sbin/sdrcc-update is missing. Repair the managed updater before retrying the installer."
+  fi
+  exit 3
 fi
 say "Preflight"
 python3 "$SOURCE_ROOT/scripts/install/preflight.py" || {
@@ -213,6 +245,16 @@ eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-self-autostart
 EOF
 cat >"$tmp/sdrcc-update" <<EOF
 eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""
+EOF
+cat >"$tmp/sdrcc-update-services" <<EOF
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start readsb.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop readsb.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start ais-catcher.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop ais-catcher.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start ais-catcher-control.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop ais-catcher-control.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start sdrcc-traffic-voice.service
+eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop sdrcc-traffic-voice.service
 EOF
 for f in "$tmp"/sdrcc-*; do
   sed -i "s/^eyeuser /$INSTALL_USER /" "$f"

@@ -110,6 +110,10 @@
     gap: 14px;
 }
 
+.traffic-voice-mode-grid.is-mode-focused {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .traffic-voice-mode {
     --panel-accent: var(--traffic-accent);
     display: flex;
@@ -120,6 +124,10 @@
     overflow: hidden;
     border-color: #31435a;
     transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.traffic-voice-mode[hidden] {
+    display: none;
 }
 
 .traffic-voice-header,

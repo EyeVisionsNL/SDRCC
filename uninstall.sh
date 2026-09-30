@@ -132,6 +132,7 @@ sudo rm -f \
   "$(sys /etc/sudoers.d/sdrcc-ais-autostart)" \
   "$(sys /etc/sudoers.d/sdrcc-self-autostart)" \
   "$(sys /etc/sudoers.d/sdrcc-update)" \
+  "$(sys /etc/sudoers.d/sdrcc-update-services)" \
   "$(sys /usr/local/sbin/sdrcc-apply-receiver-roles)" \
   "$(sys /usr/local/sbin/sdrcc-sync-readsb-position)" \
   "$(sys /usr/local/sbin/sdrcc-disable-ais-autostart)" \

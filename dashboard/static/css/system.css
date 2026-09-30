@@ -395,6 +395,11 @@
     background: linear-gradient(180deg, #07101f 0%, #020712 100%);
 }
 
+.system-maintenance-ais-actions {
+    display: grid;
+    gap: 8px;
+}
+
 .system-maintenance-service-v0540q {
     grid-column: 1 / -1;
 }

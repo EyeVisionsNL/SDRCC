@@ -124,6 +124,22 @@ sudo install -o root -g root -m 0440 \
   "$SUDOERS_TMP" /etc/sudoers.d/sdrcc-update
 rm -f "$SUDOERS_TMP"
 
+SUDOERS_TMP="$(mktemp)"
+cat > "$SUDOERS_TMP" <<EOF
+$INSTALL_USER ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start readsb.service
+$INSTALL_USER ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop readsb.service
+$INSTALL_USER ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start ais-catcher.service
+$INSTALL_USER ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop ais-catcher.service
+$INSTALL_USER ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start ais-catcher-control.service
+$INSTALL_USER ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop ais-catcher-control.service
+$INSTALL_USER ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start sdrcc-traffic-voice.service
+$INSTALL_USER ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block stop sdrcc-traffic-voice.service
+EOF
+sudo visudo -cf "$SUDOERS_TMP" >/dev/null
+sudo install -o root -g root -m 0440 \
+  "$SUDOERS_TMP" /etc/sudoers.d/sdrcc-update-services
+rm -f "$SUDOERS_TMP"
+
 HOME_POSITION="$("$PYTHON" - <<'PYHOME'
 from core.config import get_home_position
 position = get_home_position()

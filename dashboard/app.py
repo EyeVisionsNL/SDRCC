@@ -216,6 +216,31 @@ def run_systemctl(action, service):
     return run_command(["sudo", "-n", "systemctl", action, service], timeout=30)
 
 
+def run_systemctl_for_update(action, service):
+    """Issue update quiesce/restore service actions without blocking on systemd jobs."""
+    if action not in {"start", "stop"}:
+        raise ValueError(f"Unsupported update systemctl action: {action}")
+    # Older installations only allow the exact blocking start/stop command.
+    # Check permission before choosing a command; do not retry a failed action.
+    command = ["/usr/bin/systemctl", "--no-block", action, service]
+    permitted = run_command(["sudo", "-n", "-l", "--", *command], timeout=10)
+    if permitted.returncode != 0:
+        return run_systemctl(action, service)
+    return run_command(["sudo", "-n", *command], timeout=10)
+
+
+def _update_service_needs_stop(service_name):
+    """Treat starting/stopping receiver units as work that must reach inactive."""
+    observed = service_state(service_name)
+    state_name = str(observed.get("state") or "").strip().lower()
+    return bool(observed.get("active")) or state_name not in {
+        "inactive",
+        "failed",
+        "unknown",
+        "not-found",
+    }
+
+
 def apply_receiver_service_configuration(ais_serial, adsb_serial):
     """Use the existing privileged adapter and return its structured result."""
     import json
@@ -4429,14 +4454,14 @@ def _update_receiver_runtime_active():
 
 
 def _stop_service_group_for_update(plugin_id):
-    """Stop normal receiver services without restoring them during an update."""
+    """Stop receiver services without blocking on units that are mid-transition."""
     receiver_manager.cancel_service_recovery(plugin_id)
     stopped = []
     for operation, target in _service_action_steps(plugin_id, "stop"):
-        if not service_state(target).get("active"):
+        if not _update_service_needs_stop(target):
             continue
-        result = run_systemctl(operation, target)
-        reached = result.returncode == 0 and wait_for_service(target, "inactive", 15)
+        result = run_systemctl_for_update(operation, target)
+        reached = result.returncode == 0 and wait_for_service(target, "inactive", 20)
         if not reached:
             message = (result.stderr or result.stdout or "inactive state not reached").strip()
             raise RuntimeError(f"Could not stop {target} for update: {message}")
@@ -4495,17 +4520,17 @@ def _restore_update_service_plan():
     start_order = ("readsb.service", "ais-catcher.service", AIS_CONTROL_SERVICE)
 
     for service in stop_order:
-        if service in wanted or not service_state(service).get("active"):
+        if service in wanted or not _update_service_needs_stop(service):
             continue
-        result = run_systemctl("stop", service)
-        if result.returncode != 0 or not wait_for_service(service, "inactive", 15):
+        result = run_systemctl_for_update("stop", service)
+        if result.returncode != 0 or not wait_for_service(service, "inactive", 20):
             errors.append(f"stop {service}")
 
     for service in start_order:
         if service not in wanted or service_state(service).get("active"):
             continue
-        result = run_systemctl("start", service)
-        if result.returncode != 0 or not wait_for_service(service, "active", 15):
+        result = run_systemctl_for_update("start", service)
+        if result.returncode != 0 or not wait_for_service(service, "active", 20):
             errors.append(f"start {service}")
 
     if not errors:
@@ -4531,7 +4556,7 @@ def _prepare_receiver_work_for_update():
         if hf_session is not None:
             hf_monitor_controller.stop(
                 service_state=service_state,
-                service_action=run_systemctl,
+                service_action=run_systemctl_for_update,
                 wait_for_service=wait_for_service,
             )
             stopped.append("HF Monitor")
@@ -4554,7 +4579,7 @@ def _prepare_receiver_work_for_update():
             receiver_manager.cancel_service_recovery("traffic_voice")
             traffic_voice_controller.stop(
                 service_state=service_state,
-                service_action=run_systemctl,
+                service_action=run_systemctl_for_update,
                 wait_for_service=wait_for_service,
             )
             stopped.append(traffic_voice_controller.VOICE_SERVICE)
@@ -4566,6 +4591,8 @@ def _prepare_receiver_work_for_update():
         service_plan = _write_update_service_plan([
             service for service, item in observed.items()
             if item.get("active")
+            or str(item.get("state") or "").strip().lower()
+            in {"activating", "reloading"}
         ])
 
         for plugin_id in ("ais", "adsb"):

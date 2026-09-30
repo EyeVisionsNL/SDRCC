@@ -225,24 +225,49 @@ def restore_update_service_plan(project: Path) -> dict:
     wanted = set(plan.get("active_services") or [])
     path = plan["path"]
 
-    def active(service: str) -> bool:
-        return run(
-            ["/usr/bin/systemctl", "is-active", "--quiet", service],
+    def state(service: str) -> str:
+        result = run(
+            ["/usr/bin/systemctl", "is-active", service],
             timeout=10,
-        ).returncode == 0
+        )
+        return (result.stdout or result.stderr or "unknown").strip().lower()
+
+    def active(service: str) -> bool:
+        return state(service) == "active"
+
+    def needs_stop(service: str) -> bool:
+        return state(service) not in {"inactive", "failed", "unknown", "not-found"}
+
+    def wait_state(service: str, wanted_state: str, timeout: float = 20.0) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            current = state(service)
+            if wanted_state == "inactive":
+                if current in {"inactive", "failed", "unknown", "not-found"}:
+                    return True
+            elif current == wanted_state:
+                return True
+            time.sleep(0.5)
+        return False
 
     for service in ("ais-catcher-control.service", "ais-catcher.service", "readsb.service"):
-        if service in wanted or not active(service):
+        if service in wanted or not needs_stop(service):
             continue
-        result = run(["/usr/bin/systemctl", "stop", service], timeout=45)
-        if result.returncode or active(service):
+        result = run(
+            ["/usr/bin/systemctl", "--no-block", "stop", service],
+            timeout=10,
+        )
+        if result.returncode or not wait_state(service, "inactive"):
             errors.append(f"stop {service} failed")
 
     for service in ("readsb.service", "ais-catcher.service", "ais-catcher-control.service"):
         if service not in wanted or active(service):
             continue
-        result = run(["/usr/bin/systemctl", "start", service], timeout=45)
-        if result.returncode or not active(service):
+        result = run(
+            ["/usr/bin/systemctl", "--no-block", "start", service],
+            timeout=10,
+        )
+        if result.returncode or not wait_state(service, "active"):
             errors.append(f"start {service} failed")
 
     if not errors:
@@ -392,6 +417,11 @@ def install_privileged_helpers(source: Path, install_user: str) -> None:
         "/etc/sudoers.d/sdrcc-update":
             f'{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""\n',
     }
+    rules["/etc/sudoers.d/sdrcc-update-services"] = "".join(
+        f"{install_user} ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block {action} {service}\n"
+        for service in (*UPDATE_RESTORE_SERVICES, "sdrcc-traffic-voice.service")
+        for action in ("start", "stop")
+    )
     for target, text in rules.items():
         temporary = Path(target + ".tmp")
         temporary.write_text(text, encoding="utf-8")
