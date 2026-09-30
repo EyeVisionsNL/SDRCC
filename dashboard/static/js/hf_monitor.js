@@ -45,7 +45,7 @@
 
     function rfControlsFromForm() {
         return {
-            gain_mode: byId("hf-monitor-auto-gain")?.checked ? "auto" : "manual",
+            gain_mode: byId("hf-monitor-auto-gain")?.checked ? "smart" : "manual",
             gain_db: Number(byId("hf-monitor-gain-db")?.value || 0),
             squelch_enabled: Boolean(byId("hf-monitor-squelch-enabled")?.checked),
             squelch_threshold_dbfs: Number(byId("hf-monitor-squelch-threshold")?.value || -42),
@@ -61,31 +61,42 @@
         const gains = Array.isArray(controls.valid_gains) ? controls.valid_gains : [];
         populateSelect(gain, gains, item => String(item), item => `${Number(item).toFixed(1)} dB`, String(controls.gain_db ?? 28));
         if (!rfDirty && !actionBusy) {
-            if (autoGain) autoGain.checked = String(controls.gain_mode || "auto") === "auto";
+            if (autoGain) autoGain.checked = String(controls.gain_mode || "smart") !== "manual";
             if (gain && gains.length) gain.value = String(controls.gain_db ?? gains[0]);
             if (squelchEnabled) squelchEnabled.checked = Boolean(controls.squelch_enabled);
             if (squelch) squelch.value = String(controls.squelch_threshold_dbfs ?? -42);
         }
-        const isAuto = Boolean(autoGain?.checked);
+        const isSmart = Boolean(autoGain?.checked);
         const frequencyHz = Number(byId("hf-monitor-frequency")?.value || 0) * 1_000_000;
         const directSampling = data?.runtime_state === "LISTENING"
             ? data?.backend?.runtime?.settings?.sampling_mode === "Q_BRANCH_DIRECT"
             : frequencyHz > 0 && frequencyHz < 25_000_000;
-        if (gain) gain.disabled = actionBusy || isAuto || directSampling;
+        if (gain) gain.disabled = actionBusy || isSmart || directSampling;
         if (squelch) squelch.disabled = actionBusy || !Boolean(squelchEnabled?.checked);
         setText("hf-monitor-squelch-value", `${Number(squelch?.value || -42).toFixed(0)} dBFS`);
         setText(
             "hf-monitor-gain-note",
             directSampling
-                ? "Q-branch direct sampling bypasses the tuner: Auto Gain controls RTL AGC; numeric tuner gain is not effective below 25 MHz."
-                : (isAuto ? "Automatic tuner gain / RTL AGC is active." : "Manual tuner gain is active on the normal tuner path."),
+                ? (isSmart
+                    ? "Q-branch direct sampling bypasses the tuner. Smart Gain uses RTL digital AGC here; manual tuner gain is not effective below 25 MHz."
+                    : "Q-branch direct sampling bypasses the tuner. Manual tuner gain is not effective below 25 MHz; digital AGC is off.")
+                : (isSmart
+                    ? "A brief signal/noise sample selects a bounded fixed tuner gain, normally near 12.5 dB. It stays steady until the next start."
+                    : "Manual tuner gain is active on the normal tuner path."),
         );
         const signal = Number(controls.signal_dbfs);
         const signalText = Number.isFinite(signal) ? `${signal.toFixed(1)} dBFS` : "no RF level yet";
         const squelchState = controls.squelch_enabled
             ? (controls.squelch_open ? "squelch open" : "squelch closed")
             : "squelch off";
-        setText("hf-monitor-rf-state", `${String(controls.gain_mode || "auto").toUpperCase()} gain · ${signalText} · ${squelchState}`);
+        const gainMode = String(controls.gain_mode || "smart").toLowerCase();
+        const smartGain = Number(controls.smart_gain_db ?? controls.gain_db);
+        const gainText = gainMode === "manual"
+            ? `MANUAL ${Number(controls.gain_db || 0).toFixed(1)} dB`
+            : (directSampling
+                ? "SMART · DIGITAL AGC"
+                : (Number.isFinite(smartGain) ? `SMART ${smartGain.toFixed(1)} dB fixed` : "SMART"));
+        setText("hf-monitor-rf-state", `${gainText} · ${signalText} · ${squelchState}`);
         const apply = byId("hf-monitor-apply-rf");
         if (apply) apply.disabled = actionBusy || data?.runtime_state !== "LISTENING" || !rfDirty;
     }

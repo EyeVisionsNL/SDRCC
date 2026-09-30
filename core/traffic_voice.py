@@ -7,6 +7,7 @@ from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from io import BytesIO
+import json
 import re
 import subprocess
 import threading
@@ -52,6 +53,7 @@ _LABEL_RE = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:\\.|[^"])*)"')
 _ATIS_AIS_LOG_LOCK = threading.Lock()
 _ATIS_AIS_LAST_EVENT_ID: str | None = None
 _ATIS_AIS_LAST_STATUS: str | None = None
+SMART_GAIN_RUNTIME_STATUS = Path("/run/sdrcc-traffic-voice/smart_gain.json")
 
 
 def _now() -> str:
@@ -128,8 +130,8 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
         if int(backend.get("audio_sample_rate_hz") or 0) != 16000:
             errors.append("backend.audio_sample_rate_hz must be 16000 for the pinned AM/NFM build")
         gain_mode = str(backend.get("gain_mode") or "auto").strip().lower()
-        if gain_mode not in {"auto", "manual"}:
-            errors.append("backend.gain_mode must be auto or manual")
+        if gain_mode not in {"auto", "smart", "manual"}:
+            errors.append("backend.gain_mode must be smart or manual")
         valid_gains = config_core.get_rtl_sdr_valid_gains()
         try:
             gain_db = float(backend.get("gain_db"))
@@ -240,6 +242,8 @@ def get_receiver_settings(
         raise ValueError("Onbekende Traffic Voice-modus")
     mode = (settings.get("modes", {}) or {}).get(selected_mode, {})
     channels = deepcopy(mode.get("channels") or [])
+    stored_gain_mode = str(backend.get("gain_mode") or "auto").strip().lower()
+    gain_mode = "smart" if stored_gain_mode == "auto" else stored_gain_mode
     try:
         scan_interval_ms = int(backend.get("scan_interval_ms", 200))
     except (TypeError, ValueError):
@@ -248,8 +252,8 @@ def get_receiver_settings(
         "mode_id": selected_mode,
         "tuning_mode": str(mode.get("tuning_mode") or "scan").lower(),
         "selected_channel_id": str(mode.get("selected_channel_id") or ""),
-        "gain_mode": str(backend.get("gain_mode") or "auto").strip().lower(),
-        "auto_gain": str(backend.get("gain_mode") or "auto").strip().lower() == "auto",
+        "gain_mode": gain_mode,
+        "auto_gain": gain_mode == "smart",
         "gain_db": float(backend.get("gain_db") or 0.0),
         "squelch_snr_db": float(backend.get("squelch_snr_db") or 0.0),
         "scan_interval_ms": scan_interval_ms,
@@ -283,13 +287,15 @@ def normalize_receiver_settings(
     if selected_channel_id not in channel_ids:
         raise ValueError("Onbekend kanaal voor de geselecteerde Traffic Voice-modus")
     gain_mode = str(changes.get("gain_mode", current["gain_mode"])).strip().lower()
+    if gain_mode == "auto":
+        gain_mode = "smart"
     if "auto_gain" in changes:
         auto_gain = changes.get("auto_gain")
         if not isinstance(auto_gain, bool):
-            raise ValueError("Auto Gain moet true of false zijn")
-        gain_mode = "auto" if auto_gain else "manual"
-    if gain_mode not in {"auto", "manual"}:
-        raise ValueError("Gain-modus moet auto of manual zijn")
+            raise ValueError("Smart Gain moet true of false zijn")
+        gain_mode = "smart" if auto_gain else "manual"
+    if gain_mode not in {"smart", "manual"}:
+        raise ValueError("Gain-modus moet smart of manual zijn")
     try:
         gain_db = float(changes.get("gain_db", current["gain_db"]))
     except (TypeError, ValueError) as error:
@@ -608,8 +614,8 @@ def _libconfig_string(value: Any) -> str:
     return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def render_rtlsdr_airband_config() -> str:
-    raw = config_core.load_traffic_voice()
+def _runtime_channel_plan(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    raw = config_core.load_traffic_voice() if payload is None else deepcopy(payload)
     validation = validate_configuration(raw)
     if not validation["ok"]:
         raise ValueError("; ".join(validation["errors"]))
@@ -640,13 +646,75 @@ def render_rtlsdr_airband_config() -> str:
         channels = [item for item in channels if str(item.get("id") or "") in enabled_scan_ids]
         if not channels:
             raise RuntimeError("Traffic Voice scan heeft geen ingeschakelde kanalen")
+    return {
+        "raw": raw,
+        "settings": settings,
+        "backend": backend,
+        "selected_mode": selected_mode,
+        "mode": mode,
+        "receiver": receiver,
+        "receiver_settings": receiver_settings,
+        "channels": channels,
+    }
+
+
+def smart_gain_probe_plan(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the exact receiver/channel set the service will listen to."""
+    plan = _runtime_channel_plan(payload)
+    settings = plan["receiver_settings"]
+    if settings["gain_mode"] != "smart":
+        raise ValueError("Smart Gain is not selected")
+    selected_mode = plan["selected_mode"]
+    bandwidth = (
+        MARINE_CHANNEL_BANDWIDTH_HZ
+        if selected_mode == "marine_ais" and settings["channel_filter_enabled"]
+        else 25_000
+    )
+    return {
+        "serial": str(plan["receiver"]["serial"]),
+        "frequencies_hz": [
+            int(round(float(item["frequency_mhz"]) * 1_000_000.0))
+            for item in plan["channels"]
+        ],
+        "minimum_snr_db": float(settings["squelch_snr_db"]),
+        "channel_bandwidth_hz": bandwidth,
+        "mode_id": selected_mode,
+    }
+
+
+def render_rtlsdr_airband_config(
+    *,
+    smart_gain_db: float | None = None,
+    payload: dict[str, Any] | None = None,
+) -> str:
+    plan = _runtime_channel_plan(payload)
+    backend = plan["backend"]
+    selected_mode = plan["selected_mode"]
+    mode = plan["mode"]
+    receiver = plan["receiver"]
+    receiver_settings = plan["receiver_settings"]
+    channels = plan["channels"]
+
+    resolved_smart_gain = None
+    if receiver_settings["gain_mode"] == "smart":
+        valid_gains = config_core.get_rtl_sdr_valid_gains()
+        if smart_gain_db is None:
+            resolved_smart_gain = min(valid_gains, key=lambda value: abs(value - 12.5))
+        else:
+            candidate = round(float(smart_gain_db), 1)
+            if candidate not in valid_gains or not 0.0 <= candidate <= 25.4:
+                raise ValueError("Smart Gain result is outside the supported safe range")
+            resolved_smart_gain = candidate
+    else:
+        resolved_smart_gain = float(receiver_settings["gain_db"])
+
     freqs = ", ".join(f"{float(item['frequency_mhz']):.6f}" for item in channels)
     labels = ", ".join(_libconfig_string(item["label"]) for item in channels)
     squelch_snr_db = (
         0.0 if receiver_settings["open_squelch"]
         else receiver_settings["squelch_snr_db"]
     )
-    return "\n".join((
+    lines = [
         "# Generated by SDRCC; do not edit runtime output.",
         "log_scan_activity = true;",
         f"scan_interval_ms = {receiver_settings['scan_interval_ms']};",
@@ -656,7 +724,13 @@ def render_rtlsdr_airband_config() -> str:
         "({",
         '  type = "rtlsdr";',
         f"  serial = {_libconfig_string(receiver['serial'])};",
-        f"  gain = {-1.0 if receiver_settings['gain_mode'] == 'auto' else receiver_settings['gain_db']:.1f};",
+    ]
+    if receiver_settings["gain_mode"] == "smart" and smart_gain_db is not None:
+        lines.append(
+            f"  # Smart Gain probe selected a fixed {resolved_smart_gain:.1f} dB tuner gain."
+        )
+    lines.extend((
+        f"  gain = {resolved_smart_gain:.1f};",
         f"  correction = {int(backend['correction_ppm'])};",
         '  mode = "scan";',
         "  channels:",
@@ -683,6 +757,7 @@ def render_rtlsdr_airband_config() -> str:
         ");",
         "",
     ))
+    return "\n".join(lines)
 
 
 def _write_sdrcc_log(level: str, message: str) -> None:
@@ -827,6 +902,20 @@ def get_snapshot(
     service = (service_reader or _service_state)(
         str(backend.get("service") or "sdrcc-traffic-voice.service")
     )
+    if service.get("active") and receiver_settings["gain_mode"] == "smart":
+        try:
+            runtime_gain = json.loads(
+                SMART_GAIN_RUNTIME_STATUS.read_text(encoding="utf-8")
+            )
+            gain_value = round(float(runtime_gain.get("gain_db")), 1)
+            if (
+                runtime_gain.get("mode_id") == selected_mode
+                and gain_value in receiver_settings["valid_gains"]
+            ):
+                receiver_settings["runtime_gain_db"] = gain_value
+                receiver_settings["runtime_gain_measurement"] = runtime_gain.get("measurement")
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            pass
     if service.get("active") and not selected_assignment_matches:
         errors.append("traffic_voice assignment does not match opposite_context_receiver policy")
     activity = read_statistics(

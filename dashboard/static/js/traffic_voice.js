@@ -356,7 +356,9 @@
             "traffic-voice-rf-settings",
             (settings.gain_mode === "manual"
                 ? Number(settings.gain_db || 0).toFixed(1) + " dB"
-                : "AUTO GAIN")
+                : Number.isFinite(Number(settings.runtime_gain_db))
+                    ? "SMART " + Number(settings.runtime_gain_db).toFixed(1) + " dB fixed"
+                    : "SMART GAIN")
                 + " · " + Number(settings.squelch_snr_db || 0).toFixed(1) + " dB",
         );
     }
@@ -722,7 +724,7 @@
         return {
             tuning_mode: byId("traffic-voice-tuning-mode")?.value || "scan",
             selected_channel_id: byId("traffic-voice-channel-select")?.value || "",
-            gain_mode: byId("traffic-voice-auto-gain")?.checked ? "auto" : "manual",
+            gain_mode: byId("traffic-voice-auto-gain")?.checked ? "smart" : "manual",
             auto_gain: Boolean(byId("traffic-voice-auto-gain")?.checked),
             gain_db: Number(byId("traffic-voice-gain")?.value || 0),
             squelch_snr_db: Number(byId("traffic-voice-squelch")?.value || 0),

@@ -793,8 +793,8 @@
                 <label>Channel
                     <select id="traffic-voice-channel-select"></select>
                 </label>
-                <label class="traffic-voice-auto-gain-control">
-                    <span>Auto Gain</span>
+                <label class="traffic-voice-auto-gain-control" title="Smart Gain briefly measures the selected channels, chooses a bounded fixed tuner gain, and keeps it steady while listening.">
+                    <span>Smart Gain</span>
                     <input id="traffic-voice-auto-gain" type="checkbox" checked>
                 </label>
                 <label>Manual gain
@@ -914,10 +914,10 @@
                             </div>
                         </div>
                     </label>
-                    <label class="hf-monitor-check-field">Auto gain
-                        <span class="hf-monitor-check-row"><input id="hf-monitor-auto-gain" type="checkbox" checked> Automatic RTL gain / AGC</span>
+                    <label class="hf-monitor-check-field">Smart Gain
+                        <span class="hf-monitor-check-row"><input id="hf-monitor-auto-gain" type="checkbox" checked> Measure signal/noise, then hold a fixed gain</span>
                     </label>
-                    <label>Tuner gain
+                    <label>Manual tuner gain
                         <select id="hf-monitor-gain-db"></select>
                         <small id="hf-monitor-gain-note">Manual tuner gain is effective on 10 m; direct-sampling HF bypasses the tuner.</small>
                     </label>
