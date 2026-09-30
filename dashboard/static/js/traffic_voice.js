@@ -223,9 +223,10 @@
         return Number.isFinite(carrier) ? carrier.toFixed(3) + " MHz" : "-";
     }
 
-    function renderMode(mode, running) {
+    function renderMode(mode, running, focusedModeId) {
         const card = document.querySelector('[data-traffic-mode="' + mode.id + '"]');
         if (!card) return;
+        card.hidden = Boolean(focusedModeId && mode.id !== focusedModeId);
         card.classList.toggle("is-selected", Boolean(mode.selected));
         card.classList.toggle("is-planned", !mode.execution_enabled);
         const state = card.querySelector("[data-traffic-mode-state]");
@@ -568,6 +569,11 @@
         const modes = Array.isArray(payload.modes) ? payload.modes : [];
         const selected = selectedMode(payload);
         const running = Boolean((payload.service || {}).active);
+        const focusedModeId = running && ["marine_ais", "airband_adsb"].includes(selected.id)
+            ? selected.id
+            : "";
+        const modeGrid = document.querySelector(".traffic-voice-mode-grid");
+        if (modeGrid) modeGrid.classList.toggle("is-mode-focused", Boolean(focusedModeId));
 
         if (status) {
             status.textContent = payload.ok
@@ -584,7 +590,7 @@
             serviceBadge.classList.toggle("is-offline", !running);
         }
 
-        modes.forEach(mode => renderMode(mode, running));
+        modes.forEach(mode => renderMode(mode, running, focusedModeId));
         renderSettings(payload, running);
         renderActivity(payload, modes);
         renderAudio(payload);
@@ -628,16 +634,22 @@
         const startAirband = byId("traffic-voice-start-airband");
         const stop = byId("traffic-voice-stop");
         if (start) {
-            start.textContent = running && selected.id === "airband_adsb"
-                ? "Switch to Marine + AIS"
+            const switchingToAirband = running && selected.id === "marine_ais";
+            start.textContent = switchingToAirband
+                ? "Switch to Airband + ADS-B"
                 : "Start Marine + AIS";
-            start.disabled = actionBusy || !payload.ok || (running && selected.id === "marine_ais");
+            start.classList.toggle("is-start", !switchingToAirband);
+            start.classList.toggle("is-airband", switchingToAirband);
+            start.disabled = actionBusy || !payload.ok || (running && selected.id !== "marine_ais");
         }
         if (startAirband) {
-            startAirband.textContent = running && selected.id === "marine_ais"
-                ? "Switch to Airband + ADS-B"
+            const switchingToMarine = running && selected.id === "airband_adsb";
+            startAirband.textContent = switchingToMarine
+                ? "Switch to Marine + AIS"
                 : "Start Airband + ADS-B";
-            startAirband.disabled = actionBusy || !payload.ok || (running && selected.id === "airband_adsb");
+            startAirband.classList.toggle("is-start", switchingToMarine);
+            startAirband.classList.toggle("is-airband", !switchingToMarine);
+            startAirband.disabled = actionBusy || !payload.ok || (running && selected.id !== "airband_adsb");
         }
         if (stop) stop.disabled = actionBusy || !running;
     }
@@ -783,10 +795,16 @@
         initializeAisZoom();
         document.querySelector('.tab-button[data-tab="traffic-voice"]')
             ?.addEventListener("click", () => window.setTimeout(() => refresh(true), 0));
-        byId("traffic-voice-start")
-            ?.addEventListener("click", () => runAction("start_marine"));
-        byId("traffic-voice-start-airband")
-            ?.addEventListener("click", () => runAction("start_airband"));
+        byId("traffic-voice-start")?.addEventListener("click", () => {
+            const activeMode = selectedMode(lastPayload || {}).id;
+            const switching = Boolean(lastPayload?.service?.active) && activeMode === "marine_ais";
+            runAction(switching ? "start_airband" : "start_marine");
+        });
+        byId("traffic-voice-start-airband")?.addEventListener("click", () => {
+            const activeMode = selectedMode(lastPayload || {}).id;
+            const switching = Boolean(lastPayload?.service?.active) && activeMode === "airband_adsb";
+            runAction(switching ? "start_marine" : "start_airband");
+        });
         byId("traffic-voice-stop")
             ?.addEventListener("click", () => runAction("stop"));
         byId("traffic-voice-show-ais-vessel")
