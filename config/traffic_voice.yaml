@@ -4,7 +4,7 @@ traffic_voice:
   execution_enabled: true
   selected_mode: marine_ais
   receiver_policy: opposite_context_receiver
-  channel_source: RT-950PRO_CPS_ChannelListChirpData_laatste.csv
+  channel_source: sdrcc-traffic-voice-channel-list-named-aviation.xlsx
   backend:
     name: rtlsdr_airband
     version: 5.2.0
@@ -39,115 +39,243 @@ traffic_voice:
       channel_bank: rotterdam_port
       execution_enabled: true
       tuning_mode: fixed
-      selected_channel_id: v61_botlek
+      selected_channel_id: vhf61
       channels:
-      - id: ch16_nood
-        label: CH16_NOOD
-        frequency_mhz: 156.8
+      - id: vhf00
+        label: VHF00 - KNRM reddingskanaal
+        frequency_mhz: 156.0
         scan_enabled: false
-      - id: ch13_brug
-        label: CH13_BRUG
-        frequency_mhz: 156.65
-        scan_enabled: false
-      - id: ch11_vts
-        label: CH11_VTS
-        frequency_mhz: 156.55
-        scan_enabled: false
-      - id: ch14_vts
-        label: CH14_VTS
-        frequency_mhz: 156.7
-        scan_enabled: false
-      - id: ch12_haven
-        label: CH12_HAVEN
-        frequency_mhz: 156.6
-        scan_enabled: false
-      - id: ch10_werk
-        label: CH10_WERK
-        frequency_mhz: 156.5
-        scan_enabled: false
-      - id: ch09_oproep
-        label: CH09_OPROEP
-        frequency_mhz: 156.45
-        scan_enabled: false
-      - id: ch08_werk
-        label: CH08_WERK
-        frequency_mhz: 156.4
-        scan_enabled: true
-      - id: ch06_sleep
-        label: CH06_SLEEP
-        frequency_mhz: 156.3
-        scan_enabled: false
-      - id: v61_botlek
-        label: V61_BOTLEK
-        frequency_mhz: 160.675
-        scan_enabled: true
-      - id: v60_waalh
-        label: V60_WAALH
-        frequency_mhz: 160.625
-        scan_enabled: true
-      - id: v63_eemhv
-        label: V63_EEMHV
-        frequency_mhz: 160.775
-        scan_enabled: true
-      - id: vlaarding
-        label: VLAARDING
-        frequency_mhz: 157.0
-        scan_enabled: false
-      - id: roeiers
-        label: ROEIERS
-        frequency_mhz: 160.11
-        scan_enabled: false
-      - id: boluda
-        label: BOLUDA
-        frequency_mhz: 162.2
-        scan_enabled: false
-      - id: v01_maasap
-        label: V01_MAASAP
+      - id: vhf01
+        label: VHF01 - Verkeersbegeleiding
         frequency_mhz: 160.65
-        scan_enabled: true
-      - id: v02_maaspl
-        label: V02_MAASPL
+        scan_enabled: false
+      - id: vhf02
+        label: VHF02 - Verkeersbegeleiding
         frequency_mhz: 160.7
-        scan_enabled: true
-      - id: v03_maasmd
-        label: V03_MAASMD
+        scan_enabled: false
+      - id: vhf03
+        label: VHF03 - Verkeersbegeleiding
         frequency_mhz: 160.75
-        scan_enabled: true
-      - id: v04_heerj
-        label: V04_HEERJ
+        scan_enabled: false
+      - id: vhf04
+        label: VHF04 - Verkeersbegeleiding
         frequency_mhz: 160.8
         scan_enabled: false
-      - id: v05_rozbg
-        label: V05_ROZBG
+      - id: vhf05
+        label: VHF05 - Verkeersbegeleiding
         frequency_mhz: 160.85
-        scan_enabled: true
-      - id: v62_oudem
-        label: V62_OUDEM
-        frequency_mhz: 160.725
-        scan_enabled: true
-      - id: v65_rozbg2
-        label: V65_ROZBG2
-        frequency_mhz: 160.875
-        scan_enabled: true
-      - id: v66_europt
-        label: V66_EUROPT
-        frequency_mhz: 160.925
-        scan_enabled: true
-      - id: v79_dordr
-        label: V79_DORDR
-        frequency_mhz: 161.575
-        scan_enabled: true
-      - id: v80_maassl
-        label: V80_MAASSL
-        frequency_mhz: 161.625
-        scan_enabled: true
-      - id: v81_maasbr
-        label: V81_MAASBR
-        frequency_mhz: 161.675
-        scan_enabled: true
-      - id: v19_hcc
-        label: V19_HCC
+        scan_enabled: false
+      - id: vhf06
+        label: VHF06 - Nautisch intership
+        frequency_mhz: 156.3
+        scan_enabled: false
+      - id: vhf07
+        label: VHF07 - Verkeersbegeleiding
+        frequency_mhz: 160.95
+        scan_enabled: false
+      - id: vhf08
+        label: VHF08 - Nautisch intership
+        frequency_mhz: 156.4
+        scan_enabled: false
+      - id: vhf09
+        label: VHF09 - Divers nautisch gebruik
+        frequency_mhz: 156.45
+        scan_enabled: false
+      - id: vhf10
+        label: VHF10 - Intership / aanroep binnenwateren
+        frequency_mhz: 156.5
+        scan_enabled: false
+      - id: vhf11
+        label: VHF11 - Havenoperaties
+        frequency_mhz: 156.55
+        scan_enabled: false
+      - id: vhf12
+        label: VHF12 - Havenoperaties
+        frequency_mhz: 156.6
+        scan_enabled: false
+      - id: vhf13
+        label: VHF13 - Nautisch intership
+        frequency_mhz: 156.65
+        scan_enabled: false
+      - id: vhf14
+        label: VHF14 - Havenoperaties
+        frequency_mhz: 156.7
+        scan_enabled: false
+      - id: vhf15
+        label: VHF15 - Intraship
+        frequency_mhz: 156.75
+        scan_enabled: false
+      - id: vhf16
+        label: VHF16 - Nood, spoed, veiligheid, aanroep
+        frequency_mhz: 156.8
+        scan_enabled: false
+      - id: vhf17
+        label: VHF17 - Intraship
+        frequency_mhz: 156.85
+        scan_enabled: false
+      - id: vhf18
+        label: VHF18 - Bruggen & sluizen
+        frequency_mhz: 161.5
+        scan_enabled: false
+      - id: vhf19
+        label: VHF19 - Nautische informatie
         frequency_mhz: 161.55
+        scan_enabled: false
+      - id: vhf20
+        label: VHF20 - Bruggen & sluizen
+        frequency_mhz: 161.6
+        scan_enabled: false
+      - id: vhf21
+        label: VHF21 - Verkeersbegeleiding
+        frequency_mhz: 161.65
+        scan_enabled: false
+      - id: vhf22
+        label: VHF22 - Bruggen & sluizen
+        frequency_mhz: 161.7
+        scan_enabled: false
+      - id: vhf23
+        label: VHF23 - Kustwacht
+        frequency_mhz: 161.75
+        scan_enabled: false
+      - id: vhf24
+        label: VHF24 - Nautische informatie
+        frequency_mhz: 161.8
+        scan_enabled: false
+      - id: vhf25
+        label: VHF25 - Verkeersbegeleiding
+        frequency_mhz: 161.85
+        scan_enabled: false
+      - id: vhf26
+        label: VHF26 - Nautische informatie
+        frequency_mhz: 161.9
+        scan_enabled: false
+      - id: vhf27
+        label: VHF27 - Verkeersbegeleiding
+        frequency_mhz: 157.35
+        scan_enabled: false
+      - id: vhf28
+        label: VHF28 - Nautische informatie
+        frequency_mhz: 157.4
+        scan_enabled: false
+      - id: vhf31
+        label: VHF31 - Jachthavens / Marina
+        frequency_mhz: 162.15
+        scan_enabled: false
+      - id: vhf60
+        label: VHF60 - Verkeersbegeleiding
+        frequency_mhz: 160.625
+        scan_enabled: false
+      - id: vhf61
+        label: VHF61 - Verkeersbegeleiding
+        frequency_mhz: 160.675
+        scan_enabled: true
+      - id: vhf62
+        label: VHF62 - Verkeersbegeleiding
+        frequency_mhz: 160.725
+        scan_enabled: false
+      - id: vhf63
+        label: VHF63 - Verkeersbegeleiding
+        frequency_mhz: 160.775
+        scan_enabled: true
+      - id: vhf64
+        label: VHF64 - Nautische informatie
+        frequency_mhz: 160.825
+        scan_enabled: false
+      - id: vhf65
+        label: VHF65 - Verkeersbegeleiding
+        frequency_mhz: 160.875
+        scan_enabled: false
+      - id: vhf66
+        label: VHF66 - Nautische informatie
+        frequency_mhz: 160.925
+        scan_enabled: false
+      - id: vhf67
+        label: VHF67 - Opsporing & redding (SAR)
+        frequency_mhz: 156.375
+        scan_enabled: false
+      - id: vhf68
+        label: VHF68 - Verkeersbegeleiding
+        frequency_mhz: 156.425
+        scan_enabled: false
+      - id: vhf69
+        label: VHF69 - Verkeersbegeleiding
+        frequency_mhz: 156.475
+        scan_enabled: false
+      - id: vhf70
+        label: VHF70 - DSC nood- en aanroepkanaal
+        frequency_mhz: 156.525
+        scan_enabled: false
+      - id: vhf71
+        label: VHF71 - Havenoperaties
+        frequency_mhz: 156.575
+        scan_enabled: false
+      - id: vhf72
+        label: VHF72 - Sleep/berging & sociaal verkeer
+        frequency_mhz: 156.625
+        scan_enabled: false
+      - id: vhf73
+        label: VHF73 - Verontreinigingsbestrijding
+        frequency_mhz: 156.675
+        scan_enabled: false
+      - id: vhf74
+        label: VHF74 - Havenoperaties
+        frequency_mhz: 156.725
+        scan_enabled: false
+      - id: vhf75
+        label: VHF75 - Havenoperaties
+        frequency_mhz: 156.775
+        scan_enabled: false
+      - id: vhf76
+        label: VHF76 - Divers nautisch gebruik
+        frequency_mhz: 156.825
+        scan_enabled: false
+      - id: vhf77
+        label: VHF77 - Sociaal / bunkering / proviand
+        frequency_mhz: 156.875
+        scan_enabled: false
+      - id: vhf78
+        label: VHF78 - Nautische informatie
+        frequency_mhz: 161.525
+        scan_enabled: false
+      - id: vhf79
+        label: VHF79 - Verkeersbegeleiding
+        frequency_mhz: 161.575
+        scan_enabled: false
+      - id: vhf80
+        label: VHF80 - Verkeersbegeleiding
+        frequency_mhz: 161.625
+        scan_enabled: false
+      - id: vhf81
+        label: VHF81 - Verkeersbegeleiding
+        frequency_mhz: 161.675
+        scan_enabled: false
+      - id: vhf82
+        label: VHF82 - Bunkering & proviandering
+        frequency_mhz: 161.725
+        scan_enabled: false
+      - id: vhf83
+        label: VHF83 - Kustwacht
+        frequency_mhz: 161.775
+        scan_enabled: false
+      - id: vhf84
+        label: VHF84 - Bruggen & sluizen
+        frequency_mhz: 161.825
+        scan_enabled: false
+      - id: vhf85
+        label: VHF85 - Bruggen & sluizen
+        frequency_mhz: 161.875
+        scan_enabled: false
+      - id: vhf86
+        label: VHF86 - Nautische informatie
+        frequency_mhz: 161.925
+        scan_enabled: false
+      - id: vhf87
+        label: VHF87 - Divers nautisch gebruik
+        frequency_mhz: 157.375
+        scan_enabled: false
+      - id: vhf88
+        label: VHF88 - Tijdelijke maritieme evenementen
+        frequency_mhz: 157.425
         scan_enabled: false
     airband_adsb:
       label: Airband Voice + ADS-B
@@ -155,60 +283,548 @@ traffic_voice:
       modulation: am
       context_plugin: adsb
       inactive_plugin: ais
-      channel_bank: rotterdam_aviation
+      channel_bank: airband_full
       execution_enabled: true
       tuning_mode: fixed
       selected_channel_id: rtm_approach
       channels:
-      - id: mil_tower
-        label: MIL_TOWE
-        channel_mhz: 139.1
-        frequency_mhz: 139.1
-      - id: mil_tactical
-        label: MIL_TACT
-        channel_mhz: 141.2
-        frequency_mhz: 141.2
-      - id: sar_heli
-        label: SAR_HELI
-        channel_mhz: 123.1
-        frequency_mhz: 123.1
-      - id: heli_traffic
-        label: HELI_TRA
-        channel_mhz: 123.45
-        frequency_mhz: 123.45
-      - id: mil_air_to_air
-        label: MIL_L-L
-        channel_mhz: 140.4
-        frequency_mhz: 140.4
-      - id: neth_info
-        label: NETH_INF
-        channel_mhz: 132.35
-        frequency_mhz: 132.35
+      - id: schiphol_twr_2
+        label: AIR 118.105 - Schiphol Tower 2
+        frequency_mhz: 118.1
+        scan_enabled: false
+        channel_mhz: 118.105
       - id: rtm_tower
-        label: RTM_TOWER
-        channel_mhz: 118.205
+        label: AIR 118.205 - Rotterdam Tower
         frequency_mhz: 118.2
-      - id: rtm_delivery
-        label: RTM_DELI
-        channel_mhz: 122.18
-        frequency_mhz: 122.175
-      - id: rtm_approach
-        label: RTM_APPR
-        channel_mhz: 122.99
-        frequency_mhz: 122.991667
-      - id: police_heli
-        label: POLICE_HE
-        channel_mhz: 131.35
-        frequency_mhz: 131.35
-      - id: lifeline_2
-        label: LIFELINE2
-        channel_mhz: 124.3
-        frequency_mhz: 124.3
-      - id: schiphol_west
-        label: SCHIP_WST
-        channel_mhz: 121.205
+        scan_enabled: true
+        channel_mhz: 118.205
+      - id: schiphol_twr_3
+        label: AIR 118.280 - Schiphol Tower 3
+        frequency_mhz: 118.275
+        scan_enabled: false
+        channel_mhz: 118.28
+      - id: schiphol_arr
+        label: AIR 118.405 - Schiphol Arrival
+        frequency_mhz: 118.4
+        scan_enabled: false
+        channel_mhz: 118.405
+      - id: schiphol_app
+        label: AIR 119.055 - Schiphol Approach/Departure
+        frequency_mhz: 119.05
+        scan_enabled: false
+        channel_mhz: 119.055
+      - id: schiphol_twr
+        label: AIR 119.230 - Schiphol Tower
+        frequency_mhz: 119.225
+        scan_enabled: false
+        channel_mhz: 119.23
+      - id: air_119700
+        label: AIR 119.700 - Regional guard TWR/APP
+        frequency_mhz: 119.7
+        scan_enabled: false
+        channel_mhz: 119.7
+      - id: schiphol_app_2
+        label: AIR 121.205 - Schiphol Approach/Departure 2
         frequency_mhz: 121.2
-      - id: air_emergency
-        label: AIR_EMRG
-        channel_mhz: 121.5
+        scan_enabled: false
+        channel_mhz: 121.205
+      - id: air_121475
+        label: AIR 121.475 - Guard band, niet toewijsbaar
+        frequency_mhz: 121.475
+        scan_enabled: false
+        channel_mhz: 121.475
+      - id: air_121500
+        label: AIR 121.500 - NOODKANAAL / Emergency
         frequency_mhz: 121.5
+        scan_enabled: true
+        channel_mhz: 121.5
+      - id: air_121525
+        label: AIR 121.525 - Guard band, niet toewijsbaar
+        frequency_mhz: 121.525
+        scan_enabled: false
+        channel_mhz: 121.525
+      - id: air_122100
+        label: AIR 122.100 - Common supplementary TWR/APP
+        frequency_mhz: 122.1
+        scan_enabled: false
+        channel_mhz: 122.1
+      - id: rtm_delivery
+        label: AIR 122.180 - Rotterdam Delivery
+        frequency_mhz: 122.175
+        scan_enabled: true
+        channel_mhz: 122.18
+      - id: air_122500
+        label: AIR 122.500 - Regional light aviation
+        frequency_mhz: 122.5
+        scan_enabled: false
+        channel_mhz: 122.5
+      - id: rtm_approach
+        label: AIR 122.990 - Rotterdam Approach
+        frequency_mhz: 122.991667
+        scan_enabled: true
+        channel_mhz: 122.99
+      - id: air_123065
+        label: AIR 123.065 - SAR guard band - not assignable
+        frequency_mhz: 123.066667
+        scan_enabled: false
+        channel_mhz: 123.065
+      - id: air_123075
+        label: AIR 123.075 - SAR guard band - not assignable
+        frequency_mhz: 123.075
+        scan_enabled: false
+        channel_mhz: 123.075
+      - id: air_123085
+        label: AIR 123.085 - SAR guard band - not assignable
+        frequency_mhz: 123.083333
+        scan_enabled: false
+        channel_mhz: 123.085
+      - id: air_123100
+        label: AIR 123.100 - SAR - Search and Rescue
+        frequency_mhz: 123.1
+        scan_enabled: false
+        channel_mhz: 123.1
+      - id: air_123115
+        label: AIR 123.115 - SAR guard band - not assignable
+        frequency_mhz: 123.116667
+        scan_enabled: false
+        channel_mhz: 123.115
+      - id: air_123125
+        label: AIR 123.125 - SAR guard band - not assignable
+        frequency_mhz: 123.125
+        scan_enabled: false
+        channel_mhz: 123.125
+      - id: air_123135
+        label: AIR 123.135 - SAR guard band - not assignable
+        frequency_mhz: 123.133333
+        scan_enabled: false
+        channel_mhz: 123.135
+      - id: air_123300
+        label: AIR 123.300 - Common PAR services
+        frequency_mhz: 123.3
+        scan_enabled: false
+        channel_mhz: 123.3
+      - id: air_123450
+        label: AIR 123.450 - Air-to-air - remote/oceanic use
+        frequency_mhz: 123.45
+        scan_enabled: false
+        channel_mhz: 123.45
+      - id: air_123500
+        label: AIR 123.500 - Regional light aviation
+        frequency_mhz: 123.5
+        scan_enabled: false
+        channel_mhz: 123.5
+      - id: ams_info
+        label: AIR 124.300 - Amsterdam Information
+        frequency_mhz: 124.3
+        scan_enabled: true
+        channel_mhz: 124.3
+      - id: dutch_mil_ifr
+        label: AIR 125.930 - Dutch MIL IFR
+        frequency_mhz: 125.925
+        scan_enabled: false
+        channel_mhz: 125.93
+      - id: schiphol_arr_2
+        label: AIR 126.680 - Schiphol Arrival 2
+        frequency_mhz: 126.675
+        scan_enabled: false
+        channel_mhz: 126.68
+      - id: rtm_atis
+        label: AIR 128.565 - Rotterdam ATIS
+        frequency_mhz: 128.566667
+        scan_enabled: true
+        channel_mhz: 128.565
+      - id: air_131400
+        label: AIR 131.400 - Operational Control (OPC)
+        frequency_mhz: 131.4
+        scan_enabled: false
+        channel_mhz: 131.4
+      - id: air_131410
+        label: AIR 131.410 - Operational Control (OPC)
+        frequency_mhz: 131.408333
+        scan_enabled: false
+        channel_mhz: 131.41
+      - id: air_131415
+        label: AIR 131.415 - Operational Control (OPC)
+        frequency_mhz: 131.416667
+        scan_enabled: false
+        channel_mhz: 131.415
+      - id: air_131425
+        label: AIR 131.425 - Operational Control (OPC)
+        frequency_mhz: 131.425
+        scan_enabled: false
+        channel_mhz: 131.425
+      - id: air_131435
+        label: AIR 131.435 - Operational Control (OPC)
+        frequency_mhz: 131.433333
+        scan_enabled: false
+        channel_mhz: 131.435
+      - id: air_131440
+        label: AIR 131.440 - Operational Control (OPC)
+        frequency_mhz: 131.441667
+        scan_enabled: false
+        channel_mhz: 131.44
+      - id: air_131450
+        label: AIR 131.450 - Operational Control (OPC)
+        frequency_mhz: 131.45
+        scan_enabled: false
+        channel_mhz: 131.45
+      - id: air_131460
+        label: AIR 131.460 - Operational Control (OPC)
+        frequency_mhz: 131.458333
+        scan_enabled: false
+        channel_mhz: 131.46
+      - id: air_131465
+        label: AIR 131.465 - Operational Control (OPC)
+        frequency_mhz: 131.466667
+        scan_enabled: false
+        channel_mhz: 131.465
+      - id: air_131475
+        label: AIR 131.475 - Operational Control (OPC)
+        frequency_mhz: 131.475
+        scan_enabled: false
+        channel_mhz: 131.475
+      - id: air_131485
+        label: AIR 131.485 - Operational Control (OPC)
+        frequency_mhz: 131.483333
+        scan_enabled: false
+        channel_mhz: 131.485
+      - id: air_131490
+        label: AIR 131.490 - Operational Control (OPC)
+        frequency_mhz: 131.491667
+        scan_enabled: false
+        channel_mhz: 131.49
+      - id: air_131500
+        label: AIR 131.500 - Operational Control (OPC)
+        frequency_mhz: 131.5
+        scan_enabled: false
+        channel_mhz: 131.5
+      - id: air_131510
+        label: AIR 131.510 - Operational Control (OPC)
+        frequency_mhz: 131.508333
+        scan_enabled: false
+        channel_mhz: 131.51
+      - id: air_131515
+        label: AIR 131.515 - Operational Control (OPC)
+        frequency_mhz: 131.516667
+        scan_enabled: false
+        channel_mhz: 131.515
+      - id: air_131525
+        label: AIR 131.525 - ACARS data link
+        frequency_mhz: 131.525
+        scan_enabled: false
+        channel_mhz: 131.525
+      - id: air_131535
+        label: AIR 131.535 - Operational Control (OPC)
+        frequency_mhz: 131.533333
+        scan_enabled: false
+        channel_mhz: 131.535
+      - id: air_131540
+        label: AIR 131.540 - Operational Control (OPC)
+        frequency_mhz: 131.541667
+        scan_enabled: false
+        channel_mhz: 131.54
+      - id: air_131550
+        label: AIR 131.550 - Operational Control (OPC)
+        frequency_mhz: 131.55
+        scan_enabled: false
+        channel_mhz: 131.55
+      - id: air_131560
+        label: AIR 131.560 - Operational Control (OPC)
+        frequency_mhz: 131.558333
+        scan_enabled: false
+        channel_mhz: 131.56
+      - id: air_131565
+        label: AIR 131.565 - Operational Control (OPC)
+        frequency_mhz: 131.566667
+        scan_enabled: false
+        channel_mhz: 131.565
+      - id: air_131575
+        label: AIR 131.575 - Operational Control (OPC)
+        frequency_mhz: 131.575
+        scan_enabled: false
+        channel_mhz: 131.575
+      - id: air_131585
+        label: AIR 131.585 - Operational Control (OPC)
+        frequency_mhz: 131.583333
+        scan_enabled: false
+        channel_mhz: 131.585
+      - id: air_131590
+        label: AIR 131.590 - Operational Control (OPC)
+        frequency_mhz: 131.591667
+        scan_enabled: false
+        channel_mhz: 131.59
+      - id: air_131600
+        label: AIR 131.600 - Operational Control (OPC)
+        frequency_mhz: 131.6
+        scan_enabled: false
+        channel_mhz: 131.6
+      - id: air_131610
+        label: AIR 131.610 - Operational Control (OPC)
+        frequency_mhz: 131.608333
+        scan_enabled: false
+        channel_mhz: 131.61
+      - id: air_131615
+        label: AIR 131.615 - Operational Control (OPC)
+        frequency_mhz: 131.616667
+        scan_enabled: false
+        channel_mhz: 131.615
+      - id: air_131625
+        label: AIR 131.625 - Operational Control (OPC)
+        frequency_mhz: 131.625
+        scan_enabled: false
+        channel_mhz: 131.625
+      - id: air_131635
+        label: AIR 131.635 - Operational Control (OPC)
+        frequency_mhz: 131.633333
+        scan_enabled: false
+        channel_mhz: 131.635
+      - id: air_131640
+        label: AIR 131.640 - Operational Control (OPC)
+        frequency_mhz: 131.641667
+        scan_enabled: false
+        channel_mhz: 131.64
+      - id: air_131650
+        label: AIR 131.650 - Operational Control (OPC)
+        frequency_mhz: 131.65
+        scan_enabled: false
+        channel_mhz: 131.65
+      - id: air_131660
+        label: AIR 131.660 - Operational Control (OPC)
+        frequency_mhz: 131.658333
+        scan_enabled: false
+        channel_mhz: 131.66
+      - id: air_131665
+        label: AIR 131.665 - Operational Control (OPC)
+        frequency_mhz: 131.666667
+        scan_enabled: false
+        channel_mhz: 131.665
+      - id: air_131675
+        label: AIR 131.675 - Operational Control (OPC)
+        frequency_mhz: 131.675
+        scan_enabled: false
+        channel_mhz: 131.675
+      - id: air_131685
+        label: AIR 131.685 - Operational Control (OPC)
+        frequency_mhz: 131.683333
+        scan_enabled: false
+        channel_mhz: 131.685
+      - id: air_131690
+        label: AIR 131.690 - Operational Control (OPC)
+        frequency_mhz: 131.691667
+        scan_enabled: false
+        channel_mhz: 131.69
+      - id: air_131700
+        label: AIR 131.700 - Operational Control (OPC)
+        frequency_mhz: 131.7
+        scan_enabled: false
+        channel_mhz: 131.7
+      - id: air_131710
+        label: AIR 131.710 - Operational Control (OPC)
+        frequency_mhz: 131.708333
+        scan_enabled: false
+        channel_mhz: 131.71
+      - id: air_131715
+        label: AIR 131.715 - Operational Control (OPC)
+        frequency_mhz: 131.716667
+        scan_enabled: false
+        channel_mhz: 131.715
+      - id: air_131725
+        label: AIR 131.725 - ACARS data link
+        frequency_mhz: 131.725
+        scan_enabled: false
+        channel_mhz: 131.725
+      - id: air_131735
+        label: AIR 131.735 - Operational Control (OPC)
+        frequency_mhz: 131.733333
+        scan_enabled: false
+        channel_mhz: 131.735
+      - id: air_131740
+        label: AIR 131.740 - Operational Control (OPC)
+        frequency_mhz: 131.741667
+        scan_enabled: false
+        channel_mhz: 131.74
+      - id: air_131750
+        label: AIR 131.750 - Operational Control (OPC)
+        frequency_mhz: 131.75
+        scan_enabled: false
+        channel_mhz: 131.75
+      - id: air_131760
+        label: AIR 131.760 - Operational Control (OPC)
+        frequency_mhz: 131.758333
+        scan_enabled: false
+        channel_mhz: 131.76
+      - id: air_131765
+        label: AIR 131.765 - Operational Control (OPC)
+        frequency_mhz: 131.766667
+        scan_enabled: false
+        channel_mhz: 131.765
+      - id: air_131775
+        label: AIR 131.775 - Operational Control (OPC)
+        frequency_mhz: 131.775
+        scan_enabled: false
+        channel_mhz: 131.775
+      - id: air_131785
+        label: AIR 131.785 - Operational Control (OPC)
+        frequency_mhz: 131.783333
+        scan_enabled: false
+        channel_mhz: 131.785
+      - id: air_131790
+        label: AIR 131.790 - Operational Control (OPC)
+        frequency_mhz: 131.791667
+        scan_enabled: false
+        channel_mhz: 131.79
+      - id: air_131800
+        label: AIR 131.800 - Operational Control (OPC)
+        frequency_mhz: 131.8
+        scan_enabled: false
+        channel_mhz: 131.8
+      - id: air_131810
+        label: AIR 131.810 - Operational Control (OPC)
+        frequency_mhz: 131.808333
+        scan_enabled: false
+        channel_mhz: 131.81
+      - id: air_131815
+        label: AIR 131.815 - Operational Control (OPC)
+        frequency_mhz: 131.816667
+        scan_enabled: false
+        channel_mhz: 131.815
+      - id: air_131825
+        label: AIR 131.825 - ACARS data link
+        frequency_mhz: 131.825
+        scan_enabled: false
+        channel_mhz: 131.825
+      - id: air_131835
+        label: AIR 131.835 - Operational Control (OPC)
+        frequency_mhz: 131.833333
+        scan_enabled: false
+        channel_mhz: 131.835
+      - id: air_131840
+        label: AIR 131.840 - Operational Control (OPC)
+        frequency_mhz: 131.841667
+        scan_enabled: false
+        channel_mhz: 131.84
+      - id: air_131850
+        label: AIR 131.850 - Operational Control (OPC)
+        frequency_mhz: 131.85
+        scan_enabled: false
+        channel_mhz: 131.85
+      - id: air_131860
+        label: AIR 131.860 - Operational Control (OPC)
+        frequency_mhz: 131.858333
+        scan_enabled: false
+        channel_mhz: 131.86
+      - id: air_131865
+        label: AIR 131.865 - Operational Control (OPC)
+        frequency_mhz: 131.866667
+        scan_enabled: false
+        channel_mhz: 131.865
+      - id: air_131875
+        label: AIR 131.875 - Operational Control (OPC)
+        frequency_mhz: 131.875
+        scan_enabled: false
+        channel_mhz: 131.875
+      - id: air_131885
+        label: AIR 131.885 - Operational Control (OPC)
+        frequency_mhz: 131.883333
+        scan_enabled: false
+        channel_mhz: 131.885
+      - id: air_131890
+        label: AIR 131.890 - Operational Control (OPC)
+        frequency_mhz: 131.891667
+        scan_enabled: false
+        channel_mhz: 131.89
+      - id: air_131900
+        label: AIR 131.900 - Operational Control (OPC)
+        frequency_mhz: 131.9
+        scan_enabled: false
+        channel_mhz: 131.9
+      - id: air_131910
+        label: AIR 131.910 - Operational Control (OPC)
+        frequency_mhz: 131.908333
+        scan_enabled: false
+        channel_mhz: 131.91
+      - id: air_131915
+        label: AIR 131.915 - Operational Control (OPC)
+        frequency_mhz: 131.916667
+        scan_enabled: false
+        channel_mhz: 131.915
+      - id: air_131925
+        label: AIR 131.925 - Operational Control (OPC)
+        frequency_mhz: 131.925
+        scan_enabled: false
+        channel_mhz: 131.925
+      - id: air_131935
+        label: AIR 131.935 - Operational Control (OPC)
+        frequency_mhz: 131.933333
+        scan_enabled: false
+        channel_mhz: 131.935
+      - id: air_131940
+        label: AIR 131.940 - Operational Control (OPC)
+        frequency_mhz: 131.941667
+        scan_enabled: false
+        channel_mhz: 131.94
+      - id: air_131950
+        label: AIR 131.950 - Operational Control (OPC)
+        frequency_mhz: 131.95
+        scan_enabled: false
+        channel_mhz: 131.95
+      - id: air_131960
+        label: AIR 131.960 - Operational Control (OPC)
+        frequency_mhz: 131.958333
+        scan_enabled: false
+        channel_mhz: 131.96
+      - id: air_131965
+        label: AIR 131.965 - Operational Control (OPC)
+        frequency_mhz: 131.966667
+        scan_enabled: false
+        channel_mhz: 131.965
+      - id: air_131975
+        label: AIR 131.975 - Operational Control (OPC)
+        frequency_mhz: 131.975
+        scan_enabled: false
+        channel_mhz: 131.975
+      - id: dutch_mil_info
+        label: AIR 132.350 - Dutch MIL Information
+        frequency_mhz: 132.35
+        scan_enabled: true
+        channel_mhz: 132.35
+      - id: schiphol_atis
+        label: AIR 132.980 - Schiphol ATIS
+        frequency_mhz: 132.975
+        scan_enabled: false
+        channel_mhz: 132.98
+      - id: schiphol_twr_4
+        label: AIR 135.110 - Schiphol Tower 4
+        frequency_mhz: 135.108333
+        scan_enabled: false
+        channel_mhz: 135.11
+      - id: air_136650
+        label: AIR 136.650 - VDL Mode 2 gereserveerd
+        frequency_mhz: 136.65
+        scan_enabled: false
+        channel_mhz: 136.65
+      - id: air_136675
+        label: AIR 136.675 - VDL Mode 2 gereserveerd
+        frequency_mhz: 136.675
+        scan_enabled: false
+        channel_mhz: 136.675
+      - id: air_136900
+        label: AIR 136.900 - Air-ground data link
+        frequency_mhz: 136.9
+        scan_enabled: false
+        channel_mhz: 136.9
+      - id: air_136925
+        label: AIR 136.925 - Air-ground data link
+        frequency_mhz: 136.925
+        scan_enabled: false
+        channel_mhz: 136.925
+      - id: air_136950
+        label: AIR 136.950 - Air-ground data link
+        frequency_mhz: 136.95
+        scan_enabled: false
+        channel_mhz: 136.95
+      - id: air_136975
+        label: AIR 136.975 - Air-ground data link
+        frequency_mhz: 136.975
+        scan_enabled: false
+        channel_mhz: 136.975

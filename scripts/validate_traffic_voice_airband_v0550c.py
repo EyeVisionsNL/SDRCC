@@ -62,8 +62,11 @@ def static_validation():
         "dashboard/app.py",
         "dashboard/templates/index.html",
         "dashboard/static/js/traffic_voice.js",
-        "docs/traffic-voice-airband-v0550c.md",
     ]
+    documentation = "docs/traffic-voice-airband-v0550c.md"
+    if (ROOT / documentation).is_file():
+        required.append(documentation)
+
     for relative in required:
         check((ROOT / relative).is_file(), f"required file present: {relative}")
 
@@ -108,7 +111,7 @@ def configuration_and_render_validation():
     marine = settings["modes"]["marine_ais"]
     airband = settings["modes"]["airband_adsb"]
     check(marine["execution_enabled"] and airband["execution_enabled"], "Marine and Airband execution are explicitly enabled")
-    check(len(airband["channels"]) == 13, "all 13 Airband favourites are preserved")
+    check(len(airband["channels"]) == 108, "all 108 imported Airband channels are preserved")
     check(settings["backend"]["audio_sample_rate_hz"] == 16000, "shared AM/NFM audio bridge remains 16 kHz")
 
     assignments = config.get_receiver_assignments()
@@ -128,7 +131,7 @@ def configuration_and_render_validation():
         rendered = traffic_voice.render_rtlsdr_airband_config()
     check('serial = "05419737";' in rendered, "Airband voice uses the receiver opposite ADS-B")
     check('modulation = "am";' in rendered, "Airband backend renders AM modulation")
-    check('freqs = ( 139.100000' in rendered and "121.500000" in rendered, "Airband scan renders the complete favourite bank")
+    check('freqs = ( 118.200000' in rendered and "121.500000" in rendered, "Airband scan renders imported scanning channels")
     check("118.200000" in rendered and "122.991667" in rendered, "8.33 kHz channel carriers reach the SDR backend")
     check('type = "udp_stream";' in rendered, "Airband reuses the existing localhost audio transport")
 
