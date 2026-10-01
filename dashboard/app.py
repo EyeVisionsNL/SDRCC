@@ -24,6 +24,7 @@ from core import log_sources
 from core import config as config_core
 from core import controlled_iq_capture
 from core import iss_voice
+from core import iss_sstv
 from core import iss_voice_audio
 from core import iss_voice_audio_monitor
 from core import iss_voice_executor
@@ -2142,8 +2143,11 @@ def autopilot_start_recording():
 
 
 def run_iss_voice_preflight(target):
-    """Run mission-generic checks for an ISS Voice queue target."""
+    """Check receiver readiness for either ISS Voice or ISS SSTV."""
     checks = []
+    mission_type = str(target.get("mission_type") or "iss_voice")
+    is_sstv = mission_type == "iss_sstv"
+    mission_label = "ISS SSTV" if is_sstv else "ISS Voice"
 
     mission_status = mission_engine_core.get_mission_status()
     mission_ready = (
@@ -2161,10 +2165,30 @@ def run_iss_voice_preflight(target):
 
     validation = iss_voice.validate_config()
     checks.append({
-        "name": "ISS Voice configuration",
+        "name": "ISS receiver configuration",
         "ok": bool(validation.get("ok")),
         "detail": "Configuration valid" if validation.get("ok") else "; ".join(validation.get("errors") or []),
     })
+
+    if is_sstv:
+        try:
+            event = iss_sstv.get_settings()
+            target_in_event = iss_sstv.pass_is_in_event(target, event)
+            decoder = iss_sstv.decoder_status(event["mode"])
+            checks.extend([
+                {
+                    "name": "ISS SSTV event window",
+                    "ok": target_in_event,
+                    "detail": event["name"] if target_in_event else "The queued pass no longer fits the configured event window",
+                },
+                {
+                    "name": "ISS SSTV decoder",
+                    "ok": bool(decoder["available"]),
+                    "detail": f"sstv {decoder.get('version')}" if decoder["available"] else str(decoder.get("error") or "Decoder unavailable"),
+                },
+            ])
+        except (ValueError, OSError) as error:
+            checks.append({"name": "ISS SSTV event settings", "ok": False, "detail": str(error)})
 
     device = device_manager.get_assigned_device("iss_voice")
     device_ok = bool(device and device.get("serial"))
@@ -2196,12 +2220,12 @@ def run_iss_voice_preflight(target):
     result = {
         "passed": passed,
         "status": "OK" if passed else "FAILED",
-        "detail": "All ISS Voice preflight checks passed" if passed else "Failed: " + ", ".join(failed),
+        "detail": f"All {mission_label} preflight checks passed" if passed else "Failed: " + ", ".join(failed),
         "checks": checks,
     }
     event_bus.publish_preflight(
         "SUCCESS" if passed else "WARNING",
-        "ISS Voice preflight passed" if passed else "ISS Voice preflight failed",
+        f"{mission_label} preflight passed" if passed else f"{mission_label} preflight failed",
         result["detail"],
         data={"passed": passed, "failed_checks": failed, "checks": checks, "pass": target},
     )
@@ -2218,16 +2242,16 @@ def prepare_iss_voice_receiver(target):
     ):
         raise RuntimeError(f"{device['number']} is reserved by another mission")
     write_log(
-        f"AUTO: ISS Voice receiver prepared: {device['number']} ({device['serial']})"
+        f"AUTO: {target.get('mission_type', 'iss_voice')} receiver prepared: {device['number']} ({device['serial']})"
     )
     event_bus.publish_receiver(
         "INFO",
-        "ISS Voice receiver prepared",
+        f"{target.get('mission_type', 'iss_voice').replace('_', ' ').upper()} receiver prepared",
         f"{device['number']} ({device['serial']}) passed preparation checks",
         data={
             "device_id": device["id"],
             "serial": device["serial"],
-            "mission_type": "iss_voice",
+            "mission_type": target.get("mission_type", "iss_voice"),
             "pass": target,
         },
     )
@@ -2241,19 +2265,19 @@ def lock_iss_voice_receiver(target):
     receiver_manager.reserve(
         device["id"],
         mission_key=autopilot_runtime["pass_key"],
-        reason="AUTO ISS Voice mission",
+        reason=f"AUTO {target.get('mission_type', 'iss_voice').replace('_', ' ').upper()} mission",
     )
     write_log(
-        f"AUTO: ISS Voice receiver locked: {device['number']} ({device['serial']})"
+        f"AUTO: {target.get('mission_type', 'iss_voice')} receiver locked: {device['number']} ({device['serial']})"
     )
     event_bus.publish_mission(
         "INFO",
-        "ISS Voice mission locked",
+        f"{target.get('mission_type', 'iss_voice').replace('_', ' ').upper()} mission locked",
         f"{device['number']} reserved for {target.get('name', 'ISS')}",
         data={
             "device_id": device["id"],
             "serial": device["serial"],
-            "mission_type": "iss_voice",
+            "mission_type": target.get("mission_type", "iss_voice"),
             "pass": target,
         },
     )
@@ -2261,20 +2285,21 @@ def lock_iss_voice_receiver(target):
 
 def run_iss_voice_autopilot(target):
     """Execute one queue-selected ISS mission through the flexible receiver lifecycle."""
+    mission_label = "ISS SSTV" if target.get("mission_type") == "iss_sstv" else "ISS Voice"
     autopilot_runtime["iss_execution_active"] = True
     try:
-        write_log(f"AUTO: ISS Voice execution gestart voor {target.get('name', 'ISS')}")
+        write_log(f"AUTO: {mission_label} execution started for {target.get('name', 'ISS')}")
         result = iss_voice_executor.execute_pass(
             target=target, service_state=service_state, service_action=run_systemctl,
             wait_for_service=wait_for_service,
             mission_key=autopilot_runtime.get("pass_key"),
         )
         autopilot_runtime["iss_execution_result"] = result
-        write_log(f"AUTO: ISS Voice execution PASS: {result['mission']['mission_id']}")
+        write_log(f"AUTO: {mission_label} execution PASS: {result['mission']['mission_id']}")
     except Exception as error:
         autopilot_runtime["iss_execution_result"] = {"ok": False, "error": str(error)}
-        write_log(f"AUTO: ISS Voice execution FAILED: {error}")
-        event_bus.publish_mission("ERROR", "ISS Voice mission failed", str(error), data={"pass": target})
+        write_log(f"AUTO: {mission_label} execution FAILED: {error}")
+        event_bus.publish_mission("ERROR", f"{mission_label} mission failed", str(error), data={"pass": target})
     finally:
         autopilot_runtime["iss_execution_active"] = False
 
@@ -2341,7 +2366,7 @@ def mission_autopilot_worker():
             prepare_seconds = int(config["prepare_seconds"])
             lock_seconds = int(config["lock_seconds"])
 
-            if mission_type == "iss_voice":
+            if mission_type in {"iss_voice", "iss_sstv"}:
                 if (
                     0 < seconds_until_start <= preflight_seconds
                     and not autopilot_runtime["preflight_ok"]
@@ -2351,9 +2376,9 @@ def mission_autopilot_worker():
                     result = run_iss_voice_preflight(target)
                     if result["passed"]:
                         autopilot_runtime["preflight_ok"] = True
-                        write_log(f"AUTO: ISS Voice preflight OK for {target['name']}")
+                        write_log(f"AUTO: {mission_type.replace('_', ' ').upper()} preflight OK for {target['name']}")
                     else:
-                        write_log(f"AUTO: ISS Voice preflight FAILED: {result['detail']}")
+                        write_log(f"AUTO: {mission_type.replace('_', ' ').upper()} preflight FAILED: {result['detail']}")
 
                 if (
                     0 < seconds_until_start <= prepare_seconds
@@ -2385,11 +2410,11 @@ def mission_autopilot_worker():
                 if now_epoch > end_epoch and not autopilot_runtime["record_started"]:
                     try:
                         restore_autopilot_receiver(
-                            "ISS Voice pass missed before execution"
+                            f"{mission_type.replace('_', ' ').upper()} pass missed before execution"
                         )
                     except Exception as restore_error:
-                        write_log(f"AUTO: ISS Voice reservation restore failed: {restore_error}")
-                    write_log("AUTO: ISS Voice pass missed without recording")
+                        write_log(f"AUTO: {mission_type.replace('_', ' ').upper()} reservation restore failed: {restore_error}")
+                    write_log(f"AUTO: {mission_type.replace('_', ' ').upper()} pass missed without recording")
                     reset_autopilot_runtime()
 
                 if (
@@ -4323,6 +4348,50 @@ def api_weather_planning():
         return jsonify({"ok": False, "message": str(error)}), 400
     except OSError as error:
         return jsonify({"ok": False, "message": f"Configuratie kon niet worden opgeslagen: {error}"}), 500
+
+
+@app.route("/api/iss-sstv/settings", methods=["GET", "POST"])
+def api_iss_sstv_settings():
+    if request.method == "GET":
+        try:
+            settings = iss_sstv.get_settings()
+            return jsonify({
+                "ok": True,
+                "settings": settings,
+                "event_status": iss_sstv.event_status(settings),
+                "decoder": iss_sstv.decoder_status(settings["mode"]),
+            })
+        except (ValueError, OSError) as error:
+            return jsonify({"ok": False, "error": str(error)}), 500
+
+    mission = get_mission_data_for_status()
+    scheduler = mission_scheduler_core.get_scheduler_status()
+    mission_phase = str(mission.get("state") or mission.get("phase") or "").upper()
+    observer_phase = str((scheduler.get("observer") or {}).get("phase") or "").upper()
+    blocked = mission_phase not in {"", "READY", "WAIT FOR PASS"} or observer_phase in {
+        "PREPARE RECEIVER", "FINAL APPROACH", "PASS ACTIVE"
+    }
+    if blocked:
+        return jsonify({"ok": False, "error": "ISS SSTV-eventinstellingen zijn geblokkeerd tijdens een actieve missie."}), 409
+    try:
+        settings = iss_sstv.set_settings(request.get_json(silent=True) or {})
+        decoder = iss_sstv.decoder_status(settings["mode"])
+        write_log(
+            "ISS SSTV event updated: "
+            f"enabled={settings['enabled']} start={settings['start_utc']} end={settings['end_utc']} "
+            f"frequency={settings['frequency_hz']} mode={settings['mode']}"
+        )
+        return jsonify({
+            "ok": True,
+            "settings": settings,
+            "event_status": iss_sstv.event_status(settings),
+            "decoder": decoder,
+            "message": "ISS SSTV-event opgeslagen. Bij Mission Scheduler AUTO worden passende passages direct bijgewerkt.",
+        })
+    except ValueError as error:
+        return jsonify({"ok": False, "error": str(error)}), 400
+    except OSError as error:
+        return jsonify({"ok": False, "error": f"ISS SSTV-event kon niet worden opgeslagen: {error}"}), 500
 
 
 @app.route("/api/weather-rf", methods=["GET", "POST"])

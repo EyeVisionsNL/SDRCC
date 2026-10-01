@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/static/css/history.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
-    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.54.0j-r1">
+    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.63.5">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
@@ -1070,7 +1070,7 @@
                         </label>
                     </fieldset>
                     <fieldset class="mission-planner-profile" data-planning-profile="iss_voice">
-                        <legend>ISS Voice</legend>
+                        <legend>ISS Voice / SSTV</legend>
                         <label>Minimum peak
                             <span class="mission-planner-input"><input data-planning-field="minimum_peak_elevation" type="number" min="5" max="90" step="0.1" required><span>°</span></span>
                         </label>
@@ -1085,6 +1085,28 @@
                 <div class="mission-planner-settings-actions">
                     <button type="submit" class="control-button">Save satellite plans</button>
                 </div>
+            </form>
+        </section>
+
+        <section class="card mission-planner-settings iss-sstv-event-card">
+            <div class="mission-planner-settings-copy">
+                <h2>📺 ISS SSTV event</h2>
+                <p class="muted">Schedule image receptions during an announced ISS SSTV window. During an enabled event, matching ISS passes use the SSTV downlink instead of creating a voice recording. The receiver handover and service restore stay under Mission AutoPilot.</p>
+            </div>
+            <form id="iss-sstv-event-form" class="mission-planner-settings-form">
+                <div class="iss-sstv-event-fields">
+                    <label class="iss-sstv-enable"><span>Schedule this event</span><input id="iss-sstv-enabled" type="checkbox"></label>
+                    <label>Event name<input id="iss-sstv-name" type="text" maxlength="100" required></label>
+                    <label>Start (local time)<input id="iss-sstv-start" type="datetime-local" required></label>
+                    <label>End (local time)<input id="iss-sstv-end" type="datetime-local" required></label>
+                    <label>Downlink frequency<span class="mission-planner-input"><input id="iss-sstv-frequency" type="number" min="140" max="450" step="0.000001" required><span>MHz</span></span></label>
+                    <label>SSTV mode<select id="iss-sstv-mode"><option value="robot36">Robot 36</option><option value="pd120">PD120</option></select></label>
+                </div>
+                <div class="mission-planner-settings-actions">
+                    <span id="iss-sstv-decoder-status" class="muted" aria-live="polite">Checking SSTV decoder…</span>
+                    <button type="submit" class="control-button">Save ISS SSTV event</button>
+                </div>
+                <p id="iss-sstv-event-message" class="muted iss-sstv-event-message" aria-live="polite">Series 33 is preloaded: Oct 2–6, 2026 · 437.550 MHz · Robot 36 · 36 seconds on, 2 minutes pause.</p>
             </form>
         </section>
 
@@ -1437,6 +1459,7 @@
                         <div><span>Pipeline</span><strong id="mission-operations-result-pipeline">-</strong></div>
                         <div><span>Result</span><strong id="mission-operations-result-status">-</strong></div>
                         <div><span>Duration</span><strong id="mission-operations-result-duration">-</strong></div>
+                        <div><span>Channel / wideband power</span><strong id="mission-operations-result-rf-ratio">-</strong></div>
                     </div>
                 </div>
             </section>
@@ -1492,7 +1515,7 @@
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
-<script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
+<script src="/static/js/mission_recordings.js?v=0.63.5"></script>
 <script src="/static/js/radio.js?v=0.56.0b"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
@@ -1500,7 +1523,7 @@
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
-<script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
+<script src="/static/js/mission_planner.js?v=0.63.5"></script>
 <script src="/static/js/traffic_voice.js?v=0.60.12-beta1"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>

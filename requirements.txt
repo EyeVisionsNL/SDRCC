@@ -6,3 +6,4 @@ flask
 schedule
 numpy
 openpyxl>=3.1,<4
+sstv==0.1.0

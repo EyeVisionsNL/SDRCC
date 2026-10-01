@@ -8,11 +8,12 @@ It does not execute missions, claim receivers, or control services.
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import yaml
 
-from core import iss_passes, passes, weather_planning
+from core import iss_passes, iss_sstv, passes, weather_planning
 from core.config import get_assignment, get_enabled_satellites
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -83,7 +84,7 @@ def _iss_config() -> dict[str, Any]:
     return config
 
 
-def _iss_voice_candidates(hours_ahead: int) -> list[dict[str, Any]]:
+def _iss_candidates(hours_ahead: int) -> list[dict[str, Any]]:
     config = _iss_config()
     priority = int(config.get("planning_priority", 3))
     enabled = bool(config.get("enabled", False))
@@ -100,9 +101,50 @@ def _iss_voice_candidates(hours_ahead: int) -> list[dict[str, Any]]:
             receiver_claim_enabled,
         )
     )
+    event = iss_sstv.get_settings()
+    event_status = iss_sstv.event_status(event)
+    decoder = iss_sstv.decoder_status(event["mode"])
+    event_start = datetime.fromisoformat(event["start_utc"].replace("Z", "+00:00"))
+    event_end = datetime.fromisoformat(event["end_utc"].replace("Z", "+00:00"))
     candidates = []
     for raw in iss_passes.get_passes(hours_ahead):
         item = deepcopy(raw)
+        start = item.get("start")
+        end = item.get("end")
+        if event["enabled"] and start and end and end > event_start and start < event_end:
+            clipped_start = max(start.astimezone(timezone.utc), event_start)
+            clipped_end = min(end.astimezone(timezone.utc), event_end)
+            if clipped_end <= clipped_start:
+                continue
+            maximum = item.get("maximum")
+            if maximum:
+                clipped_maximum = maximum.astimezone(timezone.utc)
+                clipped_maximum = min(max(clipped_maximum, clipped_start), clipped_end)
+            else:
+                clipped_maximum = clipped_start + (clipped_end - clipped_start) / 2
+            item.update({
+                "start": clipped_start,
+                "maximum": clipped_maximum,
+                "end": clipped_end,
+                "plugin_id": "iss_voice",
+                "mission_type": "iss_sstv",
+                "receiver_role": "iss_voice",
+                "planner_source": "iss_sstv_event",
+                "automation_eligible": automation_eligible,
+                "execution_enabled": execution_enabled and backend_enabled and decoder["available"],
+                "priority": priority,
+                "frequency": int(event["frequency_hz"]),
+                "mode": f"FM · {event['mode'].upper()} SSTV",
+                "pipeline": "wideband_iq_offline_sstv",
+                "decoder": f"{event['mode'].upper()} SSTV",
+                "sstv_event": event["name"],
+                "sstv_mode": event["mode"],
+                "sstv_decoder_ready": decoder["available"],
+                "sstv_event_status": event_status,
+            })
+            candidates.append(item)
+            continue
+
         item.update(
             {
                 "plugin_id": "iss_voice",
@@ -121,7 +163,7 @@ def _iss_voice_candidates(hours_ahead: int) -> list[dict[str, Any]]:
 def _provider_candidates(hours_ahead: int) -> dict[str, list[dict[str, Any]]]:
     return {
         "weather": _weather_candidates(hours_ahead),
-        "iss_voice": _iss_voice_candidates(hours_ahead),
+        "iss_voice": _iss_candidates(hours_ahead),
     }
 
 
@@ -150,19 +192,21 @@ def _apply_policy(
         item["close_elevation"] = float(profile["close_elevation"])
         item["planning_limit_elevation"] = minimum
         item["planning_policy_source"] = profile["source"]
+        policy_label = "ISS SSTV" if item.get("mission_type") == "iss_sstv" else profile["label"]
+        item["planning_policy_label"] = policy_label
 
         if elevation < minimum:
             item["planning_decision"] = "BELOW_LIMIT"
             item["planning_reason"] = (
                 f"Maximum elevation {elevation:.1f}° is below the "
-                f"{minimum:.1f}° {profile['label']} peak limit."
+                f"{minimum:.1f}° {policy_label} peak limit."
             )
             rejected.append(item)
             continue
 
         item["planning_decision"] = "ELIGIBLE"
         item["planning_reason"] = (
-            f"Pass meets the {profile['label']} policy; window "
+            f"Pass meets the {policy_label} policy; window "
             f"{item['begin_elevation']:.1f}° rising to "
             f"{item['close_elevation']:.1f}° falling."
         )
@@ -202,6 +246,8 @@ def get_sources(hours_ahead: int = 48) -> list[dict[str, Any]]:
     policy = built["policy"]
     profiles = policy["profiles"]
     iss_config = _iss_config()
+    sstv_event = iss_sstv.get_settings()
+    sstv_decoder = iss_sstv.decoder_status(sstv_event["mode"])
     iss_status = iss_passes.get_status()
     weather_raw = built["providers"]["weather"]
     iss_raw = built["providers"]["iss_voice"]
@@ -244,7 +290,14 @@ def get_sources(hours_ahead: int = 48) -> list[dict[str, Any]]:
             "rejected_count": built["rejected_counts"]["iss_voice"],
             "raw_candidate_count": len(iss_raw),
             "state": iss_status["state"],
-            "detail": iss_status["detail"],
+            "detail": (
+                f"{iss_status['detail']} SSTV {iss_sstv.event_status(sstv_event)}: "
+                f"{sstv_event['name']} at {sstv_event['frequency_hz'] / 1_000_000:.3f} MHz, "
+                f"{sstv_event['mode'].upper()} ({'decoder ready' if sstv_decoder['available'] else 'decoder missing'})."
+            ),
+            "sstv_event": sstv_event,
+            "sstv_event_status": iss_sstv.event_status(sstv_event),
+            "sstv_decoder": sstv_decoder,
             "tle_present": iss_status["tle_present"],
             "tle_age_hours": iss_status["tle_age_hours"],
             "norad_id": iss_status["norad_id"],

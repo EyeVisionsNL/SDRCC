@@ -473,7 +473,7 @@ def prepare_audio_dependencies(source: Path, project: Path) -> bool:
                       project, "--install"], timeout=600)
         return result.returncode == 0
     except subprocess.TimeoutExpired:
-        log("Audio library setup timed out; speech filtering remains available.")
+        log("Audio/SSTV dependency setup timed out; speech filtering remains available and SSTV preflight will stay blocked.")
         return False
 
 
@@ -543,12 +543,12 @@ def worker() -> int:
                 # prepare its new libraries. The dashboard can complete that
                 # installation using this same-version pass, with all checks.
                 source_preflight(source, project, install_user)
-                write_status("installing", "Completing audio library setup.",
+                write_status("installing", "Completing audio processing and ISS SSTV decoder setup.",
                              current_version=current, target_version=target)
                 if not prepare_audio_dependencies(source, project):
-                    raise RuntimeError("Audio library setup failed; see /var/log/sdrcc-update.log and retry Complete audio setup.")
+                    raise RuntimeError("Audio processing or ISS SSTV decoder setup failed; see /var/log/sdrcc-update.log and retry Complete audio setup.")
                 service_restore = restore_update_service_plan(project)
-                message = "Audio libraries are ready; reopen listening if needed."
+                message = "Audio processing and ISS SSTV decoder dependencies are ready."
                 if service_restore.get("errors"):
                     message += " Receiver service restore requires attention."
                 write_status("success", message,
@@ -651,7 +651,7 @@ def worker() -> int:
             service_restore = restore_update_service_plan(project)
             success_message = (
                 f"SDRCC updated successfully to {target}."
-                + ("" if audio_setup_ok else " Audio setup needs completion; use Complete audio setup.")
+                + ("" if audio_setup_ok else " Audio/SSTV dependency setup needs completion; use Complete audio setup.")
             )
             if service_restore.get("errors"):
                 success_message += " Receiver service restore requires attention."

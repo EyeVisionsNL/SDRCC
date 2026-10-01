@@ -266,6 +266,10 @@ check(
     update_manager.compare_versions("0.63.3", "0.63.4") == -1,
     "the managed Update button recognizes 0.63.4 as newer than 0.63.3",
 )
+check(
+    update_manager.compare_versions("0.63.4", "0.63.5") == -1,
+    "the managed Update button recognizes 0.63.5 as newer than 0.63.4",
+)
 manifest = json.loads((ROOT / "scripts/install/update_manifest.json").read_text())
 update_files = {
     "VERSION",
@@ -273,12 +277,27 @@ update_files = {
     "core/hf_monitor_backend.py",
     "core/rtl_smart_gain.py",
     "core/traffic_voice.py",
+    "core/iss_sstv.py",
+    "core/iss_voice_executor.py",
+    "core/mission_operations.py",
+    "core/mission_planner.py",
+    "core/mission_scheduler.py",
+    "core/update_manager.py",
     "dashboard/static/js/hf_monitor.js",
     "dashboard/static/js/traffic_voice.js",
+    "dashboard/static/css/mission_planner.css",
+    "dashboard/static/js/mission_planner.js",
+    "dashboard/static/js/mission_recordings.js",
+    "dashboard/static/js/update_manager.js",
     "dashboard/templates/index.html",
+    "dashboard/app.py",
+    "requirements.txt",
+    "scripts/install/prepare_audio_comparison.sh",
+    "scripts/install/prepare_iss_sstv_decoder.sh",
+    "scripts/sdrcc_update.py",
     "scripts/traffic_voice_prepare.py",
 }
-check(update_files.issubset(manifest), "the managed Update button manifest deploys every changed runtime file")
+check(update_files.issubset(manifest), "the managed Update button manifest deploys Smart Gain, ISS Voice and SSTV runtime files")
 check("README.md" not in manifest, "managed updates preserve the main README and screenshot links")
 check(
     "Smart Gain" in (ROOT / "dashboard/templates/index.html").read_text()
@@ -292,7 +311,7 @@ for name, allowed in manifest.items():
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     check(source.is_file() and digest in allowed, f"manifest hash matches {name}")
 check(
-    (ROOT / "VERSION").read_text().strip() == "0.63.4",
-    "release version is 0.63.4",
+    (ROOT / "VERSION").read_text().strip() == "0.63.5",
+    "release version is 0.63.5",
 )
 print("VALIDATION PASS: SDRCC bounded Smart Gain and managed-update payload")
