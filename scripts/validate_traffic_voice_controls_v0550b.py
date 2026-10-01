@@ -80,24 +80,24 @@ def validate_banks_and_rendering():
     check(validation["ok"], "expanded Traffic Voice configuration validates")
     settings = raw["traffic_voice"]
     check(
-        settings.get("channel_source") == "RT-950PRO_CPS_ChannelListChirpData_laatste.csv",
-        "uploaded CHIRP list is recorded as channel source",
+        settings.get("channel_source") == "sdrcc-traffic-voice-channel-list-named-aviation.xlsx",
+        "verified Traffic Voice Excel list is recorded as channel source",
     )
     marine = settings["modes"]["marine_ais"]
     airband = settings["modes"]["airband_adsb"]
     check(marine["channel_bank"] == "rotterdam_port", "Rotterdam Port bank selected")
-    check(len(marine["channels"]) == 27, "all 27 local Marine favourites included")
-    check(len({item["id"] for item in marine["channels"]}) == 27, "Marine channel IDs are unique")
-    check(len({float(item["frequency_mhz"]) for item in marine["channels"]}) == 27, "Marine frequencies are unique")
-    check({"V61_BOTLEK", "V60_WAALH", "VLAARDING", "ROEIERS", "BOLUDA"}.issubset(
-        {item["label"] for item in marine["channels"]}
-    ), "local port favourites are preserved")
-    check(airband["channel_bank"] == "rotterdam_aviation", "Rotterdam Aviation bank selected")
-    check(len(airband["channels"]) == 13, "all 13 aviation favourites included")
+    check(len(marine["channels"]) == 59, "all 59 uploaded Marine channels included")
+    check(len({item["id"] for item in marine["channels"]}) == 59, "Marine channel IDs are unique")
+    check(len({float(item["frequency_mhz"]) for item in marine["channels"]}) == 59, "Marine frequencies are unique")
+    check({"vhf60", "vhf61"}.issubset(
+        {item["id"] for item in marine["channels"]}
+    ), "named VHF60 and VHF61 port channels are included")
+    check(airband["channel_bank"] == "airband_full", "full Aviation bank from the verified Excel list is selected")
+    check(len(airband["channels"]) == 108, "all 108 uploaded Aviation channels included")
     check(airband["execution_enabled"] is True, "Airband bank remains valid after execution enablement")
-    check({"MIL_TOWE", "MIL_TACT", "MIL_L-L"}.issubset(
-        {item["label"] for item in airband["channels"]}
-    ), "three military AM favourites are preserved")
+    check({"rtm_tower", "rtm_delivery", "rtm_approach"}.issubset(
+        {item["id"] for item in airband["channels"]}
+    ), "named Rotterdam Tower, Delivery and Approach channels are included")
     air_tuning = {
         round(float(item["channel_mhz"]), 3): round(float(item["frequency_mhz"]), 6)
         for item in airband["channels"]
@@ -114,7 +114,7 @@ def validate_banks_and_rendering():
     with patch.object(config, "load_traffic_voice", return_value=render_payload):
         rendered = traffic_voice.render_rtlsdr_airband_config()
     check(rendered.count("frequency_mhz") == 0, "backend receives rendered frequencies, not YAML field names")
-    check('labels = ( "CH16_NOOD"' in rendered and '"BOLUDA"' in rendered, "scan render contains the full named Marine bank")
+    check('"VHF61 - Verkeersbegeleiding"' in rendered and '"VHF63 - Verkeersbegeleiding"' in rendered, "scan render contains the uploaded enabled Marine channels")
     expected_squelch = float(render_payload["traffic_voice"]["backend"]["squelch_snr_db"])
     check(
         f"squelch_snr_threshold = {expected_squelch:.1f};" in rendered,
@@ -132,14 +132,14 @@ def validate_banks_and_rendering():
         with patch.object(config, "TRAFFIC_VOICE_CONFIG", config_path):
             fixed = traffic_voice.save_receiver_settings({
                 "tuning_mode": "fixed",
-                "selected_channel_id": "vlaarding",
+                "selected_channel_id": "vhf61",
                 "gain_db": 38.6,
                 "squelch_snr_db": 8.5,
                 "open_squelch": False,
             })
             fixed_render = traffic_voice.render_rtlsdr_airband_config()
-            check(fixed["selected_channel_id"] == "vlaarding", "fixed channel persists through the single config authority")
-            check('freqs = ( 157.000000 );' in fixed_render, "fixed-channel render contains only the selected channel")
+            check(fixed["selected_channel_id"] == "vhf61", "fixed channel persists through the single config authority")
+            check('freqs = ( 160.675000 );' in fixed_render, "fixed-channel render contains only the selected channel")
             check("gain = 38.6;" in fixed_render and "squelch_snr_threshold = 8.5;" in fixed_render, "gain and squelch controls reach the backend render")
 
             opened = traffic_voice.save_receiver_settings({"open_squelch": True})
@@ -177,7 +177,7 @@ def validate_settings_transaction():
         ):
             stopped = FakeServices(voice_active=False)
             stored = traffic_voice_controller.apply_receiver_settings(
-                {"tuning_mode": "fixed", "selected_channel_id": "ch11_vts"},
+                {"tuning_mode": "fixed", "selected_channel_id": "vhf11"},
                 service_state=stopped.state,
                 service_action=stopped.action,
                 wait_for_service=stopped.wait,
@@ -258,8 +258,8 @@ def main():
         return 1
     print("VALIDATION PASS: SDRCC v0.55.0b-r3 Traffic Voice controls")
     print(json.dumps({
-        "marine_channels": 27,
-        "airband_channels": 13,
+        "marine_channels": 59,
+        "airband_channels": 108,
         "settings_authority": "config/traffic_voice.yaml",
         "service_authority": "existing_dashboard_systemctl_path",
     }, indent=2, sort_keys=True))

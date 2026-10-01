@@ -77,7 +77,7 @@ def validate_names_and_api():
     marine = settings["modes"]["marine_ais"]
     airband = settings["modes"]["airband_adsb"]
     check(marine["channel_bank"] == "rotterdam_port", "neutral Rotterdam Port bank name")
-    check(airband["channel_bank"] == "rotterdam_aviation", "neutral Rotterdam Aviation bank name")
+    check(airband["channel_bank"] == "airband_full", "imported full Aviation bank name")
 
     snapshot = traffic_voice.get_snapshot(
         service_reader=lambda service: {"service": service, "active": False, "state": "inactive"},
@@ -85,16 +85,18 @@ def validate_names_and_api():
     )
     banks = {mode["id"]: mode["channel_bank"] for mode in snapshot["modes"]}
     check(banks["marine_ais"] == "rotterdam_port", "Marine API exposes neutral bank name")
-    check(banks["airband_adsb"] == "rotterdam_aviation", "Airband API exposes neutral bank name")
+    check(banks["airband_adsb"] == "airband_full", "Airband API exposes the imported bank name")
 
     forbidden = "".join(("co", "en"))
     scan_paths = [
         ROOT / "config/traffic_voice.yaml",
         ROOT / "dashboard/templates/index.html",
         ROOT / "dashboard/static/js/traffic_voice.js",
-        ROOT / "docs/traffic-voice-marine-v0550b.md",
         ROOT / "scripts/validate_traffic_voice_controls_v0550b.py",
     ]
+    marine_doc = ROOT / "docs/traffic-voice-marine-v0550b.md"
+    if marine_doc.is_file():
+        scan_paths.append(marine_doc)
     check(
         all(forbidden not in path.read_text(encoding="utf-8").lower() for path in scan_paths),
         "personal name removed from Traffic Voice sources",
