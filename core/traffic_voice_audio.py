@@ -10,11 +10,14 @@ from __future__ import annotations
 from collections import deque
 from datetime import datetime
 import math
+import re
 import socket
 import struct
+import subprocess
 import threading
 import time
 from typing import Any, Iterator
+from uuid import uuid4
 
 from core import config
 from core import traffic_voice_atis, traffic_voice_denoise
@@ -24,12 +27,22 @@ SPEECH_FILTERS = {"off": None, "light": 3800.0, "normal": 3000.0, "strong": 2400
 
 MAX_CLIENTS = 3
 MAX_CHUNKS = 96
+RECORDING_UDP_PORT_OFFSET = 1
+RECORDING_PREROLL_SECONDS = 0.4
+RECORDING_POSTROLL_SECONDS = 0.4
+RECORDING_GAP_SECONDS = 0.7
+RECORDING_MAX_SECONDS = 120.0
+RECORDING_COUNT = 4
 _lock = threading.Condition(threading.RLock())
 _chunks: deque[tuple[int, bytes]] = deque(maxlen=MAX_CHUNKS)
 _sequence = 0
 _listener: threading.Thread | None = None
+_recording_listener: threading.Thread | None = None
+_recording_listener_retry_at = 0.0
 _listener_error: str | None = None
+_recording_listener_error: str | None = None
 _last_packet_epoch: float | None = None
+_last_recording_packet_epoch: float | None = None
 _packets = 0
 _bytes = 0
 _active_clients = 0
@@ -43,6 +56,13 @@ def _settings() -> tuple[str, int, int]:
         int(backend.get("audio_port") or 49555),
         int(backend.get("audio_sample_rate_hz") or 16000),
     )
+
+
+def _recording_settings() -> tuple[str, int, int]:
+    host, port, sample_rate = _settings()
+    if port <= 0 or port + RECORDING_UDP_PORT_OFFSET > 65535:
+        raise ValueError("Traffic Voice audio port leaves no room for Marine recording")
+    return host, port + RECORDING_UDP_PORT_OFFSET, sample_rate
 
 
 def _wav_header(sample_rate: int) -> bytes:
@@ -67,6 +87,192 @@ def float32_to_pcm16(payload: bytes) -> bytes:
     return bytes(output)
 
 
+def _finite_wav(pcm: bytes, sample_rate: int) -> bytes:
+    data_size = len(pcm)
+    return b"".join((
+        b"RIFF", struct.pack("<I", 36 + data_size), b"WAVE",
+        b"fmt ", struct.pack("<IHHIIHH", 16, 1, 1, sample_rate,
+                             sample_rate * 2, 2, 16),
+        b"data", struct.pack("<I", data_size), pcm,
+    ))
+
+
+class MarineRecordingStore:
+    """Bounded store for the latest four squelch-open Marine transmissions."""
+
+    def __init__(
+        self,
+        sample_rate: int = 16000,
+        *,
+        recording_count: int = RECORDING_COUNT,
+        pre_roll_seconds: float = RECORDING_PREROLL_SECONDS,
+        post_roll_seconds: float = RECORDING_POSTROLL_SECONDS,
+        gap_seconds: float = RECORDING_GAP_SECONDS,
+        max_seconds: float = RECORDING_MAX_SECONDS,
+    ) -> None:
+        self.sample_rate = max(1, int(sample_rate))
+        self.recording_count = max(1, int(recording_count))
+        self.pre_roll_seconds = max(0.0, float(pre_roll_seconds))
+        self.post_roll_seconds = max(0.0, float(post_roll_seconds))
+        self.gap_seconds = max(0.1, float(gap_seconds))
+        self.max_bytes = max(1, int(self.sample_rate * 2 * float(max_seconds)))
+        self._lock = threading.RLock()
+        self._live_history: deque[tuple[float, bytes]] = deque()
+        self._completed: deque[dict[str, Any]] = deque(maxlen=self.recording_count)
+        self._active: dict[str, Any] | None = None
+
+    @staticmethod
+    def _append_bounded(clip: dict[str, Any], pcm: bytes, maximum: int) -> None:
+        available = maximum - len(clip["pcm"])
+        if available > 0:
+            clip["pcm"].extend(pcm[:available])
+
+    def observe_live_chunk(self, pcm: bytes, received_at: float | None = None) -> None:
+        """Retain a short rolling buffer for clean squelch-open pre-roll."""
+        if not pcm:
+            return
+        moment = time.monotonic() if received_at is None else float(received_at)
+        with self._lock:
+            self._live_history.append((moment, bytes(pcm)))
+            history_age = self.pre_roll_seconds + self.post_roll_seconds + self.gap_seconds + 1.0
+            while self._live_history and self._live_history[0][0] < moment - history_age:
+                self._live_history.popleft()
+            active = self._active
+            if active and len(active["pcm"]) < self.max_bytes:
+                # Keep post-roll from the always-on listener. The gated stream
+                # itself supplies the speech-bearing body of the recording.
+                if moment > active["last_gate_at"]:
+                    active["postroll"].append((moment, bytes(pcm)))
+
+    def is_recording(self) -> bool:
+        with self._lock:
+            return self._active is not None
+
+    def needs_new_recording(self, received_at: float) -> bool:
+        moment = float(received_at)
+        with self._lock:
+            return (
+                self._active is None
+                or moment - self._active["last_gate_at"] >= self.gap_seconds
+            )
+
+    def observe_gated_chunk(
+        self,
+        pcm: bytes,
+        received_at: float,
+        metadata: dict[str, Any] | None = None,
+    ) -> tuple[str, bool]:
+        """Start or extend a clip from the squelch-gated UDP stream."""
+        if not pcm:
+            return "", False
+        moment = float(received_at)
+        with self._lock:
+            if self._active and moment - self._active["last_gate_at"] >= self.gap_seconds:
+                self._finish_locked(moment)
+            started = self._active is None
+            if self._active is None:
+                pre_roll = [
+                    (stamp, chunk) for stamp, chunk in self._live_history
+                    if moment - self.pre_roll_seconds <= stamp < moment
+                ]
+                detail = metadata if isinstance(metadata, dict) else {}
+                self._active = {
+                    "id": uuid4().hex,
+                    "received_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                    "channel": str(detail.get("channel") or "Marine scan · channel unknown"),
+                    "frequency_mhz": detail.get("frequency_mhz"),
+                    "pcm": bytearray(),
+                    "postroll": [],
+                    "last_gate_at": moment,
+                }
+                for _stamp, chunk in pre_roll:
+                    self._append_bounded(self._active, chunk, self.max_bytes)
+            self._append_bounded(self._active, pcm, self.max_bytes)
+            self._active["last_gate_at"] = moment
+            return self._active["id"], started
+
+    def finish_if_idle(self, now: float | None = None, *, force: bool = False) -> bool:
+        moment = time.monotonic() if now is None else float(now)
+        with self._lock:
+            if not self._active:
+                return False
+            if not force and moment - self._active["last_gate_at"] < self.gap_seconds:
+                return False
+            self._finish_locked(moment)
+            return True
+
+    def _finish_locked(self, now: float) -> None:
+        del now  # the tail length is bounded relative to the final gated packet
+        clip = self._active
+        if not clip:
+            return
+        tail_until = clip["last_gate_at"] + self.post_roll_seconds
+        for stamp, chunk in clip["postroll"]:
+            if clip["last_gate_at"] < stamp <= tail_until:
+                self._append_bounded(clip, chunk, self.max_bytes)
+        clip.pop("postroll", None)
+        clip.pop("last_gate_at", None)
+        if len(clip["pcm"]) >= int(self.sample_rate * 2 * 0.08):
+            clip["pcm"] = bytes(clip["pcm"])
+            self._completed.append(clip)
+        self._active = None
+
+    def list_recordings(self) -> list[dict[str, Any]]:
+        with self._lock:
+            selected: list[dict[str, Any]] = []
+            if self._active:
+                selected.append(self._active)
+                completed = list(self._completed)
+                if self.recording_count > 1:
+                    selected.extend(reversed(completed[-(self.recording_count - 1):]))
+            else:
+                selected.extend(reversed(self._completed))
+            result = []
+            for clip in selected[:self.recording_count]:
+                pcm_size = len(clip["pcm"])
+                result.append({
+                    "id": clip["id"],
+                    "received_at": clip["received_at"],
+                    "channel": clip["channel"],
+                    "frequency_mhz": clip["frequency_mhz"],
+                    "duration_seconds": round(pcm_size / (self.sample_rate * 2), 1),
+                    "complete": "postroll" not in clip,
+                    "play_url": (
+                        f"/api/traffic-voice/recordings/{clip['id']}.wav"
+                        if "postroll" not in clip else None
+                    ),
+                })
+            return result
+
+    def get_wav(self, recording_id: str) -> bytes | None:
+        with self._lock:
+            clip = next(
+                (item for item in self._completed if item["id"] == recording_id),
+                None,
+            )
+            if clip is None:
+                return None
+            pcm = bytes(clip["pcm"])
+        return _finite_wav(pcm, self.sample_rate)
+
+    def update_metadata(self, recording_id: str, metadata: dict[str, Any]) -> None:
+        with self._lock:
+            clips = [*self._completed]
+            if self._active:
+                clips.append(self._active)
+            for clip in clips:
+                if clip.get("id") == recording_id:
+                    if metadata.get("frequency_mhz") is not None:
+                        clip["frequency_mhz"] = metadata["frequency_mhz"]
+                    channel = str(metadata.get("channel") or "").strip()
+                    if channel and "unknown" not in channel.lower():
+                        clip["channel"] = channel
+                    return
+
+
+_marine_recordings = MarineRecordingStore()
+
+
 def _listen() -> None:
     global _listener_error, _last_packet_epoch, _packets, _bytes, _sequence
     host, port, _sample_rate = _settings()
@@ -85,6 +291,7 @@ def _listen() -> None:
                 pcm = float32_to_pcm16(payload)
                 if not pcm:
                     continue
+                _marine_recordings.observe_live_chunk(pcm, time.monotonic())
                 # ATIS receives a copy through a bounded in-process queue.
                 # This bridge remains the sole UDP listener and never waits
                 # for the read-only decoder observer.
@@ -105,17 +312,144 @@ def _listen() -> None:
             _lock.notify_all()
 
 
-def ensure_listener() -> None:
-    global _listener
-    with _lock:
-        if _listener is not None and _listener.is_alive():
-            return
-        _listener = threading.Thread(
-            target=_listen,
-            daemon=True,
-            name="sdrcc-traffic-voice-audio",
+_SCAN_ACTIVITY_RE = re.compile(
+    r"^(?P<epoch>\d+(?:\.\d+)?)\s+.*?Activity on "
+    r"(?P<frequency>\d+(?:\.\d+)?) MHz(?: \((?P<label>[^)]*)\))?"
+)
+
+
+def _marine_channel_metadata(
+    started_epoch: float,
+    *,
+    include_scan_log: bool = True,
+) -> dict[str, Any]:
+    """Resolve fixed channels directly and scanned channels from RTLSDR-Airband logs."""
+    fallback = {"channel": "Marine scan · channel unknown", "frequency_mhz": None}
+    try:
+        document = config.get_traffic_voice_config()
+        settings = (document.get("traffic_voice") or document) if isinstance(document, dict) else {}
+        marine = (settings.get("modes") or {}).get("marine_ais") or {}
+        channels = marine.get("channels") or []
+        if marine.get("tuning_mode") == "fixed":
+            selected_id = str(marine.get("selected_channel_id") or "")
+            selected = next((item for item in channels if str(item.get("id")) == selected_id), None)
+            if selected:
+                return {
+                    "channel": str(selected.get("label") or "Marine channel"),
+                    "frequency_mhz": round(float(selected["frequency_mhz"]), 6),
+                }
+        if not include_scan_log:
+            return fallback
+
+        # RTLSDR-Airband writes an immediate “Activity on <MHz> (<label>)”
+        # journal entry when a scanned channel opens squelch. Stats snapshots
+        # update much less often, so the event log provides better clip metadata.
+        command = [
+            "/usr/bin/journalctl", "--unit=sdrcc-traffic-voice.service",
+            "--since", f"@{max(0.0, started_epoch - 4.0):.3f}",
+            "--output=short-unix", "--no-pager", "-n", "60",
+        ]
+        result = subprocess.run(
+            command, text=True, capture_output=True, timeout=1.2, check=False,
         )
-        _listener.start()
+        if result.returncode != 0:
+            return fallback
+        candidates: list[tuple[float, dict[str, Any]]] = []
+        for line in result.stdout.splitlines():
+            match = _SCAN_ACTIVITY_RE.search(line.strip())
+            if not match:
+                continue
+            event_epoch = float(match.group("epoch"))
+            if abs(event_epoch - started_epoch) > 2.5:
+                continue
+            frequency = round(float(match.group("frequency")), 6)
+            channel = next((
+                item for item in channels
+                if abs(float(item.get("frequency_mhz") or 0.0) - frequency) <= 0.0005
+            ), None)
+            label = str((channel or {}).get("label") or match.group("label") or "Marine channel")
+            candidates.append((abs(event_epoch - started_epoch), {
+                "channel": label,
+                "frequency_mhz": frequency,
+            }))
+        if candidates:
+            return min(candidates, key=lambda item: item[0])[1]
+    except (OSError, RuntimeError, TypeError, ValueError, KeyError, subprocess.SubprocessError):
+        pass
+    return fallback
+
+
+def _resolve_recording_channel(recording_id: str, started_epoch: float) -> None:
+    metadata = _marine_channel_metadata(started_epoch)
+    _marine_recordings.update_metadata(recording_id, metadata)
+
+
+def _listen_recordings() -> None:
+    global _recording_listener_error, _recording_listener_retry_at
+    global _last_recording_packet_epoch
+    try:
+        host, port, _sample_rate = _recording_settings()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server:
+            server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 262144)
+            server.bind((host, port))
+            server.settimeout(0.2)
+            with _lock:
+                _recording_listener_error = None
+            while True:
+                try:
+                    payload, _address = server.recvfrom(65536)
+                except socket.timeout:
+                    _marine_recordings.finish_if_idle()
+                    continue
+                pcm = float32_to_pcm16(payload)
+                if not pcm:
+                    continue
+                received_at = time.monotonic()
+                started_epoch = time.time()
+                needs_channel = _marine_recordings.needs_new_recording(received_at)
+                metadata = (
+                    _marine_channel_metadata(started_epoch, include_scan_log=False)
+                    if needs_channel else None
+                )
+                recording_id, started = _marine_recordings.observe_gated_chunk(
+                    pcm, received_at, metadata,
+                )
+                if started and needs_channel and metadata and "unknown" in metadata["channel"].lower():
+                    threading.Thread(
+                        target=_resolve_recording_channel,
+                        args=(recording_id, started_epoch),
+                        daemon=True,
+                        name="sdrcc-traffic-voice-channel-label",
+                    ).start()
+                with _lock:
+                    _last_recording_packet_epoch = time.time()
+    except Exception as error:  # noqa: BLE001 - recording must not break live audio
+        _marine_recordings.finish_if_idle(force=True)
+        with _lock:
+            _recording_listener_error = str(error)
+            _recording_listener_retry_at = time.monotonic() + 30.0
+
+
+def ensure_listener() -> None:
+    global _listener, _recording_listener
+    with _lock:
+        if _listener is None or not _listener.is_alive():
+            _listener = threading.Thread(
+                target=_listen,
+                daemon=True,
+                name="sdrcc-traffic-voice-audio",
+            )
+            _listener.start()
+        if (
+            (_recording_listener is None or not _recording_listener.is_alive())
+            and time.monotonic() >= _recording_listener_retry_at
+        ):
+            _recording_listener = threading.Thread(
+                target=_listen_recordings,
+                daemon=True,
+                name="sdrcc-traffic-voice-recorder",
+            )
+            _recording_listener.start()
 
 
 def get_status() -> dict[str, Any]:
@@ -142,10 +476,23 @@ def get_status() -> dict[str, Any]:
             "udp_bytes_received": _bytes,
             "last_packet_age_seconds": round(age, 2) if age is not None else None,
             "listener_error": _listener_error,
+            "marine_recordings": _marine_recordings.list_recordings(),
+            "recording_listener_error": _recording_listener_error,
+            "last_recording_packet_age_seconds": (
+                round(time.time() - _last_recording_packet_epoch, 2)
+                if _last_recording_packet_epoch is not None else None
+            ),
             "observers": ["traffic_voice_atis"],
             "denoisers": denoisers,
             "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         }
+
+
+def get_recording_wav(recording_id: str) -> bytes | None:
+    """Return a completed Marine replay as a finite WAV file."""
+    if not re.fullmatch(r"[a-f0-9]{32}", str(recording_id or "")):
+        return None
+    return _marine_recordings.get_wav(recording_id)
 
 
 class MarineSpeechFilter:

@@ -267,8 +267,8 @@ check(
     "the managed Update button recognizes 0.63.4 as newer than 0.63.3",
 )
 check(
-    update_manager.compare_versions("0.63.4", "0.63.5") == -1,
-    "the managed Update button recognizes 0.63.5 as newer than 0.63.4",
+    update_manager.compare_versions("0.63.5", "0.63.6") == -1,
+    "the managed Update button recognizes 0.63.6 as newer than 0.63.5",
 )
 manifest = json.loads((ROOT / "scripts/install/update_manifest.json").read_text())
 update_files = {
@@ -277,6 +277,7 @@ update_files = {
     "core/hf_monitor_backend.py",
     "core/rtl_smart_gain.py",
     "core/traffic_voice.py",
+    "core/traffic_voice_audio.py",
     "core/iss_sstv.py",
     "core/iss_voice_executor.py",
     "core/mission_operations.py",
@@ -285,11 +286,13 @@ update_files = {
     "core/update_manager.py",
     "dashboard/static/js/hf_monitor.js",
     "dashboard/static/js/traffic_voice.js",
+    "dashboard/static/css/traffic_voice.css",
     "dashboard/static/css/mission_planner.css",
     "dashboard/static/js/mission_planner.js",
     "dashboard/static/js/mission_recordings.js",
     "dashboard/static/js/update_manager.js",
     "dashboard/templates/index.html",
+    "scripts/validate_marine_replays_v0636.py",
     "dashboard/app.py",
     "requirements.txt",
     "scripts/install/prepare_audio_comparison.sh",
@@ -298,6 +301,11 @@ update_files = {
     "scripts/traffic_voice_prepare.py",
 }
 check(update_files.issubset(manifest), "the managed Update button manifest deploys Smart Gain, ISS Voice and SSTV runtime files")
+check(
+    {"core/traffic_voice_audio.py", "dashboard/static/css/traffic_voice.css",
+     "scripts/validate_marine_replays_v0636.py"}.issubset(manifest),
+    "the managed Update button manifest deploys Marine replay and its validation",
+)
 check("README.md" not in manifest, "managed updates preserve the main README and screenshot links")
 check(
     "Smart Gain" in (ROOT / "dashboard/templates/index.html").read_text()
@@ -311,7 +319,7 @@ for name, allowed in manifest.items():
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     check(source.is_file() and digest in allowed, f"manifest hash matches {name}")
 check(
-    (ROOT / "VERSION").read_text().strip() == "0.63.5",
-    "release version is 0.63.5",
+    (ROOT / "VERSION").read_text().strip() == "0.63.6",
+    "release version is 0.63.6",
 )
 print("VALIDATION PASS: SDRCC bounded Smart Gain and managed-update payload")

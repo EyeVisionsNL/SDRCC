@@ -27,6 +27,7 @@ MODE_ORDER = ("marine_ais", "airband_adsb")
 # backend runs at 16 kHz after channelization, so keep its cutoff below 8 kHz.
 # A conservative +/-7.5 kHz retains marine FM sidebands (including ATIS).
 MARINE_CHANNEL_BANDWIDTH_HZ = 15_000
+MARINE_RECORDING_PORT_OFFSET = 1
 MODE_CONTRACTS = {
     "marine_ais": {
         "voice_profile": "marine_voice",
@@ -125,8 +126,8 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
             port = int(backend.get("audio_port"))
         except (TypeError, ValueError):
             port = 0
-        if port <= 0 or port > 65535:
-            errors.append("backend.audio_port is invalid")
+        if port <= 0 or port + MARINE_RECORDING_PORT_OFFSET > 65535:
+            errors.append("backend.audio_port is invalid or leaves no room for the Marine recording stream")
         if int(backend.get("audio_sample_rate_hz") or 0) != 16000:
             errors.append("backend.audio_sample_rate_hz must be 16000 for the pinned AM/NFM build")
         gain_mode = str(backend.get("gain_mode") or "auto").strip().lower()
@@ -749,7 +750,19 @@ def render_rtlsdr_airband_config(
         f"          dest_address = {_libconfig_string(backend['audio_host'])};",
         f"          dest_port = {int(backend['audio_port'])};",
         "          continuous = true;",
-        "        }",
+        "        }," if selected_mode == "marine_ais" and not receiver_settings["open_squelch"] else "        }",
+        *(
+            (
+                "        {",
+                '          type = "udp_stream";',
+                f"          dest_address = {_libconfig_string(backend['audio_host'])};",
+                f"          dest_port = {int(backend['audio_port']) + MARINE_RECORDING_PORT_OFFSET};",
+                "          continuous = false;",
+                "        }",
+            )
+            if selected_mode == "marine_ais" and not receiver_settings["open_squelch"]
+            else ()
+        ),
         "      );",
         "    }",
         "  );",
