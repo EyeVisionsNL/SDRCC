@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,6 +14,7 @@ import json
 import os
 import struct
 import sys
+import time
 import wave
 
 
@@ -171,6 +173,81 @@ def test_recent_prior_scan_activity() -> None:
           "Old scan activity outside the lookback is not assigned to a recording")
 
 
+def test_scan_statistics_channel_resolution() -> None:
+    from core import config, traffic_voice
+    from core import traffic_voice_audio as audio
+
+    document = config.load_traffic_voice()
+    marine = document["traffic_voice"]["modes"]["marine_ais"]
+    marine["tuning_mode"] = "scan"
+    marine["channels"] = [
+        {"label": "VHF61 - Verkeersbegeleiding", "frequency_mhz": 160.675},
+        {"label": "VHF63 - Verkeersbegeleiding", "frequency_mhz": 160.775},
+    ]
+
+    def statistics(squelch_61: int, squelch_63: int, active: tuple[str, ...] = ()):
+        return {
+            "available": True,
+            "fresh": True,
+            "channels": [
+                {
+                    "label": "VHF61 - Verkeersbegeleiding",
+                    "frequency_mhz": 160.675,
+                    "squelch_count": squelch_61,
+                    "possible_active": "VHF61" in active,
+                },
+                {
+                    "label": "VHF63 - Verkeersbegeleiding",
+                    "frequency_mhz": 160.775,
+                    "squelch_count": squelch_63,
+                    "possible_active": "VHF63" in active,
+                },
+            ],
+        }
+
+    now = time.time()
+    with (
+        patch.object(audio, "_scan_stats_last_poll_epoch", 0.0),
+        patch.object(audio, "_scan_stats_squelch_counts", {}),
+        patch.object(audio, "_scan_stats_events", deque(maxlen=audio.SCAN_STATS_EVENT_COUNT)),
+        patch.object(audio, "_scan_stats_snapshot", None),
+        patch.object(audio, "_scan_stats_snapshot_epoch", None),
+        patch.object(config, "get_traffic_voice_config", return_value=document),
+        patch.object(
+            traffic_voice,
+            "read_statistics",
+            side_effect=[
+                statistics(12, 27),
+                statistics(12, 28),
+                statistics(12, 28, ("VHF61",)),
+                statistics(12, 28, ("VHF61", "VHF63")),
+            ],
+        ),
+        patch.object(audio.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="")),
+    ):
+        audio._poll_scan_statistics(now, force=True)
+        audio._poll_scan_statistics(now + 0.4, force=True)
+        scanned = audio._marine_channel_metadata(now + 0.5)
+        check(scanned == {
+            "channel": "VHF63 - Verkeersbegeleiding",
+            "frequency_mhz": 160.775,
+        }, "A per-channel squelch counter identifies a clip when its journal line is absent")
+
+        audio._scan_stats_events.clear()
+        audio._poll_scan_statistics(now + 1.0, force=True)
+        active = audio._scan_statistics_metadata(now + 1.1)
+        check(active == {
+            "channel": "VHF61 - Verkeersbegeleiding",
+            "frequency_mhz": 160.675,
+        }, "One uniquely active channel identifies a clip if its counter changed before monitoring")
+
+        audio._scan_stats_events.clear()
+        audio._poll_scan_statistics(now + 2.0, force=True)
+        ambiguous = audio._scan_statistics_metadata(now + 2.1)
+        check(ambiguous is None,
+              "Ambiguous channel statistics do not assign a potentially wrong channel")
+
+
 def test_delayed_scan_channel_resolution() -> None:
     from core import traffic_voice_audio as audio
 
@@ -304,7 +381,7 @@ def test_dashboard_endpoint_and_assets() -> None:
           "Replay pauses live listening and reconnects it afterward")
     check("traffic-voice-recording-play" in css and "traffic-voice-recordings[hidden]" in css,
           "Replay controls are styled and hidden outside Marine mode")
-    check("traffic_voice.js?v=0.63.8" in html and "traffic_voice.css?v=0.63.8" in html,
+    check("traffic_voice.js?v=0.63.9" in html and "traffic_voice.css?v=0.63.9" in html,
           "Marine replay assets use the release cache-busting version")
 
 
@@ -312,7 +389,8 @@ if __name__ == "__main__":
     test_configured_outputs()
     test_channel_metadata()
     test_recent_prior_scan_activity()
+    test_scan_statistics_channel_resolution()
     test_delayed_scan_channel_resolution()
     test_recording_store()
     test_dashboard_endpoint_and_assets()
-    print("PASS: Marine replay validation for SDRCC 0.63.8 completed")
+    print("PASS: Marine replay validation for SDRCC 0.63.9 completed")

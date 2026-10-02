@@ -37,6 +37,9 @@ SCAN_CHANNEL_RESOLUTION_ATTEMPTS = 5
 SCAN_CHANNEL_RESOLUTION_RETRY_SECONDS = 0.25
 SCAN_ACTIVITY_MATCH_TOLERANCE_SECONDS = 2.5
 SCAN_ACTIVITY_LOOKBACK_SECONDS = 20.0
+SCAN_STATS_POLL_INTERVAL_SECONDS = 0.2
+SCAN_STATS_MATCH_TOLERANCE_SECONDS = 3.0
+SCAN_STATS_EVENT_COUNT = 128
 _lock = threading.Condition(threading.RLock())
 _chunks: deque[tuple[int, bytes]] = deque(maxlen=MAX_CHUNKS)
 _sequence = 0
@@ -51,6 +54,12 @@ _packets = 0
 _bytes = 0
 _active_clients = 0
 _total_clients = 0
+_scan_stats_lock = threading.RLock()
+_scan_stats_last_poll_epoch = 0.0
+_scan_stats_squelch_counts: dict[str, int] = {}
+_scan_stats_events: deque[tuple[float, dict[str, Any]]] = deque(maxlen=SCAN_STATS_EVENT_COUNT)
+_scan_stats_snapshot: dict[str, Any] | None = None
+_scan_stats_snapshot_epoch: float | None = None
 
 
 def _settings() -> tuple[str, int, int]:
@@ -322,6 +331,112 @@ _SCAN_ACTIVITY_RE = re.compile(
 )
 
 
+def _poll_scan_statistics(
+    observed_epoch: float | None = None,
+    *,
+    force: bool = False,
+) -> tuple[dict[str, Any] | None, float | None]:
+    """Track per-channel squelch counter changes without needing journal access."""
+    global _scan_stats_last_poll_epoch, _scan_stats_squelch_counts
+    global _scan_stats_snapshot, _scan_stats_snapshot_epoch
+
+    moment = time.time() if observed_epoch is None else float(observed_epoch)
+    with _scan_stats_lock:
+        if not force and moment - _scan_stats_last_poll_epoch < SCAN_STATS_POLL_INTERVAL_SECONDS:
+            return _scan_stats_snapshot, _scan_stats_snapshot_epoch
+        _scan_stats_last_poll_epoch = moment
+
+    try:
+        document = config.get_traffic_voice_config()
+        settings = (document.get("traffic_voice") or document) if isinstance(document, dict) else {}
+        backend = settings.get("backend") or {}
+        stats_path = str(backend.get("stats_file") or "/run/sdrcc-traffic-voice/channel-stats.prom")
+        try:
+            threshold = float(backend.get("squelch_snr_db") or 6.0)
+        except (TypeError, ValueError):
+            threshold = 6.0
+        from core import traffic_voice
+
+        snapshot = traffic_voice.read_statistics(
+            stats_path,
+            possible_active_snr_db=threshold,
+        )
+    except (OSError, RuntimeError, TypeError, ValueError, KeyError, ImportError):
+        snapshot = None
+
+    if not snapshot or not snapshot.get("available") or not snapshot.get("fresh"):
+        with _scan_stats_lock:
+            _scan_stats_snapshot = None
+            _scan_stats_snapshot_epoch = None
+        return None, None
+
+    with _scan_stats_lock:
+        previous_counts = dict(_scan_stats_squelch_counts)
+
+    counts: dict[str, int] = {}
+    changes: list[tuple[float, dict[str, Any]]] = []
+    for item in snapshot.get("channels") or []:
+        try:
+            frequency = round(float(item.get("frequency_mhz")), 6)
+            count = int(item.get("squelch_count") or 0)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if frequency <= 0:
+            continue
+        key = f"{frequency:.6f}"
+        counts[key] = count
+        previous = previous_counts.get(key)
+        if previous is not None and count > previous:
+            label = str(item.get("label") or "Marine channel").strip()
+            changes.append((moment, {
+                "channel": label,
+                "frequency_mhz": frequency,
+            }))
+
+    with _scan_stats_lock:
+        _scan_stats_squelch_counts = counts
+        _scan_stats_events.extend(changes)
+        _scan_stats_snapshot = snapshot
+        _scan_stats_snapshot_epoch = moment
+    return snapshot, moment
+
+
+def _scan_statistics_metadata(started_epoch: float) -> dict[str, Any] | None:
+    """Resolve a clip from a nearby squelch-counter edge or one active channel."""
+    snapshot, snapshot_epoch = _poll_scan_statistics()
+    with _scan_stats_lock:
+        events = tuple(_scan_stats_events)
+
+    close_events = [
+        (abs(event_epoch - started_epoch), metadata)
+        for event_epoch, metadata in events
+        if abs(event_epoch - started_epoch) <= SCAN_STATS_MATCH_TOLERANCE_SECONDS
+    ]
+    if close_events:
+        return min(close_events, key=lambda item: item[0])[1]
+
+    if (
+        not snapshot
+        or snapshot_epoch is None
+        or abs(snapshot_epoch - started_epoch) > SCAN_STATS_MATCH_TOLERANCE_SECONDS
+    ):
+        return None
+    active = [item for item in snapshot.get("channels") or [] if item.get("possible_active")]
+    if len(active) != 1:
+        return None
+    item = active[0]
+    try:
+        frequency = round(float(item.get("frequency_mhz")), 6)
+    except (TypeError, ValueError):
+        return None
+    if frequency <= 0:
+        return None
+    return {
+        "channel": str(item.get("label") or "Marine channel").strip(),
+        "frequency_mhz": frequency,
+    }
+
+
 def _marine_channel_metadata(
     started_epoch: float,
     *,
@@ -342,8 +457,9 @@ def _marine_channel_metadata(
                     "channel": str(selected.get("label") or "Marine channel"),
                     "frequency_mhz": round(float(selected["frequency_mhz"]), 6),
                 }
+        stats_metadata = _scan_statistics_metadata(started_epoch)
         if not include_scan_log:
-            return fallback
+            return stats_metadata or fallback
 
         # RTLSDR-Airband logs when a scanned channel opens squelch, which may
         # happen before the first gated audio packet starts a recording. Prefer
@@ -388,6 +504,8 @@ def _marine_channel_metadata(
                 recent_prior_candidates.append((event_epoch, metadata))
         if close_candidates:
             return min(close_candidates, key=lambda item: item[0])[1]
+        if stats_metadata:
+            return stats_metadata
         if recent_prior_candidates:
             return max(recent_prior_candidates, key=lambda item: item[0])[1]
     except (OSError, RuntimeError, TypeError, ValueError, KeyError, subprocess.SubprocessError):
@@ -422,10 +540,12 @@ def _listen_recordings() -> None:
             server.settimeout(0.2)
             with _lock:
                 _recording_listener_error = None
+            _poll_scan_statistics(time.time(), force=True)
             while True:
                 try:
                     payload, _address = server.recvfrom(65536)
                 except socket.timeout:
+                    _poll_scan_statistics(time.time())
                     _marine_recordings.finish_if_idle()
                     continue
                 pcm = float32_to_pcm16(payload)
@@ -433,6 +553,7 @@ def _listen_recordings() -> None:
                     continue
                 received_at = time.monotonic()
                 started_epoch = time.time()
+                _poll_scan_statistics(started_epoch)
                 needs_channel = _marine_recordings.needs_new_recording(received_at)
                 metadata = (
                     _marine_channel_metadata(started_epoch, include_scan_log=False)
