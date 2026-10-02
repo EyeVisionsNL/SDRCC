@@ -274,6 +274,10 @@ check(
     update_manager.compare_versions("0.63.6", "0.63.7") == -1,
     "the managed Update button recognizes 0.63.7 as newer than 0.63.6",
 )
+check(
+    update_manager.compare_versions("0.63.7", "0.63.8") == -1,
+    "the managed Update button recognizes 0.63.8 as newer than 0.63.7",
+)
 manifest = json.loads((ROOT / "scripts/install/update_manifest.json").read_text())
 update_files = {
     "VERSION",
@@ -323,7 +327,7 @@ for name, allowed in manifest.items():
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     check(source.is_file() and digest in allowed, f"manifest hash matches {name}")
 check(
-    (ROOT / "VERSION").read_text().strip() == "0.63.7",
-    "release version is 0.63.7",
+    (ROOT / "VERSION").read_text().strip() == "0.63.8",
+    "release version is 0.63.8",
 )
 print("VALIDATION PASS: SDRCC bounded Smart Gain and managed-update payload")

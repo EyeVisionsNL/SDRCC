@@ -116,6 +116,61 @@ def test_channel_metadata() -> None:
           "Scan-mode recordings use the matching RTLSDR-Airband activity event")
 
 
+def test_recent_prior_scan_activity() -> None:
+    from core import config, traffic_voice_audio as audio
+
+    document = config.get_traffic_voice_config()
+    marine = document["modes"]["marine_ais"]
+    marine["tuning_mode"] = "scan"
+    marine["channels"] = [
+        {"label": "VHF61 - Verkeersbegeleiding", "frequency_mhz": 160.675},
+        {"label": "VHF63 - Verkeersbegeleiding", "frequency_mhz": 160.775},
+    ]
+
+    # Actual journal timing for the user's 09:56:46 recording: VHF63 opened
+    # squelch 13.1 seconds before the gated recording; VHF61 became active later.
+    started_epoch = 1790927806.0
+    journal = "\n".join((
+        "1790927792.887834 host rtl_airband[2181311]: Activity on 160.775 MHz (VHF63 - Verkeersbegeleiding)",
+        "1790927830.422298 host rtl_airband[2181311]: Activity on 160.675 MHz (VHF61 - Verkeersbegeleiding)",
+    ))
+    with (
+        patch.object(config, "get_traffic_voice_config", return_value=document),
+        patch.object(audio.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=journal)),
+    ):
+        scanned = audio._marine_channel_metadata(started_epoch)
+    check(scanned == {
+        "channel": "VHF63 - Verkeersbegeleiding",
+        "frequency_mhz": 160.775,
+    }, "A recent prior scan event labels the user's delayed VHF63 recording")
+
+    transition_journal = "\n".join((
+        "1790927792.887834 host rtl_airband[2181311]: Activity on 160.775 MHz (VHF63 - Verkeersbegeleiding)",
+        "1790927803.000000 host rtl_airband[2181311]: Activity on 160.675 MHz (VHF61 - Verkeersbegeleiding)",
+    ))
+    with (
+        patch.object(config, "get_traffic_voice_config", return_value=document),
+        patch.object(audio.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=transition_journal)),
+    ):
+        after_transition = audio._marine_channel_metadata(started_epoch)
+    check(after_transition == {
+        "channel": "VHF61 - Verkeersbegeleiding",
+        "frequency_mhz": 160.675,
+    }, "A newer scan event before the clip supersedes the previous channel")
+
+    stale_journal = (
+        "1790927785.899999 host rtl_airband[2181311]: "
+        "Activity on 160.775 MHz (VHF63 - Verkeersbegeleiding)"
+    )
+    with (
+        patch.object(config, "get_traffic_voice_config", return_value=document),
+        patch.object(audio.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=stale_journal)),
+    ):
+        stale = audio._marine_channel_metadata(started_epoch)
+    check(stale["frequency_mhz"] is None,
+          "Old scan activity outside the lookback is not assigned to a recording")
+
+
 def test_delayed_scan_channel_resolution() -> None:
     from core import traffic_voice_audio as audio
 
@@ -249,14 +304,15 @@ def test_dashboard_endpoint_and_assets() -> None:
           "Replay pauses live listening and reconnects it afterward")
     check("traffic-voice-recording-play" in css and "traffic-voice-recordings[hidden]" in css,
           "Replay controls are styled and hidden outside Marine mode")
-    check("traffic_voice.js?v=0.63.7" in html and "traffic_voice.css?v=0.63.7" in html,
+    check("traffic_voice.js?v=0.63.8" in html and "traffic_voice.css?v=0.63.8" in html,
           "Marine replay assets use the release cache-busting version")
 
 
 if __name__ == "__main__":
     test_configured_outputs()
     test_channel_metadata()
+    test_recent_prior_scan_activity()
     test_delayed_scan_channel_resolution()
     test_recording_store()
     test_dashboard_endpoint_and_assets()
-    print("PASS: Marine replay validation for SDRCC 0.63.7 completed")
+    print("PASS: Marine replay validation for SDRCC 0.63.8 completed")

@@ -35,6 +35,8 @@ RECORDING_MAX_SECONDS = 120.0
 RECORDING_COUNT = 4
 SCAN_CHANNEL_RESOLUTION_ATTEMPTS = 5
 SCAN_CHANNEL_RESOLUTION_RETRY_SECONDS = 0.25
+SCAN_ACTIVITY_MATCH_TOLERANCE_SECONDS = 2.5
+SCAN_ACTIVITY_LOOKBACK_SECONDS = 20.0
 _lock = threading.Condition(threading.RLock())
 _chunks: deque[tuple[int, bytes]] = deque(maxlen=MAX_CHUNKS)
 _sequence = 0
@@ -343,12 +345,13 @@ def _marine_channel_metadata(
         if not include_scan_log:
             return fallback
 
-        # RTLSDR-Airband writes an immediate “Activity on <MHz> (<label>)”
-        # journal entry when a scanned channel opens squelch. Stats snapshots
-        # update much less often, so the event log provides better clip metadata.
+        # RTLSDR-Airband logs when a scanned channel opens squelch, which may
+        # happen before the first gated audio packet starts a recording. Prefer
+        # a close event; otherwise use the latest recent event before the clip,
+        # provided no newer channel event has superseded it.
         command = [
             "/usr/bin/journalctl", "--unit=sdrcc-traffic-voice.service",
-            "--since", f"@{max(0.0, started_epoch - 4.0):.3f}",
+            "--since", f"@{max(0.0, started_epoch - SCAN_ACTIVITY_LOOKBACK_SECONDS):.3f}",
             "--output=short-unix", "--no-pager", "-n", "60",
         ]
         result = subprocess.run(
@@ -356,13 +359,17 @@ def _marine_channel_metadata(
         )
         if result.returncode != 0:
             return fallback
-        candidates: list[tuple[float, dict[str, Any]]] = []
+        close_candidates: list[tuple[float, dict[str, Any]]] = []
+        recent_prior_candidates: list[tuple[float, dict[str, Any]]] = []
         for line in result.stdout.splitlines():
             match = _SCAN_ACTIVITY_RE.search(line.strip())
             if not match:
                 continue
             event_epoch = float(match.group("epoch"))
-            if abs(event_epoch - started_epoch) > 2.5:
+            age = started_epoch - event_epoch
+            if age < -SCAN_ACTIVITY_MATCH_TOLERANCE_SECONDS:
+                continue
+            if age > SCAN_ACTIVITY_LOOKBACK_SECONDS:
                 continue
             frequency = round(float(match.group("frequency")), 6)
             channel = next((
@@ -370,12 +377,19 @@ def _marine_channel_metadata(
                 if abs(float(item.get("frequency_mhz") or 0.0) - frequency) <= 0.0005
             ), None)
             label = str((channel or {}).get("label") or match.group("label") or "Marine channel")
-            candidates.append((abs(event_epoch - started_epoch), {
+            metadata = {
                 "channel": label,
                 "frequency_mhz": frequency,
-            }))
-        if candidates:
-            return min(candidates, key=lambda item: item[0])[1]
+            }
+            delta = abs(age)
+            if delta <= SCAN_ACTIVITY_MATCH_TOLERANCE_SECONDS:
+                close_candidates.append((delta, metadata))
+            elif event_epoch <= started_epoch:
+                recent_prior_candidates.append((event_epoch, metadata))
+        if close_candidates:
+            return min(close_candidates, key=lambda item: item[0])[1]
+        if recent_prior_candidates:
+            return max(recent_prior_candidates, key=lambda item: item[0])[1]
     except (OSError, RuntimeError, TypeError, ValueError, KeyError, subprocess.SubprocessError):
         pass
     return fallback
