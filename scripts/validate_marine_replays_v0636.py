@@ -116,6 +116,33 @@ def test_channel_metadata() -> None:
           "Scan-mode recordings use the matching RTLSDR-Airband activity event")
 
 
+def test_delayed_scan_channel_resolution() -> None:
+    from core import traffic_voice_audio as audio
+
+    unknown = {"channel": "Marine scan · channel unknown", "frequency_mhz": None}
+    resolved = {"channel": "VHF16 - Distress", "frequency_mhz": 156.8}
+    recording_id = "a" * 32
+    with (
+        patch.object(audio, "_marine_channel_metadata", side_effect=[unknown, resolved]) as lookup,
+        patch.object(audio._marine_recordings, "update_metadata") as update,
+        patch.object(audio.time, "sleep") as wait,
+    ):
+        audio._resolve_recording_channel(recording_id, 2000.2)
+    check(lookup.call_count == 2 and wait.call_count == 1,
+          "Scan labels are checked again when the activity log is not immediate")
+    check(update.call_args.args == (recording_id, resolved),
+          "A delayed scan event updates the recording with its correct channel")
+
+    with (
+        patch.object(audio, "_marine_channel_metadata", return_value=unknown) as lookup,
+        patch.object(audio._marine_recordings, "update_metadata") as update,
+        patch.object(audio.time, "sleep"),
+    ):
+        audio._resolve_recording_channel(recording_id, 2000.2)
+    check(lookup.call_count == audio.SCAN_CHANNEL_RESOLUTION_ATTEMPTS and not update.called,
+          "Missing scan events stop after a bounded number of retries")
+
+
 def test_recording_store() -> None:
     from core.traffic_voice_audio import MarineRecordingStore
 
@@ -222,13 +249,14 @@ def test_dashboard_endpoint_and_assets() -> None:
           "Replay pauses live listening and reconnects it afterward")
     check("traffic-voice-recording-play" in css and "traffic-voice-recordings[hidden]" in css,
           "Replay controls are styled and hidden outside Marine mode")
-    check("traffic_voice.js?v=0.63.6" in html and "traffic_voice.css?v=0.63.6" in html,
+    check("traffic_voice.js?v=0.63.7" in html and "traffic_voice.css?v=0.63.7" in html,
           "Marine replay assets use the release cache-busting version")
 
 
 if __name__ == "__main__":
     test_configured_outputs()
     test_channel_metadata()
+    test_delayed_scan_channel_resolution()
     test_recording_store()
     test_dashboard_endpoint_and_assets()
-    print("PASS: Marine replay v0.63.6 validation completed")
+    print("PASS: Marine replay validation for SDRCC 0.63.7 completed")

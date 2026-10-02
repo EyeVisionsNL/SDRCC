@@ -33,6 +33,8 @@ RECORDING_POSTROLL_SECONDS = 0.4
 RECORDING_GAP_SECONDS = 0.7
 RECORDING_MAX_SECONDS = 120.0
 RECORDING_COUNT = 4
+SCAN_CHANNEL_RESOLUTION_ATTEMPTS = 5
+SCAN_CHANNEL_RESOLUTION_RETRY_SECONDS = 0.25
 _lock = threading.Condition(threading.RLock())
 _chunks: deque[tuple[int, bytes]] = deque(maxlen=MAX_CHUNKS)
 _sequence = 0
@@ -380,8 +382,19 @@ def _marine_channel_metadata(
 
 
 def _resolve_recording_channel(recording_id: str, started_epoch: float) -> None:
-    metadata = _marine_channel_metadata(started_epoch)
-    _marine_recordings.update_metadata(recording_id, metadata)
+    """Retry briefly because scanner activity and its UDP audio arrive together."""
+    for attempt in range(SCAN_CHANNEL_RESOLUTION_ATTEMPTS):
+        metadata = _marine_channel_metadata(started_epoch)
+        channel = str(metadata.get("channel") or "").strip()
+        if (
+            metadata.get("frequency_mhz") is not None
+            and channel
+            and "unknown" not in channel.lower()
+        ):
+            _marine_recordings.update_metadata(recording_id, metadata)
+            return
+        if attempt + 1 < SCAN_CHANNEL_RESOLUTION_ATTEMPTS:
+            time.sleep(SCAN_CHANNEL_RESOLUTION_RETRY_SECONDS)
 
 
 def _listen_recordings() -> None:
