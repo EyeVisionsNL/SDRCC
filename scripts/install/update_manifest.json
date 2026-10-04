@@ -686,24 +686,30 @@
     "9d43fc04188fecb83e26f03d50f20028806a8ce7204d132739e4fd8d107874c2"
   ],
   "core/controlled_iq_capture.py": [
+    "f0b5b836c5cfb65bebb01bb576974c4df459679a0b0b32d69c8c8841d66086ef",
     "9d8bae694ab0dcac0fde03d1ad87e428bd639b1a90e1453540d6bff0aea145fb"
   ],
   "core/iss_smart_gain.py": [
     "01ddf37c02900e07735d5b3ad7c31e62e9fe830e446039379a6665dd984d31e1"
   ],
   "core/iss_voice.py": [
+    "325a3769320d5a39fc7ed7e64686c8fade11459b01df4838ef9b0cc954a1c7bc",
     "61398f1ee191edd6433c93f4bb7be611407f5f30a8c45f4f4308fbc60d8f0b9f"
   ],
   "core/wideband_iq_recorder.py": [
+    "37f3cb5c874d5d03e6d078195655682137a46450219a76459e04641546cc9be8",
     "e148124930bb46473e2026e947dc2c1c572b870f4e66bc8f29aa5a4c846fdfc1"
   ],
   "dashboard/static/js/mission_analytics.js": [
+    "47c6007eb802daea435ff33eea9f4d8dbb800387a3295dfbd4b7a866db2ee86b",
     "5b049c21ca18759ed286095c98f67168b7a69b8191e160ef652c635b05f126cf"
   ],
   "dashboard/static/js/radio.js": [
+    "23a76a4fc142e9577df3f477a31e41a2173e45ff0e80046b4aaafd7d44bb90c8",
     "e05e215ccc828a9c2b0b13381af2d600dce74074c7652e873bc2afcd921a56d4"
   ],
   "scripts/validate_radio_control_clarity_v0540g.py": [
+    "5f229a11d423b474446c9b83dcdbbde827d7adf8ddbd9a9a45c095a5be5244b3",
     "4bbfb07c70a8996ae298b5bcf5088bd62ed16b89237878b92c9714484ceca4c6"
   ]
 }
