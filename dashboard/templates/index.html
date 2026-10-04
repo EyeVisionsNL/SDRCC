@@ -562,7 +562,7 @@
                 <div class="section-heading-row radio-heading-v0540g">
                     <div>
                         <h2>🎙 ISS Voice Settings</h2>
-                        <p class="muted">Receiver gain, automatic orbital Doppler and filtered NFM audio.</p>
+                        <p class="muted">Auto, Smart or manual gain, automatic orbital Doppler and filtered NFM audio.</p>
                     </div>
                     <span class="radio-status-v0540g is-planned">437.800 MHz</span>
                 </div>
@@ -572,10 +572,11 @@
                         <label>Gain mode
                             <select id="iss-voice-gain-mode">
                                 <option value="auto">Automatic</option>
+                                <option value="smart">Smart</option>
                                 <option value="manual">Manual</option>
                             </select>
                         </label>
-                        <label>Tuner gain
+                        <label><span id="iss-voice-gain-label">Tuner gain</span>
                             <select id="iss-voice-gain-db"></select>
                         </label>
                         <div class="iss-voice-fixed-v0540g">
@@ -595,7 +596,7 @@
                     </fieldset>
                     <button type="submit" class="control-button">Save ISS Voice settings</button>
                 </form>
-                <p id="iss-voice-settings-result" class="radio-settings-result-v0540g">Used by the next ISS recording and live stream.</p>
+                <p id="iss-voice-settings-result" class="radio-settings-result-v0540g">Smart measures the 50 kHz ISS channel before recording and holds one gain for the full pass, bounded to 25.4 dB. The configured fallback is used if the probe cannot find a clear signal or fails; overload caps the selected gain at that fallback. Automatic uses the RTL-SDR's built-in gain control.</p>
             </section>
         </div>
     </div>
@@ -1523,12 +1524,12 @@
 </footer>
 
 <script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
-<script src="/static/dashboard.js?v=0.54.0t-r1&feature=0.56.0x"></script>
+<script src="/static/dashboard.js?v=0.63.10"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
 <script src="/static/js/mission_recordings.js?v=0.63.5"></script>
-<script src="/static/js/radio.js?v=0.56.0b"></script>
+<script src="/static/js/radio.js?v=0.63.10"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.54.0f"></script>

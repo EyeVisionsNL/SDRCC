@@ -145,6 +145,11 @@ function gainDetails(mission) {
     const mode = String(mission?.gain_mode || "").trim().toLowerCase();
     const gain = Number(mission?.gain_db);
     if (mode === "auto") return {label: "Auto Gain", mode: "auto", gainDb: null};
+    if (mode === "smart") {
+        return Number.isFinite(gain)
+            ? {label: `Smart ${number(gain, 1)} dB`, mode: "smart", gainDb: gain}
+            : {label: "Smart · gain unknown", mode: "smart", gainDb: null};
+    }
     if (Number.isFinite(gain)) {
         return {label: `Manual ${number(gain, 1)} dB`, mode: "manual", gainDb: gain};
     }

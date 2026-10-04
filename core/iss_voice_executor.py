@@ -13,7 +13,7 @@ from typing import Any, Callable
 import time
 
 from core import device_manager, execution_factory, execution_journal, event_bus
-from core import iss_sstv, iss_voice, iss_voice_audio, iss_voice_runtime, mission_history, receiver_manager, wideband_iq_recorder
+from core import iss_smart_gain, iss_sstv, iss_voice, iss_voice_audio, iss_voice_runtime, mission_history, receiver_manager, wideband_iq_recorder
 
 ServiceState = Callable[[str], dict[str, Any]]
 ServiceAction = Callable[[str, str], Any]
@@ -166,10 +166,18 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
                 detail="Receiver ready; capture bounded by the planned falling edge",
             )
 
+        gain_selection = iss_smart_gain.resolve_capture_gain(
+            config=cfg,
+            receiver_serial=device["serial"],
+            frequency_hz=int(cfg["downlink_frequency_hz"]),
+            sample_rate_hz=int(cfg["rf_sample_rate_hz"]),
+        )
         spec = wideband_iq_recorder.build_spec(
             mission_id=mission_id, receiver_serial=device["serial"],
             frequency_hz=int(cfg["downlink_frequency_hz"]), sample_rate_hz=int(cfg["rf_sample_rate_hz"]),
-            duration_seconds=duration, gain_db=iss_voice.capture_gain_db(cfg), ppm=int(cfg.get("ppm") or 0),
+            duration_seconds=duration, gain_db=gain_selection["gain_db"],
+            gain_mode=gain_selection["gain_mode"], smart_gain=gain_selection["smart_gain"],
+            ppm=int(cfg.get("ppm") or 0),
         )
         output_dir = spec.output_directory
         iss_voice_runtime.update(
@@ -368,7 +376,9 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         "mission_id": mission_id, "satellite": target.get("name") or cfg.get("satellite_name"),
         "mission_type": mission_type, "plugin_id": plugin_id, "frequency": int(cfg["downlink_frequency_hz"]),
         "sample_rate": int(cfg["rf_sample_rate_hz"]), "audio_sample_rate": int(cfg["audio_sample_rate_hz"]),
-        "gain_mode": cfg.get("gain_mode", "auto"), "gain_db": iss_voice.capture_gain_db(cfg),
+        "gain_mode": (capture or {}).get("gain_mode", cfg.get("gain_mode", "auto")),
+        "gain_db": (capture or {}).get("gain_db", iss_voice.capture_gain_db(cfg)),
+        "smart_gain": (capture or {}).get("smart_gain"),
         "squelch_enabled": bool(cfg.get("squelch_enabled", False)),
         "squelch_threshold_dbfs": float(cfg.get("squelch_threshold_dbfs", -42.0)),
         "mode": f"NFM · {sstv_event['mode'].upper()}" if is_sstv else cfg.get("modulation", "NFM"),

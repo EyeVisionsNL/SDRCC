@@ -15,6 +15,7 @@ from uuid import uuid4
 from core import device_manager, execution_factory, execution_journal
 from core import receiver_manager
 from core import iss_voice
+from core import iss_smart_gain
 from core import wideband_iq_recorder
 
 ServiceState = Callable[[str], dict[str, Any]]
@@ -108,13 +109,21 @@ def execute_controlled_capture(
             },
         )
 
+        gain_selection = iss_smart_gain.resolve_capture_gain(
+            config=config,
+            receiver_serial=device["serial"],
+            frequency_hz=int(config["downlink_frequency_hz"]),
+            sample_rate_hz=int(config["rf_sample_rate_hz"]),
+        )
         spec = wideband_iq_recorder.build_spec(
             mission_id=capture_id,
             receiver_serial=device["serial"],
             frequency_hz=int(config["downlink_frequency_hz"]),
             sample_rate_hz=int(config["rf_sample_rate_hz"]),
             duration_seconds=duration,
-            gain_db=iss_voice.capture_gain_db(config),
+            gain_db=gain_selection["gain_db"],
+            gain_mode=gain_selection["gain_mode"],
+            smart_gain=gain_selection["smart_gain"],
             ppm=int(config.get("ppm") or 0),
         )
         capture = wideband_iq_recorder.execute_capture(

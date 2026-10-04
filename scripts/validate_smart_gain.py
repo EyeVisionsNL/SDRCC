@@ -15,7 +15,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from core import config, hf_monitor, hf_monitor_backend, traffic_voice, update_manager  # noqa: E402
+from core import config, hf_monitor, hf_monitor_backend, iss_smart_gain, iss_voice, traffic_voice, update_manager, wideband_iq_recorder  # noqa: E402
 from core.rtl_smart_gain import (  # noqa: E402
     analyze_iq_samples,
     choose_for_measurements,
@@ -78,6 +78,7 @@ measurement = analyze_iq_samples(
     channel_bandwidth_hz=20_000,
 )
 check(measurement["snr_db"] > 4.0, "IQ analyzer distinguishes an in-channel signal from noise")
+check(measurement["clip_fraction"] < 0.001, "IQ analyzer reports unclipped sample headroom")
 legacy_hf_mode = hf_monitor.validate_rf_controls({"gain_mode": "auto"})
 check(legacy_hf_mode["gain_mode"] == "smart",
       "Radio Receiver maps saved Auto Gain requests to Smart Gain")
@@ -189,6 +190,98 @@ check(
     "Traffic Voice pre-start probe checks its bounded channel list and closes the device",
 )
 
+iss_smart_settings = {"gain_mode": "smart", "gain_db": 3.7}
+clear_iss_probe = {
+    "gain_db": 20.7,
+    "measurement": {"signal_dbfs": -40.0, "snr_db": 8.0, "clip_fraction": 0.0},
+}
+with patch.object(hf_monitor_backend, "probe_smart_gain_for_channels", return_value=clear_iss_probe) as iss_probe:
+    iss_gain = iss_smart_gain.resolve_capture_gain(
+        config=iss_smart_settings,
+        receiver_serial="ISS-TEST",
+        frequency_hz=437_550_000,
+        sample_rate_hz=240_000,
+    )
+check(
+    iss_gain["gain_mode"] == "smart"
+    and iss_gain["gain_db"] == 20.7
+    and iss_probe.call_args.kwargs["channel_bandwidth_hz"] == 50_000,
+    "ISS Smart Gain probes the Doppler-wide channel and selects one fixed supported gain",
+)
+
+with patch.object(
+    hf_monitor_backend, "probe_smart_gain_for_channels",
+    return_value={"gain_db": 12.5, "measurement": None},
+):
+    fallback_gain = iss_smart_gain.resolve_capture_gain(
+        config=iss_smart_settings,
+        receiver_serial="ISS-TEST",
+        frequency_hz=437_550_000,
+        sample_rate_hz=240_000,
+    )
+check(
+    fallback_gain["gain_db"] == 3.7
+    and fallback_gain["smart_gain"]["fallback_reason"] == "no_clear_signal",
+    "ISS Smart Gain uses the configured 3.7 dB fallback when no clear signal is measured",
+)
+check(
+    iss_voice.get_settings({"gain_mode": "smart", "gain_db": 37.2})["gain_db"] == 25.4,
+    "ISS Smart Gain clamps high legacy fallback settings to 25.4 dB",
+)
+
+with patch.object(
+    hf_monitor_backend, "probe_smart_gain_for_channels", side_effect=RuntimeError("probe unavailable")
+):
+    failed_probe_gain = iss_smart_gain.resolve_capture_gain(
+        config=iss_smart_settings,
+        receiver_serial="ISS-TEST",
+        frequency_hz=437_550_000,
+        sample_rate_hz=240_000,
+    )
+check(
+    failed_probe_gain["gain_db"] == 3.7
+    and failed_probe_gain["smart_gain"]["fallback_reason"] == "probe_error",
+    "ISS Smart Gain safely falls back when the receiver probe fails",
+)
+
+with patch.object(
+    hf_monitor_backend, "probe_smart_gain_for_channels",
+    return_value={
+        "gain_db": 20.7,
+        "measurement": {"signal_dbfs": -30.0, "snr_db": 8.0, "clip_fraction": 0.03},
+    },
+):
+    clipped_gain = iss_smart_gain.resolve_capture_gain(
+        config=iss_smart_settings,
+        receiver_serial="ISS-TEST",
+        frequency_hz=437_550_000,
+        sample_rate_hz=240_000,
+    )
+check(
+    clipped_gain["gain_db"] == 3.7
+    and clipped_gain["smart_gain"]["fallback_reason"] == "input_clipping",
+    "ISS Smart Gain caps an overloaded probe at the configured fallback gain",
+)
+
+smart_spec = wideband_iq_recorder.build_spec(
+    mission_id="smart-gain-validator",
+    receiver_serial="ISS-TEST",
+    frequency_hz=437_550_000,
+    sample_rate_hz=240_000,
+    duration_seconds=10,
+    gain_db=iss_gain["gain_db"],
+    gain_mode=iss_gain["gain_mode"],
+    smart_gain=iss_gain["smart_gain"],
+)
+smart_capture_metadata = wideband_iq_recorder.describe_capture(smart_spec)
+check(
+    smart_capture_metadata["gain_mode"] == "smart"
+    and smart_capture_metadata["gain_db"] == 20.7
+    and smart_capture_metadata["smart_gain"]["selected_gain_db"] == 20.7
+    and "-g" in smart_capture_metadata["command"],
+    "ISS capture metadata records the Smart decision and fixed rtl_sdr gain",
+)
+
 
 raw_config = config.load_traffic_voice()
 legacy_auto = json.loads(json.dumps(raw_config))
@@ -282,12 +375,20 @@ check(
     update_manager.compare_versions("0.63.8", "0.63.9") == -1,
     "the managed Update button recognizes 0.63.9 as newer than 0.63.8",
 )
+check(
+    update_manager.compare_versions("0.63.9", "0.63.10") == -1,
+    "the managed Update button recognizes 0.63.10 as newer than 0.63.9",
+)
 manifest = json.loads((ROOT / "scripts/install/update_manifest.json").read_text())
 update_files = {
     "VERSION",
     "core/hf_monitor.py",
     "core/hf_monitor_backend.py",
+    "core/controlled_iq_capture.py",
+    "core/iss_smart_gain.py",
     "core/rtl_smart_gain.py",
+    "core/iss_voice.py",
+    "core/wideband_iq_recorder.py",
     "core/traffic_voice.py",
     "core/traffic_voice_audio.py",
     "core/iss_sstv.py",
@@ -297,6 +398,10 @@ update_files = {
     "core/mission_scheduler.py",
     "core/update_manager.py",
     "dashboard/static/js/hf_monitor.js",
+    "dashboard/static/dashboard.js",
+    "dashboard/static/js/dashboard.js",
+    "dashboard/static/js/mission_analytics.js",
+    "dashboard/static/js/radio.js",
     "dashboard/static/js/traffic_voice.js",
     "dashboard/static/css/traffic_voice.css",
     "dashboard/static/css/mission_planner.css",
@@ -305,6 +410,7 @@ update_files = {
     "dashboard/static/js/update_manager.js",
     "dashboard/templates/index.html",
     "scripts/validate_marine_replays_v0636.py",
+    "scripts/validate_radio_control_clarity_v0540g.py",
     "dashboard/app.py",
     "requirements.txt",
     "scripts/install/prepare_audio_comparison.sh",
@@ -320,9 +426,10 @@ check(
 )
 check("README.md" not in manifest, "managed updates preserve the main README and screenshot links")
 check(
-    "Smart Gain" in (ROOT / "dashboard/templates/index.html").read_text()
+    '<option value="smart">Smart</option>' in (ROOT / "dashboard/templates/index.html").read_text()
+    and "ISS_PROBE_BANDWIDTH_HZ = 50_000" in (ROOT / "core/iss_smart_gain.py").read_text()
     and "digital AGC" in (ROOT / "dashboard/static/js/hf_monitor.js").read_text(),
-    "the dashboard names Smart Gain and explains its direct-sampling fallback",
+    "the dashboard exposes Doppler-aware ISS Smart Gain alongside Radio Receiver Smart Gain",
 )
 for name, allowed in manifest.items():
     if name == "scripts/install/update_manifest.json":
@@ -331,7 +438,7 @@ for name, allowed in manifest.items():
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     check(source.is_file() and digest in allowed, f"manifest hash matches {name}")
 check(
-    (ROOT / "VERSION").read_text().strip() == "0.63.9",
-    "release version is 0.63.9",
+    (ROOT / "VERSION").read_text().strip() == "0.63.10",
+    "release version is 0.63.10",
 )
 print("VALIDATION PASS: SDRCC bounded Smart Gain and managed-update payload")

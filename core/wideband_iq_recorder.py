@@ -38,6 +38,8 @@ class CaptureSpec:
     output_directory: Path
     gain_db: float | None = None
     ppm: int = 0
+    gain_mode: str | None = None
+    smart_gain: dict[str, Any] | None = None
 
     @property
     def sample_count(self) -> int:
@@ -70,6 +72,8 @@ def _safe_mission_id(value: str) -> str:
 def build_spec(*, mission_id: str, receiver_serial: str, frequency_hz: int,
                sample_rate_hz: int, duration_seconds: int,
                gain_db: float | None = None, ppm: int = 0,
+               gain_mode: str | None = None,
+               smart_gain: dict[str, Any] | None = None,
                output_directory: str | Path | None = None) -> CaptureSpec:
     mission = _safe_mission_id(mission_id)
     serial = str(receiver_serial or "").strip()
@@ -84,6 +88,9 @@ def build_spec(*, mission_id: str, receiver_serial: str, frequency_hz: int,
         raise ValueError("sample_rate_hz buiten veilige RTL-SDR grenzen")
     if duration < 1 or duration > MAX_CAPTURE_SECONDS:
         raise ValueError(f"duration_seconds moet 1..{MAX_CAPTURE_SECONDS} zijn")
+    normalized_gain_mode = str(gain_mode or ("auto" if gain_db is None else "manual")).strip().lower()
+    if normalized_gain_mode not in {"auto", "smart", "manual"}:
+        raise ValueError("gain_mode moet auto, smart of manual zijn")
     directory = Path(output_directory).expanduser() if output_directory else RECORDINGS_ROOT / mission
     directory = directory.resolve()
     root = (PROJECT_ROOT / "data" / "recordings").resolve()
@@ -91,7 +98,10 @@ def build_spec(*, mission_id: str, receiver_serial: str, frequency_hz: int,
         directory.relative_to(root)
     except ValueError as exc:
         raise ValueError("output_directory moet binnen data/recordings liggen") from exc
-    return CaptureSpec(mission, serial, frequency, sample_rate, duration, directory, gain_db, int(ppm))
+    return CaptureSpec(
+        mission, serial, frequency, sample_rate, duration, directory,
+        gain_db, int(ppm), normalized_gain_mode, smart_gain,
+    )
 
 
 def build_command(spec: CaptureSpec) -> list[str]:
@@ -121,6 +131,8 @@ def describe_capture(spec: CaptureSpec) -> dict[str, Any]:
         "sample_format": "cu8",
         "expected_bytes": expected_bytes,
         "gain_db": spec.gain_db,
+        "gain_mode": spec.gain_mode or ("auto" if spec.gain_db is None else "manual"),
+        "smart_gain": spec.smart_gain,
         "ppm": spec.ppm,
         "output_directory": str(spec.output_directory),
         "iq_path": str(spec.iq_path),

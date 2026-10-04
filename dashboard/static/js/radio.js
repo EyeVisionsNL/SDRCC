@@ -180,9 +180,18 @@
     function updateIssControls() {
         const mode = document.getElementById("iss-voice-gain-mode");
         const gain = document.getElementById("iss-voice-gain-db");
+        const gainLabel = document.getElementById("iss-voice-gain-label");
         const enabled = document.getElementById("iss-voice-squelch-enabled");
         const threshold = document.getElementById("iss-voice-squelch-threshold");
-        if (gain) gain.disabled = mode?.value !== "manual";
+        const smart = mode?.value === "smart";
+        if (gain) {
+            gain.disabled = mode?.value === "auto";
+            for (const option of gain.options) {
+                option.disabled = smart && Number(option.value) > 25.4;
+            }
+            if (smart && Number(gain.value) > 25.4) gain.value = "25.4";
+        }
+        if (gainLabel) gainLabel.textContent = smart ? "Smart fallback gain (max 25.4 dB)" : "Tuner gain";
         if (threshold) threshold.disabled = !enabled?.checked;
         setText("iss-voice-squelch-value", `${Number(threshold?.value || -42).toFixed(0)} dBFS`);
     }

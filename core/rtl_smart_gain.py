@@ -64,6 +64,7 @@ def analyze_iq_samples(
         raise ValueError("Smart Gain sample rate or channel bandwidth is invalid")
 
     raw = np.frombuffer(payload[:usable], dtype=np.uint8).astype(np.float64)
+    clip_fraction = float(np.count_nonzero((raw <= 1.0) | (raw >= 254.0)) / raw.size)
     i_samples = (raw[0::2] - 127.5) / 127.5
     q_samples = (raw[1::2] - 127.5) / 127.5
     iq = i_samples + 1j * q_samples
@@ -92,6 +93,7 @@ def analyze_iq_samples(
         "noise_dbfs": round(noise_dbfs, 2),
         "snr_db": round(signal_dbfs - noise_dbfs, 2),
         "iq_rms_dbfs": round(20.0 * math.log10(max(rms, 1e-12)), 2),
+        "clip_fraction": round(clip_fraction, 6),
     }
 
 
