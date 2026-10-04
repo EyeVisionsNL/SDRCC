@@ -79,6 +79,7 @@ AIS_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-ais-autostart")
 SDRCC_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-self-autostart")
 SDRCC_UPDATE_HELPER = Path("/usr/local/sbin/sdrcc-update")
 AIS_CONTROL_SERVICE = "ais-catcher-control.service"
+WEATHER_GAIN_RESULT_PREFIX = "SDRCC_WEATHER_GAIN="
 UPDATE_SERVICE_STATE_FILE = PROJECT_ROOT / "data" / "state" / "update_service_state.json"
 UPDATE_RESTORE_SERVICES = ("readsb.service", "ais-catcher.service", AIS_CONTROL_SERVICE)
 
@@ -1535,6 +1536,21 @@ def monitor_record_process(process):
 
         if stdout:
             for line in stdout.strip().splitlines():
+                if line.startswith(WEATHER_GAIN_RESULT_PREFIX):
+                    try:
+                        selection = json.loads(line[len(WEATHER_GAIN_RESULT_PREFIX):])
+                        mission_engine_core.mission_update_gain(
+                            gain_mode=selection.get("gain_mode"),
+                            gain_db=selection.get("gain_db"),
+                            smart_gain=selection.get("smart_gain"),
+                        )
+                        write_log(
+                            "Mission Engine: Weather Smart Gain gekozen op "
+                            f"{selection.get('gain_db')} dB"
+                        )
+                    except (TypeError, ValueError, json.JSONDecodeError) as error:
+                        write_log(f"Mission Engine: Smart Gain-resultaat onleesbaar: {error}")
+                    continue
                 write_log(line)
 
         if stderr:
@@ -2096,13 +2112,21 @@ def autopilot_start_recording():
             "Geen voorbereid SatDump-commando beschikbaar"
         )
 
-    satdump_core.align_timeout_to_pass_end(record_data)
     mission_status = mission_engine_core.get_mission_status()
     active_job = mission_status.get("active_job") or {}
     receiver_manager.activate(
         mission_key=autopilot_runtime["pass_key"],
         mission_id=active_job.get("mission_id"),
     )
+
+    gain_selection = satdump_core.resolve_record_gain(record_data)
+    if gain_selection["gain_mode"] == "smart":
+        mission_engine_core.mission_update_gain(
+            gain_mode=gain_selection["gain_mode"],
+            gain_db=gain_selection["gain_db"],
+            smart_gain=gain_selection.get("smart_gain"),
+        )
+    satdump_core.align_timeout_to_pass_end(record_data)
 
     mission_engine_core.mission_set_state("RECORDING")
 
@@ -4840,6 +4864,7 @@ def api_action():
                 }), 400
 
             pass_data = record_data["pass"]
+            weather_rf = record_data.get("rf") or {}
 
             mission_engine_core.mission_create_job(
                 satellite=pass_data["name"],
@@ -4850,6 +4875,11 @@ def api_action():
                 receiver=record_data["device"]["number"],
                 receiver_id=record_data["device"]["id"],
                 receiver_serial=record_data["device"]["serial"],
+                sample_rate=pass_data.get("sample_rate"),
+                gain_mode=weather_rf.get("gain_mode"),
+                gain_db=weather_rf.get("gain_db"),
+                dc_block=weather_rf.get("dc_block"),
+                iq_swap=weather_rf.get("iq_swap"),
             )
 
             mission_engine_core.mission_set_state("LOCK RECEIVER")

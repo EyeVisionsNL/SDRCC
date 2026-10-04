@@ -154,7 +154,12 @@
         const mode = document.getElementById("weather-gain-mode");
         const gain = document.getElementById("weather-gain-db");
         const lna = document.getElementById("weather-lna-agc");
-        if (gain) gain.disabled = Boolean(lna?.checked) || mode?.value !== "manual";
+        const smart = mode?.value === "smart";
+        if (smart && lna) lna.checked = false;
+        if (lna) lna.disabled = smart;
+        if (gain) {
+            gain.disabled = Boolean(lna?.checked) || !["manual", "smart"].includes(mode?.value);
+        }
     }
 
     function populateWeather(settings) {

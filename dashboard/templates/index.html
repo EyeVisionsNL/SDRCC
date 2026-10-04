@@ -536,13 +536,15 @@
                         <label>Gain mode
                             <select id="weather-gain-mode">
                                 <option value="auto">Automatic</option>
+                                <option value="smart">Smart</option>
                                 <option value="manual">Manual</option>
                             </select>
                         </label>
-                        <label>Tuner gain
+                        <label>Tuner gain / Smart fallback
                             <select id="weather-gain-db"></select>
                         </label>
                         <label class="rf-check"><input id="weather-lna-agc" type="checkbox"> LNA AGC</label>
+                        <p class="rf-settings-help">Smart briefly measures the METEOR signal after SDRCC takes over the receiver, then keeps one fixed gain for the pass. The selected tuner gain is used if the measurement is unclear. LNA AGC is disabled in Smart mode.</p>
                         <label class="rf-check"><input id="weather-dc-block" type="checkbox"> DC block</label>
                         <label class="rf-check"><input id="weather-iq-swap" type="checkbox"> IQ swap</label>
                     </fieldset>
@@ -1529,7 +1531,7 @@
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
 <script src="/static/js/mission_recordings.js?v=0.63.5"></script>
-<script src="/static/js/radio.js?v=0.63.10"></script>
+<script src="/static/js/radio.js?v=0.63.11"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.54.0f"></script>

@@ -22,6 +22,7 @@ from typing import Any, Iterator
 import numpy as np
 
 from core.rtl_smart_gain import (
+    MAX_SMART_GAIN_DB,
     MAX_PROBE_CHANNELS,
     REFERENCE_GAIN_DB,
     analyze_iq_samples,
@@ -449,27 +450,34 @@ def probe_smart_gain_for_channels(
     frequencies_hz: list[int],
     minimum_snr_db: float = 4.0,
     channel_bandwidth_hz: int = 20_000,
+    sample_rate_hz: int = SAMPLE_RATE_HZ,
+    reference_gain_db: float = REFERENCE_GAIN_DB,
+    maximum_gain_db: float = MAX_SMART_GAIN_DB,
 ) -> dict[str, Any]:
-    """Probe a bounded channel set before Traffic Voice opens its RTL-SDR."""
+    """Probe a bounded tuner-path channel set before its main receiver opens."""
     frequencies = list(dict.fromkeys(int(value) for value in frequencies_hz))[:MAX_PROBE_CHANNELS]
     if not frequencies or any(value < 25_000_000 for value in frequencies):
         raise ValueError("Traffic Voice Smart Gain needs one or more tuner-path frequencies")
     device = _RtlSdrDevice(
         serial=str(serial),
         center_frequency_hz=frequencies[0],
-        sample_rate_hz=SAMPLE_RATE_HZ,
+        sample_rate_hz=int(sample_rate_hz),
     )
     measurements: list[dict[str, Any]] = []
     try:
-        initial_gains = device.open(gain_mode="manual", gain_db=REFERENCE_GAIN_DB)
+        initial_gains = device.open(gain_mode="manual", gain_db=float(reference_gain_db))
         from core import config as config_core
         supported = set(config_core.get_rtl_sdr_valid_gains())
         available = [
             gain for gain in (initial_gains.get("valid_gains") or [])
             if float(gain) in supported
         ]
-        reference = closest_gain(available, REFERENCE_GAIN_DB)
-        if reference != REFERENCE_GAIN_DB:
+        reference = closest_gain(
+            available,
+            float(reference_gain_db),
+            maximum_gain_db=float(maximum_gain_db),
+        )
+        if reference != float(reference_gain_db):
             device._check(
                 device.library.rtlsdr_set_tuner_gain(device.device, int(round(reference * 10.0))),
                 "Traffic Voice Smart Gain reference value",
@@ -485,7 +493,7 @@ def probe_smart_gain_for_channels(
             payload = device.read(READ_BYTES) + device.read(READ_BYTES)
             reading = analyze_iq_samples(
                 payload,
-                sample_rate_hz=SAMPLE_RATE_HZ,
+                sample_rate_hz=int(sample_rate_hz),
                 channel_bandwidth_hz=channel_bandwidth_hz,
             )
             measurements.append({"frequency_hz": frequency, **reading})
@@ -494,6 +502,8 @@ def probe_smart_gain_for_channels(
             measurements,
             available,
             minimum_snr_db=minimum_snr_db,
+            reference_gain_db=reference,
+            maximum_gain_db=float(maximum_gain_db),
         )
         return {
             "gain_db": gain_db,

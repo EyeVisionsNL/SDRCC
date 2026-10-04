@@ -29,22 +29,35 @@ def _finite(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def supported_smart_gains(gains_db: Iterable[float]) -> list[float]:
-    """Return unique supported steps inside Smart Gain's conservative range."""
+def supported_smart_gains(
+    gains_db: Iterable[float],
+    *,
+    maximum_gain_db: float = MAX_SMART_GAIN_DB,
+) -> list[float]:
+    """Return unique supported steps inside the requested Smart Gain range."""
+    maximum = _finite(maximum_gain_db)
+    if maximum is None:
+        maximum = MAX_SMART_GAIN_DB
     values = sorted({
         round(number, 1)
         for raw in gains_db
         if (number := _finite(raw)) is not None
-        and MIN_SMART_GAIN_DB <= number <= MAX_SMART_GAIN_DB
+        and MIN_SMART_GAIN_DB <= number <= maximum
     })
     if not values:
         raise ValueError("RTL-SDR does not expose a gain step in Smart Gain's safe range")
     return values
 
 
-def closest_gain(gains_db: Iterable[float], target_db: float) -> float:
-    gains = supported_smart_gains(gains_db)
-    target = min(MAX_SMART_GAIN_DB, max(MIN_SMART_GAIN_DB, float(target_db)))
+def closest_gain(
+    gains_db: Iterable[float],
+    target_db: float,
+    *,
+    maximum_gain_db: float = MAX_SMART_GAIN_DB,
+) -> float:
+    gains = supported_smart_gains(gains_db, maximum_gain_db=maximum_gain_db)
+    maximum = max(gains)
+    target = min(maximum, max(MIN_SMART_GAIN_DB, float(target_db)))
     return min(gains, key=lambda value: (abs(value - target), value))
 
 
@@ -102,10 +115,12 @@ def choose_smart_gain_db(
     gains_db: Iterable[float],
     *,
     minimum_snr_db: float = DEFAULT_SIGNAL_SNR_DB,
+    reference_gain_db: float = REFERENCE_GAIN_DB,
+    maximum_gain_db: float = MAX_SMART_GAIN_DB,
 ) -> float:
-    """Choose a bounded fixed gain; keep 12.5 dB when signal is not distinct."""
-    gains = supported_smart_gains(gains_db)
-    reference = min(gains, key=lambda value: (abs(value - REFERENCE_GAIN_DB), value))
+    """Choose one fixed gain, retaining the reference if signal is unclear."""
+    gains = supported_smart_gains(gains_db, maximum_gain_db=maximum_gain_db)
+    reference = min(gains, key=lambda value: (abs(value - float(reference_gain_db)), value))
     signal_dbfs = _finite(measurement.get("signal_dbfs"))
     snr_db = _finite(measurement.get("snr_db"))
     if signal_dbfs is None or snr_db is None or snr_db < float(minimum_snr_db):
@@ -116,8 +131,8 @@ def choose_smart_gain_db(
     # cannot command maximum RTL gain.
     adjustment = max(-12.5, min(8.2, TARGET_CHANNEL_DBFS - signal_dbfs))
     target = min(
-        MAX_SMART_GAIN_DB,
-        max(MIN_SMART_GAIN_DB, REFERENCE_GAIN_DB + adjustment),
+        max(gains),
+        max(MIN_SMART_GAIN_DB, float(reference_gain_db) + adjustment),
     )
     return min(gains, key=lambda value: (abs(value - target), value))
 
@@ -127,16 +142,18 @@ def choose_for_measurements(
     gains_db: Iterable[float],
     *,
     minimum_snr_db: float = DEFAULT_SIGNAL_SNR_DB,
+    reference_gain_db: float = REFERENCE_GAIN_DB,
+    maximum_gain_db: float = MAX_SMART_GAIN_DB,
 ) -> tuple[float, dict[str, float] | None]:
     """Select against the strongest clear measured channel, or use the reference."""
-    gains = supported_smart_gains(gains_db)
+    gains = supported_smart_gains(gains_db, maximum_gain_db=maximum_gain_db)
     clear = [
         item for item in measurements
         if (_finite(item.get("snr_db")) is not None)
         and float(item["snr_db"]) >= float(minimum_snr_db)
     ]
     if not clear:
-        reference = min(gains, key=lambda value: (abs(value - REFERENCE_GAIN_DB), value))
+        reference = min(gains, key=lambda value: (abs(value - float(reference_gain_db)), value))
         return reference, None
     strongest = max(
         clear,
@@ -144,5 +161,9 @@ def choose_for_measurements(
         if _finite(item.get("signal_dbfs")) is not None else -math.inf,
     )
     return choose_smart_gain_db(
-        strongest, gains, minimum_snr_db=minimum_snr_db,
+        strongest,
+        gains,
+        minimum_snr_db=minimum_snr_db,
+        reference_gain_db=reference_gain_db,
+        maximum_gain_db=maximum_gain_db,
     ), {key: float(value) for key, value in strongest.items()}
