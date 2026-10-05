@@ -460,7 +460,7 @@ def get_weather_rf_config():
     data = load_station()
     rf = data.get("weather_rf", {})
     mode = str(rf.get("gain_mode", "auto")).lower()
-    if mode not in {"auto", "manual"}:
+    if mode not in {"auto", "smart", "manual"}:
         mode = "auto"
     raw_gain = rf.get("gain_db")
     try:
@@ -470,12 +470,17 @@ def get_weather_rf_config():
     valid_gains = get_rtl_sdr_valid_gains()
     if gain not in valid_gains:
         gain = min(valid_gains, key=lambda value: abs(value - gain))
+    lna_agc = bool(rf.get("lna_agc", mode == "auto"))
+    if mode == "smart":
+        # A Smart measurement must use the same repeatable tuner gain for its
+        # probe and the complete SatDump recording.
+        lna_agc = False
     return {
         "gain_mode": mode,
         "gain_db": gain,
         "dc_block": bool(rf.get("dc_block", True)),
         "iq_swap": bool(rf.get("iq_swap", False)),
-        "lna_agc": bool(rf.get("lna_agc", mode == "auto")),
+        "lna_agc": lna_agc,
         "fill_missing": bool(rf.get("fill_missing", True)),
         "rs_usecheck": bool(rf.get("rs_usecheck", True)),
         "valid_gains": valid_gains,
@@ -486,8 +491,8 @@ def set_weather_rf_config(settings):
     """Sla gevalideerde Weather RF-instellingen op."""
     current = get_weather_rf_config()
     mode = str(settings.get("gain_mode", current["gain_mode"])).lower()
-    if mode not in {"auto", "manual"}:
-        raise ValueError("Gain-modus moet auto of manual zijn")
+    if mode not in {"auto", "smart", "manual"}:
+        raise ValueError("Gain-modus moet auto, smart of manual zijn")
     try:
         gain = float(settings.get("gain_db", current["gain_db"]))
     except (TypeError, ValueError) as exc:
@@ -500,7 +505,10 @@ def set_weather_rf_config(settings):
     rf["gain_db"] = gain
     rf["dc_block"] = bool(settings.get("dc_block", current["dc_block"]))
     rf["iq_swap"] = bool(settings.get("iq_swap", current["iq_swap"]))
-    rf["lna_agc"] = bool(settings.get("lna_agc", current["lna_agc"]))
+    rf["lna_agc"] = (
+        False if mode == "smart"
+        else bool(settings.get("lna_agc", current["lna_agc"]))
+    )
     rf["fill_missing"] = bool(settings.get("fill_missing", current["fill_missing"]))
     rf["rs_usecheck"] = bool(settings.get("rs_usecheck", current["rs_usecheck"]))
     save_station(data)

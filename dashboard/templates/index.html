@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/static/css/history.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
-    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.54.0j-r1">
+    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.63.5">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.56.0x-r3">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.59.0">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.63.9">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
 </head>
 <body>
@@ -536,13 +536,15 @@
                         <label>Gain mode
                             <select id="weather-gain-mode">
                                 <option value="auto">Automatic</option>
+                                <option value="smart">Smart</option>
                                 <option value="manual">Manual</option>
                             </select>
                         </label>
-                        <label>Tuner gain
+                        <label>Tuner gain / Smart fallback
                             <select id="weather-gain-db"></select>
                         </label>
                         <label class="rf-check"><input id="weather-lna-agc" type="checkbox"> LNA AGC</label>
+                        <p class="rf-settings-help">Smart briefly measures the METEOR signal after SDRCC takes over the receiver, then keeps one fixed gain for the pass. The selected tuner gain is used if the measurement is unclear. LNA AGC is disabled in Smart mode.</p>
                         <label class="rf-check"><input id="weather-dc-block" type="checkbox"> DC block</label>
                         <label class="rf-check"><input id="weather-iq-swap" type="checkbox"> IQ swap</label>
                     </fieldset>
@@ -562,7 +564,7 @@
                 <div class="section-heading-row radio-heading-v0540g">
                     <div>
                         <h2>🎙 ISS Voice Settings</h2>
-                        <p class="muted">Receiver gain, automatic orbital Doppler and filtered NFM audio.</p>
+                        <p class="muted">Auto, Smart or manual gain, automatic orbital Doppler and filtered NFM audio.</p>
                     </div>
                     <span class="radio-status-v0540g is-planned">437.800 MHz</span>
                 </div>
@@ -572,10 +574,11 @@
                         <label>Gain mode
                             <select id="iss-voice-gain-mode">
                                 <option value="auto">Automatic</option>
+                                <option value="smart">Smart</option>
                                 <option value="manual">Manual</option>
                             </select>
                         </label>
-                        <label>Tuner gain
+                        <label><span id="iss-voice-gain-label">Tuner gain</span>
                             <select id="iss-voice-gain-db"></select>
                         </label>
                         <div class="iss-voice-fixed-v0540g">
@@ -595,7 +598,7 @@
                     </fieldset>
                     <button type="submit" class="control-button">Save ISS Voice settings</button>
                 </form>
-                <p id="iss-voice-settings-result" class="radio-settings-result-v0540g">Used by the next ISS recording and live stream.</p>
+                <p id="iss-voice-settings-result" class="radio-settings-result-v0540g">Smart measures the 50 kHz ISS channel before recording and holds one gain for the full pass, bounded to 25.4 dB. The configured fallback is used if the probe cannot find a clear signal or fails; overload caps the selected gain at that fallback. Automatic uses the RTL-SDR's built-in gain control.</p>
             </section>
         </div>
     </div>
@@ -793,8 +796,8 @@
                 <label>Channel
                     <select id="traffic-voice-channel-select"></select>
                 </label>
-                <label class="traffic-voice-auto-gain-control">
-                    <span>Auto Gain</span>
+                <label class="traffic-voice-auto-gain-control" title="Smart Gain briefly measures the selected channels, chooses a bounded fixed tuner gain, and keeps it steady while listening.">
+                    <span>Smart Gain</span>
                     <input id="traffic-voice-auto-gain" type="checkbox" checked>
                 </label>
                 <label>Manual gain
@@ -835,6 +838,18 @@
                 <span id="traffic-voice-audio-detail">Waiting for Voice.</span>
                 <audio id="traffic-voice-audio" preload="none"></audio>
             </div>
+            <section id="traffic-voice-recordings" class="traffic-voice-recordings" aria-label="Recent Marine transmissions" hidden>
+                <div class="traffic-voice-recordings-heading">
+                    <div>
+                        <span>MARINE REPLAY</span>
+                        <h3>Recent transmissions</h3>
+                    </div>
+                    <small>Up to four latest receptions</small>
+                </div>
+                <p id="traffic-voice-recordings-status" class="traffic-voice-recordings-status">Waiting for the next Marine transmission.</p>
+                <div id="traffic-voice-recordings-list" class="traffic-voice-recordings-list" role="list"></div>
+                <audio id="traffic-voice-replay-audio" class="traffic-voice-replay-audio" preload="none"></audio>
+            </section>
             <div class="traffic-voice-signal-metrics">
                 <div><span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
                 <div><span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
@@ -914,10 +929,10 @@
                             </div>
                         </div>
                     </label>
-                    <label class="hf-monitor-check-field">Auto gain
-                        <span class="hf-monitor-check-row"><input id="hf-monitor-auto-gain" type="checkbox" checked> Automatic RTL gain / AGC</span>
+                    <label class="hf-monitor-check-field">Smart Gain
+                        <span class="hf-monitor-check-row"><input id="hf-monitor-auto-gain" type="checkbox" checked> Measure signal/noise, then hold a fixed gain</span>
                     </label>
-                    <label>Tuner gain
+                    <label>Manual tuner gain
                         <select id="hf-monitor-gain-db"></select>
                         <small id="hf-monitor-gain-note">Manual tuner gain is effective on 10 m; direct-sampling HF bypasses the tuner.</small>
                     </label>
@@ -1070,7 +1085,7 @@
                         </label>
                     </fieldset>
                     <fieldset class="mission-planner-profile" data-planning-profile="iss_voice">
-                        <legend>ISS Voice</legend>
+                        <legend>ISS Voice / SSTV</legend>
                         <label>Minimum peak
                             <span class="mission-planner-input"><input data-planning-field="minimum_peak_elevation" type="number" min="5" max="90" step="0.1" required><span>°</span></span>
                         </label>
@@ -1085,6 +1100,28 @@
                 <div class="mission-planner-settings-actions">
                     <button type="submit" class="control-button">Save satellite plans</button>
                 </div>
+            </form>
+        </section>
+
+        <section class="card mission-planner-settings iss-sstv-event-card">
+            <div class="mission-planner-settings-copy">
+                <h2>📺 ISS SSTV event</h2>
+                <p class="muted">Schedule image receptions during an announced ISS SSTV window. During an enabled event, matching ISS passes use the SSTV downlink instead of creating a voice recording. The receiver handover and service restore stay under Mission AutoPilot.</p>
+            </div>
+            <form id="iss-sstv-event-form" class="mission-planner-settings-form">
+                <div class="iss-sstv-event-fields">
+                    <label class="iss-sstv-enable"><span>Schedule this event</span><input id="iss-sstv-enabled" type="checkbox"></label>
+                    <label>Event name<input id="iss-sstv-name" type="text" maxlength="100" required></label>
+                    <label>Start (local time)<input id="iss-sstv-start" type="datetime-local" required></label>
+                    <label>End (local time)<input id="iss-sstv-end" type="datetime-local" required></label>
+                    <label>Downlink frequency<span class="mission-planner-input"><input id="iss-sstv-frequency" type="number" min="140" max="450" step="0.000001" required><span>MHz</span></span></label>
+                    <label>SSTV mode<select id="iss-sstv-mode"><option value="robot36">Robot 36</option><option value="pd120">PD120</option></select></label>
+                </div>
+                <div class="mission-planner-settings-actions">
+                    <span id="iss-sstv-decoder-status" class="muted" aria-live="polite">Checking SSTV decoder…</span>
+                    <button type="submit" class="control-button">Save ISS SSTV event</button>
+                </div>
+                <p id="iss-sstv-event-message" class="muted iss-sstv-event-message" aria-live="polite">Series 33 is preloaded: Oct 2–6, 2026 · 437.550 MHz · Robot 36 · 36 seconds on, 2 minutes pause.</p>
             </form>
         </section>
 
@@ -1437,6 +1474,7 @@
                         <div><span>Pipeline</span><strong id="mission-operations-result-pipeline">-</strong></div>
                         <div><span>Result</span><strong id="mission-operations-result-status">-</strong></div>
                         <div><span>Duration</span><strong id="mission-operations-result-duration">-</strong></div>
+                        <div><span>Channel / wideband power</span><strong id="mission-operations-result-rf-ratio">-</strong></div>
                     </div>
                 </div>
             </section>
@@ -1488,20 +1526,20 @@
 </footer>
 
 <script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
-<script src="/static/dashboard.js?v=0.54.0t-r1&feature=0.56.0x"></script>
+<script src="/static/dashboard.js?v=0.63.10"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
-<script src="/static/js/mission_recordings.js?v=0.54.0l-r2"></script>
-<script src="/static/js/radio.js?v=0.56.0b"></script>
+<script src="/static/js/mission_recordings.js?v=0.63.5"></script>
+<script src="/static/js/radio.js?v=0.63.11"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
 <script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
-<script src="/static/js/mission_planner.js?v=0.54.0j-r1"></script>
-<script src="/static/js/traffic_voice.js?v=0.60.12-beta1"></script>
+<script src="/static/js/mission_planner.js?v=0.63.5"></script>
+<script src="/static/js/traffic_voice.js?v=0.63.9"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>

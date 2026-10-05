@@ -53,7 +53,7 @@ def get_config() -> dict[str, Any]:
 def _normalize_settings(config: dict[str, Any]) -> dict[str, Any]:
     valid_gains = config_core.get_rtl_sdr_valid_gains()
     mode = str(config.get("gain_mode", _DEFAULT_SETTINGS["gain_mode"])).strip().lower()
-    if mode not in {"auto", "manual"}:
+    if mode not in {"auto", "manual", "smart"}:
         mode = _DEFAULT_SETTINGS["gain_mode"]
     try:
         gain = float(config.get("gain_db", _DEFAULT_SETTINGS["gain_db"]))
@@ -61,6 +61,8 @@ def _normalize_settings(config: dict[str, Any]) -> dict[str, Any]:
         gain = float(_DEFAULT_SETTINGS["gain_db"])
     if gain not in valid_gains:
         gain = min(valid_gains, key=lambda value: abs(value - gain))
+    if mode == "smart" and gain > 25.4:
+        gain = max(value for value in valid_gains if value <= 25.4)
     try:
         threshold = float(config.get(
             "squelch_threshold_dbfs", _DEFAULT_SETTINGS["squelch_threshold_dbfs"]
@@ -91,7 +93,11 @@ def get_settings(config: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 def capture_gain_db(config: dict[str, Any] | None = None) -> float | None:
-    """Resolve the rtl_sdr gain argument without creating receiver authority."""
+    """Return the static rtl_sdr gain argument without creating receiver authority.
+
+    Smart mode needs an RF probe and must be resolved by ``iss_smart_gain`` only
+    after the caller has reserved the receiver.
+    """
     settings = get_settings(config)
     return settings["gain_db"] if settings["gain_mode"] == "manual" else None
 
@@ -114,14 +120,16 @@ def set_settings(settings: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("ISS Voice-instellingen moeten een object zijn")
     current = get_settings()
     mode = str(settings.get("gain_mode", current["gain_mode"])).strip().lower()
-    if mode not in {"auto", "manual"}:
-        raise ValueError("Gain mode must be auto or manual")
+    if mode not in {"auto", "manual", "smart"}:
+        raise ValueError("Gain mode must be auto, smart or manual")
     try:
         gain = float(settings.get("gain_db", current["gain_db"]))
     except (TypeError, ValueError) as exc:
         raise ValueError("Invalid tuner gain") from exc
     if gain not in current["valid_gains"]:
         raise ValueError("This tuner gain is not supported by the RTL-SDR")
+    if mode == "smart" and gain > 25.4:
+        raise ValueError("Smart fallback gain must be 25.4 dB or lower")
     squelch_enabled = _as_bool(
         settings.get("squelch_enabled", current["squelch_enabled"]),
         field="squelch_enabled",
@@ -229,7 +237,7 @@ def validate_config() -> dict[str, Any]:
     except (ImportError, AttributeError) as exc:
         errors.append(f"ISS Doppler/kanaalimplementatie kan niet worden geladen: {exc}")
     settings = get_settings(config)
-    if settings["gain_mode"] == "manual" and settings["gain_db"] not in settings["valid_gains"]:
+    if settings["gain_mode"] in {"manual", "smart"} and settings["gain_db"] not in settings["valid_gains"]:
         errors.append("gain_db wordt niet door de RTL-SDR ondersteund")
     if not -65.0 <= settings["squelch_threshold_dbfs"] <= -10.0:
         errors.append("squelch_threshold_dbfs buiten veilige grenzen")

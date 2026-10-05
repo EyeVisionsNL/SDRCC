@@ -186,9 +186,13 @@ def _build_observer(next_pass):
     elif now_epoch >= prepare_at_epoch:
         phase = "PREPARE RECEIVER"
         mission_type = str(next_pass.get("mission_type") or "weather")
+        mission_label = {
+            "iss_voice": "ISS Voice",
+            "iss_sstv": "ISS SSTV",
+        }.get(mission_type, "Weather")
         detail = (
-            "ISS Voice-profiel activeren en toegewezen receiver vrijgeven"
-            if mission_type == "iss_voice"
+            f"{mission_label}-profiel activeren en toegewezen receiver vrijgeven"
+            if mission_type in {"iss_voice", "iss_sstv"}
             else "Weather-profiel activeren en ontvangers vrijgeven"
         )
         pass_active = False
@@ -201,9 +205,13 @@ def _build_observer(next_pass):
     else:
         phase = "WAIT FOR PASS"
         mission_type = str(next_pass.get("mission_type") or "weather")
+        mission_label = {
+            "iss_voice": "ISS Voice",
+            "iss_sstv": "ISS SSTV",
+        }.get(mission_type, "METEOR")
         detail = (
-            "Wachten op volgende ISS Voice-passage"
-            if mission_type == "iss_voice"
+            f"Wachten op volgende {mission_label}-passage"
+            if mission_type in {"iss_voice", "iss_sstv"}
             else "Wachten op volgende METEOR-passage"
         )
         pass_active = False
@@ -299,11 +307,8 @@ class MissionScheduler:
             next_action = "Geen passage gepland"
 
         elif state["mode"] == "AUTO":
-            mission_label = (
-                "ISS Voice"
-                if str(next_pass.get("mission_type") or "weather") == "iss_voice"
-                else "Weather"
-            )
+            mission_type = str(next_pass.get("mission_type") or "weather")
+            mission_label = {"iss_voice": "ISS Voice", "iss_sstv": "ISS SSTV"}.get(mission_type, "Weather")
             next_action = f"Observer: profiel {mission_label} voorbereiden"
 
         else:

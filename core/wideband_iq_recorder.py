@@ -24,6 +24,8 @@ MAX_CAPTURE_SECONDS = 1200
 DEFAULT_STARTUP_TIMEOUT_SECONDS = 5.0
 DEFAULT_RETRY_COUNT = 2
 DEFAULT_RETRY_DELAY_SECONDS = 2.0
+TUNER_PLL_LOCK_WARNING = "[R82XX] PLL not locked"
+TUNER_PLL_LOCK_FAILURE = "tuner_pll_lock_not_confirmed"
 
 CaptureStarted = Callable[[dict[str, Any]], None]
 
@@ -38,6 +40,8 @@ class CaptureSpec:
     output_directory: Path
     gain_db: float | None = None
     ppm: int = 0
+    gain_mode: str | None = None
+    smart_gain: dict[str, Any] | None = None
 
     @property
     def sample_count(self) -> int:
@@ -70,6 +74,8 @@ def _safe_mission_id(value: str) -> str:
 def build_spec(*, mission_id: str, receiver_serial: str, frequency_hz: int,
                sample_rate_hz: int, duration_seconds: int,
                gain_db: float | None = None, ppm: int = 0,
+               gain_mode: str | None = None,
+               smart_gain: dict[str, Any] | None = None,
                output_directory: str | Path | None = None) -> CaptureSpec:
     mission = _safe_mission_id(mission_id)
     serial = str(receiver_serial or "").strip()
@@ -84,6 +90,9 @@ def build_spec(*, mission_id: str, receiver_serial: str, frequency_hz: int,
         raise ValueError("sample_rate_hz buiten veilige RTL-SDR grenzen")
     if duration < 1 or duration > MAX_CAPTURE_SECONDS:
         raise ValueError(f"duration_seconds moet 1..{MAX_CAPTURE_SECONDS} zijn")
+    normalized_gain_mode = str(gain_mode or ("auto" if gain_db is None else "manual")).strip().lower()
+    if normalized_gain_mode not in {"auto", "smart", "manual"}:
+        raise ValueError("gain_mode moet auto, smart of manual zijn")
     directory = Path(output_directory).expanduser() if output_directory else RECORDINGS_ROOT / mission
     directory = directory.resolve()
     root = (PROJECT_ROOT / "data" / "recordings").resolve()
@@ -91,7 +100,10 @@ def build_spec(*, mission_id: str, receiver_serial: str, frequency_hz: int,
         directory.relative_to(root)
     except ValueError as exc:
         raise ValueError("output_directory moet binnen data/recordings liggen") from exc
-    return CaptureSpec(mission, serial, frequency, sample_rate, duration, directory, gain_db, int(ppm))
+    return CaptureSpec(
+        mission, serial, frequency, sample_rate, duration, directory,
+        gain_db, int(ppm), normalized_gain_mode, smart_gain,
+    )
 
 
 def build_command(spec: CaptureSpec) -> list[str]:
@@ -121,6 +133,8 @@ def describe_capture(spec: CaptureSpec) -> dict[str, Any]:
         "sample_format": "cu8",
         "expected_bytes": expected_bytes,
         "gain_db": spec.gain_db,
+        "gain_mode": spec.gain_mode or ("auto" if spec.gain_db is None else "manual"),
+        "smart_gain": spec.smart_gain,
         "ppm": spec.ppm,
         "output_directory": str(spec.output_directory),
         "iq_path": str(spec.iq_path),
@@ -165,6 +179,10 @@ def _read_text(path: Path) -> str:
         return ""
 
 
+def _has_tuner_pll_lock_warning(path: Path) -> bool:
+    return TUNER_PLL_LOCK_WARNING in _read_text(path)
+
+
 def _terminate_process(process: subprocess.Popen[Any]) -> None:
     if process.poll() is not None:
         return
@@ -179,27 +197,40 @@ def _terminate_process(process: subprocess.Popen[Any]) -> None:
 def _wait_for_verified_start(
     process: subprocess.Popen[Any],
     iq_path: Path,
+    stderr_path: Path,
     *,
     timeout_seconds: float,
-) -> tuple[bool, int]:
+) -> tuple[bool, int, str | None]:
     deadline = time.monotonic() + max(0.5, float(timeout_seconds))
     largest_size = 0
     while time.monotonic() < deadline:
+        if _has_tuner_pll_lock_warning(stderr_path):
+            try:
+                largest_size = max(largest_size, iq_path.stat().st_size)
+            except OSError:
+                pass
+            return False, largest_size, TUNER_PLL_LOCK_FAILURE
         returncode = process.poll()
         try:
             largest_size = max(largest_size, iq_path.stat().st_size)
         except OSError:
             pass
-        # File growth is sufficient proof that rtl_sdr entered capture, even
-        # when a very short capture completes before the next process poll.
-        # Checking the bytes first avoids classifying a complete fast capture
-        # as "never started" merely because poll() already returns 0.
+        # Recheck stderr before accepting bytes: rtl_sdr may create its IQ file
+        # even when the tuner did not confirm PLL lock.
+        if _has_tuner_pll_lock_warning(stderr_path):
+            return False, largest_size, TUNER_PLL_LOCK_FAILURE
+        # File growth proves that rtl_sdr is writing samples, while the stderr
+        # check above separately rejects an unconfirmed tuner lock.
         if largest_size > 0:
-            return True, largest_size
+            return True, largest_size, None
         if returncode is not None:
-            return False, largest_size
+            return False, largest_size, "process_exited_before_capture"
         time.sleep(0.1)
-    return process.poll() is None and largest_size > 0, largest_size
+    if _has_tuner_pll_lock_warning(stderr_path):
+        return False, largest_size, TUNER_PLL_LOCK_FAILURE
+    if process.poll() is None and largest_size > 0:
+        return True, largest_size, None
+    return False, largest_size, "startup_timeout"
 
 
 def execute_capture(
@@ -258,16 +289,23 @@ def execute_capture(
                 start_new_session=True,
             )
             attempt["pid"] = process.pid
-            verified, startup_bytes = _wait_for_verified_start(
+            verified, startup_bytes, startup_failure_reason = _wait_for_verified_start(
                 process,
                 spec.iq_path,
+                spec.stderr_path,
                 timeout_seconds=startup_timeout_seconds,
             )
+            # Close the small race between the poller's final stderr read and
+            # returning to this caller before declaring the tuner ready.
+            if verified and _has_tuner_pll_lock_warning(spec.stderr_path):
+                verified = False
+                startup_failure_reason = TUNER_PLL_LOCK_FAILURE
             attempt["startup_bytes"] = startup_bytes
             attempt["verified_started"] = verified
             attempt["startup_checked_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
 
             if not verified:
+                attempt["failure_reason"] = startup_failure_reason or "startup_not_verified"
                 final_returncode = process.poll()
                 if final_returncode is None:
                     _terminate_process(process)
@@ -308,12 +346,29 @@ def execute_capture(
             attempt["stdout"] = _read_text(spec.stdout_path)
             attempt["actual_bytes"] = spec.iq_path.stat().st_size if spec.iq_path.exists() else 0
             attempt["ended_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+            if _has_tuner_pll_lock_warning(spec.stderr_path):
+                attempt["failure_reason"] = TUNER_PLL_LOCK_FAILURE
+                _write_metadata(spec.metadata_path, metadata)
+                if attempt_number < max_attempts:
+                    time.sleep(max(0.0, float(retry_delay_seconds)))
+                    continue
             break
 
     ended_at = datetime.now().astimezone()
     actual_bytes = spec.iq_path.stat().st_size if spec.iq_path.exists() else 0
     expected_bytes = int(metadata["expected_bytes"])
     last_attempt = metadata["attempts"][-1] if metadata["attempts"] else {}
+    pll_warning_attempts = sum(
+        1 for attempt in metadata["attempts"]
+        if attempt.get("failure_reason") == TUNER_PLL_LOCK_FAILURE
+    )
+    complete = (
+        bool(metadata.get("capture_started"))
+        and bool(last_attempt.get("verified_started"))
+        and final_returncode == 0
+        and actual_bytes == expected_bytes
+        and last_attempt.get("failure_reason") != TUNER_PLL_LOCK_FAILURE
+    )
     metadata.update({
         "ended_at": ended_at.isoformat(timespec="seconds"),
         "elapsed_seconds": round(
@@ -326,11 +381,15 @@ def execute_capture(
         "actual_bytes": actual_bytes,
         "timed_out": timed_out,
         "attempt_count": len(metadata["attempts"]),
-        "complete": (
-            bool(metadata.get("capture_started"))
-            and final_returncode == 0
-            and actual_bytes == expected_bytes
-        ),
+        "pll_lock_warning_attempts": pll_warning_attempts,
+        "pll_lock_recovered": bool(complete and pll_warning_attempts),
+        "complete": complete,
     })
+    if not complete:
+        metadata["failure_reason"] = (
+            TUNER_PLL_LOCK_FAILURE
+            if last_attempt.get("failure_reason") == TUNER_PLL_LOCK_FAILURE
+            else "capture_incomplete"
+        )
     _write_metadata(spec.metadata_path, metadata)
     return metadata

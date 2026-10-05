@@ -26,9 +26,12 @@ def main() -> None:
     duplicates = sorted(name for name, count in Counter(ids).items() if count > 1)
     check(not duplicates, f"dashboard element IDs remain unique ({duplicates or 'none'})")
 
+    css_version = re.search(r'mission_planner\.css\?v=([^"&]+)', template)
+    js_version = re.search(r'mission_planner\.js\?v=([^"&]+)', template)
     check(
-        'mission_planner.css?v=0.54.0j-r1' in template
-        and 'mission_planner.js?v=0.54.0j-r1' in template,
+        css_version is not None
+        and js_version is not None
+        and css_version.group(1) == js_version.group(1),
         "Mission Planner assets are cache-busted together",
     )
     check(
@@ -43,8 +46,14 @@ def main() -> None:
 
     api_paths = set(re.findall(r'fetch\("(/api/[^"?]+)', javascript))
     check(
-        api_paths == {"/api/mission-queue", "/api/weather-planning"},
-        "Mission Planner retains only its existing Queue and settings APIs",
+        api_paths == {"/api/mission-queue", "/api/weather-planning", "/api/iss-sstv/settings"},
+        "Mission Planner uses the Queue, weather settings, and ISS SSTV event APIs",
+    )
+    check(
+        'id="iss-sstv-event-form"' in template
+        and 'id="iss-sstv-mode"' in template
+        and "iss-sstv-event-form" in javascript,
+        "ISS SSTV event settings and mode selector are available in Mission Planner",
     )
     check(
         '/api/mission-queue?limit=50&hours=48' in javascript,

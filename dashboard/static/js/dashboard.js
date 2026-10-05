@@ -11,7 +11,7 @@ import {updateExecutionJournal} from "./execution_journal.js";
 import {updateSdr} from "./sdr.js";
 import {updateStatusbar} from "./statusbar.js?v=0.54.0q-r1";
 import {setupMissionHistory} from "./history.js?v=0.54.0m-r1";
-import {setupMissionAnalytics} from "./mission_analytics.js?v=0.54.0k-r1";
+import {setupMissionAnalytics} from "./mission_analytics.js?v=0.63.10";
 import {
     updateScheduler,
     updateSchedulerCountdown,

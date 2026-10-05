@@ -1,5 +1,5 @@
 (() => {
-    const state = {busy: false, timer: null, formDirty: false};
+    const state = {busy: false, timer: null, formDirty: false, sstvEventDirty: false};
 
     const byId = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "-")
@@ -124,6 +124,94 @@
         custom.required = isCustom;
         if (!isCustom) {
             custom.value = choice.value === "secondary" ? "137.1000" : "137.9000";
+        }
+    }
+
+    function utcToLocalInput(value) {
+        const date = new Date(value);
+        if (!Number.isFinite(date.getTime())) return "";
+        return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+
+    function localInputToUtc(value, label) {
+        const date = new Date(value);
+        if (!value || !Number.isFinite(date.getTime())) throw new Error(`${label} is invalid.`);
+        return date.toISOString();
+    }
+
+    function renderSstvEvent(payload) {
+        const form = byId("iss-sstv-event-form");
+        if (!form || state.sstvEventDirty || form.contains(document.activeElement)) return;
+        const settings = payload?.settings || {};
+        byId("iss-sstv-enabled").checked = Boolean(settings.enabled);
+        byId("iss-sstv-name").value = settings.name || "";
+        byId("iss-sstv-start").value = utcToLocalInput(settings.start_utc);
+        byId("iss-sstv-end").value = utcToLocalInput(settings.end_utc);
+        byId("iss-sstv-frequency").value = (Number(settings.frequency_hz || 0) / 1000000).toFixed(6);
+        byId("iss-sstv-mode").value = settings.mode || "robot36";
+        const decoder = payload?.decoder || {};
+        const decoderNode = byId("iss-sstv-decoder-status");
+        if (decoderNode) {
+            decoderNode.textContent = decoder.available
+                ? `SSTV decoder ready · ${decoder.version}`
+                : `SSTV decoder unavailable · ${decoder.error || "complete audio setup with the Update button"}`;
+            decoderNode.classList.toggle("error-text", !decoder.available);
+        }
+        const startLabel = new Date(settings.start_utc).toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
+        const endLabel = new Date(settings.end_utc).toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
+        const status = String(payload?.event_status || "unknown").toUpperCase();
+        const eventMessage = byId("iss-sstv-event-message");
+        if (eventMessage) {
+            eventMessage.textContent = `${settings.name || "ISS SSTV event"} · ${status} · ${startLabel}–${endLabel} local time. When Mission Scheduler is AUTO, matching passes use ${ (Number(settings.frequency_hz || 0) / 1000000).toFixed(3) } MHz, ${String(settings.mode || "robot36").toUpperCase()}.`;
+        }
+    }
+
+    async function loadSstvEvent() {
+        try {
+            const response = await fetch("/api/iss-sstv/settings", {cache: "no-store"});
+            const payload = await response.json();
+            if (!response.ok || payload.ok === false) throw new Error(payload.error || "ISS SSTV event settings are unavailable.");
+            renderSstvEvent(payload);
+        } catch (error) {
+            const message = byId("iss-sstv-event-message");
+            if (message && !state.sstvEventDirty) message.textContent = `ISS SSTV settings unavailable: ${error.message}`;
+        }
+    }
+
+    async function saveSstvEvent(event) {
+        event.preventDefault();
+        if (state.busy) return;
+        const form = event.currentTarget;
+        const button = form.querySelector('button[type="submit"]');
+        state.busy = true;
+        if (button) button.disabled = true;
+        const message = byId("iss-sstv-event-message");
+        if (message) message.textContent = "Saving ISS SSTV event…";
+        try {
+            const settings = {
+                enabled: Boolean(byId("iss-sstv-enabled").checked),
+                name: String(byId("iss-sstv-name").value || "").trim(),
+                start_utc: localInputToUtc(byId("iss-sstv-start").value, "Start time"),
+                end_utc: localInputToUtc(byId("iss-sstv-end").value, "End time"),
+                frequency_hz: Math.round(Number(byId("iss-sstv-frequency").value) * 1000000),
+                mode: byId("iss-sstv-mode").value
+            };
+            const response = await fetch("/api/iss-sstv/settings", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(settings)
+            });
+            const payload = await response.json();
+            if (!response.ok || payload.ok === false) throw new Error(payload.error || "Could not save the ISS SSTV event.");
+            state.sstvEventDirty = false;
+            renderSstvEvent(payload);
+            if (message) message.textContent = payload.message || "ISS SSTV event saved. Matching Mission Queue passes update immediately.";
+            await loadPlanner({quiet: true});
+        } catch (error) {
+            if (message) message.textContent = `ISS SSTV event not saved: ${error.message}`;
+        } finally {
+            state.busy = false;
+            if (button) button.disabled = false;
         }
     }
 
@@ -282,8 +370,15 @@
         });
     });
     form?.addEventListener("submit", savePassWindows);
+    const sstvForm = byId("iss-sstv-event-form");
+    sstvForm?.addEventListener("input", () => { state.sstvEventDirty = true; });
+    sstvForm?.addEventListener("submit", saveSstvEvent);
     byId("mission-planner-refresh")?.addEventListener("click", refreshTleAndPlanning);
     window.addEventListener("sdrcc:weather-planning-changed", () => loadPlanner({quiet: true}));
     loadPlanner();
-    state.timer = window.setInterval(() => loadPlanner({quiet: true}), 15000);
+    loadSstvEvent();
+    state.timer = window.setInterval(() => {
+        loadPlanner({quiet: true});
+        loadSstvEvent();
+    }, 15000);
 })();

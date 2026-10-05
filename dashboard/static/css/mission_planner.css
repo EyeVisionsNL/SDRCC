@@ -76,6 +76,16 @@
 .mission-planner-input { display: flex; align-items: center; gap: 8px; }
 .mission-planner-input input { width: 100%; min-width: 80px; }
 .mission-planner-profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.iss-sstv-event-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.iss-sstv-event-fields > label { min-width: 0; }
+.iss-sstv-event-fields .iss-sstv-enable { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+.iss-sstv-event-fields .iss-sstv-enable input { width: 18px; min-height: 18px; accent-color: #22d3ee; }
+.iss-sstv-event-fields select,
+.iss-sstv-event-fields input[type="text"],
+.iss-sstv-event-fields input[type="datetime-local"] { width: 100%; padding: 0 8px; }
+.iss-sstv-event-card .mission-planner-settings-actions { align-items: center; gap: 14px; flex-wrap: wrap; }
+.iss-sstv-event-card .mission-planner-settings-actions .muted { margin-right: auto; }
+.iss-sstv-event-message { margin: 0; }
 .mission-planner-profile {
     --profile-accent: #94a3b8;
     display: grid;
@@ -168,9 +178,11 @@
     .mission-planner-header-actions { justify-content: flex-start; }
     .mission-planner-summary { grid-template-columns: repeat(2, 1fr); }
     .mission-planner-profile-grid { grid-template-columns: 1fr; }
+    .iss-sstv-event-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 620px) {
     .mission-planner-profile { grid-template-columns: 1fr; }
+    .iss-sstv-event-fields { grid-template-columns: 1fr; }
     .mission-planner-settings-actions .control-button { width: 100%; min-width: 0; }
 }

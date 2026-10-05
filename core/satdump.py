@@ -3,6 +3,7 @@
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
+import json
 
 from core import mission_result
 from zoneinfo import ZoneInfo
@@ -56,6 +57,7 @@ def build_event_context(record_data=None):
     record_data = record_data or {}
     pass_data = record_data.get("pass") or {}
     device = record_data.get("device") or {}
+    rf = record_data.get("rf") or {}
     context = _active_mission_context()
 
     context.update({
@@ -80,6 +82,9 @@ def build_event_context(record_data=None):
             else context.get("output_path")
         ),
         "timeout_seconds": record_data.get("timeout_seconds"),
+        "gain_mode": rf.get("gain_mode", context.get("gain_mode")),
+        "gain_db": rf.get("gain_db", context.get("gain_db")),
+        "smart_gain": rf.get("smart_gain"),
     })
     return {key: value for key, value in context.items() if value is not None}
 
@@ -173,7 +178,7 @@ def build_record_command(pass_data=None):
     rf = config_core.get_weather_rf_config()
     if rf["lna_agc"]:
         command.extend(["--lna_agc", "true"])
-    elif rf["gain_mode"] == "manual":
+    elif rf["gain_mode"] in {"manual", "smart"}:
         command.extend(["--gain", str(rf["gain_db"])])
     if rf["dc_block"]:
         command.append("--dc_block")
@@ -194,6 +199,36 @@ def build_record_command(pass_data=None):
         "rf": rf,
         "command": command,
     }
+
+
+def resolve_record_gain(record_data):
+    """Probe Smart gain after Receiver Manager has handed over the tuner."""
+    from core import weather_smart_gain
+
+    rf = record_data.get("rf") or {}
+    pass_data = record_data.get("pass") or {}
+    device = record_data.get("device") or {}
+    selection = weather_smart_gain.resolve_capture_gain(
+        settings=rf,
+        receiver_serial=device.get("serial"),
+        frequency_hz=pass_data.get("frequency"),
+        sample_rate_hz=pass_data.get("sample_rate"),
+    )
+    rf.update(selection)
+    record_data["rf"] = rf
+
+    if selection["gain_mode"] == "smart":
+        rf["lna_agc"] = False
+        command = list(record_data.get("command") or [])
+        if "--lna_agc" in command:
+            index = command.index("--lna_agc")
+            del command[index:index + 2]
+        if "--gain" in command:
+            command[command.index("--gain") + 1] = str(selection["gain_db"])
+        else:
+            command.extend(["--gain", str(selection["gain_db"])])
+        record_data["command"] = command
+    return selection
 
 
 def align_timeout_to_pass_end(record_data, *, now_epoch=None):
@@ -388,6 +423,14 @@ def record_now():
             process="satdump",
         )
         receiver_manager.activate(mission_key=mission_key, mission_id=mission_id)
+
+        gain_selection = resolve_record_gain(data)
+        if gain_selection["gain_mode"] == "smart":
+            print("SDRCC_WEATHER_GAIN=" + json.dumps({
+                "gain_mode": gain_selection["gain_mode"],
+                "gain_db": gain_selection["gain_db"],
+                "smart_gain": gain_selection["smart_gain"],
+            }, separators=(",", ":")), flush=True)
 
         print()
         print("Starting SatDump...")

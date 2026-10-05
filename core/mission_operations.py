@@ -158,9 +158,14 @@ def _console_snapshot(
     """Project existing owner state into stable read-only dashboard sections."""
     summary = summary if isinstance(summary, dict) else {}
     active = bool(summary.get("active"))
+    is_sstv = (
+        summary.get("mission_type") == "iss_sstv"
+        or summary.get("plugin_id") == "iss_sstv"
+        or iss.get("mission_type") == "iss_sstv"
+    )
     is_iss = (
-        summary.get("mission_type") == "iss_voice"
-        or summary.get("plugin_id") == "iss_voice"
+        summary.get("mission_type") in {"iss_voice", "iss_sstv"}
+        or summary.get("plugin_id") in {"iss_voice", "iss_sstv"}
         or bool(iss.get("active"))
     )
     observer = scheduler.get("observer") if isinstance(scheduler.get("observer"), dict) else {}
@@ -217,9 +222,9 @@ def _console_snapshot(
             "output_path": summary.get("output_path") if active else None,
         },
         "decoder": {
-            "applicable": bool(active and not is_iss),
-            "pipeline": summary.get("pipeline") if active and not is_iss else None,
-            "status": "NOT APPLICABLE" if active and is_iss else _coalesce(summary.get("status") if active else None, "STANDBY"),
+            "applicable": bool(active and (not is_iss or is_sstv)),
+            "pipeline": summary.get("pipeline") if active and (not is_iss or is_sstv) else None,
+            "status": "NOT APPLICABLE" if active and is_iss and not is_sstv else _coalesce(summary.get("status") if active else None, "STANDBY"),
             "frames": summary.get("frames"),
             "cadu_bytes": summary.get("cadu_bytes"),
             "image_count": summary.get("image_count"),
@@ -264,8 +269,8 @@ def get_snapshot() -> dict[str, Any]:
         summary = {
             "mission_id": iss.get("mission_id"),
             "active": True,
-            "mission_type": "iss_voice",
-            "plugin_id": "iss_voice",
+            "mission_type": iss.get("mission_type") or "iss_voice",
+            "plugin_id": iss.get("plugin_id") or "iss_voice",
             "satellite": iss.get("satellite") or "ISS (ZARYA)",
             "receiver": _coalesce(
                 iss_receiver_device.get("number"),
@@ -277,7 +282,7 @@ def get_snapshot() -> dict[str, Any]:
             "frequency_mhz": round(float(iss.get("frequency_hz") or 0) / 1_000_000, 6),
             "sample_rate": iss.get("sample_rate_hz"),
             "mode": iss.get("mode"),
-            "pipeline": "wideband_iq_offline_fm",
+            "pipeline": iss.get("pipeline") or "wideband_iq_offline_fm",
             "status": iss.get("phase"),
             "result": None,
             "success": None,
@@ -293,6 +298,7 @@ def get_snapshot() -> dict[str, Any]:
             "iq_bytes": audio_monitor.get("iq_bytes"),
             "iq_byte_rate": audio_monitor.get("observed_byte_rate"),
             "audio_monitor_state": audio_monitor.get("stream_state"),
+            "image_count": int(iss.get("image_count") or 0),
         }
 
     console = _console_snapshot(summary, mission, rf, receiver, scheduler, iss, audio_monitor)

@@ -136,10 +136,10 @@
     }
   };
 
-  const setMode = (active, isIss) => {
+  const setMode = (active, isIss, isSstv = false) => {
     const badge = byId('mission-operations-mode-badge');
     if (!badge) return;
-    badge.textContent = active ? (isIss ? 'ISS LIVE' : 'WEATHER LIVE') : 'STANDBY';
+    badge.textContent = active ? (isSstv ? 'ISS SSTV LIVE' : (isIss ? 'ISS LIVE' : 'WEATHER LIVE')) : 'STANDBY';
     badge.className = `mission-operations-badge ${active ? 'live' : 'standby'} ${isIss ? 'is-iss' : ''}`.trim();
   };
   const setPreview = (monitor) => {
@@ -185,15 +185,17 @@
     const decoderConsole = consoleData.decoder || {};
     const runtimeConsole = consoleData.runtime || {};
     const active = Boolean(summary.active && missionConsole.active !== false);
-    const isIss = active && (
-      summary.mission_type === 'iss_voice' ||
+    const missionType = String(missionConsole.mission_type || summary.mission_type || summary.plugin_id || '');
+    const isIssSstv = active && missionType === 'iss_sstv';
+    const isIssVoice = active && (
+      missionType === 'iss_voice' ||
       summary.plugin_id === 'iss_voice' ||
-      missionConsole.mission_type === 'iss_voice' ||
-      Boolean(iss.active)
+      Boolean(iss.active && iss.mission_type !== 'iss_sstv')
     );
+    const isIss = isIssVoice || isIssSstv;
     const satellite = active ? (missionConsole.satellite || summary.satellite || 'Active mission') : null;
 
-    setMode(active, isIss);
+    setMode(active, isIss, isIssSstv);
     const liveCard = byId('mission-operations-live-card');
     liveCard?.classList.toggle('is-idle', !active);
     liveCard?.classList.toggle('is-active', active);
@@ -247,7 +249,7 @@
     text('mission-operations-recorder-rate', captureMetrics && recorderConsole.byte_rate ? `${formatBytes(recorderConsole.byte_rate)}/s` : '-');
     text('mission-operations-output', active ? (recorderConsole.output_path || summary.output_path || '-') : '-');
 
-    const decoderApplicable = Boolean(active && decoderConsole.applicable !== false && !isIss);
+    const decoderApplicable = Boolean(active && decoderConsole.applicable !== false && (!isIss || isIssSstv));
     byId('mission-operations-decoder-group')?.classList.toggle('hidden', !decoderApplicable);
     setStateBadge('mission-operations-decoder-state', decoderApplicable ? (decoderConsole.status || 'STANDBY') : 'NOT APPLICABLE');
     text('mission-operations-decoder-pipeline', decoderApplicable ? (decoderConsole.pipeline || summary.pipeline || '-') : '-');
@@ -280,7 +282,9 @@
     text('mission-operations-audio-sample-rate', audio.sample_rate_hz ? `${Number(audio.sample_rate_hz / 1000).toFixed(0)} kS/s` : '-');
     text('mission-operations-audio-transport', audio.transport === 'streaming_wav_pcm16' ? 'PCM WAV · 48 kHz' : '-');
     text('mission-operations-audio-listeners', `${Number(audio.active_clients || 0)} / ${Number(audio.max_clients || 3)}`);
-    text('mission-operations-audio-detail', audio.detail || 'Waiting for an active ISS Voice IQ recording.');
+    text('mission-operations-audio-detail', audio.detail || (isIssSstv
+      ? 'ISS SSTV audio is available during the scheduled capture.'
+      : 'Waiting for an active ISS Voice IQ recording.'));
     state.audioMonitor = audio;
     const play = byId('mission-operations-audio-play');
     if (play) {
@@ -316,6 +320,8 @@
     text('mission-operations-result-pipeline', mission.pipeline || (row.kind === 'audio' ? 'wideband_iq_offline_fm' : '-'));
     text('mission-operations-result-status', result);
     text('mission-operations-result-duration', mission.duration_seconds != null ? formatClock(mission.duration_seconds) : '-');
+    const rfRatio = Number(mission.rf_signal_metrics?.channel_to_wideband_db);
+    text('mission-operations-result-rf-ratio', Number.isFinite(rfRatio) ? `${rfRatio.toFixed(2)} dB` : 'N/A');
     const resultElement = byId('mission-operations-result-status');
     if (resultElement) {
       const tone = statusTone(result);
