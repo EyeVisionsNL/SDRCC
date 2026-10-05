@@ -175,8 +175,11 @@ def check_remote_version(timeout: float = 5.0) -> dict:
 def audio_setup_required() -> bool:
     try:
         from core.traffic_voice_denoise import capabilities
+        from core import iss_sstv
         engines = capabilities()
-        return any(not engines.get(name, {}).get("available") for name in ("speex", "rnnoise"))
+        audio_missing = any(not engines.get(name, {}).get("available") for name in ("speex", "rnnoise"))
+        sstv_missing = not iss_sstv.decoder_status("robot36").get("available")
+        return audio_missing or sstv_missing
     except (ImportError, OSError, RuntimeError):
         return True
 

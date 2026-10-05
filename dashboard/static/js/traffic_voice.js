@@ -12,6 +12,8 @@
     let channelSignature = "";
     let gainSignature = "";
     let audioOperation = 0;
+    let replayResumeLive = false;
+    let playingRecordingId = "";
     const speechFilterStorageKey = "sdrcc.trafficVoice.speechFilter";
     const speechFilterOptions = ["off", "light", "normal", "strong"];
     let speechFilter = "normal";
@@ -356,7 +358,9 @@
             "traffic-voice-rf-settings",
             (settings.gain_mode === "manual"
                 ? Number(settings.gain_db || 0).toFixed(1) + " dB"
-                : "AUTO GAIN")
+                : Number.isFinite(Number(settings.runtime_gain_db))
+                    ? "SMART " + Number(settings.runtime_gain_db).toFixed(1) + " dB fixed"
+                    : "SMART GAIN")
                 + " · " + Number(settings.squelch_snr_db || 0).toFixed(1) + " dB",
         );
     }
@@ -509,11 +513,122 @@
         }
     }
 
+    function renderMarineRecordings(payload) {
+        const section = byId("traffic-voice-recordings");
+        const list = byId("traffic-voice-recordings-list");
+        const status = byId("traffic-voice-recordings-status");
+        if (!section || !list) return;
+        const marineSelected = payload.selected_mode === "marine_ais";
+        section.hidden = !marineSelected;
+        if (!marineSelected) return;
+
+        const audioState = payload.audio || {};
+        const recordings = Array.isArray(audioState.marine_recordings)
+            ? audioState.marine_recordings
+            : [];
+        const active = recordings.some(recording => !recording.complete);
+        if (status) {
+            status.textContent = audioState.recording_listener_error
+                ? "Marine replay capture unavailable: " + audioState.recording_listener_error
+                : active
+                    ? "Recording the current transmission; replay is ready when it ends."
+                    : recordings.length
+                        ? recordings.length + " recent Marine transmission" + (recordings.length === 1 ? "" : "s") + " ready to replay."
+                        : "Waiting for the next Marine transmission.";
+        }
+
+        list.replaceChildren();
+        recordings.forEach(recording => {
+            if (!recording || typeof recording.id !== "string") return;
+            const row = document.createElement("div");
+            row.className = "traffic-voice-recording";
+            row.setAttribute("role", "listitem");
+
+            const copy = document.createElement("div");
+            copy.className = "traffic-voice-recording-copy";
+            const channel = document.createElement("strong");
+            const frequency = Number(recording.frequency_mhz);
+            const frequencyLabel = Number.isFinite(frequency) ? " · " + frequency.toFixed(3) + " MHz" : "";
+            channel.textContent = (recording.channel || "Marine transmission") + frequencyLabel;
+            const details = document.createElement("small");
+            const received = new Date(recording.received_at);
+            const timeLabel = Number.isFinite(received.getTime())
+                ? received.toLocaleTimeString(undefined, {hour: "2-digit", minute: "2-digit", second: "2-digit"})
+                : "Time unavailable";
+            const duration = Number.isFinite(Number(recording.duration_seconds))
+                ? Number(recording.duration_seconds).toFixed(1) + " s"
+                : "-";
+            details.textContent = timeLabel + " · " + duration;
+            copy.append(channel, details);
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "traffic-voice-button traffic-voice-recording-play";
+            button.dataset.recordingId = recording.id;
+            const isPlaying = playingRecordingId === recording.id;
+            button.textContent = !recording.complete
+                ? "Recording…"
+                : (isPlaying ? "■ Stop replay" : "▶ Replay");
+            button.disabled = !recording.complete || !recording.play_url;
+            button.setAttribute("aria-label", (isPlaying ? "Stop replay of " : "Replay ") + channel.textContent);
+            row.append(copy, button);
+            list.append(row);
+        });
+    }
+
+    function stopRecordingReplay(resumeLive = true) {
+        const replay = byId("traffic-voice-replay-audio");
+        const shouldResumeLive = replayResumeLive && resumeLive;
+        replayResumeLive = false;
+        playingRecordingId = "";
+        if (replay) {
+            replay.pause();
+            replay.removeAttribute("src");
+            replay.load();
+        }
+        if (shouldResumeLive) {
+            startAudio();
+        } else {
+            text("traffic-voice-audio-detail", "Saved Marine replay stopped.");
+        }
+        if (lastPayload) renderMarineRecordings(lastPayload);
+    }
+
+    async function playMarineRecording(recording) {
+        const replay = byId("traffic-voice-replay-audio");
+        const live = byId("traffic-voice-audio");
+        if (!replay || !recording?.play_url || !recording.complete) return;
+        if (playingRecordingId === recording.id) {
+            stopRecordingReplay(true);
+            return;
+        }
+        const switchingReplay = Boolean(playingRecordingId);
+        const resumeLiveAfterReplay = switchingReplay
+            ? replayResumeLive
+            : Boolean(live?.getAttribute("src"));
+        if (switchingReplay) stopRecordingReplay(false);
+        replayResumeLive = resumeLiveAfterReplay;
+        if (replayResumeLive) stopAudio();
+        playingRecordingId = recording.id;
+        replay.volume = Number(byId("traffic-voice-volume")?.value || 0.85);
+        replay.src = recording.play_url + "?replay=" + Date.now();
+        text("traffic-voice-audio-detail", "Replaying a saved Marine transmission.");
+        if (lastPayload) renderMarineRecordings(lastPayload);
+        try {
+            await replay.play();
+        } catch (error) {
+            if (error?.name === "AbortError") return;
+            text("traffic-voice-audio-detail", "Replay could not start: " + error.message);
+            stopRecordingReplay(true);
+        }
+    }
+
     function renderAudio(payload) {
         const audio = byId("traffic-voice-audio");
         const button = byId("traffic-voice-audio-toggle");
         const audioState = payload.audio || {};
         const modeChanged = payload.selected_mode !== audioMode && Boolean(audioPreferences[payload.selected_mode]);
+        if (modeChanged && playingRecordingId) stopRecordingReplay(false);
         const wasListening = Boolean(audio?.getAttribute("src"));
         if (modeChanged) selectAudioMode(payload.selected_mode);
         const engineSelect = byId("traffic-voice-denoise");
@@ -594,6 +709,7 @@
         renderSettings(payload, running);
         renderActivity(payload, modes);
         renderAudio(payload);
+        renderMarineRecordings(payload);
 
         text("traffic-voice-selected-mode", selected.label || displayToken(payload.selected_mode));
         text("traffic-voice-voice-receiver", receiverLabel(assignment.voice_receiver));
@@ -722,7 +838,7 @@
         return {
             tuning_mode: byId("traffic-voice-tuning-mode")?.value || "scan",
             selected_channel_id: byId("traffic-voice-channel-select")?.value || "",
-            gain_mode: byId("traffic-voice-auto-gain")?.checked ? "auto" : "manual",
+            gain_mode: byId("traffic-voice-auto-gain")?.checked ? "smart" : "manual",
             auto_gain: Boolean(byId("traffic-voice-auto-gain")?.checked),
             gain_db: Number(byId("traffic-voice-gain")?.value || 0),
             squelch_snr_db: Number(byId("traffic-voice-squelch")?.value || 0),
@@ -824,7 +940,17 @@
         byId("traffic-voice-audio-toggle")?.addEventListener("click", () => {
             const audio = byId("traffic-voice-audio");
             if (audio?.getAttribute("src")) stopAudio();
-            else startAudio();
+            else {
+                if (playingRecordingId) stopRecordingReplay(false);
+                startAudio();
+            }
+        });
+        byId("traffic-voice-recordings-list")?.addEventListener("click", event => {
+            const button = event.target.closest("button[data-recording-id]");
+            if (!button || button.disabled) return;
+            const recording = (lastPayload?.audio?.marine_recordings || [])
+                .find(item => item.id === button.dataset.recordingId);
+            if (recording) playMarineRecording(recording);
         });
         byId("traffic-voice-channel-filter")?.addEventListener("click", async () => {
             const settings = lastPayload?.receiver_settings || {};
@@ -836,7 +962,14 @@
         byId("traffic-voice-volume")?.addEventListener("input", event => {
             const audio = byId("traffic-voice-audio");
             if (audio) audio.volume = Number(event.target.value);
+            const replay = byId("traffic-voice-replay-audio");
+            if (replay) replay.volume = Number(event.target.value);
         });
+        const replayAudio = byId("traffic-voice-replay-audio");
+        ["ended", "error"].forEach(eventName => replayAudio?.addEventListener(eventName, () => {
+            if (!playingRecordingId) return;
+            stopRecordingReplay(true);
+        }));
         const liveAudio = byId("traffic-voice-audio");
         ["ended", "error"].forEach(eventName => liveAudio?.addEventListener(eventName, () => {
             if (!liveAudio.getAttribute("src")) return;
@@ -881,6 +1014,7 @@
 
     window.addEventListener("beforeunload", () => {
         if (refreshTimer !== null) window.clearInterval(refreshTimer);
+        stopRecordingReplay(false);
         stopAudio();
     }, {once: true});
 })();

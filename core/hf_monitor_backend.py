@@ -21,6 +21,16 @@ from typing import Any, Iterator
 
 import numpy as np
 
+from core.rtl_smart_gain import (
+    MAX_SMART_GAIN_DB,
+    MAX_PROBE_CHANNELS,
+    REFERENCE_GAIN_DB,
+    analyze_iq_samples,
+    choose_for_measurements,
+    choose_smart_gain_db,
+    closest_gain,
+)
+
 
 VERSION = "0.56.0d"
 BACKEND_ID = "librtlsdr_qbranch_dsp"
@@ -322,11 +332,40 @@ class _RtlSdrDevice:
 
     def set_gain(self, *, gain_mode: str, gain_db: float) -> dict[str, Any]:
         mode = str(gain_mode).strip().lower()
-        if mode not in {"auto", "manual"}:
-            raise ValueError("Radio Receiver gain mode must be auto or manual")
         if mode == "auto":
-            self._check(self.library.rtlsdr_set_tuner_gain_mode(self.device, 0), "automatic tuner gain")
-            self._check(self.library.rtlsdr_set_agc_mode(self.device, 1), "digital AGC")
+            mode = "smart"
+        if mode not in {"smart", "manual"}:
+            raise ValueError("Radio Receiver gain mode must be smart or manual")
+
+        measurement = None
+        selected_gain = float(gain_db)
+        if mode == "smart" and self.sampling_mode == "Q_BRANCH_DIRECT":
+            # The direct-sampling path bypasses the tuner entirely. Smart Gain
+            # therefore uses the receiver's digital AGC and reports that fact.
+            self._check(self.library.rtlsdr_set_tuner_gain_mode(self.device, 0), "bypassed tuner gain")
+            self._check(self.library.rtlsdr_set_agc_mode(self.device, 1), "direct-sampling digital AGC")
+        elif mode == "smart":
+            gains = self.available_gains_db()
+            reference = closest_gain(gains, REFERENCE_GAIN_DB)
+            self._check(self.library.rtlsdr_set_agc_mode(self.device, 0), "digital AGC off")
+            self._check(self.library.rtlsdr_set_tuner_gain_mode(self.device, 1), "Smart Gain reference mode")
+            self._check(
+                self.library.rtlsdr_set_tuner_gain(self.device, int(round(reference * 10.0))),
+                "Smart Gain reference value",
+            )
+            self._check(self.library.rtlsdr_reset_buffer(self.device), "Smart Gain buffer reset")
+            probe = self.read(READ_BYTES) + self.read(READ_BYTES)
+            measurement = analyze_iq_samples(
+                probe,
+                sample_rate_hz=self.sample_rate_hz,
+                channel_bandwidth_hz=20_000,
+            )
+            selected_gain = choose_smart_gain_db(measurement, gains)
+            self._check(
+                self.library.rtlsdr_set_tuner_gain(self.device, int(round(selected_gain * 10.0))),
+                "Smart Gain selected value",
+            )
+            self._check(self.library.rtlsdr_reset_buffer(self.device), "Smart Gain final buffer reset")
         else:
             self._check(self.library.rtlsdr_set_agc_mode(self.device, 0), "digital AGC off")
             if self.sampling_mode == "QUADRATURE_TUNER":
@@ -339,13 +378,16 @@ class _RtlSdrDevice:
                 # direct-sampling ADC gain with RTL digital AGC disabled.
                 self._check(self.library.rtlsdr_set_tuner_gain_mode(self.device, 0), "bypassed tuner gain")
         actual = round(float(self.library.rtlsdr_get_tuner_gain(self.device)) / 10.0, 1)
-        return {
+        result = {
             "gain_mode": mode,
-            "gain_db": float(gain_db),
+            "gain_db": selected_gain,
             "actual_tuner_gain_db": actual,
             "manual_gain_effective": self.sampling_mode == "QUADRATURE_TUNER",
-            "digital_agc": mode == "auto",
+            "digital_agc": mode == "smart" and self.sampling_mode == "Q_BRANCH_DIRECT",
+            "smart_gain_db": selected_gain if mode == "smart" and self.sampling_mode == "QUADRATURE_TUNER" else None,
+            "smart_gain_measurement": measurement,
         }
+        return result
 
     def open(self, *, gain_mode: str = "auto", gain_db: float = 28.0) -> dict[str, Any]:
         count = int(self.library.rtlsdr_get_device_count())
@@ -400,6 +442,78 @@ class _RtlSdrDevice:
                 self.library.rtlsdr_close(self.device)
             finally:
                 self.device = ctypes.c_void_p()
+
+
+def probe_smart_gain_for_channels(
+    *,
+    serial: str,
+    frequencies_hz: list[int],
+    minimum_snr_db: float = 4.0,
+    channel_bandwidth_hz: int = 20_000,
+    sample_rate_hz: int = SAMPLE_RATE_HZ,
+    reference_gain_db: float = REFERENCE_GAIN_DB,
+    maximum_gain_db: float = MAX_SMART_GAIN_DB,
+) -> dict[str, Any]:
+    """Probe a bounded tuner-path channel set before its main receiver opens."""
+    frequencies = list(dict.fromkeys(int(value) for value in frequencies_hz))[:MAX_PROBE_CHANNELS]
+    if not frequencies or any(value < 25_000_000 for value in frequencies):
+        raise ValueError("Traffic Voice Smart Gain needs one or more tuner-path frequencies")
+    device = _RtlSdrDevice(
+        serial=str(serial),
+        center_frequency_hz=frequencies[0],
+        sample_rate_hz=int(sample_rate_hz),
+    )
+    measurements: list[dict[str, Any]] = []
+    try:
+        initial_gains = device.open(gain_mode="manual", gain_db=float(reference_gain_db))
+        from core import config as config_core
+        supported = set(config_core.get_rtl_sdr_valid_gains())
+        available = [
+            gain for gain in (initial_gains.get("valid_gains") or [])
+            if float(gain) in supported
+        ]
+        reference = closest_gain(
+            available,
+            float(reference_gain_db),
+            maximum_gain_db=float(maximum_gain_db),
+        )
+        if reference != float(reference_gain_db):
+            device._check(
+                device.library.rtlsdr_set_tuner_gain(device.device, int(round(reference * 10.0))),
+                "Traffic Voice Smart Gain reference value",
+            )
+            device._check(
+                device.library.rtlsdr_reset_buffer(device.device),
+                "Traffic Voice Smart Gain reference buffer reset",
+            )
+
+        for frequency_index, frequency in enumerate(frequencies):
+            if frequency_index:
+                device.retune(frequency)
+            payload = device.read(READ_BYTES) + device.read(READ_BYTES)
+            reading = analyze_iq_samples(
+                payload,
+                sample_rate_hz=int(sample_rate_hz),
+                channel_bandwidth_hz=channel_bandwidth_hz,
+            )
+            measurements.append({"frequency_hz": frequency, **reading})
+
+        gain_db, strongest = choose_for_measurements(
+            measurements,
+            available,
+            minimum_snr_db=minimum_snr_db,
+            reference_gain_db=reference,
+            maximum_gain_db=float(maximum_gain_db),
+        )
+        return {
+            "gain_db": gain_db,
+            "reference_gain_db": reference,
+            "probed_channels": len(measurements),
+            "measurement": strongest,
+            "measurements": measurements,
+        }
+    finally:
+        device.close()
 
 
 _lock = threading.Condition(threading.RLock())
@@ -784,6 +898,8 @@ def get_status() -> dict[str, Any]:
             "rf_controls": {
                 "gain_mode": str(_settings.get("gain_mode") or "auto"),
                 "gain_db": float(_settings.get("gain_db") or 0.0),
+                "smart_gain_db": _settings.get("smart_gain_db"),
+                "smart_gain_measurement": _settings.get("smart_gain_measurement"),
                 "actual_tuner_gain_db": _settings.get("actual_tuner_gain_db"),
                 "manual_gain_effective": bool(_settings.get("manual_gain_effective")),
                 "digital_agc": bool(_settings.get("digital_agc", True)),

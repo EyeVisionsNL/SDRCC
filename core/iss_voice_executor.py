@@ -13,7 +13,7 @@ from typing import Any, Callable
 import time
 
 from core import device_manager, execution_factory, execution_journal, event_bus
-from core import iss_voice, iss_voice_audio, iss_voice_runtime, mission_history, receiver_manager, wideband_iq_recorder
+from core import iss_smart_gain, iss_sstv, iss_voice, iss_voice_audio, iss_voice_runtime, mission_history, receiver_manager, wideband_iq_recorder
 
 ServiceState = Callable[[str], dict[str, Any]]
 ServiceAction = Callable[[str, str], Any]
@@ -50,15 +50,33 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     validation = iss_voice.validate_config()
     if not validation["ok"]:
         raise RuntimeError("ISS Voice-config ongeldig: " + "; ".join(validation["errors"]))
-    cfg = validation["config"]
+    mission_type = str(target.get("mission_type") or "iss_voice").strip().lower()
+    is_sstv = mission_type == "iss_sstv"
+    if mission_type not in {"iss_voice", "iss_sstv"}:
+        raise RuntimeError(f"Unsupported ISS mission type: {mission_type}")
+    plugin_id = "iss_sstv" if is_sstv else "iss_voice"
+    mission_label = "ISS SSTV" if is_sstv else "ISS Voice"
+    cfg = dict(validation["config"])
     if not bool(cfg.get("execution_enabled")) or not bool(cfg.get("receiver_claim_enabled")):
         raise RuntimeError("ISS Voice automatic execution is disabled")
+
+    sstv_event = None
+    decoder_check = None
+    if is_sstv:
+        sstv_event = iss_sstv.get_settings()
+        if not iss_sstv.pass_is_in_event(target, sstv_event):
+            raise RuntimeError("Queued ISS SSTV pass is outside the current event window")
+        decoder_check = iss_sstv.decoder_status(sstv_event["mode"])
+        if not decoder_check["available"]:
+            raise RuntimeError("ISS SSTV decoder is unavailable: " + str(decoder_check.get("error") or "unknown error"))
+        cfg["downlink_frequency_hz"] = int(sstv_event["frequency_hz"])
+        cfg["sstv_mode"] = sstv_event["mode"]
 
     device = device_manager.get_assigned_device("iss_voice")
     if device is None:
         raise RuntimeError("Geen receiver toegewezen aan ISS Voice")
 
-    mission_id = "iss_voice_" + datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+    mission_id = ("iss_sstv_" if is_sstv else "iss_voice_") + datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
     mission_key = str(mission_key or f"iss_voice:{mission_id}")
     planned_duration = max(1, min(int(target.get("duration_seconds") or 1), 1200))
     duration = planned_duration
@@ -70,11 +88,13 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     failure: Exception | None = None
     capture: dict[str, Any] | None = None
     audio: dict[str, Any] | None = None
+    image_decode: dict[str, Any] | None = None
 
     plan = execution_factory.build_plan_with_journal("iss_voice", {
         "mode": "automatic_pass", "target": target.get("name") or cfg.get("satellite_name"),
         "receiver_role": "iss_voice", "receiver_id": device["id"],
         "duration_seconds": planned_duration, "frequency": int(cfg["downlink_frequency_hz"]),
+        "mission_type": mission_type,
         "pass_contract": {
             key: target.get(key)
             for key in (
@@ -94,9 +114,12 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
             receiver_serial=device.get("serial"), satellite=target.get("name") or cfg.get("satellite_name"),
             frequency_hz=int(cfg["downlink_frequency_hz"]), sample_rate_hz=int(cfg["rf_sample_rate_hz"]),
             duration_seconds=planned_duration, mode=cfg.get("modulation", "NFM"), phase="PREPARING",
+            mission_type=mission_type, plugin_id=plugin_id,
+            pipeline="wideband_iq_offline_sstv" if is_sstv else "wideband_iq_offline_fm",
+            sstv_mode=(sstv_event or {}).get("mode"), image_count=0,
             queue_key=target.get("queue_key"), start_epoch=target.get("start_epoch"),
             maximum_epoch=target.get("maximum_epoch"), end_epoch=target.get("end_epoch"),
-            detail="Preparing receiver for ISS Voice capture",
+            detail=f"Preparing receiver for {mission_label} capture",
         )
         conflicts = device_manager.get_conflicting_services(device["id"], exclude_role="iss_voice")
         iss_voice_runtime.update(
@@ -108,7 +131,7 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
             device["id"],
             mission_key=mission_key,
             mission_id=mission_id,
-            reason="ISS Voice automatic mission",
+            reason=f"{mission_label} automatic mission",
             services=conflicts,
             service_state=service_state,
             service_action=service_action,
@@ -136,23 +159,31 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         if end_epoch:
             remaining = end_epoch - int(time.time())
             if remaining <= 0:
-                raise RuntimeError("ISS Voice pass window ended before capture could start")
+                raise RuntimeError(f"{mission_label} pass window ended before capture could start")
             duration = max(1, min(planned_duration, remaining, 1200))
             iss_voice_runtime.update(
                 duration_seconds=duration,
                 detail="Receiver ready; capture bounded by the planned falling edge",
             )
 
+        gain_selection = iss_smart_gain.resolve_capture_gain(
+            config=cfg,
+            receiver_serial=device["serial"],
+            frequency_hz=int(cfg["downlink_frequency_hz"]),
+            sample_rate_hz=int(cfg["rf_sample_rate_hz"]),
+        )
         spec = wideband_iq_recorder.build_spec(
             mission_id=mission_id, receiver_serial=device["serial"],
             frequency_hz=int(cfg["downlink_frequency_hz"]), sample_rate_hz=int(cfg["rf_sample_rate_hz"]),
-            duration_seconds=duration, gain_db=iss_voice.capture_gain_db(cfg), ppm=int(cfg.get("ppm") or 0),
+            duration_seconds=duration, gain_db=gain_selection["gain_db"],
+            gain_mode=gain_selection["gain_mode"], smart_gain=gain_selection["smart_gain"],
+            ppm=int(cfg.get("ppm") or 0),
         )
         output_dir = spec.output_directory
         iss_voice_runtime.update(
             phase="STARTING_CAPTURE", output_directory=str(spec.output_directory), iq_path=str(spec.iq_path),
             metadata_path=str(spec.metadata_path), stopped_services=stopped_services,
-            detail="Starting and verifying RTL-SDR capture",
+            detail=f"Starting and verifying RTL-SDR capture for {mission_label}",
         )
 
         def capture_started(start_metadata: dict[str, Any]) -> None:
@@ -162,12 +193,12 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
                 capture_started_at=start_metadata.get("capture_started_at"),
                 startup_bytes=start_metadata.get("startup_bytes"),
                 capture_attempt=start_metadata.get("active_attempt"),
-                detail="Wideband IQ recording verified active",
+                detail=f"Wideband IQ recording verified active for {mission_label}",
             )
             event_bus.publish_receiver(
-                "SUCCESS", "ISS Voice IQ recording verified",
+                "SUCCESS", f"{mission_label} IQ recording verified",
                 f"{int(cfg['downlink_frequency_hz']) / 1_000_000:.4f} MHz at {int(cfg['rf_sample_rate_hz']) / 1000:.0f} kS/s",
-                data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device["id"],
+                data={"plugin_id": plugin_id, "mission_id": mission_id, "receiver_id": device["id"],
                       "frequency_hz": int(cfg["downlink_frequency_hz"]), "sample_rate_hz": int(cfg["rf_sample_rate_hz"]),
                       "iq_path": str(spec.iq_path), "duration_seconds": duration,
                       "pid": start_metadata.get("capture_pid"), "attempt": start_metadata.get("active_attempt")},
@@ -183,23 +214,34 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         )
         if not capture.get("complete"):
             stderr = str(capture.get("stderr") or "").strip()
-            detail = f"IQ-opname onvolledig (returncode {capture.get('returncode')}, {capture.get('actual_bytes')} bytes)"
+            if capture.get("failure_reason") == "tuner_pll_lock_not_confirmed":
+                attempts = int(capture.get("attempt_count") or 0)
+                detail = (
+                    "IQ-opname afgebroken: de tuner bevestigde geen PLL-lock "
+                    f"na {attempts} opnamepoging(en)."
+                )
+            else:
+                detail = (
+                    "IQ-opname onvolledig "
+                    f"(returncode {capture.get('returncode')}, "
+                    f"{capture.get('actual_bytes')} bytes)"
+                )
             if stderr:
                 detail += f": {stderr[-1000:]}"
             raise RuntimeError(detail)
         iss_voice_runtime.update(
             phase="DEMODULATING", iq_bytes=capture.get("actual_bytes"),
-            detail="IQ capture complete; creating audio",
+            detail=f"IQ capture complete; creating {mission_label} audio",
         )
         event_bus.publish_receiver(
-            "SUCCESS", "ISS Voice IQ recording completed",
+            "SUCCESS", f"{mission_label} IQ recording completed",
             f"{int(capture.get('actual_bytes') or 0):,} bytes written",
-            data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device["id"],
+            data={"plugin_id": plugin_id, "mission_id": mission_id, "receiver_id": device["id"],
                   "iq_path": capture.get("iq_path"), "size_bytes": capture.get("actual_bytes")},
         )
         event_bus.publish_mission(
-            "INFO", "ISS Voice audio processing started", mission_id,
-            data={"plugin_id": "iss_voice", "mission_id": mission_id},
+            "INFO", f"{mission_label} audio processing started", mission_id,
+            data={"plugin_id": plugin_id, "mission_id": mission_id},
         )
         audio = iss_voice_audio.demodulate_mission(mission_id, cfg)
         wav_path_value = audio.get("wav_path")
@@ -211,21 +253,47 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
                 "WAV-validatie mislukt "
                 f"(bytes={wav_bytes}, duur={wav_duration:.3f}s, minimum={minimum_duration:.3f}s)"
             )
-        iss_voice_runtime.update(
-            phase="FINALIZING", wav_path=wav_path_value, wav_bytes=wav_bytes,
-            audio_duration_seconds=wav_duration,
-            detail="Audio validated; restoring receiver context",
-        )
-        event_bus.publish_mission(
-            "SUCCESS", "ISS Voice audio created", str(audio.get("wav_path") or "audio.wav"),
-            data={"plugin_id": "iss_voice", "mission_id": mission_id, "wav_path": audio.get("wav_path")},
-        )
+        if is_sstv:
+            iss_voice_runtime.update(
+                phase="DECODING_SSTV", wav_path=wav_path_value, wav_bytes=wav_bytes,
+                audio_duration_seconds=wav_duration, sstv_mode=sstv_event["mode"],
+                detail=f"Audio validated; decoding {sstv_event['mode'].upper()} images",
+            )
+            image_decode = iss_sstv.decode_wav(
+                wav_path_value, mode=sstv_event["mode"], event=sstv_event
+            )
+            image_count = int(image_decode.get("image_count") or 0)
+            iss_voice_runtime.update(
+                phase="FINALIZING", image_count=image_count,
+                decoded_images=image_decode.get("images") or [],
+                detail=(
+                    f"Decoded {image_count} {sstv_event['mode'].upper()} image(s); restoring receiver context"
+                    if image_count else "No SSTV image sync found in this pass; restoring receiver context"
+                ),
+            )
+            event_bus.publish_mission(
+                "SUCCESS" if image_count else "WARNING",
+                f"{mission_label} images decoded" if image_count else "No ISS SSTV images decoded",
+                f"{image_count} image(s) saved" if image_count else "The RF capture completed, but no SSTV image sync was decoded.",
+                data={"plugin_id": plugin_id, "mission_id": mission_id,
+                      "image_count": image_count, "images": image_decode.get("images") or []},
+            )
+        else:
+            iss_voice_runtime.update(
+                phase="FINALIZING", wav_path=wav_path_value, wav_bytes=wav_bytes,
+                audio_duration_seconds=wav_duration,
+                detail="Audio validated; restoring receiver context",
+            )
+            event_bus.publish_mission(
+                "SUCCESS", "ISS Voice audio created", str(audio.get("wav_path") or "audio.wav"),
+                data={"plugin_id": plugin_id, "mission_id": mission_id, "wav_path": audio.get("wav_path")},
+            )
     except Exception as exc:
         failure = exc
         iss_voice_runtime.update(phase="FAILED", detail=str(exc), error=str(exc))
         event_bus.publish_mission(
-            "ERROR", "ISS Voice capture failed", str(exc),
-            data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device.get("id")},
+            "ERROR", f"{mission_label} capture failed", str(exc),
+            data={"plugin_id": plugin_id, "mission_id": mission_id, "receiver_id": device.get("id")},
         )
     finally:
         restore_errors = []
@@ -294,23 +362,54 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
     ended = datetime.now().astimezone()
     wav_path = (audio or {}).get("wav_path")
     wav_size = Path(wav_path).stat().st_size if wav_path and Path(wav_path).exists() else 0
+    sstv_images = list((image_decode or {}).get("images") or [])
+    image_count = len(sstv_images)
+    if failure is not None:
+        mission_result = "FAILED"
+        mission_detail = str(failure)
+    elif is_sstv and image_count == 0:
+        mission_result = "NO IMAGES"
+        mission_detail = "ISS SSTV IQ and WAV capture completed; no image sync was decoded."
+    elif is_sstv:
+        mission_result = "SUCCESS"
+        mission_detail = f"ISS SSTV capture decoded {image_count} {sstv_event['mode'].upper()} image(s)."
+    else:
+        mission_result = "SUCCESS"
+        mission_detail = "ISS Voice WAV recording created"
+    recordings = []
+    if wav_size:
+        recordings.append({
+            "type": "audio", "format": "wav", "name": Path(wav_path).name,
+            "path": wav_path, "size_bytes": wav_size,
+        })
+    recordings.extend(sstv_images)
     history = {
         "mission_id": mission_id, "satellite": target.get("name") or cfg.get("satellite_name"),
-        "mission_type": "iss_voice", "plugin_id": "iss_voice", "frequency": int(cfg["downlink_frequency_hz"]),
+        "mission_type": mission_type, "plugin_id": plugin_id, "frequency": int(cfg["downlink_frequency_hz"]),
         "sample_rate": int(cfg["rf_sample_rate_hz"]), "audio_sample_rate": int(cfg["audio_sample_rate_hz"]),
-        "gain_mode": cfg.get("gain_mode", "auto"), "gain_db": iss_voice.capture_gain_db(cfg),
+        "gain_mode": (capture or {}).get("gain_mode", cfg.get("gain_mode", "auto")),
+        "gain_db": (capture or {}).get("gain_db", iss_voice.capture_gain_db(cfg)),
+        "smart_gain": (capture or {}).get("smart_gain"),
         "squelch_enabled": bool(cfg.get("squelch_enabled", False)),
         "squelch_threshold_dbfs": float(cfg.get("squelch_threshold_dbfs", -42.0)),
-        "mode": cfg.get("modulation", "NFM"), "pipeline": "wideband_iq_offline_fm",
+        "mode": f"NFM · {sstv_event['mode'].upper()}" if is_sstv else cfg.get("modulation", "NFM"),
+        "pipeline": "wideband_iq_offline_sstv" if is_sstv else "wideband_iq_offline_fm",
+        "sstv_event": sstv_event.get("name") if sstv_event else None,
+        "sstv_mode": sstv_event.get("mode") if sstv_event else None,
         "receiver": device.get("number"), "receiver_id": device.get("id"), "receiver_serial": device.get("serial"),
         "output_path": str(output_dir) if output_dir else "", "created_at": started.strftime("%Y-%m-%d %H:%M:%S"),
         "started_at": started.strftime("%Y-%m-%d %H:%M:%S"), "ended_at": ended.strftime("%Y-%m-%d %H:%M:%S"),
-        "duration_seconds": int((ended-started).total_seconds()), "success": failure is None,
-        "result": "SUCCESS" if failure is None else "FAILED", "detail": "ISS Voice WAV recording created" if failure is None else str(failure),
-        "error": str(failure) if failure else None, "image_count": 0, "recording_count": 1 if wav_size else 0,
-        "audio_content_assessment": "UNASSESSED",
-        "recordings": ([{"type": "audio", "format": "wav", "name": Path(wav_path).name,
-                         "path": wav_path, "size_bytes": wav_size}] if wav_size else []),
+        "duration_seconds": int((ended-started).total_seconds()),
+        "success": failure is None and mission_result == "SUCCESS",
+        "result": mission_result, "detail": mission_detail,
+        "error": str(failure) if failure else (mission_detail if mission_result == "NO IMAGES" else None),
+        "image_count": image_count, "recording_count": len(recordings),
+        "audio_content_assessment": (
+            "UNASSESSED" if not is_sstv else ("IMAGES DECODED" if image_count else "NO SSTV IMAGE SYNC")
+        ),
+        "rf_signal_metrics": (audio or {}).get("signal_metrics"),
+        "sstv_decode": image_decode,
+        "recordings": recordings,
         "execution_id": execution_id,
         "planning_profile_id": target.get("planning_profile_id"),
         "minimum_peak_elevation": target.get("minimum_peak_elevation"),
@@ -330,14 +429,16 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         wav_path=(audio or {}).get("wav_path"),
     )
     event_bus.publish_mission(
-        "SUCCESS" if failure is None else "ERROR",
-        "ISS Voice mission completed" if failure is None else "ISS Voice mission failed",
+        "ERROR" if failure is not None else ("WARNING" if mission_result == "NO IMAGES" else "SUCCESS"),
+        f"{mission_label} mission completed" if failure is None else f"{mission_label} mission failed",
         history["detail"],
-        data={"plugin_id": "iss_voice", "mission_id": mission_id, "receiver_id": device.get("id"),
-              "execution_id": execution_id, "success": failure is None},
+        data={"plugin_id": plugin_id, "mission_id": mission_id, "receiver_id": device.get("id"),
+              "execution_id": execution_id, "success": history["success"],
+              "image_count": image_count},
     )
     if failure:
         raise failure
     return {"ok": True, "version": "0.56.0i", "mission": history,
             "capture": capture, "audio": audio, "iq_retention": iq_retention,
+            "image_decode": image_decode,
             "stopped_and_restored_services": stopped_services}

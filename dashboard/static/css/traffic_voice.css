@@ -483,6 +483,93 @@
     font-size: 0.74rem;
 }
 
+.traffic-voice-recordings {
+    margin-top: 10px;
+    padding: 12px;
+    background: #0a1626;
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-radius: 9px;
+}
+
+.traffic-voice-recordings[hidden] {
+    display: none;
+}
+
+.traffic-voice-recordings-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.traffic-voice-recordings-heading span {
+    color: #67e8f9;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+}
+
+.traffic-voice-recordings-heading h3 {
+    margin: 3px 0 0;
+    color: #dbeafe;
+    font-size: 0.95rem;
+}
+
+.traffic-voice-recordings-heading small,
+.traffic-voice-recordings-status {
+    color: #8fa7c5;
+    font-size: 0.72rem;
+}
+
+.traffic-voice-recordings-status {
+    margin: 8px 0;
+}
+
+.traffic-voice-recordings-list {
+    display: grid;
+    gap: 6px;
+}
+
+.traffic-voice-recording {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: #07111f;
+    border: 1px solid #26364b;
+    border-radius: 7px;
+}
+
+.traffic-voice-recording-copy {
+    min-width: 0;
+}
+
+.traffic-voice-recording-copy strong,
+.traffic-voice-recording-copy small {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.traffic-voice-recording-copy strong {
+    color: #cbd5e1;
+    font-size: 0.76rem;
+}
+
+.traffic-voice-recording-copy small {
+    margin-top: 3px;
+    color: #71859f;
+    font-size: 0.68rem;
+}
+
+.traffic-voice-recording-play {
+    min-width: 94px;
+}
+
+.traffic-voice-replay-audio {
+    display: none;
+}
+
 .traffic-voice-audio {
     display: none;
 }

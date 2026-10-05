@@ -77,6 +77,9 @@ def main() -> None:
     check('id="iss-voice-settings-form"' in radio_html, "ISS Voice settings form is present")
     check('id="iss-voice-squelch-enabled"' in radio_html, "ISS squelch control is present")
     check('id="iss-voice-squelch-threshold"' in radio_html, "ISS squelch threshold control is present")
+    check('<option value="smart">Smart</option>' in radio_html, "ISS Voice exposes the measured Smart gain mode")
+    check("Smart measures the 50 kHz ISS channel before recording" in radio_html, "ISS Smart mode explains its probe and fixed-gain behavior")
+    check("bounded to 25.4 dB" in radio_html and "option.disabled = smart" in radio_js, "ISS Smart fallback UI enforces the bounded gain range")
     check("browser volume remains in Mission Operations" in radio_html, "ISS card distinguishes squelch from browser volume")
 
     check("radio-page-v0540g" in radio_css and "radio-panel-v0540g" in radio_css, "Queue-style Radio layout is scoped")
@@ -113,8 +116,8 @@ def main() -> None:
         or ("NfmChannelDecoder" in live_source and "self.squelch.process(channel_iq, audio)" in shared_channel_source),
         "live WAV applies RF-power squelch",
     )
-    check("iss_voice.capture_gain_db(cfg)" in executor_source, "automatic ISS missions honor managed tuner gain")
-    check("iss_voice.capture_gain_db(config)" in controlled_source, "controlled ISS captures honor managed tuner gain")
+    check("iss_smart_gain.resolve_capture_gain" in executor_source, "automatic ISS missions resolve Smart gain after receiver handover")
+    check("iss_smart_gain.resolve_capture_gain" in controlled_source, "controlled ISS captures use the shared Smart gain resolver")
 
     validation = iss_voice.validate_config()
     check(validation["ok"], "existing ISS Voice configuration remains valid without new keys")
@@ -141,6 +144,8 @@ def main() -> None:
         iss_voice.capture_gain_db(manual_config) == 37.2,
         "manual gain retains the configured rtl_sdr gain argument",
     )
+    bounded_smart = iss_voice.get_settings({"gain_mode": "smart", "gain_db": 37.2})
+    check(bounded_smart["gain_db"] == 25.4, "Smart mode clamps an older high fallback to its 25.4 dB limit")
 
     original_config_file = iss_voice.CONFIG_FILE
     try:
@@ -158,6 +163,19 @@ def main() -> None:
             check(saved["gain_mode"] == "manual" and iss_voice.capture_gain_db(document["iss_voice"]) == 37.2, "manual ISS tuner gain is validated and persisted")
             check(saved["squelch_enabled"] is True and saved["squelch_threshold_dbfs"] == -39, "ISS squelch settings are persisted")
             check(document["iss_voice"]["downlink_frequency_hz"] == 437800000, "ISS settings write preserves unrelated mission configuration")
+            smart_saved = iss_voice.set_settings({
+                "gain_mode": "smart",
+                "gain_db": 3.7,
+                "squelch_enabled": False,
+                "squelch_threshold_dbfs": -42,
+            })
+            check(smart_saved["gain_mode"] == "smart" and smart_saved["gain_db"] == 3.7, "Smart mode and its configured fallback gain are persisted")
+            try:
+                iss_voice.set_settings({"gain_mode": "smart", "gain_db": 37.2})
+                high_smart_gain_rejected = False
+            except ValueError:
+                high_smart_gain_rejected = True
+            check(high_smart_gain_rejected, "Smart mode rejects fallback gains above 25.4 dB")
             try:
                 iss_voice.set_settings({"squelch_threshold_dbfs": -80})
                 invalid_rejected = False
@@ -188,8 +206,8 @@ def main() -> None:
 
     check(
         "v=0.54.0g" in html
-        and any(version in html for version in ('radio.js?v=0.54.0g', 'radio.js?v=0.54.0h-r2')),
-        "Radio assets use an approved v0.54.0g/v0.54.0h cache bust",
+        and 'radio.js?v=0.63.10' in html,
+        "Radio assets use the v0.63.10 cache bust",
     )
     print("VALIDATION PASS: SDRCC v0.54.0g Radio Control Clarity and ISS Voice Squelch")
 

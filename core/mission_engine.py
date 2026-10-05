@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
@@ -91,6 +92,7 @@ class MissionJob:
     sample_rate: Optional[int] = None
     gain_mode: Optional[str] = None
     gain_db: Optional[float] = None
+    smart_gain: Optional[dict] = None
     dc_block: Optional[bool] = None
     iq_swap: Optional[bool] = None
     quality_score: Optional[int] = None
@@ -330,6 +332,32 @@ class MissionEngine:
                     "progress": calculate_progress(new_state),
                 },
             )
+
+    def update_gain(self, *, gain_mode=None, gain_db=None, smart_gain=None):
+        """Record the measured fixed gain on the active Weather mission."""
+        with self._lock:
+            if self.active_job is None:
+                return None
+            if gain_mode is not None:
+                self.active_job.gain_mode = str(gain_mode)
+            if gain_db is not None:
+                self.active_job.gain_db = float(gain_db)
+            if smart_gain is not None:
+                self.active_job.smart_gain = deepcopy(smart_gain)
+            self.updated_at = self._now()
+            job = self.active_job.to_dict()
+            self._log(
+                "Weather Smart Gain vastgelegd: "
+                f"{job.get('gain_db')} dB ({job.get('gain_mode')})"
+            )
+
+        event_bus.publish_mission(
+            "INFO",
+            "Weather receiver gain resolved",
+            f"{job.get('gain_db')} dB ({job.get('gain_mode')})",
+            data=job,
+        )
+        return job
 
     def next_state(self):
         index = STATE_ORDER.index(self.state)
@@ -589,6 +617,15 @@ def mission_finish_job(
         result=result,
         detail=detail,
         metrics=metrics,
+    )
+    return get_mission_status()
+
+
+def mission_update_gain(*, gain_mode=None, gain_db=None, smart_gain=None):
+    mission_engine.update_gain(
+        gain_mode=gain_mode,
+        gain_db=gain_db,
+        smart_gain=smart_gain,
     )
     return get_mission_status()
 

@@ -105,8 +105,8 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
     if str(settings.get("selected_mode") or "").upper() not in MODE_ORDER:
         errors.append("selected_mode is invalid")
     gain_mode = str(settings.get("gain_mode") or "auto").strip().lower()
-    if gain_mode not in {"auto", "manual"}:
-        errors.append("gain_mode must be auto or manual")
+    if gain_mode not in {"auto", "smart", "manual"}:
+        errors.append("gain_mode must be smart or manual")
     valid_gains = config_core.get_rtl_sdr_valid_gains()
     try:
         gain_db = float(settings.get("gain_db"))
@@ -200,8 +200,10 @@ def validate_rf_controls(controls: dict[str, Any] | None = None) -> dict[str, An
     settings = _settings()
     source = controls if isinstance(controls, dict) else {}
     gain_mode = str(source.get("gain_mode", settings.get("gain_mode", "auto"))).strip().lower()
-    if gain_mode not in {"auto", "manual"}:
-        raise ValueError("Gain mode must be auto or manual")
+    if gain_mode == "auto":
+        gain_mode = "smart"
+    if gain_mode not in {"smart", "manual"}:
+        raise ValueError("Gain mode must be smart or manual")
     try:
         gain_db = float(source.get("gain_db", settings.get("gain_db", 28.0)))
     except (TypeError, ValueError) as error:

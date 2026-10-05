@@ -3,6 +3,7 @@
 set -euo pipefail
 PROJECT_ROOT="$(realpath "${1:?SDRCC project path required}")"
 MODE="${2:---install}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME="$PROJECT_ROOT/data/audio-comparison/runtime"
 RNNOISE_COMMIT="904a876dce1f9ab8860c0a5000ed151f9f6eef58"
 MODEL="rnnoise_data-0b50c45.tar.gz"
@@ -11,6 +12,7 @@ case "$MODE" in --install|--refresh|--check) ;; *) echo 'Unknown mode'; exit 2;;
 [[ -f "$PROJECT_ROOT/VERSION" ]] || { echo 'Not an SDRCC project'; exit 2; }
 # --refresh remains a compatibility option for older updater helpers.
 if [[ "$MODE" == --refresh && ! -f "$RUNTIME/BUILD-PROVENANCE" ]]; then exit 0; fi
+bash "$SCRIPT_DIR/prepare_iss_sstv_decoder.sh" "$PROJECT_ROOT" "$MODE"
 runtime_ready(){
   [[ -f "$RUNTIME/BUILD-PROVENANCE" ]] || return 1
   grep -Fxq "rnnoise_commit=$RNNOISE_COMMIT" "$RUNTIME/BUILD-PROVENANCE" || return 1

@@ -74,7 +74,7 @@
         if (data.can_complete_audio_setup) {
             badge.textContent = "AUDIO SETUP NEEDED";
             installButton.disabled = false;
-            setResult("SDRCC is current; complete installation of the audio libraries.", "warn");
+            setResult("SDRCC is current; complete audio processing and ISS SSTV decoder setup.", "warn");
         } else if (data.update_available) {
             badge.textContent = data.beta_program ? "BETA UPDATE" : "UPDATE AVAILABLE";
             installButton.disabled = false;
