@@ -573,6 +573,10 @@ check(
     update_manager.compare_versions("0.63.10", "0.63.11") == -1,
     "the managed Update button recognizes 0.63.11 as newer than 0.63.10",
 )
+check(
+    update_manager.compare_versions("0.63.11", "0.63.12") == -1,
+    "the managed Update button recognizes 0.63.12 as newer than 0.63.11",
+)
 manifest = json.loads((ROOT / "scripts/install/update_manifest.json").read_text())
 update_files = {
     "VERSION",
@@ -607,6 +611,7 @@ update_files = {
     "dashboard/templates/index.html",
     "scripts/validate_marine_replays_v0636.py",
     "scripts/validate_radio_control_clarity_v0540g.py",
+    "scripts/validate_iss_pll_lock_retry_v06312.py",
     "dashboard/app.py",
     "requirements.txt",
     "scripts/install/prepare_audio_comparison.sh",
@@ -636,6 +641,17 @@ installed_v06310_hashes = {
 check(
     all(digest in manifest.get(name, []) for name, digest in installed_v06310_hashes.items()),
     "the Update manifest accepts clean 0.63.10 source files for Weather Smart Gain",
+)
+installed_v06311_hashes = {
+    "VERSION": "0c755e853f13dcd7adf0fe6c85e4764ca5d15a8c506fe663fdd3eb863a6774ce",
+    "core/wideband_iq_recorder.py": "e148124930bb46473e2026e947dc2c1c572b870f4e66bc8f29aa5a4c846fdfc1",
+    "core/controlled_iq_capture.py": "9d8bae694ab0dcac0fde03d1ad87e428bd639b1a90e1453540d6bff0aea145fb",
+    "core/iss_voice_executor.py": "d4ca6f6b28394f6b3f8972115a86b22f2dac833c193fe3bbb18f31d5a726ceba",
+    "scripts/validate_smart_gain.py": "9a97f8151c8235d2009bdaf07ce6b1f8a23ede7e345fe477c5082a9102747437",
+}
+check(
+    all(digest in manifest.get(name, []) for name, digest in installed_v06311_hashes.items()),
+    "the Update manifest accepts clean 0.63.11 source files for the PLL retry update",
 )
 check(
     '<option value="smart">Smart</option>' in (ROOT / "dashboard/templates/index.html").read_text()
@@ -670,7 +686,7 @@ for name, allowed in manifest.items():
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     check(source.is_file() and digest in allowed, f"manifest hash matches {name}")
 check(
-    (ROOT / "VERSION").read_text().strip() == "0.63.11",
-    "release version is 0.63.11",
+    (ROOT / "VERSION").read_text().strip() == "0.63.12",
+    "release version is 0.63.12",
 )
 print("VALIDATION PASS: SDRCC Smart Gain and managed-update payload")

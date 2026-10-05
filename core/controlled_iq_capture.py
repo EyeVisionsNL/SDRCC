@@ -130,6 +130,12 @@ def execute_controlled_capture(
             spec, services_confirmed_stopped=True
         )
         if not capture.get("complete"):
+            if capture.get("failure_reason") == "tuner_pll_lock_not_confirmed":
+                attempts = int(capture.get("attempt_count") or 0)
+                raise RuntimeError(
+                    "ISS-afstemming mislukt: de tuner bevestigde geen PLL-lock "
+                    f"na {attempts} opnamepoging(en)."
+                )
             raise RuntimeError(
                 "IQ-opname onvolledig: returncode="
                 f"{capture.get('returncode')}, bytes={capture.get('actual_bytes')}"

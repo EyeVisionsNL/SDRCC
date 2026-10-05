@@ -214,7 +214,18 @@ def execute_pass(*, target: dict[str, Any], service_state: ServiceState,
         )
         if not capture.get("complete"):
             stderr = str(capture.get("stderr") or "").strip()
-            detail = f"IQ-opname onvolledig (returncode {capture.get('returncode')}, {capture.get('actual_bytes')} bytes)"
+            if capture.get("failure_reason") == "tuner_pll_lock_not_confirmed":
+                attempts = int(capture.get("attempt_count") or 0)
+                detail = (
+                    "IQ-opname afgebroken: de tuner bevestigde geen PLL-lock "
+                    f"na {attempts} opnamepoging(en)."
+                )
+            else:
+                detail = (
+                    "IQ-opname onvolledig "
+                    f"(returncode {capture.get('returncode')}, "
+                    f"{capture.get('actual_bytes')} bytes)"
+                )
             if stderr:
                 detail += f": {stderr[-1000:]}"
             raise RuntimeError(detail)
