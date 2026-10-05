@@ -30,7 +30,7 @@ SDRCC is designed around multiple RTL-SDR receivers, but the logical SDR slots a
 
 **✈️ Aircraft · 🚢 Ships · 🛰️ Satellites · 📻 Radio**
 
-![SDRCC Radio View](images/radio-view.png)
+![SDRCC Radio View showing live ADS-B, AIS and satellite tracks](images/radio-view.png)
 
 **Radio View** gives you the quick picture: aircraft from ADS-B, vessels from AIS and satellites currently moving over the station.
 
@@ -52,17 +52,17 @@ The **Auto** function can follow newly validated matches in the AIS-catcher map.
 
 A match depends on the ATIS and AIS information available at that moment, so **Possible Speaker** is exactly what the name says: useful correlation information for the operator, not a claim that every transmission can always be identified.
 
-Traffic Voice also supports **Airband Voice + ADS-B**, fixed-channel listening, channel scanning, scan exclusions, adjustable scan speed, squelch, Auto Gain/manual gain and Excel channel-list import/export.
+Traffic Voice also supports **Airband Voice + ADS-B**, fixed-channel listening, channel scanning, scan exclusions, adjustable scan speed, squelch, selectable voice noise reduction, Auto Gain/manual gain and Excel channel-list import/export.
 
 ## 📻 Sometimes you just want a radio
 
-![SDRCC Radio Receiver spectrum and waterfall](images/radio-receiver.png)
+![SDRCC Radio Receiver with Smart Gain, spectrum and waterfall](images/radio-receiver.png)
 
 Not everything needs to be a mission.
 
 The built-in **Radio Receiver** turns an available RTL-SDR into a browser-controlled receiver with live audio, spectrum and waterfall.
 
-Tune directly or use presets. Supported modes include **LSB, USB, CW, AM, NFM, FM and WFM**, with tuning steps, click-to-tune, RF-power squelch and Auto Gain/manual gain.
+Tune directly or use presets. Supported modes include **LSB, USB, CW, AM, NFM, FM and WFM**, with tuning steps, click-to-tune, **Smart Gain or manual tuner gain**, and RF-power squelch. Smart Gain briefly measures signal and noise, then holds a fixed gain for the session.
 
 Receiver Manager takes care of borrowing the SDR from another role and restoring its previous job when you're finished.
 
@@ -72,23 +72,33 @@ Fortunately, SDRCC can do the waiting.
 
 **Mission Planner** calculates upcoming passes and applies the reception rules configured for each satellite.
 
-![SDRCC Mission Planner](images/mission-planner.png)
+![SDRCC Mission Planner with METEOR and ISS SSTV plans](images/mission-planner.png)
 
 **Mission Control** shows what's coming next, which receiver will be used and what the scheduler is doing.
 
-![SDRCC Mission Control](images/mission-control.png)
+![SDRCC Mission Control showing separate METEOR and ISS receiver plans](images/mission-control.png)
 
 When it's time, SDRCC reserves the required receiver, handles conflicting receiver services and starts the mission. After the pass, the receiver is released and its previous context can be restored.
 
+![Smart Gain settings for Weather/METEOR and ISS Voice](images/weather-meteor-smart-gain.png)
+
+Weather / METEOR and ISS Voice settings offer Smart Gain with an operator-selected fallback when the signal measurement is inconclusive. ISS SSTV events can be scheduled for announced transmission windows and processed for Robot36 image decoding.
+
 ### And hopefully...
 
-![Decoded METEOR result in Mission Operations](images/mission-operations.png)
+![Mission Operations keeping received satellite products with their mission](images/mission-operations.png)
 
 ...you get something from space. 🌍📡
 
 **Mission Operations** keeps received products with their mission. Mission History and Mission Analytics provide the deeper view when you want to inspect results, telemetry, Peak SNR and receiver performance.
 
-SDRCC currently supports automated **METEOR-M2 3 / METEOR-M2 4 LRPT** reception through SatDump and **ISS Voice** pass planning and reception.
+![Mission History showing a METEOR-M2 4 pass](images/mission-history-meteor.png)
+
+![Sample METEOR-M2 4 MSU-MR RGB MCIR image product](images/meteor-m2-4-mcir-result.png)
+
+This is an example product from a received pass; image completeness varies with reception conditions.
+
+SDRCC supports automated **METEOR-M2 3 / METEOR-M2 4 LRPT** reception through SatDump, **ISS Voice** pass planning and reception, and scheduled **ISS SSTV** events with Robot36 image decoding.
 
 ## 🚢 AIS, ✈️ ADS-B and a bit more
 
@@ -110,7 +120,7 @@ Roles such as AIS and ADS-B can be reassigned from the dashboard. SDRCC stops co
 
 SDRCC is software, but eventually every signal has to come in through some metal in the sky. 😄
 
-The current station uses a **Scan-King Royal Discone 2000** at about **15 metres**, connected with **Ultraflex 7** coax to a **Mini-Circuits ZFSC-4-1** splitter.
+The current station uses a **Scan-King Royal Discone 2000** at about **12 metres**, connected with **Ultraflex 7** coax to a **Mini-Circuits ZFSC-4-1** splitter.
 
 From there the RF is shared between:
 
@@ -197,7 +207,7 @@ The navigation brings the station together in one place:
 
 `System · Radio Control · Radio View · Traffic Voice · Radio Receiver · Mission Control · Mission Planner · Mission Operations · Mission History · Mission Analytics · Logs`
 
-**System** handles health, detected hardware, receiver bindings and maintenance.
+**System** handles health, detected hardware, receiver bindings and maintenance. Advanced Maintenance groups AIS controls under AIS Update Protection and manages SDRCC updates.
 
 **Radio Control** shows receiver status, assignments and RF settings.
 
@@ -206,7 +216,7 @@ The navigation brings the station together in one place:
 
 ## 🧪 Still evolving
 
-SDRCC is an active project and is currently on the **v0.56.0x / v1.0 preparation** development line.
+SDRCC is an active project; the current release on `main` is **v0.63.12**.
 
 A lot of its features came from actually using the station: receivers fighting over the same dongle, wondering which vessel was talking, missing a satellite pass, wanting to borrow the ADS-B receiver as an ordinary radio...
 
@@ -216,7 +226,7 @@ Usually the next feature starts with:
 
 ...and then somehow turns into another button. 😄
 
-Development happens on the `develop` branch first. Changes are reviewed and validated before they move to `main`.
+Development happens on the `develop` branch first. Changes are tested before they move to `main`.
 
 ---
 
