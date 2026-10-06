@@ -307,11 +307,11 @@ class Flexibility(unittest.TestCase):
         self.assertEqual(self.calls,[])
 
 
-    def test_traffic_voice_channel_catalog_v2_is_complete_and_non_destructive(self):
+    def test_traffic_voice_channel_catalog_v3_is_voice_only_and_non_destructive(self):
         catalog = config._traffic_voice_marine_catalog()
-        self.assertEqual(len(catalog), 150)
-        self.assertEqual(len({item['id'] for item in catalog}), 150)
-        self.assertEqual(len({round(float(item['frequency_mhz']), 6) for item in catalog}), 150)
+        self.assertEqual(len(catalog), 133)
+        self.assertEqual(len({item['id'] for item in catalog}), 133)
+        self.assertEqual(len({round(float(item['frequency_mhz']), 6) for item in catalog}), 133)
         self.assertEqual(min(float(item['frequency_mhz']) for item in catalog), 155.775)
         self.assertEqual(max(float(item['frequency_mhz']) for item in catalog), 162.6)
         by_id = {item['id']: item for item in catalog}
@@ -320,6 +320,11 @@ class Flexibility(unittest.TestCase):
         self.assertEqual(by_id['vhf55l']['frequency_mhz'], 155.775)
         self.assertEqual(by_id['vhf56l']['frequency_mhz'], 155.825)
         self.assertEqual(by_id['vhf69_high']['frequency_mhz'], 161.075)
+        self.assertEqual(by_id['vhf27']['label'], 'VHF1027 VOICE')
+        self.assertEqual(by_id['vhf28']['label'], 'VHF1028 VOICE')
+        self.assertFalse(config._TRAFFIC_VOICE_DATA_ONLY_IDS & set(by_id))
+        frequencies = {round(float(item['frequency_mhz']), 6) for item in catalog}
+        self.assertFalse(config._TRAFFIC_VOICE_DATA_ONLY_FREQUENCIES & frequencies)
 
         payload = {
             'traffic_voice': {
@@ -328,6 +333,8 @@ class Flexibility(unittest.TestCase):
                         'selected_channel_id': 'custom_local',
                         'channels': [
                             {'id': 'vhf61', 'label': 'old 61', 'frequency_mhz': 160.675, 'scan_enabled': False},
+                            {'id': 'ais1', 'label': 'AIS1 DATA', 'frequency_mhz': 161.975, 'scan_enabled': True},
+                            {'id': 'custom_data_freq', 'label': 'Wrong custom data', 'frequency_mhz': 156.525, 'scan_enabled': True},
                             {'id': 'custom_local', 'label': 'Local custom', 'frequency_mhz': 159.0, 'scan_enabled': True},
                         ],
                     },
@@ -338,9 +345,12 @@ class Flexibility(unittest.TestCase):
         self.assertTrue(changed)
         marine = migrated['traffic_voice']['modes']['marine_ais']
         channels = marine['channels']
-        self.assertEqual(len(channels), 151)
+        self.assertEqual(len(channels), 134)
         self.assertEqual(marine['selected_channel_id'], 'custom_local')
         self.assertIn('custom_local', {item['id'] for item in channels})
+        ids = {item['id'] for item in channels}
+        self.assertNotIn('ais1', ids)
+        self.assertNotIn('custom_data_freq', ids)
         self.assertFalse(next(item for item in channels if item['id'] == 'vhf61')['scan_enabled'])
         self.assertEqual(
             migrated['traffic_voice']['channel_catalog_version'],
