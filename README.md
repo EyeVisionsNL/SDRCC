@@ -216,7 +216,7 @@ The navigation brings the station together in one place:
 
 ## 🧪 Still evolving
 
-SDRCC is an active project; the current release on `main` is **v0.63.12**.
+SDRCC is an active project; the current release on `main` is **v0.63.15**.
 
 A lot of its features came from actually using the station: receivers fighting over the same dongle, wondering which vessel was talking, missing a satellite pass, wanting to borrow the ADS-B receiver as an ordinary radio...
 

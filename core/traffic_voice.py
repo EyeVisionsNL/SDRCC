@@ -43,7 +43,7 @@ MODE_CONTRACTS = {
     },
 }
 MODE_FREQUENCY_RANGES = {
-    "marine_ais": (156.0, 162.3),
+    "marine_ais": (155.775, 162.6),
     "airband_adsb": (118.0, 144.0),
 }
 _METRIC_RE = re.compile(
