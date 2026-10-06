@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+import base64
+import json
 import math
 import os
 import subprocess
 import threading
+import zlib
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -19,6 +22,11 @@ TRAFFIC_VOICE_CONFIG = CONFIG_DIR / "traffic_voice.yaml"
 HF_MONITOR_CONFIG = CONFIG_DIR / "hf_monitor.yaml"
 _station_write_lock = threading.RLock()
 _traffic_voice_write_lock = threading.RLock()
+
+TRAFFIC_VOICE_CHANNEL_CATALOG_VERSION = 2
+_TRAFFIC_VOICE_MARINE_CATALOG_ZLIB_B64 = (
+    "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"
+)
 
 RTL_SDR_VALID_GAINS = (
     0.0, 0.9, 1.4, 2.7, 3.7, 7.7, 8.7, 12.5, 14.4,
@@ -62,9 +70,103 @@ def load_receivers():
     return load_yaml(RECEIVERS_CONFIG)
 
 
+def _traffic_voice_marine_catalog():
+    raw = zlib.decompress(
+        base64.b64decode(_TRAFFIC_VOICE_MARINE_CATALOG_ZLIB_B64)
+    ).decode("utf-8")
+    catalog = json.loads(raw)
+    if not isinstance(catalog, list):
+        raise ValueError("Traffic Voice marine channel catalog is invalid")
+    return catalog
+
+
+def _migrate_traffic_voice_channel_catalog(data):
+    """Merge the current SDRCC marine catalog once without erasing user tuning choices."""
+    if not isinstance(data, dict):
+        return data, False
+    settings = data.get("traffic_voice")
+    if not isinstance(settings, dict):
+        return data, False
+    try:
+        current_version = int(settings.get("channel_catalog_version", 0) or 0)
+    except (TypeError, ValueError):
+        current_version = 0
+    if current_version >= TRAFFIC_VOICE_CHANNEL_CATALOG_VERSION:
+        return data, False
+
+    modes = settings.get("modes")
+    marine = modes.get("marine_ais") if isinstance(modes, dict) else None
+    existing = marine.get("channels") if isinstance(marine, dict) else None
+    if not isinstance(existing, list):
+        return data, False
+
+    existing_by_id = {}
+    existing_by_frequency = {}
+    for item in existing:
+        if not isinstance(item, dict):
+            continue
+        channel_id = str(item.get("id") or "").strip()
+        if channel_id:
+            existing_by_id[channel_id] = item
+        try:
+            frequency = round(float(item.get("frequency_mhz")), 6)
+        except (TypeError, ValueError):
+            continue
+        existing_by_frequency[frequency] = item
+
+    merged = []
+    catalog_ids = set()
+    catalog_frequencies = set()
+    for item in _traffic_voice_marine_catalog():
+        channel = dict(item)
+        channel_id = str(channel.get("id") or "").strip()
+        frequency = round(float(channel["frequency_mhz"]), 6)
+        previous = existing_by_id.get(channel_id) or existing_by_frequency.get(frequency)
+        if isinstance(previous, dict) and "scan_enabled" in previous:
+            channel["scan_enabled"] = bool(previous["scan_enabled"])
+        merged.append(channel)
+        catalog_ids.add(channel_id)
+        catalog_frequencies.add(frequency)
+
+    # Preserve unique user-added channels after the maintained SDRCC catalog.
+    for item in existing:
+        if not isinstance(item, dict):
+            continue
+        channel_id = str(item.get("id") or "").strip()
+        try:
+            frequency = round(float(item.get("frequency_mhz")), 6)
+        except (TypeError, ValueError):
+            continue
+        if channel_id in catalog_ids or frequency in catalog_frequencies:
+            continue
+        merged.append(item)
+
+    marine["channels"] = merged
+    valid_ids = {str(item.get("id") or "") for item in merged if isinstance(item, dict)}
+    selected = str(marine.get("selected_channel_id") or "")
+    if selected not in valid_ids and merged:
+        replacement = next(
+            (
+                str(item.get("id") or "")
+                for item in merged
+                if isinstance(item, dict) and item.get("scan_enabled") is True
+            ),
+            str(merged[0].get("id") or ""),
+        )
+        marine["selected_channel_id"] = replacement
+
+    settings["channel_catalog_version"] = TRAFFIC_VOICE_CHANNEL_CATALOG_VERSION
+    return data, True
+
+
 def load_traffic_voice():
-    """Load the Traffic Voice Monitor configuration."""
-    return load_yaml(TRAFFIC_VOICE_CONFIG)
+    """Load Traffic Voice and apply one-time maintained channel catalog migrations."""
+    with _traffic_voice_write_lock:
+        data = load_yaml(TRAFFIC_VOICE_CONFIG)
+        data, changed = _migrate_traffic_voice_channel_catalog(data)
+        if changed:
+            save_traffic_voice(data)
+        return data
 
 
 def load_hf_monitor():
