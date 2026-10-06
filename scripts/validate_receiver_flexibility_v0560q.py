@@ -306,4 +306,48 @@ class Flexibility(unittest.TestCase):
         self.usb_add('A');self.usb_add('B');self.tick()
         self.assertEqual(self.calls,[])
 
+
+    def test_traffic_voice_channel_catalog_v2_is_complete_and_non_destructive(self):
+        catalog = config._traffic_voice_marine_catalog()
+        self.assertEqual(len(catalog), 150)
+        self.assertEqual(len({item['id'] for item in catalog}), 150)
+        self.assertEqual(len({round(float(item['frequency_mhz']), 6) for item in catalog}), 150)
+        self.assertEqual(min(float(item['frequency_mhz']) for item in catalog), 155.775)
+        self.assertEqual(max(float(item['frequency_mhz']) for item in catalog), 162.6)
+        by_id = {item['id']: item for item in catalog}
+        self.assertEqual(by_id['vhf39']['frequency_mhz'], 157.95)
+        self.assertEqual(by_id['vhf40']['frequency_mhz'], 158.0)
+        self.assertEqual(by_id['vhf55l']['frequency_mhz'], 155.775)
+        self.assertEqual(by_id['vhf56l']['frequency_mhz'], 155.825)
+        self.assertEqual(by_id['vhf69_high']['frequency_mhz'], 161.075)
+
+        payload = {
+            'traffic_voice': {
+                'modes': {
+                    'marine_ais': {
+                        'selected_channel_id': 'custom_local',
+                        'channels': [
+                            {'id': 'vhf61', 'label': 'old 61', 'frequency_mhz': 160.675, 'scan_enabled': False},
+                            {'id': 'custom_local', 'label': 'Local custom', 'frequency_mhz': 159.0, 'scan_enabled': True},
+                        ],
+                    },
+                },
+            },
+        }
+        migrated, changed = config._migrate_traffic_voice_channel_catalog(payload)
+        self.assertTrue(changed)
+        marine = migrated['traffic_voice']['modes']['marine_ais']
+        channels = marine['channels']
+        self.assertEqual(len(channels), 151)
+        self.assertEqual(marine['selected_channel_id'], 'custom_local')
+        self.assertIn('custom_local', {item['id'] for item in channels})
+        self.assertFalse(next(item for item in channels if item['id'] == 'vhf61')['scan_enabled'])
+        self.assertEqual(
+            migrated['traffic_voice']['channel_catalog_version'],
+            config.TRAFFIC_VOICE_CHANNEL_CATALOG_VERSION,
+        )
+        again, changed_again = config._migrate_traffic_voice_channel_catalog(migrated)
+        self.assertFalse(changed_again)
+        self.assertIs(again, migrated)
+
 if __name__=='__main__':unittest.main(verbosity=2)
