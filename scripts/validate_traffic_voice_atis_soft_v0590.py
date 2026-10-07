@@ -52,7 +52,13 @@ def packet_bits() -> np.ndarray:
     )
 
 
-def synthesize(*, seed: int = 4, amplitude: float = 0.32, noise: float = 0.018) -> np.ndarray:
+def synthesize(
+    *,
+    seed: int = 4,
+    amplitude: float = 0.32,
+    noise: float = 0.018,
+    tone_offset_hz: float = 0.0,
+) -> np.ndarray:
     sample_rate = traffic_voice_atis.SAMPLE_RATE_HZ
     prefix = [1, 0] * 10
     framed = np.asarray(prefix + packet_bits().tolist() + [1] * 40, dtype=np.int8)
@@ -65,7 +71,7 @@ def synthesize(*, seed: int = 4, amplitude: float = 0.32, noise: float = 0.018) 
         framed[indexes] == 1,
         traffic_voice_atis.LOW_TONE_HZ,
         traffic_voice_atis.HIGH_TONE_HZ,
-    )
+    ) + float(tone_offset_hz)
     phase = np.cumsum(2.0 * np.pi * frequencies / sample_rate)
     random = np.random.default_rng(seed)
     return (
@@ -110,13 +116,20 @@ def decode_discriminator(discriminator: np.ndarray):
 
 def validate_clean_and_noise() -> None:
     require(
-        traffic_voice_atis.DECODER_VERSION == 3,
-        "ATIS decoder version 3 is active",
+        traffic_voice_atis.DECODER_VERSION == 4,
+        "ATIS decoder version 4 is active",
+    )
+    require(
+        traffic_voice_atis.DECODER_PROFILE == "sdrcc-atis-v4",
+        "shared ATIS decoder profile is active",
     )
     decoded = traffic_voice_atis.decode_samples(synthesize())
     require(len(decoded) == 1, "clean synthetic ATIS packet decodes exactly once")
     require(decoded[0]["atis_code"] == "9244089629", "clean identity remains exact")
     require(decoded[0]["soft_decoding_used"] is False, "clean packet stays on hard path")
+    shifted = traffic_voice_atis.decode_samples(synthesize(tone_offset_hz=25.0))
+    require(len(shifted) == 1, "ATIS tone bank tolerates a +25 Hz transmitter/clock offset")
+    require(shifted[0]["atis_code"] == "9244089629", "tone-offset identity remains exact")
 
     silence = np.zeros(traffic_voice_atis.SAMPLE_RATE_HZ, dtype=np.float32)
     require(traffic_voice_atis.decode_samples(silence) == [], "silence creates no ATIS result")
@@ -164,6 +177,43 @@ def validate_tolerant_phasing() -> None:
     require(decoded["phasing_exact_symbols"] == 14, "phasing damage is measured, not ignored")
 
 
+
+def validate_ambiguous_letter_rejected() -> None:
+    # F (06) and G (07) differ by only one information bit plus its checksum
+    # consequence. Make both repeated letter symbols locally ambiguous while
+    # leaving ECC intact. The decoder must reject rather than guess.
+    original = packet_symbols
+    try:
+        def packet_with_f() -> list[int]:
+            groups = [92, 44, 6, 96, 29]
+            ecc = 121
+            for value in groups:
+                ecc ^= value
+            ecc ^= 127
+            return [
+                125, 111, 125, 110, 125, 109, 125, 108,
+                125, 107, 125, 106, 121, 105, 121, 104,
+                groups[0], 121, groups[1], 121, groups[2], groups[0],
+                groups[3], groups[1], groups[4], groups[2], 127, groups[3],
+                ecc, groups[4], 127, 127, 127, ecc,
+            ]
+
+        globals()["packet_symbols"] = packet_with_f
+        discriminator = soft_discriminator()
+        step = traffic_voice_atis.SAMPLE_RATE_HZ / traffic_voice_atis.BIT_RATE
+        for symbol_position in (21, 26):
+            for unit_offset in (0, 9):
+                index = unit_index(symbol_position, unit_offset)
+                start = max(0, int(np.floor(index * step)))
+                end = min(len(discriminator), int(np.ceil((index + 1) * step)) + 1)
+                discriminator[start:end] = 0.0
+        require(
+            decode_discriminator(discriminator) is None,
+            "ambiguous F/G callsign-letter soft correction is rejected",
+        )
+    finally:
+        globals()["packet_symbols"] = original
+
 def validate_no_ecc_guessing() -> None:
     # Destroy confidence in the complete message section.  A valid phasing
     # sequence by itself must never be enough to manufacture an identity.
@@ -182,6 +232,7 @@ def main() -> int:
     validate_clean_and_noise()
     validate_soft_duplicate_recovery()
     validate_tolerant_phasing()
+    validate_ambiguous_letter_rejected()
     validate_no_ecc_guessing()
     print("VALIDATION PASS: SDRCC Traffic Voice ATIS soft decoding")
     return 0
