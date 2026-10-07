@@ -135,6 +135,7 @@
         }
         detail.textContent = values.join(" · ");
         maybeAutoFollowAis(match);
+        updateGoogleImagesLink(match);
         maybeLoadVesselPhoto(match);
     }
 
@@ -240,6 +241,20 @@
         }
         text("traffic-voice-action-message", "Ship photos on; lookup runs only for a validated live ATIS/AIS match.");
         maybeLoadVesselPhoto(lastPayload?.ais_match || {});
+    }
+
+    function updateGoogleImagesLink(match) {
+        const link = byId("traffic-voice-google-images");
+        if (!link) return;
+        const mmsi = String(match?.mmsi || "");
+        if (!match?.matched || !/^\d{9}$/.test(mmsi)) {
+            link.hidden = true;
+            link.removeAttribute("href");
+            return;
+        }
+        const parts = [match.shipname, match.imo ? ("IMO " + match.imo) : "", "MMSI " + mmsi, "ship"].filter(Boolean);
+        link.href = "https://www.google.com/search?tbm=isch&q=" + encodeURIComponent(parts.join(" "));
+        link.hidden = false;
     }
 
     async function maybeLoadVesselPhoto(match) {
