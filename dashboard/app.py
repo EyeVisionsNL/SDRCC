@@ -65,6 +65,7 @@ from core import satellite_view as satellite_view_core
 from core import traffic_voice as traffic_voice_core
 from core import traffic_voice_audio
 from core import traffic_voice_controller
+from core import traffic_voice_vessel_photo
 from core import hf_monitor as hf_monitor_core
 from core import hf_monitor_backend
 from core import hf_monitor_controller
@@ -2976,6 +2977,34 @@ def api_traffic_voice_recording(recording_id):
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+@app.route("/api/traffic-voice/recordings/<recording_id>/save", methods=["POST"])
+def api_traffic_voice_recording_save(recording_id):
+    """Permanently save one completed temporary Marine replay."""
+    try:
+        result = traffic_voice_audio.save_recording(
+            recording_id, request.get_json(silent=True) or {},
+        )
+        write_log(f"Marine replay saved: {result['filename']}")
+        return jsonify(result)
+    except ValueError as error:
+        return jsonify({"ok": False, "message": str(error)}), 404
+    except OSError as error:
+        return jsonify({"ok": False, "message": f"Could not save recording: {error}"}), 500
+
+
+@app.route("/api/traffic-voice/vessel-photo", methods=["GET"])
+def api_traffic_voice_vessel_photo():
+    """On-demand vessel photo lookup; never called by SDRCC while UI switch is off."""
+    try:
+        result = traffic_voice_vessel_photo.lookup(
+            request.args.get("mmsi", ""),
+            request.args.get("shipname", ""),
+        )
+        return jsonify(result), 200
+    except ValueError as error:
+        return jsonify({"ok": False, "status": "invalid", "message": str(error)}), 400
 
 
 @app.route("/api/plugin-runtime", methods=["GET"])
