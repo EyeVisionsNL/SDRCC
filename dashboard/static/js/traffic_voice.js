@@ -253,18 +253,29 @@
         vesselPhotoMmsi = mmsi;
         const requestId = ++vesselPhotoRequest;
         const shipname = String(match.shipname || match.callsign || "");
+        const imo = String(match.imo || "");
+        const card = byId("traffic-voice-vessel-photo-card");
+        const image = byId("traffic-voice-vessel-photo");
+        if (card) card.hidden = false;
+        if (image) image.removeAttribute("src");
+        text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
+        text("traffic-voice-vessel-photo-credit", "Searching vessel photo…");
         try {
             const response = await fetch(
                 "/api/traffic-voice/vessel-photo?mmsi=" + encodeURIComponent(mmsi)
-                + "&shipname=" + encodeURIComponent(shipname),
+                + "&shipname=" + encodeURIComponent(shipname)
+                + "&imo=" + encodeURIComponent(imo),
                 {cache: "no-store"},
             );
             const result = await response.json();
             if (requestId !== vesselPhotoRequest || !vesselPhotosEnabled) return;
-            const card = byId("traffic-voice-vessel-photo-card");
-            const image = byId("traffic-voice-vessel-photo");
-            if (!result.ok || !result.image_url || !card || !image) {
-                if (card) card.hidden = true;
+            if (!card || !image) return;
+            if (!response.ok || !result.ok || !result.image_url) {
+                image.removeAttribute("src");
+                text("traffic-voice-vessel-photo-credit",
+                    result.status === "unavailable"
+                        ? "Photo source temporarily unavailable."
+                        : "No vessel photo found.");
                 return;
             }
             image.src = result.image_url;
@@ -272,11 +283,11 @@
             text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
             text("traffic-voice-vessel-photo-credit",
                 [result.source, result.artist, result.license].filter(Boolean).join(" · ") || "Wikimedia Commons");
-            card.hidden = false;
         } catch (_) {
             if (requestId === vesselPhotoRequest) {
-                const card = byId("traffic-voice-vessel-photo-card");
-                if (card) card.hidden = true;
+                if (card) card.hidden = false;
+                if (image) image.removeAttribute("src");
+                text("traffic-voice-vessel-photo-credit", "Photo lookup failed.");
             }
         }
     }
