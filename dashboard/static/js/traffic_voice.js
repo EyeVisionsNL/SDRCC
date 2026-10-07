@@ -57,6 +57,10 @@
     let lastAutoAisMmsi = "";
     let aisZoom = 14;
     const aisZoomStorageKey = "sdrcc.trafficVoice.aisZoom";
+    const vesselPhotoStorageKey = "sdrcc.trafficVoice.vesselPhotos";
+    let vesselPhotosEnabled = false;
+    let vesselPhotoMmsi = "";
+    let vesselPhotoRequest = 0;
 
     function byId(id) {
         return document.getElementById(id);
@@ -131,6 +135,7 @@
         }
         detail.textContent = values.join(" · ");
         maybeAutoFollowAis(match);
+        maybeLoadVesselPhoto(match);
     }
 
     function initializeAisZoom() {
@@ -205,6 +210,75 @@
         }
         lastAutoAisMmsi = mmsi;
         text("traffic-voice-action-message", "AIS Auto selected MMSI " + mmsi + ".");
+    }
+
+    function renderVesselPhotoToggle() {
+        const button = byId("traffic-voice-vessel-photos-toggle");
+        if (!button) return;
+        button.textContent = vesselPhotosEnabled ? "Ship photos: on" : "Ship photos: off";
+        button.setAttribute("aria-pressed", String(vesselPhotosEnabled));
+        button.classList.toggle("is-active", vesselPhotosEnabled);
+    }
+
+    function clearVesselPhoto() {
+        vesselPhotoRequest += 1;
+        vesselPhotoMmsi = "";
+        const card = byId("traffic-voice-vessel-photo-card");
+        const image = byId("traffic-voice-vessel-photo");
+        if (card) card.hidden = true;
+        if (image) image.removeAttribute("src");
+    }
+
+    function toggleVesselPhotos() {
+        vesselPhotosEnabled = !vesselPhotosEnabled;
+        try { localStorage.setItem(vesselPhotoStorageKey, vesselPhotosEnabled ? "1" : "0"); } catch (_) {}
+        renderVesselPhotoToggle();
+        if (!vesselPhotosEnabled) {
+            clearVesselPhoto();
+            text("traffic-voice-action-message", "Ship photos off; no photo lookups run.");
+            return;
+        }
+        text("traffic-voice-action-message", "Ship photos on; lookup runs only for a validated live ATIS/AIS match.");
+        maybeLoadVesselPhoto(lastPayload?.ais_match || {});
+    }
+
+    async function maybeLoadVesselPhoto(match) {
+        if (!vesselPhotosEnabled) return;
+        const mmsi = String(match?.mmsi || "");
+        if (!match?.matched || !/^\d{9}$/.test(mmsi)) {
+            clearVesselPhoto();
+            return;
+        }
+        if (mmsi === vesselPhotoMmsi) return;
+        vesselPhotoMmsi = mmsi;
+        const requestId = ++vesselPhotoRequest;
+        const shipname = String(match.shipname || match.callsign || "");
+        try {
+            const response = await fetch(
+                "/api/traffic-voice/vessel-photo?mmsi=" + encodeURIComponent(mmsi)
+                + "&shipname=" + encodeURIComponent(shipname),
+                {cache: "no-store"},
+            );
+            const result = await response.json();
+            if (requestId !== vesselPhotoRequest || !vesselPhotosEnabled) return;
+            const card = byId("traffic-voice-vessel-photo-card");
+            const image = byId("traffic-voice-vessel-photo");
+            if (!result.ok || !result.image_url || !card || !image) {
+                if (card) card.hidden = true;
+                return;
+            }
+            image.src = result.image_url;
+            image.alt = shipname ? "Photo of " + shipname : "Photo of matched vessel";
+            text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
+            text("traffic-voice-vessel-photo-credit",
+                [result.source, result.artist, result.license].filter(Boolean).join(" · ") || "Wikimedia Commons");
+            card.hidden = false;
+        } catch (_) {
+            if (requestId === vesselPhotoRequest) {
+                const card = byId("traffic-voice-vessel-photo-card");
+                if (card) card.hidden = true;
+            }
+        }
     }
 
     function selectedMode(payload) {
@@ -561,6 +635,37 @@
             details.textContent = timeLabel + " · " + duration;
             copy.append(channel, details);
 
+            const actions = document.createElement("div");
+            actions.className = "traffic-voice-recording-actions";
+            const saveButton = document.createElement("button");
+            saveButton.type = "button";
+            saveButton.className = "traffic-voice-button traffic-voice-recording-save";
+            saveButton.textContent = "💾 Save";
+            saveButton.disabled = !recording.complete;
+            saveButton.addEventListener("click", async event => {
+                event.stopPropagation();
+                saveButton.disabled = true;
+                try {
+                    const response = await fetch("/api/traffic-voice/recordings/" + encodeURIComponent(recording.id) + "/save", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({
+                            channel: recording.channel,
+                            frequency_mhz: recording.frequency_mhz,
+                            atis: lastPayload?.atis || {},
+                            ais_match: lastPayload?.ais_match || {},
+                        }),
+                    });
+                    const result = await response.json();
+                    if (!response.ok || !result.ok) throw new Error(result.message || "Save failed");
+                    saveButton.textContent = "✓ Saved";
+                    text("traffic-voice-action-message", "Marine recording saved as " + result.filename + ".");
+                } catch (error) {
+                    saveButton.disabled = false;
+                    text("traffic-voice-action-message", "Could not save Marine recording: " + error.message);
+                }
+            });
+
             const button = document.createElement("button");
             button.type = "button";
             button.className = "traffic-voice-button traffic-voice-recording-play";
@@ -571,7 +676,8 @@
                 : (isPlaying ? "■ Stop replay" : "▶ Replay");
             button.disabled = !recording.complete || !recording.play_url;
             button.setAttribute("aria-label", (isPlaying ? "Stop replay of " : "Replay ") + channel.textContent);
-            row.append(copy, button);
+            actions.append(button, saveButton);
+            row.append(copy, actions);
             list.append(row);
         });
     }
@@ -927,6 +1033,10 @@
             ?.addEventListener("click", showAisVessel);
         byId("traffic-voice-auto-ais-vessel")
             ?.addEventListener("click", toggleAisAuto);
+        try { vesselPhotosEnabled = localStorage.getItem(vesselPhotoStorageKey) === "1"; } catch (_) {}
+        renderVesselPhotoToggle();
+        byId("traffic-voice-vessel-photos-toggle")
+            ?.addEventListener("click", toggleVesselPhotos);
         byId("traffic-voice-apply-settings")
             ?.addEventListener("click", () => applySettings());
         byId("traffic-voice-channel-list-export")?.addEventListener("click", exportChannelList);
