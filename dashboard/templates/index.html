@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.56.0x-r3">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.63.9">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.64.0">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
 </head>
 <body>
@@ -866,6 +866,14 @@
                             <input id="traffic-voice-ais-zoom" type="number" min="3" max="18" step="1" value="14" aria-label="AIS map zoom level">
                         </label>
                         <button id="traffic-voice-auto-ais-vessel" type="button" class="traffic-voice-map-button" aria-pressed="false">Auto: off</button>
+                        <button id="traffic-voice-vessel-photos-toggle" type="button" class="traffic-voice-map-button" aria-pressed="false">Ship photos: off</button>
+                    </div>
+                    <div id="traffic-voice-vessel-photo-card" class="traffic-voice-vessel-photo-card" hidden>
+                        <img id="traffic-voice-vessel-photo" alt="">
+                        <div>
+                            <strong id="traffic-voice-vessel-photo-name">Matched vessel</strong>
+                            <small id="traffic-voice-vessel-photo-credit"></small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1539,7 +1547,7 @@
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
 <script src="/static/js/mission_planner.js?v=0.63.5"></script>
-<script src="/static/js/traffic_voice.js?v=0.63.9"></script>
+<script src="/static/js/traffic_voice.js?v=0.64.0"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>
