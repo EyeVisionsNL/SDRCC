@@ -308,6 +308,7 @@ def _complete_ais_match(
         "callsign": callsign or result.get("callsign"),
         "shipname": _bounded_text(ship.get("shipname"), 80),
         "eni": _bounded_text(ship.get("eni"), 20),
+        "imo": _bounded_text(ship.get("imo"), 20),
         "latitude": round(latitude, 6),
         "longitude": round(longitude, 6),
         "distance_nm": _first_number(ship, ("distance_nm", "distance", "range_nm", "distanceNmi")),
