@@ -13,13 +13,14 @@ import re
 import threading
 import time
 from pathlib import Path
-from urllib.parse import urlencode
+from html.parser import HTMLParser
+from urllib.parse import urlencode, urljoin, urlparse, unquote
 from urllib.request import Request, urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 2
+PHOTO_POLICY_VERSION = 3
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
 NEGATIVE_CACHE_SECONDS = 6 * 3600
 _lock = threading.RLock()
@@ -109,6 +110,160 @@ def _result_from_page(page: dict, *, mmsi: str, shipname: str, imo: str, query: 
     }
 
 
+
+MARK_BASE = "https://markprummel.nl"
+MARK_USER_AGENT = "SDRCC-AIS-ATIS-vessel-photo/1.0 (non-commercial attribution lookup)"
+MARK_SHIP_LINK_RE = re.compile(r"^/(?:nl/)?ship/[^?#]+/?$", re.I)
+MARK_IMO_RE = re.compile(r"\bIMO\s*(?:number|nummer|no\.?)?\s*[:|]?\s*(\d{7})\b", re.I)
+MARK_MMSI_RE = re.compile(r"\bMMSI\s*(?:number|nummer|no\.?)?\s*[:|]?\s*(\d{9})\b", re.I)
+
+
+class _MarkPageParser(HTMLParser):
+    """Collect first-party ship links and image attributes without executing HTML."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.links: list[str] = []
+        self.images: list[dict[str, str]] = []
+        self.meta: dict[str, str] = {}
+
+    def handle_starttag(self, tag: str, attributes: list[tuple[str, str | None]]) -> None:
+        attrs = {str(key).lower(): str(value or "") for key, value in attributes}
+        if tag == "a" and attrs.get("href"):
+            self.links.append(attrs["href"])
+        elif tag == "img":
+            self.images.append(attrs)
+        elif tag == "meta":
+            key = attrs.get("property", attrs.get("name", "")).lower()
+            if key and attrs.get("content"):
+                self.meta.setdefault(key, attrs["content"])
+
+
+def _mark_page(url: str) -> tuple[str, str]:
+    """Small, bounded on-demand requests; never follow off-site redirects."""
+    if urlparse(url).hostname != "markprummel.nl" or urlparse(url).scheme != "https":
+        raise ValueError("Unexpected Mark Prummel URL")
+    request = Request(url, headers={"User-Agent": MARK_USER_AGENT, "Accept": "text/html"})
+    with urlopen(request, timeout=3.5) as response:
+        final_url = response.geturl()
+        if urlparse(final_url).scheme != "https" or urlparse(final_url).hostname != "markprummel.nl":
+            raise ValueError("Unexpected photo-source redirect")
+        document = response.read(600_001)
+    if len(document) > 600_000:
+        raise ValueError("Photo-source page too large")
+    return document.decode("utf-8", "replace"), final_url
+
+
+def _mark_ship_url(url: str) -> str:
+    full = urljoin(MARK_BASE, html.unescape(url))
+    parsed = urlparse(full)
+    if parsed.scheme != "https" or parsed.hostname != "markprummel.nl":
+        return ""
+    return full.split("?", 1)[0].split("#", 1)[0] if MARK_SHIP_LINK_RE.fullmatch(parsed.path) else ""
+
+
+def _mark_candidate_urls(imo: str, shipname: str) -> list[str]:
+    # WordPress search targets a unique IMO first; never crawl photo archives.
+    # A ship name is used only when no usable IMO candidate was returned.
+    terms = ([imo] if imo else [])
+    if shipname and len(shipname.strip()) >= 4:
+        terms.append(shipname)
+    seen: set[str] = set()
+    candidates: list[str] = []
+    for term in terms[:2]:
+        try:
+            document, final_url = _mark_page(MARK_BASE + "/?" + urlencode({"s": term}))
+        except (OSError, ValueError, TimeoutError):
+            continue
+        parser = _MarkPageParser()
+        parser.feed(document)
+        links = [final_url, *parser.links]
+        for link in links:
+            candidate = _mark_ship_url(link)
+            if not candidate or candidate in seen:
+                continue
+            # When an IMO is known, a ship article's slug must identify it.
+            # Avoid photos of a different ship with the same or a similar name.
+            if imo and not re.search(rf"(?:^|[-/]){re.escape(imo)}/?$", urlparse(candidate).path):
+                continue
+            seen.add(candidate)
+            candidates.append(candidate)
+            if len(candidates) >= 3:
+                return candidates
+        if candidates:
+            break
+    return candidates
+
+
+def _mark_image_url(document: str, parser: _MarkPageParser, shipname: str) -> str:
+    """Pick only a vessel-specific uploaded image, never a site logo or flag."""
+    normalized_name = re.sub(r"[^a-z0-9]+", " ", shipname.lower()).strip()
+    if not normalized_name or len(normalized_name) < 4:
+        return ""
+    images = [*parser.images]
+    if parser.meta.get("og:image"):
+        images.insert(0, {
+            "src": parser.meta["og:image"],
+            "alt": parser.meta.get("og:image:alt", ""),
+        })
+    best: tuple[int, str] | None = None
+    for item in images[:80]:
+        candidate = urljoin(MARK_BASE, html.unescape(
+            item.get("data-src") or item.get("data-large_image") or item.get("src") or ""
+        ))
+        parsed = urlparse(candidate)
+        if parsed.scheme != "https" or parsed.hostname != "markprummel.nl":
+            continue
+        path = parsed.path.lower()
+        if "/wp-content/uploads/" not in path or not path.endswith((".jpg", ".jpeg", ".png", ".webp")):
+            continue
+        label = re.sub(r"[^a-z0-9]+", " ", html.unescape(item.get("alt", "")).lower()).strip()
+        filename = re.sub(r"[^a-z0-9]+", " ", unquote(parsed.path).lower()).strip()
+        if any(word in filename for word in (" flag ", " logo ", " icon ", " avatar ", " placeholder ", " banner ")):
+            continue
+        # A precise name in image alt or filename is mandatory.
+        if normalized_name not in label and normalized_name not in filename:
+            continue
+        score = (120 if normalized_name in label else 0) + (70 if normalized_name in filename else 0)
+        if best is None or score > best[0]:
+            best = (score, candidate)
+    return best[1] if best else ""
+
+
+def _mark_lookup(mmsi: str, shipname: str, imo: str, now: float) -> dict | None:
+    # Mark Prummel mainly photographs coasters and ferries. Only a verified
+    # ship article with a vessel-specific photograph may outrank Commons.
+    if not shipname:
+        return None
+    for url in _mark_candidate_urls(imo, shipname):
+        try:
+            document, final_url = _mark_page(url)
+        except (OSError, ValueError, TimeoutError):
+            continue
+        plain = _clean_text(document, 200_000)
+        page_imo = MARK_IMO_RE.search(plain)
+        page_mmsi = MARK_MMSI_RE.search(plain)
+        if imo:
+            if not page_imo or page_imo.group(1) != imo:
+                continue
+        elif not page_mmsi or page_mmsi.group(1) != mmsi:
+            continue
+        parser = _MarkPageParser()
+        parser.feed(document)
+        photo_url = _mark_image_url(document, parser, shipname)
+        if photo_url:
+            return {
+                "ok": True, "status": "found", "mmsi": mmsi,
+                "shipname": shipname, "imo": imo or None,
+                "image_url": photo_url, "page_url": final_url,
+                "title": shipname, "artist": "© Mark & Chris Prummel",
+                "license": "CC BY-NC 4.0 (non-commercial)",
+                "source": "Mark Prummel", "matched_query": imo or mmsi,
+                "cached_at": now,
+            }
+    return None
+
+
 def lookup(mmsi: str, shipname: str = "", imo: str = "") -> dict:
     mmsi = _clean_text(mmsi, 9)
     shipname = _clean_text(shipname)
@@ -125,6 +280,19 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "") -> dict:
             if now - float(cached.get("cached_at") or 0) < ttl:
                 return {**cached, "cached": True}
 
+    # Priority 1: Mark Prummel; only accept a verified ship and photograph.
+    mark_result = _mark_lookup(mmsi, shipname, imo, now)
+    if mark_result:
+        with _lock:
+            cache = _load()
+            cache[key] = mark_result
+            try:
+                _save(cache)
+            except OSError:
+                pass
+        return {**mark_result, "cached": False}
+
+    # Priority 2: Wikimedia Commons. Ordered fallbacks: exact identifiers first.
     # Ordered fallbacks: exact identifiers first, then vessel name. Each query
     # is small and sequential; once a trustworthy candidate is found we stop.
     queries: list[str] = []

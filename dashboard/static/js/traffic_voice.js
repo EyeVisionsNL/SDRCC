@@ -296,8 +296,17 @@
             image.src = result.image_url;
             image.alt = shipname ? "Photo of " + shipname : "Photo of matched vessel";
             text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
-            text("traffic-voice-vessel-photo-credit",
-                [result.source, result.artist, result.license].filter(Boolean).join(" · ") || "Wikimedia Commons");
+            const credit = byId("traffic-voice-vessel-photo-credit");
+            if (credit) {
+                credit.textContent = [result.source, result.artist, result.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
+                if (result.page_url && /^https:\/\/(?:markprummel\.nl|commons\.wikimedia\.org)\//.test(result.page_url)) {
+                    const original = document.createElement("a");
+                    original.href = result.page_url;
+                    original.target = "_blank"; original.rel = "noopener noreferrer";
+                    original.textContent = "View original ↗";
+                    credit.append(" · ", original);
+                }
+            }
         } catch (_) {
             if (requestId === vesselPhotoRequest) {
                 if (card) card.hidden = false;
