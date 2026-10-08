@@ -197,7 +197,7 @@ class _ShipDetail(HTMLParser):
             if found and self._events_since_image <= 8:
                 src, _, alt = self.images[self._last_image]
                 artist = found.group(1).split(" - ")[0].strip()
-                self.images[self._last_image] = (src, artist[:120], alt)
+                self.images[self._last_image] = (src, artist[:120], alt + " " + found.group(1))
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "h1" and self._heading is not None:

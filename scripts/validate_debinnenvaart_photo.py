@@ -44,6 +44,12 @@ class DeBinnenvaartTests(unittest.TestCase):
         self.assertEqual(found["page_url"], URL)
         self.assertEqual(found["image_url"], IMG)
 
+    def test_generic_filename_but_matching_ship_caption(self):
+        document = DETAIL.replace(IMG, "https://de-binnenvaart.b-cdn.net/2019/12/document-1255.jpg")
+        candidate = photo._parse_detail(document, "Provider", "02338736", URL, "244123456", "", 10)
+        self.assertIsNotNone(candidate)
+        self.assertIn("document-1255", candidate["image_url"])
+
     def test_wrong_ship_rejected(self):
         self.assertIsNone(photo._parse_detail(DETAIL, "Tourmaline", "", URL, "244123456", "", 10))
 
