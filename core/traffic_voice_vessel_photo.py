@@ -20,7 +20,7 @@ from urllib.request import Request, urlopen
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 3
+PHOTO_POLICY_VERSION = 4
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
 NEGATIVE_CACHE_SECONDS = 6 * 3600
 _lock = threading.RLock()
@@ -66,31 +66,111 @@ def _commons_search(query: str) -> list[dict]:
     return list((payload.get("query") or {}).get("pages", {}).values())
 
 
+
+MARITIME_TERMS = re.compile(
+    r"\b(?:ships?|vessels?|tankers?|barges?|coasters?|freighters?|cargo\s+ships?|"
+    r"container\s+ships?|cruise\s+ships?|passenger\s+(?:ships?|vessels?)|"
+    r"ferries|ferry|tugs?|towboats?|pushboats?|workboats?|"
+    r"motortankers?|motorschepen|motorschip|motortankschepen|motortankschip|"
+    r"binnenvaartschepen|binnenschip|binnenvaart|schepen|schip|scheepvaart|"
+    r"vrachtschepen|vrachtschip|tankerschepen|tankerschip|"
+    r"schiffe|schiff|frachtschiff|tankschiff|"
+    r"m\s*/\s*v|m\s*/\s*s|ss|mts|mv|ms|"
+    r"shipping|maritime|navire|bateau|schipspotter)\b", re.I)
+NON_VESSEL_TERMS = re.compile(
+    r"\b(?:minerals?|gemstones?|crystals?|quartz|rubellite|indicolite|"
+    r"pegmatite|tourmaline\s+sample|rocks?|sculptures?|paintings?|"
+    r"drawings?|sketches?|illustrations?|watercolou?rs?|postcards?|"
+    r"album\s+covers?|film\s+posters?|scale\s+models?|model\s+ships?)\b", re.I)
+MILITARY_PREFIX = re.compile(r"\b(?:USS|HMS|USCGC|HMCS|USNS)\b", re.I)
+VESSEL_LABEL = (
+    r"(?:motor\s*tankers?|motortankers?|motortankschip|tankers?|ships?|"
+    r"vessels?|cargo\s+ships?|coasters?|barges?|ferries|ferry|tugs?|"
+    r"binnenschip|binnenvaartschip|schepen|schip|vrachtschip|schiff|"
+    r"frachtschiff|m\s*/\s*v|m\s*/\s*s|mv|ms|mts)"
+)
+
+
+def _identifier_values(text: str, field: str, length: int) -> set[str]:
+    expression = (
+        rf"\b{re.escape(field)}\s*(?:n[ou](?:mber|mmer)?\.?\s*)?"
+        rf"(?:[:#=\-/]\s*)?(\d{{{length}}})\b"
+    )
+    return set(re.findall(expression, text, flags=re.I))
+
+
+def _name_pattern(shipname: str) -> re.Pattern | None:
+    words = re.findall(r"[A-Z0-9]+", shipname.upper())
+    if not words:
+        return None
+    return re.compile(r"(?<![A-Z0-9])" + r"[\s._-]+".join(map(re.escape, words)) + r"(?![A-Z0-9])", re.I)
+
+
+def _named_vessel_context(text: str, name: re.Pattern | None) -> bool:
+    if name is None:
+        return False
+    forward = rf"\b{VESSEL_LABEL}(?:\s+(?:named|called|genaamd))?\s+{name.pattern}"
+    backward = rf"{name.pattern}\s*(?:[,(:;\-]\s*)?(?:(?:is|was|a|an|the|een)\s+)?{VESSEL_LABEL}\b"
+    return bool(re.search(forward, text, re.I) or re.search(backward, text, re.I))
+
+
 def _score(page: dict, *, mmsi: str, shipname: str, imo: str) -> int:
+    """Only rank photographs with verified vessel identity or explicit ship context.
+
+    Matching a name such as TOURMALINE without vessel evidence is not enough.
+    Reject unrelated historical naval ships and pages with conflicting identifiers.
+    """
     info = (page.get("imageinfo") or [{}])[0]
-    meta = info.get("extmetadata") or {}
-    haystack = " ".join([
-        str(page.get("title") or ""),
-        _clean_text((meta.get("ImageDescription") or {}).get("value"), 1000),
-        _clean_text((meta.get("ObjectName") or {}).get("value"), 300),
-        _clean_text((meta.get("Categories") or {}).get("value"), 1000),
-    ]).upper()
-    if REJECT_TERMS.search(haystack):
+    if not str(info.get("thumburl") or "").startswith("https://"):
         return -1000
-    score = 0
-    if mmsi and mmsi in haystack:
-        score += 100
-    if imo and imo in haystack:
-        score += 90
-    words = [word for word in re.findall(r"[A-Z0-9]+", shipname.upper()) if len(word) >= 3]
-    if words and all(word in haystack for word in words):
-        score += 60
-    elif words and any(word in haystack for word in words):
-        score += 25
-    # Names alone are ambiguous: require an exact name phrase, not scattered words.
-    if shipname and shipname.upper() in haystack:
-        score += 20
-    return score
+    if not str(page.get("title") or "").lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff")):
+        return -1000
+    meta = info.get("extmetadata") or {}
+    title = _clean_text(page.get("title"), 300)
+    description = _clean_text((meta.get("ImageDescription") or {}).get("value"), 1500)
+    object_name = _clean_text((meta.get("ObjectName") or {}).get("value"), 300)
+    categories = _clean_text((meta.get("Categories") or {}).get("value"), 1500)
+    all_text = " ".join((title, description, object_name, categories))
+    if REJECT_TERMS.search(all_text):
+        return -1000
+
+    others_imo = _identifier_values(all_text, "IMO", 7)
+    others_mmsi = _identifier_values(all_text, "MMSI", 9)
+    if imo and others_imo and imo not in others_imo:
+        return -1000
+    if others_mmsi and mmsi not in others_mmsi:
+        return -1000
+
+    has_imo = bool(imo and imo in others_imo)
+    has_mmsi = bool(mmsi and mmsi in others_mmsi)
+    name = _name_pattern(shipname)
+    if not (has_imo or has_mmsi):
+        # Crystal, Mineral etc. can also be real ship names: keep them only
+        # where the full name is explicitly described as a vessel.
+        if NON_VESSEL_TERMS.search(title) and not _named_vessel_context(title, name):
+            return -1000
+        if NON_VESSEL_TERMS.search(description) and not _named_vessel_context(description + " " + object_name, name):
+            return -1000
+    if has_imo or has_mmsi:
+        return 200 + (20 if has_mmsi else 0) + (10 if has_imo else 0)
+
+    if name is None or not name.search(all_text):
+        return -1000
+    # The unrelated USS Tourmaline should never represent a Dutch motor tanker.
+    if MILITARY_PREFIX.search(title) and not MILITARY_PREFIX.search(shipname):
+        return -1000
+    in_title = bool(name.search(title))
+    if in_title and MARITIME_TERMS.search(title):
+        return 150
+    if in_title and _named_vessel_context(description + " " + object_name, name):
+        return 130
+    if in_title and _named_vessel_context(categories, name):
+        return 125
+    if _named_vessel_context(description + " " + object_name, name):
+        return 110
+    if _named_vessel_context(categories, name):
+        return 100
+    return -1000
 
 
 def _result_from_page(page: dict, *, mmsi: str, shipname: str, imo: str, query: str, now: float) -> dict | None:
@@ -319,11 +399,11 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "") -> dict:
             if best is None or score > best[0]:
                 best = (score, page, query)
         # Identifier hit or a full-name hit is strong enough to stop.
-        if best and best[0] >= 80:
+        if best and best[0] >= 200:
             break
 
     result: dict
-    if best and best[0] >= 60:
+    if best and best[0] >= 100:
         candidate = _result_from_page(
             best[1], mmsi=mmsi, shipname=shipname, imo=imo, query=best[2], now=now,
         )
