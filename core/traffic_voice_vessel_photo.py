@@ -16,11 +16,12 @@ from pathlib import Path
 from html.parser import HTMLParser
 from urllib.parse import urlencode, urljoin, urlparse, unquote
 from urllib.request import Request, urlopen
+from core.traffic_voice_binnenvaartspotter import lookup as _spotter_lookup
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 5
+PHOTO_POLICY_VERSION = 6
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
 NEGATIVE_CACHE_SECONDS = 6 * 3600
 _lock = threading.RLock()
@@ -382,14 +383,15 @@ def _mark_lookup(mmsi: str, shipname: str, imo: str, now: float) -> dict | None:
     return None
 
 
-def lookup(mmsi: str, shipname: str = "", imo: str = "") -> dict:
+def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
     mmsi = _clean_text(mmsi, 9)
     shipname = _clean_text(shipname)
     imo = re.sub(r"\D", "", _clean_text(imo, 12))
     if not (len(mmsi) == 9 and mmsi.isdigit()):
         raise ValueError("A valid nine-digit MMSI is required")
 
-    key = "|".join((str(PHOTO_POLICY_VERSION), mmsi, shipname.upper(), imo))
+    eni = re.sub(r"\D", "", _clean_text(eni, 12))
+    key = "|".join((str(PHOTO_POLICY_VERSION), mmsi, shipname.upper(), imo, eni))
     now = time.time()
     with _lock:
         cached = _load().get(key)
@@ -398,7 +400,20 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "") -> dict:
             if now - float(cached.get("cached_at") or 0) < ttl:
                 return {**cached, "cached": True}
 
-    # Priority 1: Mark Prummel; only accept a verified ship and photograph.
+    # Priority 1 (beta): Peter's Binnenvaartspotter.nl, thumbnails only.
+    # Missing, ambiguous or unreachable ship pages fall through unchanged.
+    spotter_result = _spotter_lookup(mmsi, shipname, imo, eni, now)
+    if spotter_result:
+        with _lock:
+            cache = _load()
+            cache[key] = spotter_result
+            try:
+                _save(cache)
+            except OSError:
+                pass
+        return {**spotter_result, "cached": False}
+
+    # Priority 2: Mark Prummel.
     mark_result = _mark_lookup(mmsi, shipname, imo, now)
     if mark_result:
         with _lock:
@@ -410,7 +425,7 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "") -> dict:
                 pass
         return {**mark_result, "cached": False}
 
-    # Priority 2: Wikimedia Commons. Ordered fallbacks: exact identifiers first.
+    # Priority 3: Wikimedia Commons. Ordered fallbacks: exact identifiers first.
     # Ordered fallbacks: exact identifiers first, then vessel name. Each query
     # is small and sequential; once a trustworthy candidate is found we stop.
     queries: list[str] = []

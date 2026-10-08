@@ -3002,6 +3002,7 @@ def api_traffic_voice_vessel_photo():
             request.args.get("mmsi", ""),
             request.args.get("shipname", ""),
             request.args.get("imo", ""),
+            request.args.get("eni", ""),
         )
         return jsonify(result), 200
     except ValueError as error:

@@ -228,6 +228,7 @@
         const image = byId("traffic-voice-vessel-photo");
         if (card) card.hidden = true;
         if (image) image.removeAttribute("src");
+        byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
     }
 
     function toggleVesselPhotos() {
@@ -273,13 +274,15 @@
         const image = byId("traffic-voice-vessel-photo");
         if (card) card.hidden = false;
         if (image) image.removeAttribute("src");
+        byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
         text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
         text("traffic-voice-vessel-photo-credit", "Searching vessel photo…");
         try {
             const response = await fetch(
                 "/api/traffic-voice/vessel-photo?mmsi=" + encodeURIComponent(mmsi)
                 + "&shipname=" + encodeURIComponent(shipname)
-                + "&imo=" + encodeURIComponent(imo),
+                + "&imo=" + encodeURIComponent(imo)
+                + "&eni=" + encodeURIComponent(match.eni || ""),
                 {cache: "no-store"},
             );
             const result = await response.json();
@@ -287,6 +290,7 @@
             if (!card || !image) return;
             if (!response.ok || !result.ok || !result.image_url) {
                 image.removeAttribute("src");
+                byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
                 text("traffic-voice-vessel-photo-credit",
                     result.status === "unavailable"
                         ? "Photo source temporarily unavailable."
@@ -294,12 +298,15 @@
                 return;
             }
             image.src = result.image_url;
+            if (result.page_url && /^(?:https:\/\/(?:www\.)?binnenvaartspotter\.nl\/|https:\/\/(?:markprummel\.nl|commons\.wikimedia\.org)\/)/.test(result.page_url)) {
+                byId("traffic-voice-vessel-photo-link")?.setAttribute("href", result.page_url);
+            }
             image.alt = shipname ? "Photo of " + shipname : "Photo of matched vessel";
             text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
             const credit = byId("traffic-voice-vessel-photo-credit");
             if (credit) {
                 credit.textContent = [result.source, result.artist, result.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
-                if (result.page_url && /^https:\/\/(?:markprummel\.nl|commons\.wikimedia\.org)\//.test(result.page_url)) {
+                if (result.page_url && /^(?:https:\/\/(?:www\.)?binnenvaartspotter\.nl\/|https:\/\/(?:markprummel\.nl|commons\.wikimedia\.org)\/)/.test(result.page_url)) {
                     const original = document.createElement("a");
                     original.href = result.page_url;
                     original.target = "_blank"; original.rel = "noopener noreferrer";
@@ -311,6 +318,7 @@
             if (requestId === vesselPhotoRequest) {
                 if (card) card.hidden = false;
                 if (image) image.removeAttribute("src");
+                byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
                 text("traffic-voice-vessel-photo-credit", "Photo lookup failed.");
             }
         }
