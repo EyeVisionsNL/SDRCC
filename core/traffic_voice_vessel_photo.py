@@ -19,6 +19,8 @@ from urllib.request import Request, urlopen
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
+PHOTO_POLICY_VERSION = 2
+REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
 NEGATIVE_CACHE_SECONDS = 6 * 3600
 _lock = threading.RLock()
 _cache: dict[str, dict] | None = None
@@ -72,6 +74,8 @@ def _score(page: dict, *, mmsi: str, shipname: str, imo: str) -> int:
         _clean_text((meta.get("ObjectName") or {}).get("value"), 300),
         _clean_text((meta.get("Categories") or {}).get("value"), 1000),
     ]).upper()
+    if REJECT_TERMS.search(haystack):
+        return -1000
     score = 0
     if mmsi and mmsi in haystack:
         score += 100
@@ -82,6 +86,9 @@ def _score(page: dict, *, mmsi: str, shipname: str, imo: str) -> int:
         score += 60
     elif words and any(word in haystack for word in words):
         score += 25
+    # Names alone are ambiguous: require an exact name phrase, not scattered words.
+    if shipname and shipname.upper() in haystack:
+        score += 20
     return score
 
 
@@ -109,7 +116,7 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "") -> dict:
     if not (len(mmsi) == 9 and mmsi.isdigit()):
         raise ValueError("A valid nine-digit MMSI is required")
 
-    key = "|".join((mmsi, shipname.upper(), imo))
+    key = "|".join((str(PHOTO_POLICY_VERSION), mmsi, shipname.upper(), imo))
     now = time.time()
     with _lock:
         cached = _load().get(key)
@@ -144,7 +151,7 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "") -> dict:
             if best is None or score > best[0]:
                 best = (score, page, query)
         # Identifier hit or a full-name hit is strong enough to stop.
-        if best and best[0] >= 60:
+        if best and best[0] >= 80:
             break
 
     result: dict
