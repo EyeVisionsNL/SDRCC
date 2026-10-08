@@ -32,7 +32,7 @@
     <link rel="stylesheet" href="/static/css/home_position.css?v=0.56.0m">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
-    <link rel="stylesheet" href="/static/css/header_theme.css?v=0.56.0x-r3">
+    <link rel="stylesheet" href="/static/css/header_theme.css?v=0.64.11">
     <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.64.2">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
 </head>
@@ -55,52 +55,43 @@
     </div>
 </div>
 
-<header class="topbar">
-    <svg class="topbar-space-art" viewBox="0 0 760 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <path class="topbar-earth" d="M248 188 Q 470 74 780 158"></path>
-        <path class="topbar-earth-glow" d="M262 188 Q 478 88 770 158"></path>
-        <ellipse class="topbar-orbit" cx="548" cy="98" rx="268" ry="64" transform="rotate(-9 548 98)"></ellipse>
-        <g class="topbar-satellite" transform="translate(545 86) rotate(-12)">
-            <rect class="topbar-satellite-panel" x="-62" y="-10" width="45" height="20" rx="2"></rect>
-            <rect class="topbar-satellite-panel" x="17" y="-10" width="45" height="20" rx="2"></rect>
-            <rect class="topbar-satellite-body" x="-17" y="-15" width="34" height="30" rx="5"></rect>
-            <path class="topbar-satellite-dish" d="M-4 -17 Q 0 -31 15 -29 Q 9 -18 -4 -17 Z"></path>
-        </g>
-    </svg>
-    <div class="brand-block">
-        <img
-            class="brand-logo"
-            src="/static/assets/sdrcc.png?v=0.56.0x-r3"
-            alt="SDRCC logo"
-        >
-        <div class="brand-copy">
-            <div class="brand-title-row">
-                <h1>SDRCC <span aria-hidden="true">–</span> SDR Control Center</h1>
-            </div>
-            <p>Listen · Decode · Analyze · Share</p>
-        </div>
+<header class="topbar" data-banner-scene="system">
+    <div class="topbar-visuals" aria-hidden="true">
+        <div class="topbar-radar-art"><span class="topbar-radar-sweep"></span><i class="topbar-radar-dot topbar-radar-dot--one"></i><i class="topbar-radar-dot topbar-radar-dot--two"></i><i class="topbar-radar-dot topbar-radar-dot--three"></i><span class="topbar-radar-core"></span></div>
+        <svg class="topbar-scene-art" viewBox="0 0 900 180" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+            <defs>
+                <linearGradient id="topbar-boat-hull" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e0f7ff"></stop><stop offset=".5" stop-color="#58c8ed"></stop><stop offset="1" stop-color="#0a527a"></stop></linearGradient>
+                <linearGradient id="topbar-paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fbff"></stop><stop offset="1" stop-color="#b8d5e7"></stop></linearGradient>
+                <linearGradient id="topbar-earth-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8" stop-opacity=".28"></stop><stop offset="1" stop-color="#06223d" stop-opacity=".04"></stop></linearGradient>
+                <filter id="topbar-scene-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur><feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
+                <g id="topbar-boat">
+                    <path class="topbar-boat-hull" d="M0 103 H286 L265 128 Q256 139 238 141 H47 Q21 140 8 123 Z"></path><path class="topbar-boat-deck" d="M58 103 V72 H92 V54 H151 V72 H201 V103 Z"></path><path class="topbar-boat-deck-line" d="M58 103 H201 M92 72 H151"></path>
+                    <rect class="topbar-boat-window" x="101" y="61" width="10" height="8" rx="1"></rect><rect class="topbar-boat-window" x="117" y="61" width="10" height="8" rx="1"></rect><rect class="topbar-boat-window" x="133" y="61" width="10" height="8" rx="1"></rect><rect class="topbar-boat-window" x="164" y="78" width="13" height="9" rx="1"></rect><rect class="topbar-boat-window" x="181" y="78" width="13" height="9" rx="1"></rect>
+                    <path class="topbar-boat-mast" d="M121 54 V30 M115 39 H127 M121 30 L132 24"></path><path class="topbar-waterline" d="M-12 151 Q38 144 84 151 T179 151 T275 151 T363 151"></path><path class="topbar-waterline topbar-waterline--soft" d="M22 162 Q69 155 116 162 T210 162 T303 162"></path><circle class="topbar-light" cx="211" cy="77" r="3"></circle>
+                </g>
+                <g id="topbar-aircraft"><path class="topbar-aircraft-body" d="M0 48 L61 43 L88 13 L101 13 L95 42 L156 38 L176 45 L96 57 L111 71 L100 73 L81 61 L34 67 L20 79 L11 78 L22 61 L0 55 Z"></path><path class="topbar-aircraft-trail" d="M-24 82 Q18 73 48 63"></path><circle class="topbar-light" cx="87" cy="45" r="3"></circle></g>
+                <g id="topbar-satellite">
+                    <ellipse class="topbar-satellite-orbit" cx="124" cy="73" rx="164" ry="54" transform="rotate(-13 124 73)"></ellipse><g transform="translate(130 65) rotate(-11)">
+                        <rect class="topbar-satellite-panel" x="-72" y="-11" width="51" height="22" rx="2"></rect><path class="topbar-satellite-panel-grid" d="M-55 -11 V11 M-38 -11 V11 M-72 0 H-21 M21 -11 V11 M38 -11 V11 M55 -11 V11 M21 0 H72"></path><rect class="topbar-satellite-body" x="-20" y="-17" width="40" height="34" rx="5"></rect><path class="topbar-satellite-dish" d="M-4 -18 Q1 -39 19 -35 Q12 -20 -4 -18 Z"></path><path class="topbar-satellite-boom" d="M0 17 V28 M-5 28 H5"></path>
+                    </g>
+                </g>
+                <g id="topbar-log-sheet" transform="rotate(-5 681 92)">
+                    <rect class="topbar-log-paper" x="548" y="22" width="258" height="137" rx="8"></rect><path class="topbar-log-fold" d="M774 22 V49 H806"></path><path class="topbar-log-rule" d="M566 56 H787 M566 78 H787 M566 100 H787 M566 122 H787 M566 144 H787"></path>
+                    <g class="topbar-log-symbols"><circle cx="576" cy="45" r="3"></circle><path d="M589 45 H631 M646 45 H666"></path><path d="M571 66 h10 v8 h-10 z M589 70 H649 M662 70 H690"></path><path d="M573 89 l5 -8 5 8 z M594 85 H646 M659 85 H676"></path><circle cx="576" cy="111" r="4"></circle><path d="M590 111 H640 M653 111 H684"></path><path d="M571 130 h9 M585 126 v9 M596 130 h42 M651 130 h24"></path></g>
+                </g>
+                <g id="topbar-radio-unit"><path class="topbar-radio-antenna" d="M605 41 L591 9 M601 32 L613 15"></path><rect class="topbar-radio-body" x="567" y="44" width="205" height="105" rx="14"></rect><rect class="topbar-radio-screen" x="583" y="60" width="99" height="40" rx="5"></rect><path class="topbar-radio-wave" d="M596 85 Q604 63 612 85 T628 85 T644 85 T660 85"></path><circle class="topbar-radio-knob" cx="716" cy="81" r="14"></circle><circle class="topbar-radio-knob-core" cx="716" cy="81" r="5"></circle><path class="topbar-radio-buttons" d="M589 119 H750 M605 119 V132 M625 119 V132 M645 119 V132 M665 119 V132 M685 119 V132"></path><circle class="topbar-light" cx="752" cy="58" r="3"></circle></g>
+            </defs>
+            <g class="topbar-scene topbar-scene--system"><path class="topbar-station-base" d="M560 148 H852"></path><path class="topbar-station-mast" d="M704 144 L724 56 L744 144 M714 103 H735 M718 85 H730"></path><path class="topbar-station-dish" d="M689 71 Q711 39 741 52 Q725 78 697 80 Z"></path><path class="topbar-station-wave" d="M742 44 Q758 29 775 44 M750 52 Q762 42 774 52"></path><rect class="topbar-station-console" x="600" y="111" width="80" height="37" rx="5"></rect><path class="topbar-station-console-line" d="M611 121 H669 M611 130 H651 M611 139 H660"></path><circle class="topbar-light" cx="668" cy="121" r="3"></circle><circle class="topbar-light topbar-light--amber" cx="720" cy="52" r="3"></circle></g>
+            <g class="topbar-scene topbar-scene--radio"><use href="#topbar-radio-unit"></use></g>
+            <g class="topbar-scene topbar-scene--traffic"><use href="#topbar-boat" transform="translate(494 4) scale(.94)"></use><use href="#topbar-aircraft" transform="translate(673 20) scale(.88)"></use></g>
+            <g class="topbar-scene topbar-scene--marine"><use href="#topbar-boat" transform="translate(525 4) scale(1.02)"></use></g>
+            <g class="topbar-scene topbar-scene--aviation"><use href="#topbar-aircraft" transform="translate(600 25) scale(1.15)"></use></g>
+            <g class="topbar-scene topbar-scene--satellite"><path class="topbar-earth" d="M442 179 Q623 103 900 164"></path><path class="topbar-earth-glow" d="M450 179 Q632 113 900 166"></path><path class="topbar-earth-fill" d="M442 179 Q623 103 900 164 L900 190 L442 190 Z"></path><use href="#topbar-satellite" transform="translate(595 12)"></use></g>
+            <g class="topbar-scene topbar-scene--logs"><use href="#topbar-log-sheet"></use></g>
+        </svg>
     </div>
-    <div class="topbar-actions">
-        <a
-            class="github-project-link"
-            href="https://github.com/EyeVisionsNL/SDRCC"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="View the SDRCC project on GitHub (opens in a new tab)"
-        >
-            <svg class="github-project-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.78.62-3.37-1.21-3.37-1.21-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .08 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05A9.35 9.35 0 0 1 12 7.11c.85 0 1.69.12 2.49.34 1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.25 10.25 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"></path>
-            </svg>
-            <span class="github-project-copy">
-                <strong>View project on GitHub</strong>
-                <small>EyeVisionsNL / SDRCC</small>
-            </span>
-        </a>
-        <div class="topbar-status" aria-label="Dashboard live status">
-            <span class="status-dot"></span>
-            <span>LIVE</span>
-        </div>
-    </div>
+    <div class="brand-block"><img class="brand-logo" src="/static/assets/sdrcc.png?v=0.56.0x-r3" alt="SDRCC logo"><div class="brand-copy"><div class="brand-title-row"><h1>SDRCC <span aria-hidden="true">–</span> SDR Control Center</h1></div><p>Listen · Decode · Analyze · Share</p></div></div>
+    <div class="topbar-actions"><div class="topbar-status" aria-label="Dashboard live status"><span class="status-dot"></span><span>LIVE</span></div></div>
 </header>
 
 <nav class="tabs">
@@ -1535,7 +1526,7 @@
 </footer>
 
 <script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
-<script src="/static/dashboard.js?v=0.63.10"></script>
+<script src="/static/dashboard.js?v=0.64.11"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
@@ -1548,7 +1539,7 @@
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
 <script src="/static/js/mission_planner.js?v=0.63.5"></script>
-<script src="/static/js/traffic_voice.js?v=0.64.2"></script>
+<script src="/static/js/traffic_voice.js?v=0.64.11"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>
