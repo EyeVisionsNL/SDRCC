@@ -114,8 +114,8 @@ def _result_from_page(page: dict, *, mmsi: str, shipname: str, imo: str, query: 
 MARK_BASE = "https://markprummel.nl"
 MARK_USER_AGENT = "SDRCC-AIS-ATIS-vessel-photo/1.0 (non-commercial attribution lookup)"
 MARK_SHIP_LINK_RE = re.compile(r"^/(?:nl/)?ship/[^?#]+/?$", re.I)
-MARK_IMO_RE = re.compile(r"\bIMO\s*(?:number|nummer|no\.?)?\s*[:|]?\s*(\d{7})\b", re.I)
-MARK_MMSI_RE = re.compile(r"\bMMSI\s*(?:number|nummer|no\.?)?\s*[:|]?\s*(\d{9})\b", re.I)
+MARK_IMO_RE = re.compile(r"\bIMO\s*(?:number|nummer|no\.?)?[\s:|]{0,30}(\d{7})\b", re.I)
+MARK_MMSI_RE = re.compile(r"\bMMSI\s*(?:number|nummer|no\.?)?[\s:|]{0,30}(\d{9})\b", re.I)
 
 
 class _MarkPageParser(HTMLParser):
