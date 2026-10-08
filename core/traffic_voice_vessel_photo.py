@@ -20,7 +20,7 @@ from urllib.request import Request, urlopen
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 4
+PHOTO_POLICY_VERSION = 5
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
 NEGATIVE_CACHE_SECONDS = 6 * 3600
 _lock = threading.RLock()
@@ -194,8 +194,8 @@ def _result_from_page(page: dict, *, mmsi: str, shipname: str, imo: str, query: 
 MARK_BASE = "https://markprummel.nl"
 MARK_USER_AGENT = "SDRCC-AIS-ATIS-vessel-photo/1.0 (non-commercial attribution lookup)"
 MARK_SHIP_LINK_RE = re.compile(r"^/(?:nl/)?ship/[^?#]+/?$", re.I)
-MARK_IMO_RE = re.compile(r"\bIMO\s*(?:number|nummer|no\.?)?[\s:|]{0,30}(\d{7})\b", re.I)
-MARK_MMSI_RE = re.compile(r"\bMMSI\s*(?:number|nummer|no\.?)?[\s:|]{0,30}(\d{9})\b", re.I)
+MARK_IMO_RE = re.compile(r"\bIMO\s*(?:[- ]\s*(?:number|nummer|no\.?))?[\s:|]{0,30}(\d{7})\b", re.I)
+MARK_MMSI_RE = re.compile(r"\bMMSI\s*(?:[- ]\s*(?:number|nummer|no\.?))?[\s:|]{0,30}(\d{9})\b", re.I)
 
 
 class _MarkPageParser(HTMLParser):
@@ -219,7 +219,7 @@ class _MarkPageParser(HTMLParser):
                 self.meta.setdefault(key, attrs["content"])
 
 
-def _mark_page(url: str) -> tuple[str, str]:
+def _mark_page(url: str, max_bytes: int = 1_200_000) -> tuple[str, str]:
     """Small, bounded on-demand requests; never follow off-site redirects."""
     if urlparse(url).hostname != "markprummel.nl" or urlparse(url).scheme != "https":
         raise ValueError("Unexpected Mark Prummel URL")
@@ -228,8 +228,8 @@ def _mark_page(url: str) -> tuple[str, str]:
         final_url = response.geturl()
         if urlparse(final_url).scheme != "https" or urlparse(final_url).hostname != "markprummel.nl":
             raise ValueError("Unexpected photo-source redirect")
-        document = response.read(600_001)
-    if len(document) > 600_000:
+        document = response.read(max_bytes + 1)
+    if len(document) > max_bytes:
         raise ValueError("Photo-source page too large")
     return document.decode("utf-8", "replace"), final_url
 
@@ -242,38 +242,76 @@ def _mark_ship_url(url: str) -> str:
     return full.split("?", 1)[0].split("#", 1)[0] if MARK_SHIP_LINK_RE.fullmatch(parsed.path) else ""
 
 
-def _mark_candidate_urls(imo: str, shipname: str) -> list[str]:
-    # WordPress search targets a unique IMO first; never crawl photo archives.
-    # A ship name is used only when no usable IMO candidate was returned.
-    terms = ([imo] if imo else [])
-    if shipname and len(shipname.strip()) >= 4:
-        terms.append(shipname)
-    seen: set[str] = set()
-    candidates: list[str] = []
-    for term in terms[:2]:
-        try:
-            document, final_url = _mark_page(MARK_BASE + "/?" + urlencode({"s": term}))
-        except (OSError, ValueError, TimeoutError):
-            continue
-        parser = _MarkPageParser()
-        parser.feed(document)
-        links = [final_url, *parser.links]
-        for link in links:
-            candidate = _mark_ship_url(link)
-            if not candidate or candidate in seen:
-                continue
-            # When an IMO is known, a ship article's slug must identify it.
-            # Avoid photos of a different ship with the same or a similar name.
-            if imo and not re.search(rf"(?:^|[-/]){re.escape(imo)}/?$", urlparse(candidate).path):
-                continue
-            seen.add(candidate)
-            candidates.append(candidate)
-            if len(candidates) >= 3:
-                return candidates
-        if candidates:
-            break
-    return candidates
 
+MARK_REGISTER_URL = MARK_BASE + "/ships-register/"
+MARK_REGISTER_TTL = 12 * 3600
+_mark_register_rows: list[tuple[str, str]] | None = None
+_mark_register_checked: float = 0.0
+
+
+class _MarkRegisterParser(HTMLParser):
+    """Only index actual ship profile links and their visible vessel names."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.rows: list[tuple[str, str]] = []
+        self._link: str = ""
+        self._text: list[str] = []
+
+    def handle_starttag(self, tag: str, attributes: list[tuple[str, str | None]]) -> None:
+        if tag == "a":
+            attrs = dict(attributes)
+            self._link = _mark_ship_url(str(attrs.get("href") or ""))
+            self._text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._link:
+            self._text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a" and self._link:
+            name = " ".join(" ".join(self._text).split())
+            if name:
+                self.rows.append((name, self._link))
+            self._link = ""
+            self._text = []
+
+
+def _mark_register() -> list[tuple[str, str]]:
+    """At most one bounded register request per 12h, shared by photo lookups."""
+    global _mark_register_rows, _mark_register_checked
+    now = time.time()
+    with _lock:
+        if _mark_register_rows is not None and now - _mark_register_checked < MARK_REGISTER_TTL:
+            return _mark_register_rows
+        # The public register lists the ship names alongside their IMO numbers.
+        # Unlike WordPress free-text search, this URL is stable and browseable.
+        try:
+            document, _ = _mark_page(MARK_REGISTER_URL, max_bytes=3_000_000)
+            parser = _MarkRegisterParser()
+            parser.feed(document)
+            _mark_register_rows = parser.rows[:4000]
+        except (OSError, ValueError, TimeoutError):
+            _mark_register_rows = []
+        _mark_register_checked = now
+        return _mark_register_rows
+
+
+def _mark_candidate_urls(imo: str, shipname: str) -> list[str]:
+    rows = _mark_register()
+    if imo:
+        # IMO is stable across renames and changes of flag/MMSI.
+        pattern = re.compile(rf"(?<!\d){re.escape(imo)}/?$")
+        return [url for _, url in rows if pattern.search(urlparse(url).path)][:3]
+    # For inland vessels with no IMO, use an exact name and validate MMSI
+    # against the detail page before ever returning its image.
+    name = re.sub(r"[^A-Z0-9]+", " ", shipname.upper()).strip()
+    if not name:
+        return []
+    return [
+        url for candidate_name, url in rows
+        if re.sub(r"[^A-Z0-9]+", " ", candidate_name.upper()).strip() == name
+    ][:3]
 
 def _mark_image_url(document: str, parser: _MarkPageParser, shipname: str) -> str:
     """Pick only a vessel-specific uploaded image, never a site logo or flag."""
