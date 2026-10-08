@@ -88,7 +88,8 @@
     "209f6bf64288ff53b1ab3e2a5bcc78b570e2f9527e14a34d2c805495a2e33b85",
     "1c47521ad861ae682da47b6c18dbf1a242dbe863d828fd14e5d22dbe74935987",
     "eb9974e256d74efde9b3ee62b6e86ecd1eeaf9f8ea3ee41acf0d250d7c355618",
-    "267d0c4ae85ff4412b9f198474e30bddc5f19d7254ad66daf6802f365d1d0473"
+    "267d0c4ae85ff4412b9f198474e30bddc5f19d7254ad66daf6802f365d1d0473",
+    "3b614b5ed83ea2ab8a322a6e2719ddc4c5171a6321acaeb874f302ff638a0ddc"
   ],
   "core/device_manager.py": [
     "dd5d589b6d7660623df7f5adf3324716b43a1e67d31ef3ea8f43688d42b72797",
@@ -823,6 +824,7 @@
     "6ede3f2670f84769e926e02827cfad10cc2f64f29b1508f537188cd43cd400cd"
   ],
   "dashboard/static/js/tabs.js": [
+    "c6b85031a7ebc9529e1009ca2e3b49512ddec70eea2c1c5228589e3ce4e9d84e",
     "e8e68d46a52f0cec668da4d95aeb409dabf6cebb1c7fa28dc4a01f2b3bf587e1"
   ],
   "dashboard/static/css/banner_scenes.css": [
