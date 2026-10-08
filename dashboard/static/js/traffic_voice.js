@@ -306,7 +306,7 @@
             text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
             const credit = byId("traffic-voice-vessel-photo-credit");
             if (credit) {
-                credit.textContent = [result.source, result.artist, result.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
+                credit.textContent = [result.source, result.artist, /^thumbnail met toestemming/i.test(String(result.license || '').trim()) ? '' : result.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
                 if (result.page_url && /^(?:https:\/\/(?:(?:www\.)?binnenvaartspotter|(?:www\.)?debinnenvaart)\.nl\/|https:\/\/(?:markprummel\.nl|commons\.wikimedia\.org)\/)/.test(result.page_url)) {
                     const original = document.createElement("a");
                     original.href = result.page_url;
