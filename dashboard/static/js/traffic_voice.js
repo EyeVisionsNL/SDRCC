@@ -335,7 +335,7 @@
         const trafficTab = document.querySelector('.tab-button[data-tab="traffic-voice"].active');
         if (!header || !trafficTab) return;
         const selected = selectedMode(payload);
-        if (!selected.id) header.dataset.bannerScene = "traffic";
+        if (!payload.service?.active || !selected.id) header.dataset.bannerScene = "traffic";
         else if (selected.id === "marine_ais") header.dataset.bannerScene = "marine";
         else if (selected.id === "airband_adsb") header.dataset.bannerScene = "aviation";
         else header.dataset.bannerScene = "traffic";
