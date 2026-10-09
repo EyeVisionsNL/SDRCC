@@ -4422,6 +4422,12 @@ def api_weather_planning():
         return jsonify({"ok": False, "message": f"Configuratie kon niet worden opgeslagen: {error}"}), 500
 
 
+@app.route("/api/iss-sstv/announcements")
+def api_iss_sstv_announcements():
+    from core.iss_sstv_announcements import get_announcements
+    return jsonify(get_announcements())
+
+
 @app.route("/api/iss-sstv/settings", methods=["GET", "POST"])
 def api_iss_sstv_settings():
     if request.method == "GET":

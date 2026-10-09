@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/static/css/history.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/mission_sounds.css">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
-    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.64.24">
+    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.65.1">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
@@ -1105,10 +1105,18 @@
         </section>
 
         <section class="card mission-planner-settings iss-sstv-event-card">
-            <div class="mission-planner-settings-copy">
-                <h2>📺 ISS SSTV event</h2>
-                <p class="muted">Schedule image receptions during an announced ISS SSTV window. During an enabled event, matching ISS passes use the SSTV downlink instead of creating a voice recording. The receiver handover and service restore stay under Mission AutoPilot.</p>
+            <div class="iss-sstv-heading">
+                <h2>📺 ISS SSTV</h2>
+                <span id="iss-sstv-event-status" class="mission-planner-tle-status">Checking event…</span>
             </div>
+            <div class="iss-sstv-announcement">
+                <a href="https://www.ariss.org/upcoming-sstv-events.html" target="_blank" rel="noopener noreferrer">Official ARISS announcements ↗</a>
+                <p id="iss-sstv-announcement-status" class="muted" aria-live="polite">Checking latest announcement…</p>
+                <details><summary>Announcement details</summary><p id="iss-sstv-announcement-text"></p></details>
+            </div>
+            <details class="iss-sstv-settings-details">
+                <summary>Reception settings</summary>
+                <p class="muted">Set the announced window, frequency and mode, then enable reception.</p>
             <form id="iss-sstv-event-form" class="mission-planner-settings-form">
                 <div class="iss-sstv-event-fields">
                     <label class="iss-sstv-enable"><span>Schedule this event</span><input id="iss-sstv-enabled" type="checkbox"></label>
@@ -1122,8 +1130,9 @@
                     <span id="iss-sstv-decoder-status" class="muted" aria-live="polite">Checking SSTV decoder…</span>
                     <button type="submit" class="control-button">Save ISS SSTV event</button>
                 </div>
-                <p id="iss-sstv-event-message" class="muted iss-sstv-event-message" aria-live="polite">Series 33 is preloaded: Oct 2–6, 2026 · 437.550 MHz · Robot 36 · 36 seconds on, 2 minutes pause.</p>
+                <p id="iss-sstv-event-message" class="muted iss-sstv-event-message" aria-live="polite">Loading reception settings…</p>
             </form>
+            </details>
         </section>
 
         <section class="card mission-planner-table-card">
@@ -1539,7 +1548,7 @@
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
-<script src="/static/js/mission_planner.js?v=0.63.5"></script>
+<script src="/static/js/mission_planner.js?v=0.65.1"></script>
 <script src="/static/js/traffic_voice.js?v=0.64.20"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>

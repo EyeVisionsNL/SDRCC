@@ -159,10 +159,30 @@
         }
         const startLabel = new Date(settings.start_utc).toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
         const endLabel = new Date(settings.end_utc).toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
-        const status = String(payload?.event_status || "unknown").toUpperCase();
+        const ended = Date.parse(settings.end_utc) < Date.now();
+        const status = ended ? "ENDED" : String(payload?.event_status || "unknown").toUpperCase();
+        const statusNode = byId("iss-sstv-event-status");
+        if (statusNode) statusNode.textContent = status;
         const eventMessage = byId("iss-sstv-event-message");
         if (eventMessage) {
-            eventMessage.textContent = `${settings.name || "ISS SSTV event"} · ${status} · ${startLabel}–${endLabel} local time. When Mission Scheduler is AUTO, matching passes use ${ (Number(settings.frequency_hz || 0) / 1000000).toFixed(3) } MHz, ${String(settings.mode || "robot36").toUpperCase()}.`;
+            eventMessage.textContent = `${settings.name || "ISS SSTV event"} · ${status} · ${startLabel}–${endLabel} · ${ (Number(settings.frequency_hz || 0) / 1000000).toFixed(3) } MHz, ${String(settings.mode || "robot36").toUpperCase()}.`;
+        }
+    }
+
+    async function loadSstvAnnouncements() {
+        const node = byId("iss-sstv-announcement-status");
+        try {
+            const response = await fetch("/api/iss-sstv/announcements", {cache: "no-store"});
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error("unavailable");
+            const ended = data.end_utc && Date.parse(data.end_utc) < Date.now();
+            if (node) node.textContent = ended
+                ? "Latest announced event has ended. Waiting for the next ARISS announcement."
+                : "Latest ARISS notice · " + data.published + " · review dates before scheduling.";
+            const text = byId("iss-sstv-announcement-text");
+            if (text) text.textContent = data.excerpt || "";
+        } catch (_) {
+            if (node) node.textContent = "Announcements unavailable. Open ARISS for the latest information.";
         }
     }
 
@@ -377,6 +397,8 @@
     window.addEventListener("sdrcc:weather-planning-changed", () => loadPlanner({quiet: true}));
     loadPlanner();
     loadSstvEvent();
+    loadSstvAnnouncements();
+    window.setInterval(loadSstvAnnouncements, 3600000);
     state.timer = window.setInterval(() => {
         loadPlanner({quiet: true});
         loadSstvEvent();

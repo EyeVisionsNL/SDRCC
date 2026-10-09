@@ -213,3 +213,23 @@
         color-mix(in srgb, var(--corner-accent) 14%, transparent) 99%, transparent 100%);
     pointer-events: none;
 }
+
+/* Compact SSTV card with the same colored panel treatment as planner profiles. */
+.iss-sstv-event-card {
+    --corner-accent: var(--planner-purple);
+    padding: 16px;
+    gap: 12px;
+    border-color: color-mix(in srgb, var(--planner-purple) 34%, #334155);
+    background: linear-gradient(145deg, rgba(167,139,250,.07), rgba(2,7,18,.22) 60%);
+    box-shadow: inset 3px 0 0 var(--planner-purple);
+}
+.iss-sstv-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.iss-sstv-heading h2 { margin:0; border:0; padding:0; font-size:1.1rem; }
+.iss-sstv-event-card p { margin:6px 0; font-size:.78rem; line-height:1.45; }
+.iss-sstv-event-card summary { cursor:pointer; color:#c4b5fd; font-size:.82rem; font-weight:700; }
+.iss-sstv-event-card a { color:#7dd3fc; font-size:.8rem; }
+.iss-sstv-settings-details { border-top:1px solid #334155; padding-top:12px; }
+.iss-sstv-settings-details[open] > summary { margin-bottom:12px; }
+.iss-sstv-announcement details { margin-top:8px; }
+.iss-sstv-event-message { font-size:.75rem; }
+@media(max-width:620px) { .iss-sstv-heading { align-items:flex-start; flex-wrap:wrap; } }
