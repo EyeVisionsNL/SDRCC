@@ -967,3 +967,9 @@
 
 /* Clicking the thumbnail opens the attributed original ship page. */
 .traffic-voice-vessel-photo-link{display:block;max-width:180px}
+
+/* Readable photo source links against the dark Marine Traffic card. */
+.traffic-voice-vessel-photo-card a,
+.traffic-voice-vessel-photo-card a:visited { color: #7dd3fc; }
+.traffic-voice-vessel-photo-card a:hover,
+.traffic-voice-vessel-photo-card a:focus-visible { color: #bae6fd; }
