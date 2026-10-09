@@ -186,3 +186,30 @@
     .iss-sstv-event-fields { grid-template-columns: 1fr; }
     .mission-planner-settings-actions .control-button { width: 100%; min-width: 0; }
 }
+
+/* Extend the summary cards' top-right accents to planning panels. */
+.mission-planner-header,
+.mission-planner-settings,
+.mission-planner-profile,
+.mission-planner-table-card {
+    position: relative;
+    isolation: isolate;
+    --corner-accent: var(--profile-accent, var(--planner-cyan));
+}
+.iss-sstv-event-card { --corner-accent: var(--planner-purple); }
+.mission-planner-header::after,
+.mission-planner-settings::after,
+.mission-planner-profile::after,
+.mission-planner-table-card::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    right: 0;
+    width: 46px;
+    height: 30px;
+    border-top-right-radius: inherit;
+    background: radial-gradient(circle 33px at 33px -3px,
+        color-mix(in srgb, var(--corner-accent) 14%, transparent) 99%, transparent 100%);
+    pointer-events: none;
+}
