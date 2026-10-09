@@ -92,7 +92,8 @@
     "3b614b5ed83ea2ab8a322a6e2719ddc4c5171a6321acaeb874f302ff638a0ddc",
     "f15b4342444ec8198bf3a42fa23f27091483563d2dd56cb60174450f37bae00f",
     "d44c699211551affa22ac5f7f710fed059e5605c8c4c2a27c76168cb5290a72f",
-    "83d1e33812520f2df15c271214a9eee5002ecdbacdd4c0774191312827da0f2f"
+    "83d1e33812520f2df15c271214a9eee5002ecdbacdd4c0774191312827da0f2f",
+    "e331e8f2eac900ffbfc138b6db0e3fe375332c3ccd28c5156824b2fcee58da3e"
   ],
   "core/device_manager.py": [
     "dd5d589b6d7660623df7f5adf3324716b43a1e67d31ef3ea8f43688d42b72797",
@@ -247,7 +248,8 @@
     "f9d165b28ac562246f81825cf0f700827e6dc96a03806843b1c37317d90691ea",
     "2f283fc19eee3fc3600314bd53a1ca725d38cfa1692bf75ff1f64b0740988663",
     "da8a0fa46b387156431b102a3b24e0b70b9fa4c0583b6f6338d679be7408eaed",
-    "5fcc6b8b89a56a1506b09edb3a6a4c28616e3b39418eeb7d28678737cf1d1b66"
+    "5fcc6b8b89a56a1506b09edb3a6a4c28616e3b39418eeb7d28678737cf1d1b66",
+    "c1fbfca4d30559a688fcc929e4b821e0336b7439750903732674cf71dd9faacc"
   ],
   "dashboard/static/dashboard.js": [
     "d265546d4f7d51b2aa1314d6a4e3fe4244977f24b42f14106f53357c8789daf9",
@@ -838,7 +840,8 @@
     "0c27e1f5888b020a62168f1a6387cc4d12e8900526506e3e157f0efd81005949",
     "e89e4aba54d75cdce5225f527d304b4c488ce504464fbfe7c622d933e61479d5",
     "328916373fc4842e68c501007db9399f2f300c67e48fc412064c8f3676d9b7a0",
-    "c991801ac5be1c400d6ca368ee0a3dac8ba33990ef3659dd17d48ee094f7a2b4"
+    "c991801ac5be1c400d6ca368ee0a3dac8ba33990ef3659dd17d48ee094f7a2b4",
+    "1868d1b3cc083aa38d9a6dc8a92a8d7c79c69ffcd64a20159392269d2d25c301"
   ],
   "dashboard/static/assets/banners/satellite.webp": [
     "f70cbef2b9fb9a3b23bfcdfa994bde461585fd1fad7a42249a75e83e9e1299fb"
@@ -851,5 +854,17 @@
   ],
   "dashboard/static/assets/banners/marine.webp": [
     "d49ea25b8f36b32b18261d16d7ee9d64b3392899f1c1f3c17a74665ec207a937"
+  ],
+  "dashboard/static/assets/banners/traffic-panorama.webp": [
+    "af4915ebdc514dba59a26de863df52ef699089c532cf68590a776c6e6449ba9f"
+  ],
+  "dashboard/static/assets/banners/satellite-panorama.webp": [
+    "4cd00fa9e29f5e253e77f62811876421096e10e57604fb0138895b1816f79c10"
+  ],
+  "dashboard/static/assets/banners/marine-panorama.webp": [
+    "7ed56b5f6dbc88208912fe74f82dcaf67cc1c495c9f7f52289a3c23581f20d5a"
+  ],
+  "dashboard/static/assets/banners/logs-panorama.webp": [
+    "cc2302f1acb6df5221cf0969fc5361a9995f371b8e65dc3ff4fd70a602cb490f"
   ]
 }
