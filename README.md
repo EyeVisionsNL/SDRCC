@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="dashboard/static/assets/sdrcc-banner.png" alt="SDRCC — SDR Control Center" width="100%">
+  <img src="dashboard/static/assets/banners/overview-panorama.webp" alt="SDRCC — ships, aircraft and satellites" width="100%">
 </p>
 
 ## 📡 What is SDRCC?
