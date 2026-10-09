@@ -54,7 +54,7 @@ def _download(url: str, limit: int) -> str:
         raise ValueError("Untrusted Binnenvaartspotter URL")
     request = Request(url, headers={"User-Agent": USER_AGENT,
                                     "Accept": "text/html, application/xml"})
-    with urlopen(request, timeout=4.0) as response:
+    with urlopen(request, timeout=8.0) as response:
         final = urlparse(response.geturl())
         if final.scheme != "https" or final.hostname not in ("www.binnenvaartspotter.nl", "binnenvaartspotter.nl"):
             raise ValueError("Untrusted photo source redirect")
@@ -93,7 +93,7 @@ def _candidate_urls(name: str) -> list[str]:
     found = [url for url in _sitemap() if
              _norm(urlparse(url).path.strip("/").split("/")[-1]) == normalized]
     # More than one ship with the same name: refuse to guess.
-    return found if len(found) == 1 else []
+    return found[:6] if len(found) <= 6 else []
 
 
 class _Page(HTMLParser):
@@ -104,10 +104,15 @@ class _Page(HTMLParser):
         self.words: list[str] = []
         self._heading = ""
         self._depth = 0
+        self._gallery_links: list[bool] = []
 
     def handle_starttag(self, tag: str, attributes: list[tuple[str, str | None]]) -> None:
+        attrs = {str(k).lower(): str(v or "") for k, v in attributes}
+        if tag == "a":
+            self._gallery_links.append(attrs.get("rel", "").startswith("lightbox["))
         if tag == "img":
-            self.images.append({str(k).lower(): str(v or "") for k, v in attributes})
+            attrs["_ship_gallery"] = "1" if self._gallery_links and self._gallery_links[-1] else ""
+            self.images.append(attrs)
         if tag in ("h1", "h2", "h3") and self._depth == 0:
             self._depth = 1
             self._heading = ""
@@ -122,6 +127,8 @@ class _Page(HTMLParser):
                 self._heading += " " + text
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "a" and self._gallery_links:
+            self._gallery_links.pop()
         if self._depth:
             self._depth -= 1
             if self._depth == 0 and self._heading.strip():
@@ -147,6 +154,9 @@ def _thumbnail_url(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname != "image.jimcdn.com":
         return ""
+    if re.search(r"dimension=\d+x\d+", url, re.I):
+        return re.sub(r"dimension=\d+x\d+(?::format=[a-z0-9]+)?",
+                      "dimension=320x220:format=jpg", url, count=1, flags=re.I)
     # Resize the provider's transformed image, never return the original asset.
     if re.search(r"dimension%3D\d+x\d+", url, re.I):
         return re.sub(r"dimension%3D\d+x\d+(?:%3Aformat%3D[a-z0-9]+)?",
@@ -175,6 +185,7 @@ def _result_from_page(document: str, name: str, page_url: str,
             _id_compatible(content, IMO_RE, imo) and
             _id_compatible(content, MMSI_RE, mmsi)):
         return None
+    exact_identity = bool(eni.isdigit() and any(v.lstrip("0") == eni.lstrip("0") for v in ENI_RE.findall(content))) or bool(imo.isdigit() and imo in IMO_RE.findall(content)) or bool(mmsi in MMSI_RE.findall(content))
     candidates: list[tuple[int, str]] = []
     for image in parser.images[:120]:
         uri = image.get("data-src") or image.get("src") or ""
@@ -184,7 +195,8 @@ def _result_from_page(document: str, name: str, page_url: str,
         alt = _norm(image.get("alt") or image.get("title") or "")
         filename = _norm(unquote(urlparse(uri).path.rsplit("/", 1)[-1]).rsplit(".", 1)[0])
         if target not in alt and target not in filename:
-            continue
+            if not (exact_identity and image.get("_ship_gallery") == "1"):
+                continue
         if any(term in filename for term in ("header", "logo", "banner", "avatar")):
             continue
         candidates.append((3 * int(target in alt) + int(target in filename), thumb))
@@ -206,6 +218,7 @@ def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
     if not re.fullmatch(r"\d{9}", str(mmsi or "")) or not shipname:
         return None
     now = time.time() if now is None else now
+    results = []
     for url in _candidate_urls(shipname):
         try:
             result = _result_from_page(
@@ -213,7 +226,7 @@ def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
                 str(imo or ""), str(eni or ""), now
             )
             if result is not None:
-                return result
+                results.append(result)
         except (OSError, ValueError, TimeoutError):
             continue
-    return None
+    return results[0] if len(results) == 1 else None

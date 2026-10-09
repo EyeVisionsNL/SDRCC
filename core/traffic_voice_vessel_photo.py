@@ -22,7 +22,7 @@ from core.traffic_voice_binnenvaartspotter import lookup as _spotter_lookup
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 7
+PHOTO_POLICY_VERSION = 8
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
 NEGATIVE_CACHE_SECONDS = 6 * 3600
 _lock = threading.RLock()
@@ -116,7 +116,7 @@ def _named_vessel_context(text: str, name: re.Pattern | None) -> bool:
     return bool(re.search(forward, text, re.I) or re.search(backward, text, re.I))
 
 
-def _score(page: dict, *, mmsi: str, shipname: str, imo: str) -> int:
+def _score(page: dict, *, mmsi: str, shipname: str, imo: str, eni: str = "") -> int:
     """Only rank photographs with verified vessel identity or explicit ship context.
 
     Matching a name such as TOURMALINE without vessel evidence is not enough.
@@ -143,6 +143,10 @@ def _score(page: dict, *, mmsi: str, shipname: str, imo: str) -> int:
     if others_mmsi and mmsi not in others_mmsi:
         return -1000
 
+    others_eni = _identifier_values(all_text, "ENI", 8)
+    if eni and others_eni and eni not in others_eni:
+        return -1000
+    has_eni = bool(eni and eni in others_eni)
     has_imo = bool(imo and imo in others_imo)
     has_mmsi = bool(mmsi and mmsi in others_mmsi)
     name = _name_pattern(shipname)
@@ -153,26 +157,12 @@ def _score(page: dict, *, mmsi: str, shipname: str, imo: str) -> int:
             return -1000
         if NON_VESSEL_TERMS.search(description) and not _named_vessel_context(description + " " + object_name, name):
             return -1000
-    if has_imo or has_mmsi:
-        return 200 + (20 if has_mmsi else 0) + (10 if has_imo else 0)
+    if has_imo or has_mmsi or has_eni:
+        return 200 + (20 if has_mmsi else 0) + (10 if has_imo else 0) + (10 if has_eni else 0)
 
-    if name is None or not name.search(all_text):
-        return -1000
-    # The unrelated USS Tourmaline should never represent a Dutch motor tanker.
-    if MILITARY_PREFIX.search(title) and not MILITARY_PREFIX.search(shipname):
-        return -1000
-    in_title = bool(name.search(title))
-    if in_title and MARITIME_TERMS.search(title):
-        return 150
-    if in_title and _named_vessel_context(description + " " + object_name, name):
-        return 130
-    if in_title and _named_vessel_context(categories, name):
-        return 125
-    if _named_vessel_context(description + " " + object_name, name):
-        return 110
-    if _named_vessel_context(categories, name):
-        return 100
+    # Common vessel names cannot establish the identity of a photograph.
     return -1000
+
 
 
 def _result_from_page(page: dict, *, mmsi: str, shipname: str, imo: str, query: str, now: float) -> dict | None:
@@ -226,7 +216,7 @@ def _mark_page(url: str, max_bytes: int = 1_200_000) -> tuple[str, str]:
     if urlparse(url).hostname != "markprummel.nl" or urlparse(url).scheme != "https":
         raise ValueError("Unexpected Mark Prummel URL")
     request = Request(url, headers={"User-Agent": MARK_USER_AGENT, "Accept": "text/html"})
-    with urlopen(request, timeout=3.5) as response:
+    with urlopen(request, timeout=8.0) as response:
         final_url = response.geturl()
         if urlparse(final_url).scheme != "https" or urlparse(final_url).hostname != "markprummel.nl":
             raise ValueError("Unexpected photo-source redirect")
@@ -443,6 +433,8 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
     # Ordered fallbacks: exact identifiers first, then vessel name. Each query
     # is small and sequential; once a trustworthy candidate is found we stop.
     queries: list[str] = []
+    if eni:
+        queries.append(f'"ENI {eni}"')
     if imo:
         queries.extend([f'"IMO {imo}"', f'"{imo}" ship'])
     queries.append(f'"{mmsi}"')
@@ -462,7 +454,7 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
             error = str(exc)
             continue
         for page in pages:
-            score = _score(page, mmsi=mmsi, shipname=shipname, imo=imo)
+            score = _score(page, mmsi=mmsi, shipname=shipname, imo=imo, eni=eni)
             if best is None or score > best[0]:
                 best = (score, page, query)
         # Identifier hit or a full-name hit is strong enough to stop.
