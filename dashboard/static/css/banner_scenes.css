@@ -59,3 +59,28 @@
 .topbar[data-banner-scene="logs"] .topbar-radar-art { opacity:.45; }
 .topbar-radar-sweep { animation:topbar-radar-rotate 8s linear infinite; }
 @media (prefers-reduced-motion:reduce) { .topbar-radar-sweep { animation:none; } }
+
+/* Restore the original compact header height, keeping approved artwork undistorted. */
+.topbar:is([data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) {
+    display:flex; justify-content:space-between; align-items:center;
+    height:88px; min-height:88px; aspect-ratio:auto; padding:10px 26px;
+    background:linear-gradient(112deg,#061b38 0%,#083d68 48%,#06223d 100%);
+}
+.topbar:is([data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .topbar-visuals {
+    inset:0 8% 0 auto; width:264px; height:88px;
+    background-size:100% 100%; mask-image:linear-gradient(90deg,transparent 0%,transparent 32%,#000 48%,#000 100%);
+}
+.topbar:is([data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .brand-block {
+    position:relative; width:auto; height:auto; padding:0; margin:0; overflow:visible; clip-path:none; white-space:normal; z-index:1;
+}
+.topbar:is([data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .topbar-actions {
+    position:relative; top:auto; right:auto;
+}
+@media(max-width:760px) {
+    .topbar:is([data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) {
+        padding:10px 14px; height:auto; min-height:88px;
+    }
+    .topbar:is([data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .topbar-visuals {
+        right:0; opacity:.45;
+    }
+}
