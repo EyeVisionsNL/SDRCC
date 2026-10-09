@@ -1,6 +1,6 @@
 /* SDRCC v0.64.12 - tab scenes and Bridge-style radar banner */
 .topbar-visuals{position:absolute;z-index:0;inset:0 4% 0 auto;width:min(62vw,820px);height:100%;overflow:hidden;pointer-events:none;opacity:.9;mask-image:linear-gradient(90deg,transparent 0%,#000 15%,#000 100%)}
-.topbar-radar-art{position:absolute;z-index:0;left:31%;top:50%;width:clamp(88px,8vw,116px);aspect-ratio:1;overflow:hidden;border:1px solid rgba(56,189,248,.28);border-radius:50%;background:repeating-radial-gradient(circle at center,transparent 0 17px,rgba(56,189,248,.16) 18px 19px,transparent 20px 32px),linear-gradient(145deg,rgba(11,51,76,.52),rgba(3,17,35,.64));box-shadow:0 0 28px rgba(56,189,248,.13),inset 0 0 25px rgba(56,189,248,.07);transform:translate(-50%,-50%)}
+.topbar-radar-art{position:absolute;z-index:0;left:50%;top:50%;width:clamp(88px,8vw,116px);aspect-ratio:1;overflow:hidden;border:1px solid rgba(56,189,248,.28);border-radius:50%;background:repeating-radial-gradient(circle at center,transparent 0 17px,rgba(56,189,248,.16) 18px 19px,transparent 20px 32px),linear-gradient(145deg,rgba(11,51,76,.52),rgba(3,17,35,.64));box-shadow:0 0 28px rgba(56,189,248,.13),inset 0 0 25px rgba(56,189,248,.07);transform:translate(-50%,-50%)}
 .topbar-radar-art::before,.topbar-radar-art::after{position:absolute;content:"";background:rgba(56,189,248,.18)}
 .topbar-radar-art::before{left:50%;top:0;width:1px;height:100%}.topbar-radar-art::after{left:0;top:50%;width:100%;height:1px}
 .topbar-radar-sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 18deg,transparent 0deg 294deg,rgba(56,189,248,.02) 316deg,rgba(56,189,248,.32) 352deg,transparent 360deg);animation:topbar-radar-rotate 8s linear infinite}
@@ -51,13 +51,13 @@
 .topbar:is([data-banner-scene="receiver"],[data-banner-scene="aviation"],[data-banner-scene="system"],[data-banner-scene="radio"],[data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .topbar-scene-art { display:none; }
 .topbar:is([data-banner-scene="receiver"],[data-banner-scene="aviation"],[data-banner-scene="system"],[data-banner-scene="radio"],[data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .brand-block { position:relative; z-index:2; }
 .topbar:is([data-banner-scene="receiver"],[data-banner-scene="aviation"],[data-banner-scene="system"],[data-banner-scene="radio"],[data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .topbar-radar-art {
-    z-index:1; left:auto; right:110px; top:50%; width:100px; opacity:.85;
+    z-index:1; left:50%; right:auto; top:50%; width:100px; opacity:.85;
     border:1px solid rgba(56,189,248,.28); background:repeating-radial-gradient(circle at center,transparent 0 21px,rgba(56,189,248,.2) 22px 23px,transparent 24px 38px),rgba(6,35,50,.78);
 }
 .topbar:is([data-banner-scene="receiver"],[data-banner-scene="aviation"],[data-banner-scene="system"],[data-banner-scene="radio"],[data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .topbar-actions { position:relative; z-index:2; }
 @media(max-width:760px) {
     .topbar:is([data-banner-scene="receiver"],[data-banner-scene="aviation"],[data-banner-scene="system"],[data-banner-scene="radio"],[data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) { height:140px; min-height:140px; padding:14px; }
-    .topbar:is([data-banner-scene="receiver"],[data-banner-scene="aviation"],[data-banner-scene="system"],[data-banner-scene="radio"],[data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .topbar-radar-art { right:14px; width:84px; top:75%; opacity:.8; }
+    .topbar:is([data-banner-scene="receiver"],[data-banner-scene="aviation"],[data-banner-scene="system"],[data-banner-scene="radio"],[data-banner-scene="traffic"],[data-banner-scene="marine"],[data-banner-scene="satellite"],[data-banner-scene="logs"]) .topbar-radar-art { left:50%; right:auto; width:84px; top:50%; opacity:.8; }
 }
 
 .topbar[data-banner-scene="system"],.topbar[data-banner-scene="radio"] { --banner-image:url("/static/assets/banners/overview-panorama.webp"); }
