@@ -4,11 +4,10 @@
     const splash = document.getElementById("sdrcc-startup-splash");
     if (!splash) return;
 
-    const sessionKey = "sdrcc-startup-splash-v06524";
+    const sessionKey = "sdrcc-startup-splash-v06525";
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const startupAudio = new Audio("/static/audio/startup-space-v3.mp3");
     startupAudio.preload = "none";
-    const retryButton = document.getElementById("sdrcc-startup-sound-retry");
     const startupToggle = document.getElementById("mission-startup-sound-enabled");
     const startupTest = document.getElementById("mission-startup-sound-test");
     const soundKey = "sdrcc.missionSounds.startupEnabled";
@@ -35,11 +34,8 @@
             return Promise.resolve(startupAudio.play()).then(
                 () => true,
                 error => {
-                    // Browsers can require a click before they allow sound.
-                    if (!test && error?.name === "NotAllowedError" && retryButton
-                        && !splash.hidden && !splash.classList.contains("is-leaving")) {
-                        retryButton.hidden = false;
-                    }
+                    // Respect browser autoplay restrictions without interrupting the
+                    // startup logo with an extra button or delayed audio.
                     console.debug("Startup audio unavailable:", error);
                     return false;
                 }
@@ -86,21 +82,13 @@
     splash.hidden = false;
     window.requestAnimationFrame(() => splash.classList.add("is-visible"));
 
-    function playWhileSplash(clicked = false) {
-        if (clicked) {
-            soundEndAt = Math.max(soundEndAt, performance.now() + 2300);
-            scheduleExit();
-        }
+    function playWhileSplash() {
         void playStartupSound().then(played => {
             if (!played) return;
             soundEndAt = Math.max(soundEndAt, performance.now() + 2250);
             scheduleExit();
         });
     }
-    retryButton?.addEventListener("click", () => {
-        retryButton.hidden = true;
-        playWhileSplash(true);
-    });
     if (startupEnabled() && masterEnabled() && volumePercent() > 0 && !reducedMotion) {
         playWhileSplash();
     }
@@ -116,7 +104,6 @@
         const deadline = Math.max(openedAt + minimumVisibleMs, soundEndAt);
         leaveTimer = window.setTimeout(() => {
             markShown();
-            if (retryButton) retryButton.hidden = true;
             splash.classList.add("is-leaving");
             window.setTimeout(finish, reducedMotion ? 0 : 400);
         }, Math.max(0, deadline - performance.now()));
