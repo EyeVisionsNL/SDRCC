@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="/static/css/radio.css?v=0.54.0h-r2">
     <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.54.0g">
     <link rel="stylesheet" href="/static/css/history.css?v=0.56.0x-r9">
-    <link rel="stylesheet" href="/static/css/mission_sounds.css">
+    <link rel="stylesheet" href="/static/css/mission_sounds.css?v=0.65.9">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.65.1">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
@@ -431,12 +431,16 @@
                     <div class="mission-sounds-heading">
                         <div>
                             <h3 id="mission-sounds-title"><span class="sdrcc-inline-icon" aria-hidden="true">🔔</span>Mission notifications</h3>
-                            <p class="muted">Sound alerts and dashboard event notifications.</p>
+                            <p class="muted">Mission alerts, dashboard notifications and optional navigation sounds.</p>
                         </div>
                         <label class="mission-sounds-toggle"><input id="mission-sounds-enabled" type="checkbox"><span>Sound enabled</span></label>
                     </div>
                     <label class="mission-sounds-volume" for="mission-sounds-volume"><span>Volume</span><input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35"><strong id="mission-sounds-volume-value">35%</strong></label>
-                    <button class="control-button" id="mission-sounds-test" type="button">🚀 Test start sound</button>
+                    <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-tab-sounds-enabled" type="checkbox"><span>Radar blip when switching tabs</span></label>
+                    <div class="mission-sounds-test-actions">
+                        <button class="control-button" id="mission-sounds-test" type="button">🚀 Test start sound</button>
+                        <button class="control-button" id="mission-tab-sounds-test" type="button">📡 Test radar blip</button>
+                    </div>
                     <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
                 </section>
             </div>
@@ -1536,7 +1540,7 @@
 </footer>
 
 <script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
-<script src="/static/dashboard.js?v=0.65.0"></script>
+<script src="/static/dashboard.js?v=0.65.9"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
@@ -1544,7 +1548,7 @@
 <script src="/static/js/radio.js?v=0.63.11"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
-<script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
+<script src="/static/js/mission_sounds.js?v=0.65.9"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
