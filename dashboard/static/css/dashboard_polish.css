@@ -148,6 +148,53 @@
     display: none;
 }
 
+
+/* v0.65.4 — Marine Active Receiver should have cyan detail corners, not pink.
+   Preserve the Traffic Voice pink page rail and separate Airband purple identity. */
+#tab-traffic-voice .traffic-voice-shared-workspace::after {
+    background: color-mix(in srgb, var(--traffic-cyan) 16%, transparent);
+}
+#tab-traffic-voice .traffic-voice-shared-workspace .traffic-voice-controls,
+#tab-traffic-voice .traffic-voice-shared-workspace .traffic-voice-channel-list-tools,
+#tab-traffic-voice .traffic-voice-shared-workspace .traffic-voice-receiver-controls,
+#tab-traffic-voice .traffic-voice-shared-workspace .traffic-voice-audio-controls,
+#tab-traffic-voice .traffic-voice-shared-workspace .traffic-voice-recordings,
+#tab-traffic-voice .traffic-voice-shared-workspace .traffic-voice-signal-metrics > div {
+    --corner-accent: var(--traffic-cyan);
+}
+
+/* Small semantic illustrations like the original Mission cards.
+   Icon wrappers are decorative and aria-hidden; existing labels remain intact.
+   Force inline display because many metric-card styles set all spans to block. */
+.sdrcc-inline-icon {
+    display: inline-block !important;
+    margin-inline-end: .42em;
+    font-size: .96em;
+    line-height: 1;
+    vertical-align: -.06em;
+    white-space: nowrap;
+    opacity: .91;
+    filter: saturate(.84);
+}
+
+/* Preview title is updated with textContent by JS, so its icon must live in CSS. */
+#mission-operations-preview-title::before {
+    content: "🖼️";
+    display: inline-block;
+    margin-inline-end: .42em;
+    font-size: .96em;
+    vertical-align: -.06em;
+}
+
+/* Uncluttered card headings; icon and title should stay aligned when wrapped. */
+#tab-traffic-voice .traffic-voice-section-heading h3,
+#tab-traffic-voice .traffic-voice-recordings-heading h3,
+#tab-hf-monitor .hf-monitor-section-heading h3,
+#tab-mission-analytics .mission-analytics-panel-heading h2,
+#tab-images .mission-operations-section-title h3 {
+    line-height: 1.3;
+}
+
 /* Screens with less room wrap statuses below the title, never over the text. */
 @media (max-width: 900px) {
     #tab-radio-view .radio-view-header,
