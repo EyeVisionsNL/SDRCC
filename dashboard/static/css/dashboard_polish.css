@@ -168,7 +168,8 @@
    Force inline display because many metric-card styles set all spans to block. */
 .sdrcc-inline-icon {
     display: inline-block !important;
-    margin-inline-end: .42em;
+    margin: 0 .42em 0 0 !important;
+    padding: 0 !important;
     font-size: .96em;
     line-height: 1;
     vertical-align: -.06em;
