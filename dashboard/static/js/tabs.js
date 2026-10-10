@@ -15,12 +15,18 @@ export function setupTabs() {
     buttons.forEach(button => {
         button.addEventListener("click", () => {
             const tab = button.dataset.tab;
+            const previousTab = document.querySelector(".tab-button.active")?.dataset.tab;
+            const page = document.getElementById(`tab-${tab}`);
+            if (!page || previousTab === tab) return;
             buttons.forEach(item => item.classList.remove("active"));
-            pages.forEach(page => page.classList.remove("active"));
+            pages.forEach(item => item.classList.remove("active"));
             button.classList.add("active");
             setBannerScene(tab);
-            const page = document.getElementById(`tab-${tab}`);
-            if (page) page.classList.add("active");
+            page.classList.add("active");
+            // Only user-initiated, genuine tab switches produce the blip event.
+            window.dispatchEvent(new CustomEvent("sdrcc:tab-changed", {
+                detail: { tab, previousTab }
+            }));
         });
     });
 }
