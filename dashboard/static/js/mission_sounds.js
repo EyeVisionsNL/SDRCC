@@ -5,6 +5,7 @@
     const STORAGE_VOLUME = "sdrcc.missionSounds.volume";
     const STORAGE_TAB_BLIP = "sdrcc.missionSounds.tabBlipEnabled";
     const STORAGE_CONTROL_CUES = "sdrcc.missionSounds.controlCuesEnabled";
+    const STORAGE_INTERFACE_CLICKS = "sdrcc.missionSounds.interfaceClicksEnabled";
     const BASE_TITLE = document.title;
 
     const SOUND_URLS = Object.freeze({
@@ -39,6 +40,7 @@
     const controlCues = {
         start: new Audio("/static/audio/control-start.wav"),
         stop: new Audio("/static/audio/control-stop.wav"),
+        click: new Audio("/static/audio/control-click.wav"),
     };
     for (const audio of Object.values(controlCues)) audio.preload = "auto";
 
@@ -56,6 +58,29 @@
     const liveAudioToggleIds = new Set([
         "traffic-voice-audio-toggle", "hf-monitor-audio-toggle",
         "mission-operations-audio-play",
+    ]);
+
+    // Small command/selection buttons only. Do not click for refresh, save,
+    // update, replay, ordinary tab navigation, or existing start/stop cues.
+    const interfaceClickActions = new Set([
+        "scheduler_auto", "scheduler_manual", "scheduler_paused",
+    ]);
+    const interfaceClickIds = new Set([
+        "traffic-voice-apply-settings",
+        "traffic-voice-open-squelch",
+        "traffic-voice-channel-filter",
+        "traffic-voice-auto-ais-vessel",
+        "traffic-voice-vessel-photos-toggle",
+        "hf-monitor-step-down",
+        "hf-monitor-step-up",
+        "hf-monitor-apply-rf",
+        "hf-monitor-retune",
+    ]);
+    const interfaceQueueActions = new Set([
+        "priority_down", "priority_up", "skip", "activate",
+    ]);
+    const interfaceSatelliteKeys = new Set([
+        "iss", "meteor_m2_3", "meteor_m2_4",
     ]);
 
     function byId(id) {
@@ -93,6 +118,15 @@
         }
     }
 
+    function readInterfaceClicksEnabled() {
+        try {
+            const stored = localStorage.getItem(STORAGE_INTERFACE_CLICKS);
+            return stored === null ? true : stored === "true";
+        } catch (_) {
+            return true;
+        }
+    }
+
     function cueForButton(button) {
         if (!button || button.disabled || button.getAttribute("aria-disabled") === "true") return "";
         if (startControlActions.has(button.dataset.action) || startControlIds.has(button.id)) return "start";
@@ -101,15 +135,23 @@
             // This label is updated by the existing Live Audio handlers.
             return String(button.textContent || "").toLowerCase().includes("stop audio") ? "stop" : "start";
         }
+        if (
+            interfaceClickActions.has(button.dataset.action)
+            || interfaceClickIds.has(button.id)
+            || interfaceQueueActions.has(button.dataset.queueAction)
+            || interfaceSatelliteKeys.has(button.dataset.satelliteKey)
+        ) return "click";
         return "";
     }
 
     function playControlCue(kind, { test = false } = {}) {
-        if (!test && (!readEnabled() || !readControlCuesEnabled())) return;
+        if (!test && !readEnabled()) return;
+        if (!test && kind === "click" && !readInterfaceClicksEnabled()) return;
+        if (!test && kind !== "click" && !readControlCuesEnabled()) return;
         const audio = controlCues[kind];
         if (!audio) return;
-        // Match the deliberately soft tab-whoosh level, never mission-alert volume.
-        const volume = Math.min(1, readVolume() / 100 * 0.544);
+        // Command clicks are much quieter than the existing start/stop cues.
+        const volume = Math.min(1, readVolume() / 100 * (kind === "click" ? 0.20 : 0.544));
         if (volume <= 0) return;
         try {
             for (const other of Object.values(controlCues)) {
@@ -395,6 +437,8 @@
         const controlToggle = byId("mission-control-sounds-enabled");
         const controlStartTest = byId("mission-control-sounds-test-start");
         const controlStopTest = byId("mission-control-sounds-test-stop");
+        const interfaceClickToggle = byId("mission-interface-clicks-enabled");
+        const interfaceClickTest = byId("mission-interface-clicks-test");
         const enabledValue = readEnabled();
         const volumeValue = readVolume();
 
@@ -430,6 +474,15 @@
         }
         controlStartTest?.addEventListener("click", () => playControlCue("start", { test: true }));
         controlStopTest?.addEventListener("click", () => playControlCue("stop", { test: true }));
+        if (interfaceClickToggle) {
+            interfaceClickToggle.checked = readInterfaceClicksEnabled();
+            interfaceClickToggle.addEventListener("change", () => {
+                try {
+                    localStorage.setItem(STORAGE_INTERFACE_CLICKS, String(interfaceClickToggle.checked));
+                } catch (_) { /* The current session continues using browser preferences. */ }
+            });
+        }
+        interfaceClickTest?.addEventListener("click", () => playControlCue("click", { test: true }));
         // Capture before action handlers update button labels; one cue per enabled
         // human button click, including keyboard activation and dynamic controls.
         document.addEventListener("click", handleControlButtonClick, true);
