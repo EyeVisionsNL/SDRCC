@@ -4,6 +4,7 @@
     const STORAGE_ENABLED = "sdrcc.missionSounds.enabled";
     const STORAGE_VOLUME = "sdrcc.missionSounds.volume";
     const STORAGE_TAB_BLIP = "sdrcc.missionSounds.tabBlipEnabled";
+    const STORAGE_CONTROL_CUES = "sdrcc.missionSounds.controlCuesEnabled";
     const BASE_TITLE = document.title;
 
     const SOUND_URLS = Object.freeze({
@@ -34,6 +35,28 @@
     let titleResetTimer = null;
     const tabWhoosh = new Audio("/static/audio/tab-whoosh.wav");
     tabWhoosh.preload = "auto";
+    // Separate, quieter interface clicks; mission alerts and tab whoosh stay untouched.
+    const controlCues = {
+        start: new Audio("/static/audio/control-start.wav"),
+        stop: new Audio("/static/audio/control-stop.wav"),
+    };
+    for (const audio of Object.values(controlCues)) audio.preload = "auto";
+
+    // Deliberately identify receiver operations, rather than matching generic
+    // "start" or "stop" text (which would catch tests, replay and navigation).
+    const startControlActions = new Set(["start_ais", "start_adsb"]);
+    const stopControlActions = new Set(["stop_ais", "stop_adsb"]);
+    const startControlIds = new Set([
+        "traffic-voice-start", "traffic-voice-start-airband", "hf-monitor-start",
+    ]);
+    const stopControlIds = new Set([
+        "traffic-voice-stop", "hf-monitor-stop",
+        "stop-mission-button", "stop-mission-sdr2-button",
+    ]);
+    const liveAudioToggleIds = new Set([
+        "traffic-voice-audio-toggle", "hf-monitor-audio-toggle",
+        "mission-operations-audio-play",
+    ]);
 
     function byId(id) {
         return document.getElementById(id);
@@ -59,6 +82,53 @@
         } catch (_) {
             return true;
         }
+    }
+
+    function readControlCuesEnabled() {
+        try {
+            const stored = localStorage.getItem(STORAGE_CONTROL_CUES);
+            return stored === null ? true : stored === "true";
+        } catch (_) {
+            return true;
+        }
+    }
+
+    function cueForButton(button) {
+        if (!button || button.disabled || button.getAttribute("aria-disabled") === "true") return "";
+        if (startControlActions.has(button.dataset.action) || startControlIds.has(button.id)) return "start";
+        if (stopControlActions.has(button.dataset.action) || stopControlIds.has(button.id)) return "stop";
+        if (liveAudioToggleIds.has(button.id)) {
+            // This label is updated by the existing Live Audio handlers.
+            return /^\\s*■\\s*Stop audio/i.test(button.textContent || "") ? "stop" : "start";
+        }
+        return "";
+    }
+
+    function playControlCue(kind, { test = false } = {}) {
+        if (!test && (!readEnabled() || !readControlCuesEnabled())) return;
+        const audio = controlCues[kind];
+        if (!audio) return;
+        // Match the deliberately soft tab-whoosh level, never mission-alert volume.
+        const volume = Math.min(1, readVolume() / 100 * 0.544);
+        if (volume <= 0) return;
+        try {
+            for (const other of Object.values(controlCues)) {
+                other.pause();
+                other.currentTime = 0;
+            }
+            audio.volume = volume;
+            void audio.play().catch(error => console.debug("Control cue unavailable:", error));
+        } catch (error) {
+            // The operator action must never depend on browser audio permissions.
+            console.debug("Control cue unavailable:", error);
+        }
+    }
+
+    function handleControlButtonClick(event) {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const kind = cueForButton(target.closest("button"));
+        if (kind) playControlCue(kind);
     }
 
     function setStatus(message, className = "") {
@@ -322,6 +392,9 @@
         const test = byId("mission-sounds-test");
         const tabBlipToggle = byId("mission-tab-sounds-enabled");
         const tabBlipTest = byId("mission-tab-sounds-test");
+        const controlToggle = byId("mission-control-sounds-enabled");
+        const controlStartTest = byId("mission-control-sounds-test-start");
+        const controlStopTest = byId("mission-control-sounds-test-stop");
         const enabledValue = readEnabled();
         const volumeValue = readVolume();
 
@@ -347,6 +420,19 @@
             tabBlipTest.addEventListener("click", () => playTabWhoosh({ test: true }));
         }
         window.addEventListener("sdrcc:tab-changed", () => playTabWhoosh());
+        if (controlToggle) {
+            controlToggle.checked = readControlCuesEnabled();
+            controlToggle.addEventListener("change", () => {
+                try {
+                    localStorage.setItem(STORAGE_CONTROL_CUES, String(controlToggle.checked));
+                } catch (_) { /* The session can still use its current controls. */ }
+            });
+        }
+        controlStartTest?.addEventListener("click", () => playControlCue("start", { test: true }));
+        controlStopTest?.addEventListener("click", () => playControlCue("stop", { test: true }));
+        // Capture before action handlers update button labels; one cue per enabled
+        // human button click, including keyboard activation and dynamic controls.
+        document.addEventListener("click", handleControlButtonClick, true);
 
         if (volume) {
             volume.value = String(volumeValue);
