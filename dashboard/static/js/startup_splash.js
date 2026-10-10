@@ -4,12 +4,16 @@
     const splash = document.getElementById("sdrcc-startup-splash");
     if (!splash) return;
 
-    const sessionKey = "sdrcc-startup-splash-v06525";
+    const sessionKey = "sdrcc-startup-splash-v06526";
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const startupAudio = new Audio("/static/audio/startup-space-v3.mp3");
-    startupAudio.preload = "none";
+    // Warm the short soundtrack early; the logo itself never needs a Play button.
+    startupAudio.preload = "auto";
     const startupToggle = document.getElementById("mission-startup-sound-enabled");
     const startupTest = document.getElementById("mission-startup-sound-test");
+    const startupStatus = document.getElementById("mission-startup-sound-status");
+    let gestureRetryArmed = false;
+    let splashFinished = false;
     const soundKey = "sdrcc.missionSounds.startupEnabled";
 
     function storedValue(key) {
@@ -20,6 +24,36 @@
     function volumePercent() {
         const stored = Number(storedValue("sdrcc.missionSounds.volume") ?? 35);
         return Number.isFinite(stored) ? Math.max(0, Math.min(100, stored)) : 35;
+    }
+    function showBlockedStatus() {
+        if (!startupStatus) return;
+        startupStatus.hidden = false;
+        startupStatus.textContent = "De browser blokkeert automatisch geluid. Sta autoplay met geluid toe voor deze SDRCC-website in je browserinstellingen.";
+    }
+    function clearBlockedStatus() {
+        if (startupStatus) startupStatus.hidden = true;
+    }
+    function disarmGestureRetry() {
+        if (!gestureRetryArmed) return;
+        gestureRetryArmed = false;
+        document.removeEventListener("pointerdown", retryOnGesture, true);
+        document.removeEventListener("keydown", retryOnGesture, true);
+    }
+    function retryOnGesture(event) {
+        if (event.type === "keydown" && !["Enter", " ", "Spacebar"].includes(event.key)) return;
+        disarmGestureRetry();
+        if (splashFinished || splash.hidden || splash.classList.contains("is-leaving")
+            || !startupEnabled() || !masterEnabled() || volumePercent() <= 0) return;
+        // play() is called inside the trusted user gesture, not later in a timer.
+        // The logo remains visible until the short sound has completed.
+        playWhileSplash();
+    }
+    function armGestureRetry() {
+        if (gestureRetryArmed || splashFinished || splash.hidden
+            || splash.classList.contains("is-leaving")) return;
+        gestureRetryArmed = true;
+        document.addEventListener("pointerdown", retryOnGesture, true);
+        document.addEventListener("keydown", retryOnGesture, true);
     }
     function playStartupSound(test = false) {
         if (!test && (!startupEnabled() || !masterEnabled() || reducedMotion)) {
@@ -32,10 +66,20 @@
             startupAudio.currentTime = 0;
             startupAudio.volume = volume;
             return Promise.resolve(startupAudio.play()).then(
-                () => true,
+                () => {
+                    if (!test) {
+                        disarmGestureRetry();
+                        clearBlockedStatus();
+                    }
+                    return true;
+                },
                 error => {
-                    // Respect browser autoplay restrictions without interrupting the
-                    // startup logo with an extra button or delayed audio.
+                    if (!test && error?.name === "NotAllowedError") {
+                        showBlockedStatus();
+                        // A natural interaction with the visible logo can unlock
+                        // autoplay; no extra button or post-splash replay.
+                        armGestureRetry();
+                    }
                     console.debug("Startup audio unavailable:", error);
                     return false;
                 }
@@ -50,6 +94,8 @@
         startupToggle.checked = startupEnabled();
         startupToggle.addEventListener("change", () => {
             try { localStorage.setItem(soundKey, String(startupToggle.checked)); } catch (_) {}
+            clearBlockedStatus();
+            if (!startupToggle.checked) disarmGestureRetry();
         });
     }
     startupTest?.addEventListener("click", () => { void playStartupSound(true); });
@@ -94,6 +140,8 @@
     }
 
     function finish() {
+        splashFinished = true;
+        disarmGestureRetry();
         splash.hidden = true;
         splash.classList.remove("is-visible", "is-leaving");
     }
