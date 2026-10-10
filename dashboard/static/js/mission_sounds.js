@@ -3,6 +3,7 @@
 
     const STORAGE_ENABLED = "sdrcc.missionSounds.enabled";
     const STORAGE_VOLUME = "sdrcc.missionSounds.volume";
+    const STORAGE_TAB_BLIP = "sdrcc.missionSounds.tabBlipEnabled";
     const BASE_TITLE = document.title;
 
     const SOUND_URLS = Object.freeze({
@@ -31,6 +32,8 @@
     let previousImages = 0;
     let previousResultKey = "";
     let titleResetTimer = null;
+    let radarAudioContext = null;
+    let lastRadarBlipMs = 0;
 
     function byId(id) {
         return document.getElementById(id);
@@ -42,9 +45,20 @@
     }
 
     function readVolume() {
-        const stored = Number(localStorage.getItem(STORAGE_VOLUME));
-        if (!Number.isFinite(stored)) return 35;
-        return Math.max(0, Math.min(100, Math.round(stored)));
+        const stored = localStorage.getItem(STORAGE_VOLUME);
+        if (stored === null) return 35;
+        const volume = Number(stored);
+        if (!Number.isFinite(volume)) return 35;
+        return Math.max(0, Math.min(100, Math.round(volume)));
+    }
+
+    function readTabBlipEnabled() {
+        try {
+            const stored = localStorage.getItem(STORAGE_TAB_BLIP);
+            return stored === null ? true : stored === "true";
+        } catch (_) {
+            return true;
+        }
     }
 
     function setStatus(message, className = "") {
@@ -59,6 +73,52 @@
         for (const audio of Object.values(audios)) audio.volume = normalized / 100;
         const valueElement = byId("mission-sounds-volume-value");
         if (valueElement) valueElement.textContent = `${Math.round(normalized)}%`;
+    }
+
+    // A tiny synthesized radar ping, deliberately much quieter than mission alerts.
+    // Web Audio is created only on a user click: no network requests or sound files.
+    function playRadarBlip({ test = false } = {}) {
+        if (!test && (!readEnabled() || !readTabBlipEnabled())) return;
+        const volume = readVolume() / 100;
+        if (volume <= 0) return;
+        const Context = window.AudioContext || window.webkitAudioContext;
+        if (!Context) return;
+
+        // Rapid tab cycling should not queue a stack of overlapping blips.
+        const clickTime = Date.now();
+        if (!test && clickTime - lastRadarBlipMs < 95) return;
+
+        try {
+            if (!radarAudioContext || radarAudioContext.state === "closed") {
+                radarAudioContext = new Context();
+            }
+            if (radarAudioContext.state === "suspended") {
+                void radarAudioContext.resume().catch(() => {});
+            }
+            const now = radarAudioContext.currentTime;
+            const oscillator = radarAudioContext.createOscillator();
+            const gain = radarAudioContext.createGain();
+            const peak = Math.max(0.0001, Math.min(0.09, volume * 0.13));
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(920, now);
+            oscillator.frequency.exponentialRampToValueAtTime(610, now + 0.16);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(peak, now + 0.009);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.165);
+            oscillator.connect(gain);
+            gain.connect(radarAudioContext.destination);
+            oscillator.onended = () => {
+                oscillator.disconnect();
+                gain.disconnect();
+            };
+            oscillator.start(now);
+            oscillator.stop(now + 0.17);
+            lastRadarBlipMs = clickTime;
+        } catch (error) {
+            // Audio can be blocked by browser policy or unavailable on some devices.
+            // Never interfere with tab navigation or the existing mission sounds.
+            console.debug("Radar blip unavailable:", error);
+        }
     }
 
     function ensureToastHost() {
@@ -285,6 +345,8 @@
         const enabled = byId("mission-sounds-enabled");
         const volume = byId("mission-sounds-volume");
         const test = byId("mission-sounds-test");
+        const tabBlipToggle = byId("mission-tab-sounds-enabled");
+        const tabBlipTest = byId("mission-tab-sounds-test");
         const enabledValue = readEnabled();
         const volumeValue = readVolume();
 
@@ -297,6 +359,19 @@
                 setStatus(enabled.checked ? "Mission sounds are on." : "Mission sounds are off.", enabled.checked ? "is-ready" : "is-muted");
             });
         }
+
+        if (tabBlipToggle) {
+            tabBlipToggle.checked = readTabBlipEnabled();
+            tabBlipToggle.addEventListener("change", () => {
+                try {
+                    localStorage.setItem(STORAGE_TAB_BLIP, String(tabBlipToggle.checked));
+                } catch (_) { /* Sound preference still works for this session. */ }
+            });
+        }
+        if (tabBlipTest) {
+            tabBlipTest.addEventListener("click", () => playRadarBlip({ test: true }));
+        }
+        window.addEventListener("sdrcc:tab-changed", () => playRadarBlip());
 
         if (volume) {
             volume.value = String(volumeValue);
