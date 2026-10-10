@@ -99,7 +99,7 @@
         if (stopControlActions.has(button.dataset.action) || stopControlIds.has(button.id)) return "stop";
         if (liveAudioToggleIds.has(button.id)) {
             // This label is updated by the existing Live Audio handlers.
-            return /^\\s*■\\s*Stop audio/i.test(button.textContent || "") ? "stop" : "start";
+            return String(button.textContent || "").toLowerCase().includes("stop audio") ? "stop" : "start";
         }
         return "";
     }
