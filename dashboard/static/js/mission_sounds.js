@@ -32,7 +32,7 @@
     let previousImages = 0;
     let previousResultKey = "";
     let titleResetTimer = null;
-    const tabWhoosh = new Audio("/static/audio/tab-whoosh.mp3");
+    const tabWhoosh = new Audio("/static/audio/tab-whoosh.wav");
     tabWhoosh.preload = "auto";
 
     function byId(id) {
@@ -75,7 +75,7 @@
         if (valueElement) valueElement.textContent = `${Math.round(normalized)}%`;
     }
 
-    // Play the exact selected Luchtige Whoosh preview once per real tab switch.
+    // Play the lightweight airy whoosh file once per real tab switch.
     // The existing sound toggle and volume preference apply here too.
     function playTabWhoosh({ test = false } = {}) {
         if (!test && (!readEnabled() || !readTabBlipEnabled())) return;
