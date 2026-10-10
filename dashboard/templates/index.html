@@ -32,7 +32,7 @@
     <link rel="stylesheet" href="/static/css/home_position.css?v=0.56.0m">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
-    <link rel="stylesheet" href="/static/css/header_theme.css?v=0.64.12">
+    <link rel="stylesheet" href="/static/css/header_theme.css?v=0.65.24">
     <link rel="stylesheet" href="/static/css/banner_scenes.css?v=0.64.21">
     <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.64.24">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
@@ -54,6 +54,7 @@
         <h1>SDRCC <span>–</span> SDR Control Center</h1>
         <p>Listen · Decode · Analyze · Share</p>
         <div class="startup-splash-progress" aria-hidden="true"><span></span></div>
+        <button id="sdrcc-startup-sound-retry" class="startup-splash-sound-retry" type="button" hidden>🔊 Opstartgeluid afspelen</button>
     </div>
 </div>
 
@@ -439,12 +440,14 @@
                     <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-tab-sounds-enabled" type="checkbox"><span>Luchtige Whoosh when switching tabs</span></label>
                     <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-control-sounds-enabled" type="checkbox"><span>Soft Start / Stop button sounds</span></label>
                     <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-interface-clicks-enabled" type="checkbox"><span>Subtle control clicks (no refresh / save / replay)</span></label>
+                    <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-startup-sound-enabled" type="checkbox"><span>Space Startup with SDRCC logo</span></label>
                     <div class="mission-sounds-test-actions">
                         <button class="control-button" id="mission-sounds-test" type="button">🚀 Test start sound</button>
                         <button class="control-button" id="mission-tab-sounds-test" type="button">🌬 Test whoosh</button>
                         <button class="control-button" id="mission-control-sounds-test-start" type="button">▶ Test start click</button>
                         <button class="control-button" id="mission-control-sounds-test-stop" type="button">■ Test stop click</button>
                         <button class="control-button" id="mission-interface-clicks-test" type="button">☝ Test control click</button>
+                        <button class="control-button" id="mission-startup-sound-test" type="button">🛸 Test Space Startup</button>
                     </div>
                     <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
                 </section>
@@ -1544,7 +1547,7 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
+<script src="/static/js/startup_splash.js?v=0.65.24"></script>
 <script src="/static/dashboard.js?v=0.65.9"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
