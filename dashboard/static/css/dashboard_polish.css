@@ -243,38 +243,46 @@
     border-color: #fda4af;
 }
 
-/* Start audio stays calm blue. Stop audio turns solid red ONLY while streaming.
-   Live/idle transitions come from the same JS code as the actual audio control. */
+/* v0.65.8 — idle Live audio shares the Voice stop tint; actively
+   playing audio goes green. Keep the existing dedicated status readout. */
 #tab-traffic-voice #traffic-voice-audio-toggle {
     min-height: 40px;
     padding: 9px 14px;
-    border-color: rgba(56,189,248,.54);
-    background: #152c45;
-    color: #dbeafe;
+    color: #ffe4e6;
+    border: 1px solid #fb7185;
+    background: linear-gradient(135deg, #622139, #401c32);
+    box-shadow: inset 0 1px rgba(255,255,255,.1), 0 0 0 1px rgba(251,113,133,.13);
     white-space: nowrap;
     font-weight: 850;
     transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
-#tab-traffic-voice #traffic-voice-audio-toggle.is-audio-live:not(:disabled) {
-    color: #fff;
-    background: linear-gradient(125deg, #be123c, #e11d48);
-    border: 1px solid #fda4af;
-    box-shadow: 0 0 0 1px rgba(251,113,133,.25), 0 3px 13px rgba(225,29,72,.23);
+#tab-traffic-voice #traffic-voice-audio-toggle:not(.is-audio-live):not(:disabled):hover {
+    background: linear-gradient(135deg, #812840, #502039);
+    border-color: #fda4af;
+}
+#tab-traffic-voice #traffic-voice-audio-toggle.is-audio-live {
+    color: #f0fdf4;
+    background: linear-gradient(125deg, #166534, #15803d);
+    border: 1px solid #4ade80;
+    box-shadow: 0 0 0 1px rgba(74,222,128,.20), 0 3px 13px rgba(34,197,94,.20);
 }
 #tab-traffic-voice #traffic-voice-audio-toggle.is-audio-live:not(:disabled):hover {
-    background: linear-gradient(125deg, #e11d48, #f43f5e);
-    border-color: #fecdd3;
+    background: linear-gradient(125deg, #15803d, #16a34a);
+    border-color: #86efac;
 }
 #tab-traffic-voice .traffic-voice-audio-controls:has(#traffic-voice-audio-toggle.is-audio-live) {
-    border-color: rgba(251,113,133,.48);
-    box-shadow: inset 3px 0 0 #fb7185;
+    border-color: rgba(74,222,128,.5);
+    box-shadow: inset 3px 0 0 #22c55e;
 }
 
-/* Keyboard users get the same clear target, without implying an extra status. */
+/* Clear focus ring matches the action's current hue. */
 #tab-traffic-voice #traffic-voice-stop:focus-visible,
 #tab-traffic-voice #traffic-voice-audio-toggle:focus-visible {
     outline: 2px solid #fda4af;
     outline-offset: 2px;
+}
+#tab-traffic-voice #traffic-voice-audio-toggle.is-audio-live:focus-visible {
+    outline-color: #86efac;
 }
 @media (prefers-reduced-motion: reduce) {
     #tab-traffic-voice #traffic-voice-audio-toggle { transition: none; }
