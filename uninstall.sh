@@ -233,9 +233,25 @@ if [[ -n "$RECEIPT" ]]; then
   sudo rm -f -- "$RECEIPT" "$receipt_dir/satdump-install-manifest.txt"
   sudo rmdir "$receipt_dir" >/dev/null 2>&1 || true
 fi
+# SDRCC owns this entire runtime-state directory. Removing only known filenames
+# left stale state behind on interrupted updates or older installations.
+sudo rm -rf -- "$(sys /var/lib/sdrcc)"
+if [[ -e "$(sys /var/lib/sdrcc)" || -L "$(sys /var/lib/sdrcc)" ]]; then
+  echo "FAIL: SDRCC runtime state still exists at $(sys /var/lib/sdrcc)" >&2
+  exit 1
+fi
 
 echo "==> Remove SDRCC source, configuration, data and logs"
-rm -rf -- "$ROOT"
+# Some web assets (e.g. dashboard/static/assets/banners/*.webp) may be
+# root-owned. A normal-user rm would leave the dashboard tree behind.
+if ! sudo rm -rf -- "$ROOT"; then
+  echo "FAIL: could not completely remove $ROOT" >&2
+  exit 1
+fi
+if [[ -e "$ROOT" || -L "$ROOT" ]]; then
+  echo "FAIL: SDRCC directory still exists at $ROOT" >&2
+  exit 1
+fi
 
 echo "SDRCC has been completely removed."
 if ((PURGE_EXTERNAL == 0)); then
