@@ -32,8 +32,8 @@
     let previousImages = 0;
     let previousResultKey = "";
     let titleResetTimer = null;
-    let radarAudioContext = null;
-    let lastRadarBlipMs = 0;
+    const tabWhoosh = new Audio("/static/audio/tab-whoosh.mp3");
+    tabWhoosh.preload = "auto";
 
     function byId(id) {
         return document.getElementById(id);
@@ -75,49 +75,24 @@
         if (valueElement) valueElement.textContent = `${Math.round(normalized)}%`;
     }
 
-    // A tiny synthesized radar ping, deliberately much quieter than mission alerts.
-    // Web Audio is created only on a user click: no network requests or sound files.
-    function playRadarBlip({ test = false } = {}) {
+    // Play the exact selected Luchtige Whoosh preview once per real tab switch.
+    // The existing sound toggle and volume preference apply here too.
+    function playTabWhoosh({ test = false } = {}) {
         if (!test && (!readEnabled() || !readTabBlipEnabled())) return;
-        const volume = readVolume() / 100;
+        const volume = Math.min(1, readVolume() / 100 * 1.2);
         if (volume <= 0) return;
-        const Context = window.AudioContext || window.webkitAudioContext;
-        if (!Context) return;
-
-        // Rapid tab cycling should not queue a stack of overlapping blips.
-        const clickTime = Date.now();
-        if (!test && clickTime - lastRadarBlipMs < 95) return;
 
         try {
-            if (!radarAudioContext || radarAudioContext.state === "closed") {
-                radarAudioContext = new Context();
-            }
-            if (radarAudioContext.state === "suspended") {
-                void radarAudioContext.resume().catch(() => {});
-            }
-            const now = radarAudioContext.currentTime;
-            const oscillator = radarAudioContext.createOscillator();
-            const gain = radarAudioContext.createGain();
-            const peak = Math.max(0.0001, Math.min(0.09, volume * 0.13));
-            oscillator.type = "sine";
-            oscillator.frequency.setValueAtTime(920, now);
-            oscillator.frequency.exponentialRampToValueAtTime(610, now + 0.16);
-            gain.gain.setValueAtTime(0.0001, now);
-            gain.gain.exponentialRampToValueAtTime(peak, now + 0.009);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.165);
-            oscillator.connect(gain);
-            gain.connect(radarAudioContext.destination);
-            oscillator.onended = () => {
-                oscillator.disconnect();
-                gain.disconnect();
-            };
-            oscillator.start(now);
-            oscillator.stop(now + 0.17);
-            lastRadarBlipMs = clickTime;
+            // Restart rather than layer multiple sounds on rapid tab switches.
+            tabWhoosh.pause();
+            tabWhoosh.currentTime = 0;
+            tabWhoosh.volume = volume;
+            void tabWhoosh.play().catch(error => {
+                console.debug("Tab whoosh unavailable:", error);
+            });
         } catch (error) {
-            // Audio can be blocked by browser policy or unavailable on some devices.
-            // Never interfere with tab navigation or the existing mission sounds.
-            console.debug("Radar blip unavailable:", error);
+            // A blocked audio API must never interfere with navigation.
+            console.debug("Tab whoosh unavailable:", error);
         }
     }
 
@@ -369,9 +344,9 @@
             });
         }
         if (tabBlipTest) {
-            tabBlipTest.addEventListener("click", () => playRadarBlip({ test: true }));
+            tabBlipTest.addEventListener("click", () => playTabWhoosh({ test: true }));
         }
-        window.addEventListener("sdrcc:tab-changed", () => playRadarBlip());
+        window.addEventListener("sdrcc:tab-changed", () => playTabWhoosh());
 
         if (volume) {
             volume.value = String(volumeValue);
