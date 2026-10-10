@@ -1,0 +1,158 @@
+/* SDRCC v0.65.3 — shared dashboard polish.
+   Keep the Mission visual language while protecting maps, controls and live RF views.
+   Loaded LAST so page-specific styles remain unchanged except for these refinements. */
+
+/* Seamless, artwork-preserving panoramas. The panorama is faded independently
+   of the radar so the rotating radar remains bright and visible at the center. */
+.topbar[data-banner-scene] .topbar-visuals {
+    background-image: none;
+}
+
+.topbar[data-banner-scene] .topbar-visuals::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    pointer-events: none;
+    background-image: var(--banner-image);
+    background-position: right center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    -webkit-mask-image: linear-gradient(90deg,
+        transparent 0%, transparent 36%, rgba(0,0,0,.28) 49%,
+        rgba(0,0,0,.74) 62%, #000 76%);
+    mask-image: linear-gradient(90deg,
+        transparent 0%, transparent 36%, rgba(0,0,0,.28) 49%,
+        rgba(0,0,0,.74) 62%, #000 76%);
+}
+
+.topbar[data-banner-scene] .topbar-visuals::after {
+    z-index: 0;
+    background: linear-gradient(90deg,
+        #031426 0%, rgba(3,20,38,.94) 19%,
+        rgba(3,20,38,.64) 34%, rgba(3,20,38,.19) 57%,
+        rgba(3,20,38,0) 84%);
+}
+
+/* Shared compact page-introduction panels: preserve each tab's identity.
+   This is for text-only introduction areas, NOT functional or data cards. */
+#tab-radio-view .radio-view-header,
+#tab-traffic-voice .traffic-voice-header,
+#tab-hf-monitor .hf-monitor-header,
+#tab-mission-planner .mission-planner-header,
+#tab-mission-analytics .mission-analytics-header {
+    --intro-accent: #38bdf8;
+    min-height: 0;
+    padding: 12px 16px;
+    gap: 14px;
+    border-radius: 11px;
+    border-color: color-mix(in srgb, var(--intro-accent) 30%, #334155);
+    background: linear-gradient(115deg,
+        color-mix(in srgb, var(--intro-accent) 7%, #111b2c),
+        #0d1729 62%, #0b1425);
+    box-shadow: inset 3px 0 0 var(--intro-accent);
+}
+#tab-radio-view .radio-view-header { --intro-accent: #a78bfa; margin-bottom: 12px; }
+#tab-traffic-voice .traffic-voice-header { --intro-accent: #fb7185; }
+#tab-hf-monitor .hf-monitor-header { --intro-accent: #facc15; }
+#tab-mission-planner .mission-planner-header,
+#tab-mission-analytics .mission-analytics-header { --intro-accent: #38bdf8; }
+
+#tab-radio-view .radio-view-header h2,
+#tab-traffic-voice .traffic-voice-header h2,
+#tab-hf-monitor .hf-monitor-header h2,
+#tab-mission-planner .mission-planner-header h2,
+#tab-mission-analytics .mission-analytics-header h2 {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: clamp(1.12rem, 1.45vw, 1.38rem);
+    line-height: 1.2;
+    letter-spacing: -.012em;
+}
+
+#tab-radio-view .radio-view-header p,
+#tab-traffic-voice .traffic-voice-header p,
+#tab-hf-monitor .hf-monitor-header p,
+#tab-mission-planner .mission-planner-header p,
+#tab-mission-analytics .mission-analytics-header p {
+    margin: 4px 0 0;
+    color: #9fb5d1;
+    font-size: .86rem;
+    line-height: 1.35;
+}
+
+#tab-traffic-voice .traffic-voice-header .traffic-voice-eyebrow,
+#tab-hf-monitor .hf-monitor-header .hf-monitor-eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    font-size: .65rem;
+}
+
+/* Apply the same Mission-like restrained header rhythm to busy pages. */
+#tab-system .system-section-heading-v0540f,
+#tab-radio .radio-heading-v0540g {
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 9px;
+}
+#tab-system .system-section-heading-v0540f p,
+#tab-radio .radio-heading-v0540g p {
+    margin: 3px 0 0;
+    line-height: 1.35;
+}
+#tab-system .system-page-v0540f,
+#tab-radio .radio-page-v0540g,
+#tab-traffic-voice .traffic-voice-page,
+#tab-hf-monitor .hf-monitor-page,
+#tab-mission-planner .mission-planner-layout,
+#tab-mission-analytics .mission-analytics-layout {
+    gap: 12px;
+}
+#tab-radio-view .radio-view-grid { gap: 14px; }
+
+/* Only the empty / standby text panels shrink. A running mission's output
+   panels, waveform, spectrum, AIS maps and actual recordings keep their size. */
+#mission-operations-idle:not(.hidden) {
+    min-height: 138px;
+    padding: 18px;
+}
+#mission-operations-preview-empty:not(.hidden) {
+    min-height: 148px;
+    padding: 18px;
+}
+
+/* Screens with less room wrap statuses below the title, never over the text. */
+@media (max-width: 900px) {
+    #tab-radio-view .radio-view-header,
+    #tab-traffic-voice .traffic-voice-header,
+    #tab-hf-monitor .hf-monitor-header,
+    #tab-mission-planner .mission-planner-header,
+    #tab-mission-analytics .mission-analytics-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        padding: 12px 14px;
+    }
+    #tab-radio-view .radio-view-header > div,
+    #tab-traffic-voice .traffic-voice-header > div:first-child,
+    #tab-hf-monitor .hf-monitor-header > div:first-child,
+    #tab-mission-planner .mission-planner-header > div:first-child,
+    #tab-mission-analytics .mission-analytics-header > div:first-child {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 760px) {
+    .topbar[data-banner-scene] .topbar-visuals::before {
+        -webkit-mask-image: linear-gradient(90deg,
+            transparent 0%, transparent 20%, rgba(0,0,0,.55) 56%, #000 85%);
+        mask-image: linear-gradient(90deg,
+            transparent 0%, transparent 20%, rgba(0,0,0,.55) 56%, #000 85%);
+    }
+    .topbar[data-banner-scene] .topbar-visuals::after {
+        background: linear-gradient(90deg, #031426 0%,
+            rgba(3,20,38,.85) 44%, rgba(3,20,38,.26) 100%);
+    }
+    #mission-operations-idle:not(.hidden),
+    #mission-operations-preview-empty:not(.hidden) { min-height: 116px; }
+}
