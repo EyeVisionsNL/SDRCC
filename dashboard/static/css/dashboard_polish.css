@@ -122,6 +122,32 @@
     padding: 18px;
 }
 
+/* When the recording library is EMPTY, the empty message must not reserve
+   the same 430px workspace as real audio/image results. Keep the full viewer
+   and Mission Summary untouched as soon as actual recordings appear. */
+.mission-operations-results-grid:has(#mission-recordings-list .mission-operations-empty)
+.mission-operations-results-card,
+.mission-operations-results-grid:has(#mission-recordings-list .mission-operations-empty)
+.mission-recordings-player {
+    min-height: 0;
+}
+.mission-operations-results-grid:has(#mission-recordings-list .mission-operations-empty)
+#mission-recordings-list {
+    flex: 0 0 auto;
+    min-height: 0;
+}
+.mission-operations-results-grid:has(#mission-recordings-list .mission-operations-empty)
+.mission-operations-empty,
+.mission-operations-results-grid:has(#mission-recordings-list .mission-operations-empty)
+#capture-empty-images:not(.hidden) {
+    min-height: 116px;
+    padding: 18px;
+}
+.mission-operations-results-grid:has(#mission-recordings-list .mission-operations-empty)
+.mission-recordings-player .mission-operations-summary {
+    display: none;
+}
+
 /* Screens with less room wrap statuses below the title, never over the text. */
 @media (max-width: 900px) {
     #tab-radio-view .radio-view-header,
