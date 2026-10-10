@@ -34,6 +34,35 @@
         rgba(3,20,38,0) 84%);
 }
 
+/* v0.65.5 — One LIVE badge for every banner scene, below the brand tagline.
+   The artwork and rotating radar remain entirely unobstructed on the right. */
+.topbar .brand-copy > .topbar-status {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    flex: 0 0 auto;
+    gap: 7px;
+    width: max-content;
+    max-width: 100%;
+    margin-top: 7px;
+    padding: 4px 9px;
+    line-height: 1.15;
+    font-size: .7rem;
+    white-space: nowrap;
+}
+.topbar .brand-copy > .topbar-status .status-dot {
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+}
+@media (max-width: 760px) {
+    .topbar .brand-copy > .topbar-status {
+        margin-top: 5px;
+        padding: 3px 8px;
+        font-size: .65rem;
+    }
+}
+
 /* Shared compact page-introduction panels: preserve each tab's identity.
    This is for text-only introduction areas, NOT functional or data cards. */
 #tab-radio-view .radio-view-header,
