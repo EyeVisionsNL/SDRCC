@@ -79,7 +79,7 @@
     // The existing sound toggle and volume preference apply here too.
     function playTabWhoosh({ test = false } = {}) {
         if (!test && (!readEnabled() || !readTabBlipEnabled())) return;
-        const volume = Math.min(1, readVolume() / 100 * 1.2);
+        const volume = Math.min(1, readVolume() / 100 * 0.85);
         if (volume <= 0) return;
 
         try {
