@@ -406,7 +406,7 @@
                 <section class="system-maintenance-group-v0540f" data-control-scope="ais-autostart" aria-labelledby="ais-autostart-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
-                            <h3 id="ais-autostart-title">AIS update protection</h3>
+                            <h3 id="ais-autostart-title"><span class="sdrcc-inline-icon" aria-hidden="true">🔒</span>AIS update protection</h3>
                             <p class="muted">Use once after an AIS-Catcher update if it enabled boot autostart again. Current reception keeps running.</p>
                         </div>
                         <span class="system-maintenance-warning-v0540f">AFTER AIS UPDATE</span>
@@ -420,7 +420,7 @@
                 <section class="system-maintenance-group-v0540f" data-control-scope="sdrcc-autostart" aria-labelledby="sdrcc-autostart-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
-                            <h3 id="sdrcc-autostart-title">SDRCC test mode</h3>
+                            <h3 id="sdrcc-autostart-title"><span class="sdrcc-inline-icon" aria-hidden="true">🧪</span>SDRCC test mode</h3>
                             <p class="muted">Disable dashboard autostart for reboot testing. The current dashboard keeps running. Restore with <code>sudo systemctl enable --now sdrcc.service</code>.</p>
                         </div>
                         <span class="system-maintenance-warning-v0540f">REBOOT IMPACT</span>
@@ -431,7 +431,7 @@
                 <section class="system-maintenance-group-v0540f mission-sounds-panel" aria-labelledby="mission-sounds-title">
                     <div class="mission-sounds-heading">
                         <div>
-                            <h3 id="mission-sounds-title">Mission notifications</h3>
+                            <h3 id="mission-sounds-title"><span class="sdrcc-inline-icon" aria-hidden="true">🔔</span>Mission notifications</h3>
                             <p class="muted">Sound alerts and dashboard event notifications.</p>
                         </div>
                         <label class="mission-sounds-toggle"><input id="mission-sounds-enabled" type="checkbox"><span>Sound enabled</span></label>
@@ -754,7 +754,7 @@
             <div class="traffic-voice-section-heading">
                 <div>
                     <span>ACTIVE RECEIVER</span>
-                    <h3>Shared Voice Controls &amp; Audio</h3>
+                    <h3><span class="sdrcc-inline-icon" aria-hidden="true">🎛️</span>Shared Voice Controls &amp; Audio</h3>
                 </div>
                 <div class="traffic-voice-header-badges">
                     <span id="traffic-voice-execution" class="traffic-voice-badge is-offline">EXECUTION DISABLED</span>
@@ -772,7 +772,7 @@
                 <span id="traffic-voice-action-message" aria-live="polite">Ready.</span>
             </div>
             <div class="traffic-voice-channel-list-tools" aria-label="Traffic Voice channel list">
-                <div><strong>Channel List</strong><span>Load another port / airfield list or export the current list for editing.</span></div>
+                <div><strong><span class="sdrcc-inline-icon" aria-hidden="true">📋</span>Channel List</strong><span>Load another port / airfield list or export the current list for editing.</span></div>
                 <div class="traffic-voice-channel-list-actions">
                     <input id="traffic-voice-channel-list-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
                     <button id="traffic-voice-channel-list-load" type="button" class="traffic-voice-button">Load Excel</button>
@@ -835,7 +835,7 @@
                 <div class="traffic-voice-recordings-heading">
                     <div>
                         <span>MARINE REPLAY</span>
-                        <h3>Recent transmissions</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">🎙️</span>Recent transmissions</h3>
                     </div>
                     <small>Up to four latest receptions</small>
                 </div>
@@ -844,13 +844,13 @@
                 <audio id="traffic-voice-replay-audio" class="traffic-voice-replay-audio" preload="none"></audio>
             </section>
             <div class="traffic-voice-signal-metrics">
-                <div><span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
-                <div><span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
-                <div><span>Gain / squelch</span><strong id="traffic-voice-rf-settings">-</strong></div>
-                <div><span>Strongest channel</span><strong id="traffic-voice-active-channel">-</strong></div>
-                <div><span>Signal / SNR</span><strong id="traffic-voice-signal">-</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🔊</span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🎚️</span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🎛️</span>Gain / squelch</span><strong id="traffic-voice-rf-settings">-</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📡</span>Strongest channel</span><strong id="traffic-voice-active-channel">-</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Signal / SNR</span><strong id="traffic-voice-signal">-</strong></div>
                 <div class="traffic-voice-speaker-metric">
-                    <span>Possible speaker</span>
+                    <span><span class="sdrcc-inline-icon" aria-hidden="true">🚢</span>Possible speaker</span>
                     <strong id="traffic-voice-possible-speaker">NOT INFERRED</strong>
                     <small id="traffic-voice-ais-match-detail">Waiting for validated Marine ATIS.</small>
                     <div class="traffic-voice-map-actions">
@@ -896,7 +896,7 @@
                 <div class="hf-monitor-section-heading">
                     <div>
                         <span>OPERATOR SETUP</span>
-                        <h3>Preset &amp; receiver</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">📻</span>Preset &amp; receiver</h3>
                     </div>
                     <span id="hf-monitor-controller-state" class="hf-monitor-state-label">READY</span>
                 </div>
@@ -963,10 +963,10 @@
                 </div>
 
                 <dl class="hf-monitor-contract-grid">
-                    <div><dt>Receiver authority</dt><dd>Receiver Manager</dd></div>
-                    <div><dt>Service restore</dt><dd>Exact pre-start state</dd></div>
-                    <div><dt>Backend</dt><dd id="hf-monitor-backend">LOADING</dd></div>
-                    <div><dt>Execution</dt><dd id="hf-monitor-execution">LOADING</dd></div>
+                    <div><dt><span class="sdrcc-inline-icon" aria-hidden="true">🛡️</span>Receiver authority</dt><dd>Receiver Manager</dd></div>
+                    <div><dt><span class="sdrcc-inline-icon" aria-hidden="true">↩️</span>Service restore</dt><dd>Exact pre-start state</dd></div>
+                    <div><dt><span class="sdrcc-inline-icon" aria-hidden="true">⚙️</span>Backend</dt><dd id="hf-monitor-backend">LOADING</dd></div>
+                    <div><dt><span class="sdrcc-inline-icon" aria-hidden="true">⚡</span>Execution</dt><dd id="hf-monitor-execution">LOADING</dd></div>
                 </dl>
             </article>
 
@@ -974,7 +974,7 @@
                 <div class="hf-monitor-section-heading">
                     <div>
                         <span>LIVE RF</span>
-                        <h3>Spectrum &amp; waterfall</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">📈</span>Spectrum &amp; waterfall</h3>
                     </div>
                     <span id="hf-monitor-spectrum-state" class="hf-monitor-state-label">NO LIVE DATA</span>
                 </div>
@@ -1029,15 +1029,15 @@
         </section>
 
         <div class="mission-planner-summary">
-            <article class="card mission-planner-summary-card is-passes"><span>Planned passes</span><strong id="mission-planner-pass-count">-</strong></article>
-            <article class="card mission-planner-summary-card is-conflicts"><span>Receiver conflicts</span><strong id="mission-planner-conflict-count">-</strong></article>
-            <article class="card mission-planner-summary-card is-skipped"><span>Skipped missions</span><strong id="mission-planner-skipped-count">-</strong></article>
-            <article class="card mission-planner-summary-card is-window"><span>Planning window</span><strong id="mission-planner-window">48 hours</strong></article>
+            <article class="card mission-planner-summary-card is-passes"><span><span class="sdrcc-inline-icon" aria-hidden="true">🛰️</span>Planned passes</span><strong id="mission-planner-pass-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-conflicts"><span><span class="sdrcc-inline-icon" aria-hidden="true">🔀</span>Receiver conflicts</span><strong id="mission-planner-conflict-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-skipped"><span><span class="sdrcc-inline-icon" aria-hidden="true">⏭️</span>Skipped missions</span><strong id="mission-planner-skipped-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-window"><span><span class="sdrcc-inline-icon" aria-hidden="true">🕒</span>Planning window</span><strong id="mission-planner-window">48 hours</strong></article>
         </div>
 
         <section class="card mission-planner-settings">
             <div class="mission-planner-settings-copy">
-                <h2>Satellite planning settings</h2>
+                <h2><span class="sdrcc-inline-icon" aria-hidden="true">⚙️</span>Satellite planning settings</h2>
                 <p class="muted">Each satellite has its own downlink selection, peak gate, rising start angle and falling close angle. Values use the configured station location.</p>
             </div>
             <form id="mission-planner-settings-form" class="mission-planner-settings-form">
@@ -1170,18 +1170,18 @@
         </section>
 
         <section class="mission-analytics-summary" aria-label="Mission summary">
-            <article class="card mission-analytics-stat is-total"><span>Total missions</span><strong id="analytics-total">-</strong><small id="analytics-completed">- completed</small></article>
-            <article class="card mission-analytics-stat is-success"><span>Success rate</span><strong id="analytics-success-rate">-</strong><small id="analytics-success-count">- successful</small></article>
-            <article class="card mission-analytics-stat is-snr"><span>Average peak SNR</span><strong id="analytics-average-snr">-</strong><small id="analytics-best-snr">Best: -</small></article>
-            <article class="card mission-analytics-stat is-elevation"><span>Average elevation</span><strong id="analytics-average-elevation">-</strong><small>Maximum pass elevation</small></article>
-            <article class="card mission-analytics-stat is-images"><span>Total images</span><strong id="analytics-total-images">-</strong><small id="analytics-average-duration">Average duration: -</small></article>
-            <article class="card mission-analytics-stat is-frames"><span>Total frames</span><strong id="analytics-total-frames">-</strong><small id="analytics-total-cadu">CADU: -</small></article>
+            <article class="card mission-analytics-stat is-total"><span><span class="sdrcc-inline-icon" aria-hidden="true">🗂️</span>Total missions</span><strong id="analytics-total">-</strong><small id="analytics-completed">- completed</small></article>
+            <article class="card mission-analytics-stat is-success"><span><span class="sdrcc-inline-icon" aria-hidden="true">✅</span>Success rate</span><strong id="analytics-success-rate">-</strong><small id="analytics-success-count">- successful</small></article>
+            <article class="card mission-analytics-stat is-snr"><span><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Average peak SNR</span><strong id="analytics-average-snr">-</strong><small id="analytics-best-snr">Best: -</small></article>
+            <article class="card mission-analytics-stat is-elevation"><span><span class="sdrcc-inline-icon" aria-hidden="true">🧭</span>Average elevation</span><strong id="analytics-average-elevation">-</strong><small>Maximum pass elevation</small></article>
+            <article class="card mission-analytics-stat is-images"><span><span class="sdrcc-inline-icon" aria-hidden="true">🖼️</span>Total images</span><strong id="analytics-total-images">-</strong><small id="analytics-average-duration">Average duration: -</small></article>
+            <article class="card mission-analytics-stat is-frames"><span><span class="sdrcc-inline-icon" aria-hidden="true">▦</span>Total frames</span><strong id="analytics-total-frames">-</strong><small id="analytics-total-cadu">CADU: -</small></article>
         </section>
 
         <div class="mission-analytics-grid">
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Receiver Performance</h2><p class="muted">Performance grouped by physical receiver.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">📻</span>Receiver Performance</h2><p class="muted">Performance grouped by physical receiver.</p></div>
                 </div>
                 <div id="analytics-receivers" class="mission-analytics-cards">
                     <div class="mission-analytics-empty">Loading receiver statistics...</div>
@@ -1190,7 +1190,7 @@
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Satellite Performance</h2><p class="muted">Mission results grouped by satellite.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🛰️</span>Satellite Performance</h2><p class="muted">Mission results grouped by satellite.</p></div>
                 </div>
                 <div id="analytics-satellites" class="mission-analytics-cards">
                     <div class="mission-analytics-empty">Loading satellite statistics...</div>
@@ -1201,7 +1201,7 @@
         <div class="mission-analytics-trends">
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Peak SNR Trend</h2><p class="muted">Peak signal-to-noise ratio per stored mission.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Peak SNR Trend</h2><p class="muted">Peak signal-to-noise ratio per stored mission.</p></div>
                 </div>
                 <div id="analytics-snr-trend" class="mission-analytics-trend-list">
                     <div class="mission-analytics-empty">Loading SNR trend...</div>
@@ -1210,7 +1210,7 @@
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>RF Gain vs Peak SNR</h2><p class="muted">Historical mission gain setting alongside the measured peak SNR.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🎚️</span>RF Gain vs Peak SNR</h2><p class="muted">Historical mission gain setting alongside the measured peak SNR.</p></div>
                 </div>
                 <div id="analytics-gain-snr" class="mission-analytics-gain-list">
                     <div class="mission-analytics-empty">Loading RF gain history...</div>
@@ -1219,7 +1219,7 @@
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Images per Mission</h2><p class="muted">Decoded image output per stored mission.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🖼️</span>Images per Mission</h2><p class="muted">Decoded image output per stored mission.</p></div>
                 </div>
                 <div id="analytics-images-trend" class="mission-analytics-trend-list">
                     <div class="mission-analytics-empty">Loading image trend...</div>
@@ -1228,7 +1228,7 @@
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Mission Outcome Timeline</h2><p class="muted">Chronological mission result overview.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🕒</span>Mission Outcome Timeline</h2><p class="muted">Chronological mission result overview.</p></div>
                 </div>
                 <div id="analytics-outcome-timeline" class="mission-analytics-timeline">
                     <div class="mission-analytics-empty">Loading mission timeline...</div>
@@ -1241,14 +1241,14 @@
         <div class="mission-analytics-grid mission-analytics-grid-secondary">
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Mission Results</h2><p class="muted">Stored result classification across all missions.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">📊</span>Mission Results</h2><p class="muted">Stored result classification across all missions.</p></div>
                 </div>
                 <div id="analytics-results" class="mission-analytics-breakdown"></div>
             </section>
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Quality Distribution</h2><p class="muted">Quality grades generated by Mission History diagnostics.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🎯</span>Quality Distribution</h2><p class="muted">Quality grades generated by Mission History diagnostics.</p></div>
                 </div>
                 <div id="analytics-quality" class="mission-analytics-breakdown"></div>
             </section>
@@ -1270,12 +1270,12 @@
             </div>
 
             <div class="history-stat-grid">
-                <div class="history-stat is-total"><span>Missions</span><strong id="history-stat-total">0</strong></div>
-                <div class="history-stat is-success"><span>Success</span><strong id="history-stat-success">0%</strong></div>
-                <div class="history-stat is-images"><span>Images</span><strong id="history-stat-images">0</strong></div>
-                <div class="history-stat is-duration"><span>Avg. duration</span><strong id="history-stat-duration">-</strong></div>
-                <div class="history-stat is-snr"><span>Best SNR</span><strong id="history-stat-snr">-</strong></div>
-                <div class="history-stat is-frames"><span>Total frames</span><strong id="history-stat-frames">0</strong></div>
+                <div class="history-stat is-total"><span><span class="sdrcc-inline-icon" aria-hidden="true">🗂️</span>Missions</span><strong id="history-stat-total">0</strong></div>
+                <div class="history-stat is-success"><span><span class="sdrcc-inline-icon" aria-hidden="true">✅</span>Success</span><strong id="history-stat-success">0%</strong></div>
+                <div class="history-stat is-images"><span><span class="sdrcc-inline-icon" aria-hidden="true">🖼️</span>Images</span><strong id="history-stat-images">0</strong></div>
+                <div class="history-stat is-duration"><span><span class="sdrcc-inline-icon" aria-hidden="true">⏱️</span>Avg. duration</span><strong id="history-stat-duration">-</strong></div>
+                <div class="history-stat is-snr"><span><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Best SNR</span><strong id="history-stat-snr">-</strong></div>
+                <div class="history-stat is-frames"><span><span class="sdrcc-inline-icon" aria-hidden="true">▦</span>Total frames</span><strong id="history-stat-frames">0</strong></div>
             </div>
 
             <div class="history-toolbar">
@@ -1325,7 +1325,7 @@
                 <div class="mission-operations-section-title">
                     <div>
                         <span class="mission-operations-eyebrow">LIVE WORKSPACE</span>
-                        <h3>Active Mission</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">🎯</span>Active Mission</h3>
                     </div>
                     <span id="mission-operations-state" class="mission-operations-state standby">IDLE</span>
                 </div>
@@ -1409,7 +1409,7 @@
                     <div class="mission-operations-section-title">
                         <div>
                             <span class="mission-operations-eyebrow">ISS VOICE</span>
-                            <h3>Live Audio</h3>
+                            <h3><span class="sdrcc-inline-icon" aria-hidden="true">🔊</span>Live Audio</h3>
                         </div>
                         <span id="mission-operations-audio-state" class="mission-operations-state standby">STANDBY</span>
                     </div>
@@ -1443,7 +1443,7 @@
                 <div class="mission-operations-section-title">
                     <div>
                         <span class="mission-operations-eyebrow">RECORDING LIBRARY</span>
-                        <h3>Mission Results</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">🗂️</span>Mission Results</h3>
                     </div>
                     <span id="mission-operations-result-count" class="mission-operations-state info">0 FILES</span>
                 </div>
@@ -1454,7 +1454,7 @@
                 <div class="mission-operations-section-title">
                     <div>
                         <span class="mission-operations-eyebrow">RESULT VIEWER</span>
-                        <h3>Selected Result</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">🔍</span>Selected Result</h3>
                     </div>
                     <span id="mission-operations-selected-kind" class="mission-operations-state standby">NONE</span>
                 </div>
@@ -1477,15 +1477,15 @@
                     </div>
                 </div>
                 <div class="mission-operations-summary">
-                    <h3>Mission Summary</h3>
+                    <h3><span class="sdrcc-inline-icon" aria-hidden="true">📋</span>Mission Summary</h3>
                     <div class="mission-operations-summary-grid">
-                        <div><span>Mission ID</span><strong id="mission-operations-result-id">-</strong></div>
-                        <div><span>Satellite</span><strong id="mission-operations-result-satellite">-</strong></div>
-                        <div><span>Receiver</span><strong id="mission-operations-result-receiver">-</strong></div>
-                        <div><span>Pipeline</span><strong id="mission-operations-result-pipeline">-</strong></div>
-                        <div><span>Result</span><strong id="mission-operations-result-status">-</strong></div>
-                        <div><span>Duration</span><strong id="mission-operations-result-duration">-</strong></div>
-                        <div><span>Channel / wideband power</span><strong id="mission-operations-result-rf-ratio">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🆔</span>Mission ID</span><strong id="mission-operations-result-id">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🛰️</span>Satellite</span><strong id="mission-operations-result-satellite">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📻</span>Receiver</span><strong id="mission-operations-result-receiver">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">⚙️</span>Pipeline</span><strong id="mission-operations-result-pipeline">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📊</span>Result</span><strong id="mission-operations-result-status">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">⏱️</span>Duration</span><strong id="mission-operations-result-duration">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Channel / wideband power</span><strong id="mission-operations-result-rf-ratio">-</strong></div>
                     </div>
                 </div>
             </section>
