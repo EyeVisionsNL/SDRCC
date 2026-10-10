@@ -597,6 +597,16 @@
         modes.forEach(mode => renderChannelBank(mode, payload));
     }
 
+    // The stop button itself indicates live browser audio; no duplicate status badge.
+    function setAudioButtonState(isListening, disabled) {
+        const button = byId("traffic-voice-audio-toggle");
+        if (!button) return;
+        button.textContent = isListening ? "■ Stop audio" : "▶ Live audio";
+        button.classList.toggle("is-audio-live", isListening);
+        button.setAttribute("aria-pressed", String(isListening));
+        button.disabled = disabled;
+    }
+
     function stopAudio() {
         const audio = byId("traffic-voice-audio");
         if (!audio) return;
@@ -604,11 +614,7 @@
         audio.pause();
         audio.removeAttribute("src");
         audio.load();
-        const button = byId("traffic-voice-audio-toggle");
-        if (button) {
-            button.textContent = "▶ Live audio";
-            button.disabled = actionBusy || !audio.dataset.streamUrl;
-        }
+        setAudioButtonState(false, actionBusy || !audio.dataset.streamUrl);
         text("traffic-voice-audio-detail", "Live audio stopped in this browser.");
     }
 
@@ -626,18 +632,13 @@
         try {
             await audio.play();
             if (operation !== audioOperation) return;
-            const button = byId("traffic-voice-audio-toggle");
-            if (button) button.textContent = "■ Stop audio";
+            setAudioButtonState(true, actionBusy);
             text("traffic-voice-audio-detail", "Playing the live stream; no artificial duration is shown.");
         } catch (error) {
             if (operation !== audioOperation || error?.name === "AbortError") return;
             audio.removeAttribute("src");
             audio.load();
-            const button = byId("traffic-voice-audio-toggle");
-            if (button) {
-                button.textContent = "▶ Live audio";
-                button.disabled = actionBusy || !audio.dataset.streamUrl;
-            }
+            setAudioButtonState(false, actionBusy || !audio.dataset.streamUrl);
             text("traffic-voice-audio-detail", "Browser audio could not start: " + error.message);
         }
     }
@@ -786,7 +787,6 @@
 
     function renderAudio(payload) {
         const audio = byId("traffic-voice-audio");
-        const button = byId("traffic-voice-audio-toggle");
         const audioState = payload.audio || {};
         const modeChanged = payload.selected_mode !== audioMode && Boolean(audioPreferences[payload.selected_mode]);
         if (modeChanged && playingRecordingId) stopRecordingReplay(false);
@@ -811,12 +811,8 @@
 
         const browserListening = Boolean(audio.getAttribute("src"));
         const voiceRunning = Boolean((payload.service || {}).active);
-        if (button) {
-            button.textContent = browserListening ? "■ Stop audio" : "▶ Live audio";
-            // A running browser stream must always remain stoppable, even when
-            // the backend temporarily reports no fresh packet during silence.
-            button.disabled = actionBusy || (!browserListening && !audioState.stream_url);
-        }
+        // Keep the stop state visible and stoppable through momentary receiver silence.
+        setAudioButtonState(browserListening, actionBusy || (!browserListening && !audioState.stream_url));
         if (!voiceRunning && browserListening) stopAudio();
         if (!audioState.stream_url && !browserListening) {
             text("traffic-voice-audio-detail", "Start Voice and wait for the local audio stream.");
@@ -1142,11 +1138,7 @@
             audioOperation += 1;
             liveAudio.removeAttribute("src");
             liveAudio.load();
-            const button = byId("traffic-voice-audio-toggle");
-            if (button) {
-                button.textContent = "▶ Live audio";
-                button.disabled = actionBusy || !liveAudio.dataset.streamUrl;
-            }
+            setAudioButtonState(false, actionBusy || !liveAudio.dataset.streamUrl);
             text(
                 "traffic-voice-audio-detail",
                 "Live audio stream ended; click Live audio to reconnect.",
