@@ -1756,6 +1756,64 @@ def restore_autopilot_receiver(detail):
     return {"ok": True, "released": True, "errors": []}
 
 
+def reconcile_idle_autopilot_runtime():
+    """Clear finished/abandoned pass flags only after receiver work is really idle.
+
+    MANUAL/PAUSED used to skip the normal autopilot cleanup loop entirely,
+    leaving prepared/locked/record_started True after completed or aborted
+    missions.  Those flags incorrectly blocked the dashboard updater forever.
+    Never clear a live mission, subprocess, simulator or ISS executor.
+    """
+    tracked = ("prepared", "locked", "record_started")
+    if not any(autopilot_runtime.get(name) for name in tracked):
+        return False
+
+    mission = mission_engine_core.get_mission_status()
+    phase = str(mission.get("phase") or mission.get("state") or "").upper()
+    if mission.get("active_job") is not None or phase not in {"READY", "WAIT FOR PASS"}:
+        return False
+    if (
+        autopilot_runtime.get("process") is not None
+        or autopilot_runtime.get("iss_execution_active")
+        or mission_simulator.get_status().get("simulator", {}).get("active")
+    ):
+        return False
+
+    scheduler_mode = str(
+        mission_scheduler_core.get_scheduler_status().get("mode") or "MANUAL"
+    ).upper()
+    recorded = bool(autopilot_runtime.get("record_started"))
+    target = autopilot_runtime.get("target_pass") or {}
+    mission_type = str(target.get("mission_type") or "weather")
+
+    # Pending preparation under AUTO must remain reserved for the next pass.
+    if not recorded and scheduler_mode not in {"MANUAL", "PAUSED"}:
+        return False
+    # An ISS execution thread may be starting while its active flag is still
+    # False. Require a completed result before retiring record_started.
+    if (
+        recorded
+        and mission_type in {"iss_voice", "iss_sstv"}
+        and autopilot_runtime.get("iss_execution_result") is None
+    ):
+        return False
+
+    try:
+        restored = restore_autopilot_receiver(
+            "Receiver context restored after idle autopilot cleanup"
+        )
+        if not restored.get("ok"):
+            write_log("Managed update: idle receiver restoration still requires attention")
+            return False
+    except Exception as error:
+        write_log(f"Managed update: idle autopilot restoration failed: {error}")
+        return False
+
+    reset_autopilot_runtime()
+    write_log("Managed update: cleared stale completed/paused autopilot flags")
+    return True
+
+
 def autopilot_prepare_receiver():
     write_log("AUTO: T-90 ontvanger voorbereiden")
     device = device_manager.get_assigned_device("weather")
@@ -2339,6 +2397,7 @@ def mission_autopilot_worker():
             next_pass = scheduler.get("next_pass")
 
             if mode in {"MANUAL", "PAUSED"}:
+                reconcile_idle_autopilot_runtime()
                 time.sleep(AUTOPILOT_POLL_SECONDS)
                 continue
 
@@ -4586,18 +4645,26 @@ def api_update_channel():
     return jsonify(update_manager.set_beta_program(beta_program))
 
 
-def _update_receiver_runtime_active():
-    """Return True only for work that must not be interrupted by an update."""
+def _update_receiver_runtime_blockers():
+    """List the real reasons for a receiver update lock, for diagnostics."""
     mission = mission_engine_core.get_mission_status()
-    return bool(
-        mission.get("active_job") is not None
-        or mission_simulator.get_status().get("simulator", {}).get("active")
-        or autopilot_runtime.get("prepared")
-        or autopilot_runtime.get("locked")
-        or autopilot_runtime.get("record_started")
-        or autopilot_runtime.get("process") is not None
-        or autopilot_runtime.get("iss_execution_active")
-    )
+    checks = {
+        "mission_job": mission.get("active_job") is not None,
+        "mission_simulator": bool(
+            mission_simulator.get_status().get("simulator", {}).get("active")
+        ),
+        "receiver_prepared": bool(autopilot_runtime.get("prepared")),
+        "receiver_locked": bool(autopilot_runtime.get("locked")),
+        "recording_started": bool(autopilot_runtime.get("record_started")),
+        "satdump_process": autopilot_runtime.get("process") is not None,
+        "iss_execution": bool(autopilot_runtime.get("iss_execution_active")),
+    }
+    return [name for name, active in checks.items() if active]
+
+
+def _update_receiver_runtime_active():
+    """Compatibility helper for callers requiring a boolean busy state."""
+    return bool(_update_receiver_runtime_blockers())
 
 
 def _stop_service_group_for_update(plugin_id):
@@ -4687,13 +4754,18 @@ def _restore_update_service_plan():
 
 def _prepare_receiver_work_for_update():
     """Quiesce ordinary receiver work; preserve mission/hardware safety blocks."""
-    if _update_receiver_runtime_active():
+    reconcile_idle_autopilot_runtime()
+    blockers = _update_receiver_runtime_blockers()
+    if blockers:
+        write_log("Managed update blocked by receiver runtime: " + ", ".join(blockers))
         return {
             "ok": False,
             "message": (
-                "An active mission/recording is using a receiver. "
-                "Finish or stop that mission before updating SDRCC."
+                "Receiver runtime is still reserved ("
+                + ", ".join(blockers)
+                + "). Finish or stop the active work before updating SDRCC."
             ),
+            "runtime_blockers": blockers,
             "stopped_services": [],
         }
 
