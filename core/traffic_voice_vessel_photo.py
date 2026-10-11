@@ -18,11 +18,12 @@ from urllib.parse import urlencode, urljoin, urlparse, unquote
 from urllib.request import Request, urlopen
 from core.traffic_voice_debinnenvaart import lookup as _binnenvaart_lookup
 from core.traffic_voice_binnenvaartspotter import lookup as _spotter_lookup
+from core.traffic_voice_shipspotting import lookup as _shipspotting_lookup
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 9
+PHOTO_POLICY_VERSION = 10
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
 NEGATIVE_CACHE_SECONDS = 6 * 3600
 _lock = threading.RLock()
@@ -415,9 +416,18 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
                 pass
         return {**spotter_result, "cached": False}
 
-    # Priority 3 reserved for Shipspotting.com once the thumbnail
-    # access conditions and an identity-verified lookup are implemented.
-    # Do not scrape or display unverified third-party photographs.
+    # Priority 3: Shipspotting.com. Only verified, credited thumbnails;
+    # inaccessible or ambiguous pages safely fall through to the next source.
+    shipspotting_result = _shipspotting_lookup(mmsi, shipname, imo, eni, now)
+    if shipspotting_result:
+        with _lock:
+            cache = _load()
+            cache[key] = shipspotting_result
+            try:
+                _save(cache)
+            except OSError:
+                pass
+        return {**shipspotting_result, "cached": False}
 
     # Priority 4: De Binnenvaart.
     binnenvaart_result = _binnenvaart_lookup(mmsi, shipname, imo, eni, now)
@@ -431,7 +441,7 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
                 pass
         return {**binnenvaart_result, "cached": False}
 
-    # Priority 4: Wikimedia Commons. Ordered fallbacks: exact identifiers first.
+    # Priority 5: Wikimedia Commons. Ordered fallbacks: exact identifiers first.
     # Ordered fallbacks: exact identifiers first, then vessel name. Each query
     # is small and sequential; once a trustworthy candidate is found we stop.
     queries: list[str] = []
