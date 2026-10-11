@@ -242,7 +242,7 @@ def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
     queries.append(("mmsi", mmsi))
     for field, identifier in queries:
         search_url = BASE + "/photos/gallery?" + urlencode({
-            "advanced": "1", field: identifier, "sortBy": "newest", "viewType": "normal"
+            field: identifier, "sortBy": "newest", "viewType": "normal"
         })
         try:
             links, previews = _search_links(_download(search_url, MAX_SEARCH))
