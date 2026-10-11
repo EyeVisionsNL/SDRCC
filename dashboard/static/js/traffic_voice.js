@@ -310,7 +310,7 @@
             if (credit) {
                 credit.classList.toggle("is-attributed", Boolean(String(result.artist || "").trim()));
                 credit.textContent = result.source === "De Binnenvaart" && result.artist
-                    ? "Foto: " + result.artist
+                    ? "Foto: © " + result.artist
                     : [result.source, result.artist, /^thumbnail met toestemming/i.test(String(result.license || '').trim()) ? '' : result.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
                 if (result.page_url && /^(?:https:\/\/(?:(?:www\.)?binnenvaartspotter|(?:www\.)?debinnenvaart)\.nl\/|https:\/\/(?:markprummel\.nl|commons\.wikimedia\.org)\/)/.test(result.page_url)) {
                     const original = document.createElement("a");
