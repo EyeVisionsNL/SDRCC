@@ -52,6 +52,26 @@ class ShipspottingTests(unittest.TestCase):
         self.assertIsNone(ship._detail(DETAIL.replace(SMALL, BIG), url, "",
                                        MMSI, "SPIRIT OF GLACIER BAY", IMO, "", 500))
 
+    def test_imo_outweighs_stale_mmsi(self):
+        url = "https://www.shipspotting.com/photos/2157471"
+        found = ship._detail(DETAIL, url, SMALL, "999999999",
+                             "SPIRIT OF GLACIER BAY", IMO, "", 500)
+        self.assertIsNotNone(found)
+        self.assertIsNone(ship._detail(DETAIL, url, SMALL, "999999999",
+                                        "SPIRIT OF GLACIER BAY", "", "", 500))
+
+    def test_eni_search_when_imo_gallery_empty(self):
+        urls = []
+        def get(url, cap):
+            urls.append(url)
+            if "/photos/gallery?" in url:
+                return SEARCH if "eni=2345678" in url else ""
+            return DETAIL.replace("MMSI: 367645050", "MMSI: 367645050 ENI: 02345678")
+        with patch.object(ship, "_download", side_effect=get):
+            found = ship.lookup(MMSI, "SPIRIT OF GLACIER BAY", IMO, ENI)
+        self.assertIsNotNone(found)
+        self.assertTrue(any("eni=2345678" in url for url in urls))
+
     def test_network_failure_falls_through(self):
         with patch.object(ship, "_download", side_effect=OSError("403 blocked")):
             self.assertIsNone(ship.lookup(MMSI, "SPIRIT OF GLACIER BAY", IMO))
@@ -60,11 +80,13 @@ class ShipspottingTests(unittest.TestCase):
         urls = []
         def get(url, cap):
             urls.append(url)
-            return SEARCH if "/photos/search?" in url else DETAIL
+            return SEARCH if "/photos/gallery?" in url else DETAIL
         with patch.object(ship, "_download", side_effect=get):
             found = ship.lookup(MMSI, "SPIRIT OF GLACIER BAY", IMO)
         self.assertEqual(found["image_url"], SMALL)
+        self.assertIn("/photos/gallery?", urls[0])
         self.assertIn("imo=8883563", urls[0])
+        self.assertTrue(all("/photos/search?" not in url for url in urls))
 
 
 class PriorityTests(unittest.TestCase):
