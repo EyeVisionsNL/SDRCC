@@ -17,10 +17,10 @@ import time
 
 BASE = "https://www.shipspotting.com"
 USER_AGENT = "SDRCC-Flexible-Ground-Station/0.66 (attributed thumbnail lookup)"
-PHOTO_PATH = re.compile(r"^/photos/(\\d{5,10})/?$")
-IMO_RE = re.compile(r"\\bIMO\\s*:\\s*(\\d{7})\\b", re.I)
-MMSI_RE = re.compile(r"\\bMMSI\\s*:\\s*(\\d{9})\\b", re.I)
-ENI_RE = re.compile(r"\\bENI\\s*:\\s*(\\d{7,8})\\b", re.I)
+PHOTO_PATH = re.compile(r"^/photos/(\d{5,10})/?$")
+IMO_RE = re.compile(r"\bIMO\s*:\s*(\d{7})\b", re.I)
+MMSI_RE = re.compile(r"\bMMSI\s*:\s*(\d{9})\b", re.I)
+ENI_RE = re.compile(r"\bENI\s*:\s*(\d{7,8})\b", re.I)
 MAX_SEARCH = 1_500_000
 MAX_PHOTO = 1_200_000
 
@@ -42,14 +42,14 @@ def _thumbnail_url(value: str) -> str:
             (parsed.hostname or "").endswith(".shipspotting.com")):
         return ""
     path = parsed.path.lower()
-    if not re.search(r"\\.(?:jpg|jpeg|png|webp)$", path):
+    if not re.search(r"\.(?:jpg|jpeg|png|webp)$", path):
         return ""
     if re.search(r"/(?:big|large|full|original)/", path):
         return ""
     if re.search(r"/photos/(?:small|thumb|thumbnail|medium|preview|teaser)/", path):
         return parsed.geturl()
     # A genuine resized CDN URL, not a full-size image displayed smaller in CSS.
-    if "/photos/" in path and re.search(r"(?:^|&)(?:width|w)=([1-4]\\d{2})(?:&|$)", parsed.query):
+    if "/photos/" in path and re.search(r"(?:^|&)(?:width|w)=([1-4]\d{2})(?:&|$)", parsed.query):
         return parsed.geturl()
     return ""
 
@@ -101,7 +101,7 @@ def _image_from_attrs(attrs: dict[str, str]) -> str:
     for key in ("srcset", "data-srcset"):
         for item in attrs.get(key, "").split(","):
             part = item.strip().split()
-            if len(part) == 2 and re.fullmatch(r"\\d+w", part[1]):
+            if len(part) == 2 and re.fullmatch(r"\d+w", part[1]):
                 width = int(part[1][:-1])
                 if 140 <= width <= 500:
                     candidate = _thumbnail_url(part[0])
@@ -136,7 +136,7 @@ def _search_links(doc: str) -> tuple[list[str], dict[str, str]]:
     # These are only candidates: each detail page must pass all checks below.
     candidates = parser.links[:8]
     if not candidates:
-        for match in re.finditer(r"photos(?:/|\\\\/)(\\d{5,10})(?=[\\\"/?&]|$)", doc):
+        for match in re.finditer(r"photos(?:/|\\/)(\d{5,10})(?=[\\"/?&]|$)", doc):
             url = _photo_url("/photos/" + match.group(1))
             if url and url not in candidates:
                 candidates.append(url)
@@ -147,14 +147,14 @@ def _search_links(doc: str) -> tuple[list[str], dict[str, str]]:
 
 def _credit(words: list[str]) -> str:
     for index, part in enumerate(words[:450]):
-        if re.fullmatch(r"photographer\\s*:", part, re.I) and index + 1 < len(words):
+        if re.fullmatch(r"photographer\s*:", part, re.I) and index + 1 < len(words):
             name = words[index + 1].strip()
         else:
-            match = re.match(r"^Photographer\\s*:\\s*(.+)$", part, re.I)
+            match = re.match(r"^Photographer\s*:\s*(.+)$", part, re.I)
             if not match:
                 continue
             name = match.group(1).strip()
-        name = re.sub(r"\\s*\\[?\\s*View profile.*$", "", name, flags=re.I).strip()
+        name = re.sub(r"\s*\[?\s*View profile.*$", "", name, flags=re.I).strip()
         if 2 <= len(name) <= 120 and name.lower() not in {"unknown", "n/a", "view profile"}:
             return name
     return ""
@@ -162,12 +162,12 @@ def _credit(words: list[str]) -> str:
 
 def _identifiers(words: list[str]) -> tuple[str, str, str]:
     visible = " ".join(words)
-    match = re.search(r"\\bVessel\\s+particulars\\b", visible, re.I)
+    match = re.search(r"\bVessel\s+particulars\b", visible, re.I)
     if not match:
         return "", "", ""
     # Ignore IMO/MMSI numbers appearing in unrelated comments or photo descriptions.
     part = visible[match.end():][:5000]
-    part = re.split(r"\\b(?:AIS Position|Photo Categories|More of this ship|Comment this photo)\\b",
+    part = re.split(r"\b(?:AIS Position|Photo Categories|More of this ship|Comment this photo)\b",
                     part, maxsplit=1, flags=re.I)[0]
     imo = IMO_RE.search(part)
     mmsi = MMSI_RE.search(part)
@@ -217,13 +217,13 @@ def _detail(doc: str, url: str, preview: str, mmsi: str, name: str,
 def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
            now: float | None = None) -> dict | None:
     """Return only verified attributed thumbnails; safely fall through otherwise."""
-    if not re.fullmatch(r"\\d{9}", str(mmsi or "")):
+    if not re.fullmatch(r"\d{9}", str(mmsi or "")):
         return None
     imo = str(imo or "")
     eni = str(eni or "")
-    if imo and not re.fullmatch(r"\\d{7}", imo):
+    if imo and not re.fullmatch(r"\d{7}", imo):
         return None
-    if eni and not re.fullmatch(r"\\d{7,8}", eni):
+    if eni and not re.fullmatch(r"\d{7,8}", eni):
         return None
     now = time.time() if now is None else now
     queries = ([("imo", imo)] if imo else [("mmsi", mmsi)])
