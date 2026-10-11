@@ -528,6 +528,18 @@ def worker() -> int:
             )
 
             verify_source_manifest(source)
+            # Validate the downloaded Python code before touching the installed
+            # service. A syntax error must never stop a working SDRCC instance.
+            source_compile = run(
+                [project / "venv/bin/python", "-m", "compileall", "-q",
+                 source / "core", source / "dashboard"],
+                timeout=120,
+            )
+            if source_compile.returncode:
+                raise RuntimeError(
+                    "Update source has invalid Python code; aborting before "
+                    "stopping SDRCC (see /var/log/sdrcc-update.log)."
+                )
             target = (source / "VERSION").read_text(encoding="utf-8").strip()
             comparison = compare_versions(current, target)
             commit = run(
