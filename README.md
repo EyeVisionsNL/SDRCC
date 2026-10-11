@@ -155,7 +155,7 @@ Thank you to the photographers and websites that make the optional vessel-photo 
 | Website | Photo credit and use in SDRCC |
 |---|---|
 | [Binnenvaartspotter.nl](https://www.binnenvaartspotter.nl/) | Peter's vessel photographs, displayed as thumbnails with permission and a link to the original page |
-| [De Binnenvaart](https://www.debinnenvaart.nl/schepen_home/) | Vessel-register photographs, displayed with permission, photographer credit, original watermark and a link to the source |
+| Independent vessel photographers | Where available, SDRCC shows the photographer's name and a clickable link to the original photograph. Existing watermarks remain intact; photo credits do not imply permission for further reuse. |
 | [Mark Prummel](https://markprummel.nl/) | Photographs by Mark & Chris Prummel, with source credit and a link to the original ship page |
 | [Wikimedia Commons](https://commons.wikimedia.org/) | Vessel photographs with the individual photographer and license shown alongside the image |
 
