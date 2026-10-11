@@ -974,6 +974,40 @@
 .traffic-voice-vessel-photo-card a:hover,
 .traffic-voice-vessel-photo-card a:focus-visible { color: #bae6fd; }
 
+/* Photographer attribution: reuse the green accent from active Marine Voice controls. */
+.traffic-voice-vessel-photo-card small.traffic-voice-vessel-photo-credit.is-attributed {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.16rem;
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 0.35rem;
+    padding: 0.3rem 0.55rem;
+    border: 1px solid rgba(52, 211, 153, 0.7);
+    border-radius: 7px;
+    background: rgba(5, 150, 105, 0.24);
+    color: #6ee7b7;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.5;
+    opacity: 1;
+}
+.traffic-voice-vessel-photo-credit.is-attributed::before {
+    content: "📷";
+    margin-right: 0.16rem;
+    font-size: 0.85rem;
+}
+.traffic-voice-vessel-photo-card .traffic-voice-vessel-photo-credit.is-attributed a,
+.traffic-voice-vessel-photo-card .traffic-voice-vessel-photo-credit.is-attributed a:visited {
+    color: #a7f3d0;
+    font-weight: 700;
+}
+.traffic-voice-vessel-photo-card .traffic-voice-vessel-photo-credit.is-attributed a:hover,
+.traffic-voice-vessel-photo-card .traffic-voice-vessel-photo-credit.is-attributed a:focus-visible {
+    color: #dcfce7;
+}
+
 /* Match the existing top-right accents on the lower workspace panels. */
 .traffic-voice-controls,
 .traffic-voice-channel-list-tools,
