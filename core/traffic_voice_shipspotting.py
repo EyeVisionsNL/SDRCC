@@ -197,7 +197,7 @@ def _detail(doc: str, url: str, preview: str, mmsi: str, name: str,
     if not ((imo and found_imo == imo) or found_mmsi == mmsi or
             (eni and found_eni and found_eni.lstrip("0") == eni.lstrip("0"))):
         return None
-    artist = _credit(page.words
+    artist = _credit(page.words)
     if not artist:
         return None
     # Search-grid images are normally pre-sized. Otherwise accept only a
