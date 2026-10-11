@@ -229,6 +229,7 @@
         if (card) card.hidden = true;
         if (image) image.removeAttribute("src");
         byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
+        byId("traffic-voice-vessel-photo-credit")?.classList.remove("is-attributed");
     }
 
     function toggleVesselPhotos() {
@@ -275,6 +276,7 @@
         if (card) card.hidden = false;
         if (image) image.removeAttribute("src");
         byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
+        byId("traffic-voice-vessel-photo-credit")?.classList.remove("is-attributed");
         text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
         text("traffic-voice-vessel-photo-credit", "Searching vessel photo…");
         try {
@@ -306,6 +308,7 @@
             text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
             const credit = byId("traffic-voice-vessel-photo-credit");
             if (credit) {
+                credit.classList.toggle("is-attributed", Boolean(String(result.artist || "").trim()));
                 credit.textContent = result.source === "De Binnenvaart" && result.artist
                     ? "Foto: " + result.artist
                     : [result.source, result.artist, /^thumbnail met toestemming/i.test(String(result.license || '').trim()) ? '' : result.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
