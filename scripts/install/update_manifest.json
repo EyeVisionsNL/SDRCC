@@ -1047,6 +1047,7 @@
     "d17a8231bff9f616d5af67e9fb53fc93c1b47c4389ebd762e3ee15ef64eb981a"
   ],
   "scripts/validate_shipspotting_photo.py": [
-    "137bf623884dcbcacc14f71e02e436719dbf119afc9cc5e0296cfb4e0427ec70"
+    "137bf623884dcbcacc14f71e02e436719dbf119afc9cc5e0296cfb4e0427ec70",
+    "7f23c76ed9bbe8e9c87cd8705e81be0e44614d398ec2a378b60e201ca18933c8"
   ]
 }
