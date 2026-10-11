@@ -32,7 +32,7 @@ def main() -> None:
         queries.append(("mmsi", args.mmsi))
     for field, value in queries:
         url = ship.BASE + "/photos/gallery?" + urlencode({
-            "advanced": "1", field: value, "sortBy": "newest", "viewType": "normal"
+            field: value, "sortBy": "newest", "viewType": "normal"
         })
         print("Gallery query:", field, value)
         try:
