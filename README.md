@@ -58,6 +58,8 @@ Recent Marine transmissions can be replayed or saved, with up to four latest rec
 
 Optional **Ship photos** adds a vessel thumbnail after a validated live ATIS/AIS match, with the photographer/source credit and a clickable link to the original page. **Google Images** remains available as a separate search link.
 
+Photo source preference (v0.66.3): **Mark Prummel → Peter / Binnenvaartspotter → Shipspotting.com → De Binnenvaart → Wikimedia Commons**. Shipspotting images are only used when a reduced thumbnail, photographer attribution, source link and verified vessel identifier can be obtained. Unavailable or unverified results fall through to the next source.
+
 ## 📻 Sometimes you just want a radio
 
 ![SDRCC Radio Receiver spectrum and waterfall](images/radio-receiver.webp)
@@ -157,6 +159,7 @@ Thank you to the photographers and websites that make the optional vessel-photo 
 | [Binnenvaartspotter.nl](https://www.binnenvaartspotter.nl/) | Peter's vessel photographs, displayed as thumbnails with permission and a link to the original page |
 | Independent vessel photographers | Where available, SDRCC shows the photographer's name and a clickable link to the original photograph. Existing watermarks remain intact; photo credits do not imply permission for further reuse. |
 | [Mark Prummel](https://markprummel.nl/) | Photographs by Mark & Chris Prummel, with source credit and a link to the original ship page |
+| [Shipspotting.com](https://www.shipspotting.com/photos) | Attributed thumbnails only, with vessel identity verification and a direct link to the original photo; subject to Shipspotting's third-party conditions |
 | [Wikimedia Commons](https://commons.wikimedia.org/) | Vessel photographs with the individual photographer and license shown alongside the image |
 
 Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs.
