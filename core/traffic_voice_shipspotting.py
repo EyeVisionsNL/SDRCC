@@ -185,7 +185,11 @@ def _detail(doc: str, url: str, preview: str, mmsi: str, name: str,
     # Reject contradictory IDs, even when the displayed name happens to match.
     if imo and found_imo and found_imo != imo:
         return None
-    if found_mmsi and found_mmsi != mmsi:
+    # MMSI changes with flag or operator; a verified IMO or ENI outranks
+    # an old MMSI on a correctly identified Shipspotting photo.
+    strong_id = bool((imo and found_imo == imo) or
+                     (eni and found_eni and found_eni.lstrip("0") == eni.lstrip("0")))
+    if found_mmsi and found_mmsi != mmsi and not strong_id:
         return None
     if eni and found_eni and found_eni.lstrip("0") != eni.lstrip("0"):
         return None
@@ -244,7 +248,7 @@ def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
             links, previews = _search_links(_download(search_url, MAX_SEARCH))
         except (OSError, ValueError, TimeoutError):
             continue
-        for photo_url in links[:6]:
+        for photo_url in links[:4]:
             try:
                 result = _detail(_download(photo_url, MAX_PHOTO),
                                  photo_url, previews.get(photo_url, ""),
