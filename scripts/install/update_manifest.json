@@ -131,7 +131,8 @@
     "26cab1c740ba1a059762639ed3ccf7c3ee447b60f0806d5e6d683bfc22191f5d",
     "51406da00c61991c89051cab9da81cbca1d472603e78f7128338bbd3fdd2fd0f",
     "98c3c83a2efff21f23ba5304ad184fa3d3b16ceb9838896bbb0a2a5ad2294393",
-    "4fded537273c1883bc4ff3954ba91ae983326a65374feb5902ae5139fe1e6e0e"
+    "4fded537273c1883bc4ff3954ba91ae983326a65374feb5902ae5139fe1e6e0e",
+    "9cd599ccdca0ce70d369f1d716b724000d8252c6520742f3590144afcbaa7b2a"
   ],
   "core/device_manager.py": [
     "dd5d589b6d7660623df7f5adf3324716b43a1e67d31ef3ea8f43688d42b72797",
@@ -1039,9 +1040,6 @@
   ],
   "dashboard/static/audio/startup-space-v3.mp3": [
     "03a0f043aa3978a261ef71af8c6ac58c9f55bf1e77e4c54f8c728f378f0a15bf"
-  ],
-  "README.md": [
-    "96b2e332375d4596a24daa6440fab78a2d9c35d4283ab661431d842aca1ef8cd"
   ],
   "core/traffic_voice_shipspotting.py": [
     "d17a8231bff9f616d5af67e9fb53fc93c1b47c4389ebd762e3ee15ef64eb981a"
