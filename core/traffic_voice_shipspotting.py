@@ -182,16 +182,18 @@ def _detail(doc: str, url: str, preview: str, mmsi: str, name: str,
     page = _Page()
     page.feed(doc)
     found_imo, found_mmsi, found_eni = _identifiers(page.words)
-    if imo:
-        # Ships may change name and MMSI; IMO is stable.
-        if found_imo != imo:
-            return None
-    elif not ((found_mmsi == mmsi) or
-              (eni and found_eni and found_eni.lstrip("0") == eni.lstrip("0"))):
+    # Reject contradictory IDs, even when the displayed name happens to match.
+    if imo and found_imo and found_imo != imo:
+        return None
+    if found_mmsi and found_mmsi != mmsi:
         return None
     if eni and found_eni and found_eni.lstrip("0") != eni.lstrip("0"):
         return None
-    artist = _credit(page.words)
+    # At least one positive IMO, MMSI or ENI match is mandatory.
+    if not ((imo and found_imo == imo) or found_mmsi == mmsi or
+            (eni and found_eni and found_eni.lstrip("0") == eni.lstrip("0"))):
+        return None
+    artist = _credit(page.words
     if not artist:
         return None
     # Search-grid images are normally pre-sized. Otherwise accept only a
@@ -226,11 +228,16 @@ def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
     if eni and not re.fullmatch(r"\d{7,8}", eni):
         return None
     now = time.time() if now is None else now
-    queries = ([("imo", imo)] if imo else [("mmsi", mmsi)])
-    if not imo and eni:
-        queries.append(("eni", eni))
+    # Advanced gallery searches accept IMO, MMSI and ENI. On inland vessels
+    # an ENI is often available even when Shipspotting lacks an AIS MMSI.
+    queries: list[tuple[str, str]] = []
+    if imo:
+        queries.append(("imo", imo))
+    if eni:
+        queries.append(("eni", eni.lstrip("0") or "0"))
+    queries.append(("mmsi", mmsi))
     for field, identifier in queries:
-        search_url = BASE + "/photos/search?" + urlencode({
+        search_url = BASE + "/photos/gallery?" + urlencode({
             "advanced": "1", field: identifier, "sortBy": "newest", "viewType": "normal"
         })
         try:
