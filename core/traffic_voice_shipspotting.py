@@ -136,7 +136,7 @@ def _search_links(doc: str) -> tuple[list[str], dict[str, str]]:
     # These are only candidates: each detail page must pass all checks below.
     candidates = parser.links[:8]
     if not candidates:
-        for match in re.finditer(r"photos(?:/|\\/)(\d{5,10})(?=[\\"/?&]|$)", doc):
+        for match in re.finditer(r"/photos/(\d{5,10})(?=[/?\u0022#]|$)", doc):
             url = _photo_url("/photos/" + match.group(1))
             if url and url not in candidates:
                 candidates.append(url)
