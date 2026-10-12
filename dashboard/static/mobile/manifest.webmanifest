@@ -1,0 +1,17 @@
+{
+  "name": "SDRCC Mobile",
+  "short_name": "SDRCC",
+  "start_url": "/static/mobile/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#09151d",
+  "theme_color": "#0b1720",
+  "icons": [
+    {
+      "src": "/static/assets/sdrcc-favicon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
