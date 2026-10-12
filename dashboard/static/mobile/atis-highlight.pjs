@@ -61,6 +61,11 @@ if (typeof AISCatcher !== "undefined" &&
 
     function tick() {
       if (!current) return;
+      // AIS-Catcher initially hides all registered overlays while creating
+      // the map. Keep this ephemeral ring visible without touching the view.
+      if (typeof layer.getVisible === "function" && !layer.getVisible()) {
+        layer.setVisible(true);
+      }
       var now = Date.now();
       if (now >= current.expires) {
         endHighlight();
@@ -127,7 +132,8 @@ if (typeof AISCatcher !== "undefined" &&
       }
     });
 
-    reply("ready");
+    // Defer readiness until AIS-Catcher's synchronous map creation completes.
+    window.setTimeout(function () { reply("ready"); }, 0);
     console.info("[SDRCC Mobile] AIS ATIS highlight bridge ready");
   })();
 }
