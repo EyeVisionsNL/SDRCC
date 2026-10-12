@@ -19,20 +19,39 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{const tab=b.da
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let lastMatch="",lastPhotoMmsi="",currentSnapshot=null,playingRecordingId="",resumeLiveAfterReplay=false;
 const liveAudio=$("liveaudio"),replayAudio=$("replay"),savedRecordings=new Set();
-let streamUrl="";
+let streamUrl="",voiceActive=false,audioAttempt=0;
 function stopLive(){
+  audioAttempt++;
   liveAudio.pause();liveAudio.removeAttribute("src");liveAudio.load();
   $("audiotoggle").textContent="▶ Live audio starten";
   $("audiotoggle").setAttribute("aria-pressed","false");$("audiostatus").textContent="Uit";
 }
 async function startLive(){
-  if(!streamUrl){$("audiostatus").textContent="Wacht op de Voice audioverbinding";return}
-  liveAudio.src=streamUrl+(streamUrl.includes("?")?"&":"?")+"mode=marine_ais&live="+Date.now();
+  if(!voiceActive){
+    $("audiostatus").textContent="Traffic Voice Marine draait niet. Start Marine Voice in de desktopinterface.";
+    return;
+  }
+  // The audio bridge reports stream_url only while packets arrived recently.
+  // Let the user open the waiting stream even during a quiet Marine channel.
+  const endpoint=streamUrl||"/api/traffic-voice/audio-stream";
+  const token=++audioAttempt;
+  liveAudio.src=endpoint+(endpoint.includes("?")?"&":"?")+"mode=marine_ais&live="+Date.now();
+  $("audiotoggle").textContent="■ Live audio stoppen";
+  $("audiotoggle").setAttribute("aria-pressed","true");
+  $("audiostatus").textContent=streamUrl?"Verbinden…":"Wachten op marifoonactiviteit…";
   try{
-    await liveAudio.play();$("audiotoggle").textContent="■ Live audio stoppen";
-    $("audiotoggle").setAttribute("aria-pressed","true");$("audiostatus").textContent="LIVE";
-  }catch(e){stopLive();$("audiostatus").textContent="Audio niet beschikbaar: "+e.message}
+    await liveAudio.play();
+    if(token!==audioAttempt)return;
+    $("audiostatus").textContent="LIVE";
+  }catch(e){
+    if(token!==audioAttempt||e.name==="AbortError")return;
+    stopLive();$("audiostatus").textContent="Audio niet beschikbaar: "+e.message;
+  }
 }
+liveAudio.addEventListener("ended",()=>{
+  if(!liveAudio.getAttribute("src"))return;
+  stopLive();$("audiostatus").textContent="Audiostream beëindigd; tik opnieuw om te luisteren.";
+});
 $("audiotoggle").onclick=()=>{
   if(liveAudio.getAttribute("src")){stopLive();resumeLiveAfterReplay=false}
   else{if(playingRecordingId)stopReplay(false);startLive()}
@@ -55,10 +74,18 @@ async function playRecording(item){
   catch(e){$("recordingmessage").textContent="Afspelen mislukt: "+e.message;stopReplay(true)}
 }
 function renderAudioState(data){
-  streamUrl=data.selected_mode==="marine_ais"&&data.service?.active?String(data.audio?.stream_url||""):"";
-  $("audiotoggle").disabled=!streamUrl&&!liveAudio.getAttribute("src");
-  if(!streamUrl&&liveAudio.getAttribute("src"))stopLive();
-  if(!liveAudio.getAttribute("src"))$("audiostatus").textContent=streamUrl?"Uit":"Voice audio wacht op verbinding";
+  voiceActive=data.selected_mode==="marine_ais"&&Boolean(data.service?.active);
+  streamUrl=voiceActive?String(data.audio?.stream_url||""):"";
+  // Always leave the control clickable. If Voice is unavailable, explain why.
+  // A silent receiver is not a reason to disable a user's playback control.
+  $("audiotoggle").disabled=false;
+  if(!voiceActive&&liveAudio.getAttribute("src"))stopLive();
+  if(!liveAudio.getAttribute("src")){
+    $("audiostatus").textContent=data.selected_mode!=="marine_ais"
+      ?"Traffic Voice staat niet op Marine"
+      : !voiceActive?"Traffic Voice Marine is niet actief"
+      : streamUrl?"Uit · klaar om te luisteren":"Wachten op marifoonactiviteit";
+  }
 }
 async function saveRecording(item,button){
   button.disabled=true;button.textContent="Opslaan…";
