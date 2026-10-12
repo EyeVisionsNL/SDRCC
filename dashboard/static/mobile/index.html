@@ -138,7 +138,7 @@ function syncMobileMap(id,key,available){
 function applyMobileCapabilities(data){
   const components=data?.components;
   const required=["marine","traffic_voice","ais","adsb","sat","missions","system"];
-  if(data?.ok!==true||!components||!required.every(k=>typeof components[k]?.available==="boolean")){
+  if(data?.ok!==true||!components||components.system?.available!==true||!required.every(k=>typeof components[k]?.available==="boolean")){
     throw Error("Onvolledig installatieoverzicht");
   }
   mobileCapabilitySnapshot=data;
@@ -667,7 +667,7 @@ function renderSystem(data,updateStatus=null){
     box.append(card);
   }
 }
-$("system-refresh").addEventListener("click",()=>refreshSystem(true));
+$("system-refresh").addEventListener("click",()=>{refreshSystem(true);refreshMobileCapabilities()});
 let systemRequestBusy=false;
 async function refreshSystem(force=false){
   if((!force&&$("system").hidden)||systemRequestBusy)return;
