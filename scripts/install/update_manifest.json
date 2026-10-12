@@ -134,7 +134,8 @@
     "4fded537273c1883bc4ff3954ba91ae983326a65374feb5902ae5139fe1e6e0e",
     "9cd599ccdca0ce70d369f1d716b724000d8252c6520742f3590144afcbaa7b2a",
     "ce482bb20e237cff5836169b8c51a13528b5ac29ba904b7d8d18f4e5dd5827bd",
-    "7f72035b42457d27ced6fe079bbb523d17075f271d109e758112ee62b418dd2a"
+    "7f72035b42457d27ced6fe079bbb523d17075f271d109e758112ee62b418dd2a",
+    "8b6b415c4bfd12bf3d6926bf39e57686fd6163358f01077162ce7e1ac30a4fdc"
   ],
   "core/device_manager.py": [
     "dd5d589b6d7660623df7f5adf3324716b43a1e67d31ef3ea8f43688d42b72797",
@@ -1057,5 +1058,11 @@
   ],
   "scripts/diagnose_shipspotting_photo.py": [
     "f0d0f79de994911c761f914d06cf17bc44acb57e2104a9dbd63b19026de56f9c"
+  ],
+  "dashboard/static/mobile/index.html": [
+    "55ca74e6695c7c2c112df114ddd1ef4f705b6f67f67e5509b4067654393c865e"
+  ],
+  "dashboard/static/mobile/manifest.webmanifest": [
+    "95e1a2f6f7d8c09760e6774789283b221d700c9a6785110e6cf80c57754822f5"
   ]
 }
