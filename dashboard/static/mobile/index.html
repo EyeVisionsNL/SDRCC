@@ -60,6 +60,47 @@ function setConnectionState(state){
   }
 }
 function mayPollMobile(){return mobileIsOnline()&&!document.hidden}
+// A stalled GET must not leave refreshBusy set forever after a network switch.
+// These requests are observations only and can safely be repeated.
+async function readMobileJson(url,waitMs=12000){
+  const controller=typeof AbortController==="function"?new AbortController():null;
+  const timeout=controller?setTimeout(()=>controller.abort(),waitMs):null;
+  try{
+    const options={cache:"no-store"};
+    if(controller)options.signal=controller.signal;
+    const response=await fetch(url,options);
+    if(!response.ok)throw Error("HTTP "+response.status);
+    return await response.json();
+  }finally{
+    if(timeout!==null)clearTimeout(timeout);
+  }
+}
+// Mutations are never automatically retried. A lost POST response is
+// ambiguous: the server could already have completed the action.
+async function postMobileJson(url,payload){
+  const controller=typeof AbortController==="function"?new AbortController():null;
+  const timeout=controller?setTimeout(()=>controller.abort(),30000):null;
+  try{
+    const options={
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    };
+    if(controller)options.signal=controller.signal;
+    const response=await fetch(url,options);
+    const result=await response.json();
+    if(!response.ok||result.ok!==true){
+      throw Error(result.message||result.error||"HTTP "+response.status);
+    }
+    return result;
+  }catch(error){
+    if(error?.name==="AbortError"||error?.name==="TypeError"){
+      throw Error("Verbinding verbroken tijdens de opdracht. Uitkomst onbekend; controleer na herstel de status voordat je opnieuw probeert.");
+    }
+    throw error;
+  }finally{
+    if(timeout!==null)clearTimeout(timeout);
+  }
+}
 async function probeMobileConnection(force=false){
   if(mobileProbeBusy||document.hidden)return;
   const now=Date.now();
@@ -293,9 +334,7 @@ async function refreshMobileCapabilities(){
   if(mobileCapabilityBusy||!mayPollMobile())return;
   mobileCapabilityBusy=true;
   try{
-    const response=await fetch("/api/mobile/capabilities",{cache:"no-store"});
-    if(!response.ok)throw Error("HTTP "+response.status);
-    applyMobileCapabilities(await response.json());
+    applyMobileCapabilities(await readMobileJson("/api/mobile/capabilities"));
   }catch(error){
     if(!mobileCapabilitySnapshot){
       syncMobileMap("aismap","sdrcc-mobile-ais",true);
@@ -413,12 +452,7 @@ async function runMarineAction(action){
   message.textContent=action==="start_marine"?"Marine Traffic wordt gestart…":"Marine Traffic wordt gestopt; de vorige receiverconfiguratie wordt hersteld…";
   renderMarineControl(currentSnapshot);
   try{
-    const response=await fetch("/api/traffic-voice/action",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({action})
-    });
-    const result=await response.json();
-    if(!response.ok||!result.ok)throw Error(result.message||"Actie mislukt (HTTP "+response.status+")");
+    const result=await postMobileJson("/api/traffic-voice/action",{action});
     message.className="success system-status";
     message.textContent=result.message||"Marine Traffic bijgewerkt.";
     if(action==="stop"){stopLive();if(playingRecordingId)stopReplay(false)}
@@ -437,12 +471,8 @@ $("marine-stop").addEventListener("click",()=>runMarineAction("stop"));
 async function saveRecording(item,button){
   button.disabled=true;button.textContent="Opslaan…";
   try{
-    const response=await fetch("/api/traffic-voice/recordings/"+encodeURIComponent(item.id)+"/save",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({channel:item.channel,frequency_mhz:item.frequency_mhz,atis:currentSnapshot?.atis||{},ais_match:currentSnapshot?.ais_match||{}})
-    });
-    const result=await response.json();
-    if(!response.ok||!result.ok)throw Error(result.message||"Opslaan mislukt");
+    const result=await postMobileJson("/api/traffic-voice/recordings/"+encodeURIComponent(item.id)+"/save",
+      {channel:item.channel,frequency_mhz:item.frequency_mhz,atis:currentSnapshot?.atis||{},ais_match:currentSnapshot?.ais_match||{}});
     savedRecordings.add(item.id);button.textContent="✓ Opgeslagen";
     $("recordingmessage").textContent="Opname opgeslagen: "+(result.filename||item.channel||"Marine");
   }catch(e){button.disabled=false;button.textContent="💾 Bewaar";$("recordingmessage").textContent="Opslaan mislukt: "+e.message}
@@ -485,12 +515,12 @@ function renderAtis(data){
     const tag=document.createElement("span");tag.className="tag";tag.textContent=value;box.append(tag);
   }
 }
-async function showPhoto(m){const id=String(m.mmsi||"");if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;lastPhotoMmsi=id;const target=$("photo");target.textContent="Scheepsfoto zoeken…";try{const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)+"&shipname="+encodeURIComponent(m.shipname||"")+"&imo="+encodeURIComponent(m.imo||"")+"&eni="+encodeURIComponent(m.eni||"");const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(lastPhotoMmsi!==id)return;target.replaceChildren();if(!d.ok||!d.image_url){target.textContent="Geen foto beschikbaar";return}const img=document.createElement("img");img.className="photo";img.referrerPolicy="no-referrer";img.src=d.image_url;img.alt="Scheepsfoto";target.append(img);const credit=document.createElement("p");credit.className="muted";credit.textContent=[d.artist?"© "+d.artist:"",d.source||""].filter(Boolean).join(" · ");target.append(credit);if(d.page_url&&/^https:\/\/(?:www\.)?(?:binnenvaartspotter\.nl|debinnenvaart\.nl|markprummel\.nl|shipspotting\.com|commons\.wikimedia\.org)\//.test(d.page_url)){const a=document.createElement("a");a.href=d.page_url;a.target="_blank";a.rel="noopener noreferrer";a.textContent="Originele foto ↗";target.append(a)}}catch(e){target.textContent="Foto niet beschikbaar"}}
+async function showPhoto(m){const id=String(m.mmsi||"");if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;lastPhotoMmsi=id;const target=$("photo");target.textContent="Scheepsfoto zoeken…";try{const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)+"&shipname="+encodeURIComponent(m.shipname||"")+"&imo="+encodeURIComponent(m.imo||"")+"&eni="+encodeURIComponent(m.eni||"");const d=await readMobileJson(url,20000);if(lastPhotoMmsi!==id)return;target.replaceChildren();if(!d.ok||!d.image_url){target.textContent="Geen foto beschikbaar";return}const img=document.createElement("img");img.className="photo";img.referrerPolicy="no-referrer";img.src=d.image_url;img.alt="Scheepsfoto";target.append(img);const credit=document.createElement("p");credit.className="muted";credit.textContent=[d.artist?"© "+d.artist:"",d.source||""].filter(Boolean).join(" · ");target.append(credit);if(d.page_url&&/^https:\/\/(?:www\.)?(?:binnenvaartspotter\.nl|debinnenvaart\.nl|markprummel\.nl|shipspotting\.com|commons\.wikimedia\.org)\//.test(d.page_url)){const a=document.createElement("a");a.href=d.page_url;a.target="_blank";a.rel="noopener noreferrer";a.textContent="Originele foto ↗";target.append(a)}}catch(e){target.textContent="Foto niet beschikbaar"}}
 let mobileTrafficFetchBusy=false;
 async function refresh(){
   if(!mayPollMobile()||mobileTrafficFetchBusy||!isMobileFeatureAvailable("traffic_voice"))return;
   mobileTrafficFetchBusy=true;
-  try{const r=await fetch("/api/traffic-voice",{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const data=await r.json();const m=data.ais_match||{};currentSnapshot=data;renderMarineControl(data);renderAtis(data);renderAudioState(data);showRecordings(data);if(m.matched){announceAisMatch(m,data);showPhoto(m);const id=String(m.mmsi||"");$("match").innerHTML="<strong>"+esc(m.shipname||m.callsign||"Schip")+"</strong><p>MMSI "+esc(id)+" · "+esc(data.possible_speaker||"ATIS herkend")+"</p><p class='muted'>ATIS/AIS-koppeling bevestigd. Kaart blijft staan.</p>";if(id!==lastMatch){lastMatch=id;$("matchpanel").classList.remove("pulse");void $("matchpanel").offsetWidth;$("matchpanel").classList.add("pulse");setTimeout(()=>$("matchpanel").classList.remove("pulse"),15000)}}else{lastMatch="";lastPhotoMmsi="";$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Wachten op gevalideerde ATIS/AIS-match";}}catch(e){
+  try{const data=await readMobileJson("/api/traffic-voice");const m=data.ais_match||{};currentSnapshot=data;renderMarineControl(data);renderAtis(data);renderAudioState(data);showRecordings(data);if(m.matched){announceAisMatch(m,data);showPhoto(m);const id=String(m.mmsi||"");$("match").innerHTML="<strong>"+esc(m.shipname||m.callsign||"Schip")+"</strong><p>MMSI "+esc(id)+" · "+esc(data.possible_speaker||"ATIS herkend")+"</p><p class='muted'>ATIS/AIS-koppeling bevestigd. Kaart blijft staan.</p>";if(id!==lastMatch){lastMatch=id;$("matchpanel").classList.remove("pulse");void $("matchpanel").offsetWidth;$("matchpanel").classList.add("pulse");setTimeout(()=>$("matchpanel").classList.remove("pulse"),15000)}}else{lastMatch="";lastPhotoMmsi="";$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Wachten op gevalideerde ATIS/AIS-match";}}catch(e){
     // A Traffic Voice error alone does not mean the complete dashboard is down.
     // Preserve the latest ATIS match/photo across temporary network failures.
   }finally{mobileTrafficFetchBusy=false}
@@ -575,9 +605,7 @@ async function refreshMissionControls(force=false){
   if(!mayPollMobile()||missionFetchBusy||missionActionBusy||(!force&&$("missions").hidden))return;
   missionFetchBusy=true;
   try{
-    const response=await fetch("/api/mission-operations",{cache:"no-store"});
-    if(!response.ok)throw Error("HTTP "+response.status);
-    const data=await response.json();
+    const data=await readMobileJson("/api/mission-operations");
     if(data.ok!==true)throw Error(data.error||"Mission Operations geeft geen geldige status");
     renderMissionControls(data);
   }catch(error){
@@ -613,12 +641,7 @@ async function runMissionAction(action){
     action==="scheduler_manual"?"Automatische missies uitschakelen…":"Actieve missie stoppen…";
   renderMissionControls(missionOperations);
   try{
-    const response=await fetch(url,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
-    });
-    const result=await response.json();
-    if(!response.ok||result.ok!==true)throw Error(result.message||result.error||"HTTP "+response.status);
+    const result=await postMobileJson(url,payload);
     message.className="service-control-message success";
     message.textContent=result.message||
       (action==="scheduler_auto"?"Scheduler AUTO ingeschakeld. Wachten op passage.":
@@ -630,7 +653,7 @@ async function runMissionAction(action){
     missionActionBusy=false;
     await refreshMissionControls(true);
     if(!$("missions").hidden){
-      try{const response=await fetch("/api/mission-monitor",{cache:"no-store"});if(response.ok)renderMission(await response.json())}catch(_){}
+      try{renderMission(await readMobileJson("/api/mission-monitor"))}catch(_){}
     }
   }
 }
@@ -677,9 +700,7 @@ async function refreshServiceControls(force=false){
   if(!mayPollMobile()||serviceRefreshBusy||serviceActionBusy||(!force&&!$("system").hidden))return;
   serviceRefreshBusy=true;
   try{
-    const response=await fetch("/api/status?include_logs=0",{cache:"no-store"});
-    if(!response.ok)throw Error("HTTP "+response.status);
-    renderServiceControls(await response.json());
+    renderServiceControls(await readMobileJson("/api/status?include_logs=0"));
   }catch(error){
     // A failed secondary request does not prove the dashboard is offline.
     // The central health probe will decide and preserve the last snapshot.
@@ -704,12 +725,7 @@ async function runServiceAction(plugin,operation){
   message.textContent=config.name+(operation==="start"?" wordt gestart…":" wordt gestopt…");
   renderServiceControls(serviceSnapshot);
   try{
-    const response=await fetch("/api/action",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({action})
-    });
-    const result=await response.json();
-    if(!response.ok||result.ok!==true)throw Error(result.message||"HTTP "+response.status);
+    const result=await postMobileJson("/api/action",{action});
     message.className="service-control-message success";
     message.textContent=result.message||config.name+" bijgewerkt.";
   }catch(error){
@@ -810,12 +826,10 @@ async function refreshSystem(force=false){
   systemRequestBusy=true;
   const btn=$("system-refresh");btn.disabled=true;
   try{
-    const [response,updater]=await Promise.all([
-      fetch("/api/status?include_logs=0",{cache:"no-store"}),
-      fetch("/api/update-status",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null)
+    const [data,updater]=await Promise.all([
+      readMobileJson("/api/status?include_logs=0"),
+      readMobileJson("/api/update-status").catch(()=>null)
     ]);
-    if(!response.ok)throw Error("HTTP "+response.status);
-    const data=await response.json();
     renderServiceControls(data);
     renderSystem(data,updater);
   }catch(e){$("systemstatus").textContent="Systeemoverzicht tijdelijk niet beschikbaar: "+e.message}
@@ -830,9 +844,7 @@ async function refreshSecondary(){
     ["missions","/api/mission-monitor","missionstatus",renderMission]
   ]){
     if($(tab).hidden)continue;
-    try{const response=await fetch(url,{cache:"no-store"});
-      if(!response.ok)throw Error("HTTP "+response.status);
-      renderer(await response.json());
+    try{renderer(await readMobileJson(url));
     }catch(e){$(output).textContent="Status niet beschikbaar: "+e.message}
   }
 }
