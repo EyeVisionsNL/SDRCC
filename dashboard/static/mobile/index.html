@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1720"><title>SDRCC Mobile</title><link rel="manifest" href="/static/mobile/manifest.webmanifest"><link rel="icon" href="/static/assets/sdrcc-favicon.png"><style>
 :root{color-scheme:dark;font-family:system-ui,Arial;background:#09151d;color:#e6f2f4}*{box-sizing:border-box}body{margin:0;padding:0 0 85px}header{padding:16px;display:flex;align-items:center;justify-content:space-between;background:#102330;border-bottom:1px solid #31545c}h1{font-size:19px;margin:0}small,.muted{color:#9ab2b9}main{padding:12px;max-width:900px;margin:auto}.panel{background:#10232e;border:1px solid #34535a;border-radius:12px;padding:14px;margin:10px 0}h2{font-size:17px;margin:0 0 12px;color:#72d8b3}button,a.action{background:#173c41;color:#d8f9e9;border:1px solid #3c8779;border-radius:9px;padding:10px;text-decoration:none;font:inherit}button:focus-visible,a:focus-visible{outline:2px solid #91f4d4}.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0d2530;border-top:1px solid #42636b;padding-bottom:env(safe-area-inset-bottom);z-index:5}.tabs button{flex:1;border:0;border-radius:0;padding:13px 2px;background:none;font-size:12px}.tabs button[aria-selected=true]{background:#195044;color:#a7ffce}.map{width:100%;height:48vh;min-height:280px;border:0;border-radius:9px;background:#061015}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.status{color:#84e3b5}section[hidden]{display:none}.pulse{animation:pulse 1.5s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 8px #51dba62b}}input{background:#081a24;color:white;border:1px solid #54747b;border-radius:8px;padding:10px;width:100%}label{display:block;margin:12px 0}.warning{color:#e6c38e}img.photo{max-width:100%;max-height:160px;object-fit:contain;border-radius:8px}#match{word-break:break-word}.statusline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.tag{display:inline-block;background:#173d46;color:#c3e9e6;border:1px solid #326e70;border-radius:7px;padding:5px 8px;font-size:12px}.data-card{background:#0b1d27;border:1px solid #29464e;border-radius:9px;padding:10px;margin:8px 0}.data-card strong{color:#dbf6ed}.data-card small{display:block;margin-top:4px}.metric{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #26444c;padding:7px 0}.recording{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #25434b;padding:10px 0}.recording>div{display:flex;gap:6px;flex-wrap:wrap}.recording small{display:block;margin-top:3px}.recording button:disabled{opacity:.45}.success{color:#83e3b5}.error{color:#e6a8a8}.preview{width:100%;max-height:330px;object-fit:contain;border-radius:8px;margin:10px 0}.loading{color:#a5c4c9}.control-panel{border-color:#356d66}.control-panel .row{align-items:flex-start}.control-buttons{display:flex;gap:8px;flex-wrap:wrap}.control-buttons button{flex:1;min-width:132px}.control-buttons button:disabled{opacity:.4;cursor:not-allowed}.control-buttons .stop{border-color:#94625e;background:#40272d;color:#ffdfdc}.control-buttons .start{background:#195044;color:#c4ffe3}.state-indicator{display:inline-flex;gap:6px;align-items:center;border:1px solid #44636e;border-radius:999px;padding:6px 10px;font-size:12px;color:#afcbd0}.state-indicator.on{border-color:#328361;color:#91e7b4;background:#143e37}.state-indicator.off{border-color:#726054;color:#dfc0a1;background:#372c2b}.state-indicator.bad{border-color:#a25454;color:#f2a6a6;background:#3e2629}.state-indicator.unknown{color:#d5d7c0}.sys-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sys-card{background:#0b1d27;border:1px solid #29464e;border-radius:10px;padding:12px;min-width:0}.sys-card strong,.sys-card small{display:block;overflow-wrap:anywhere}.sys-card strong{font-size:13px;color:#c0dbde}.sys-card .state-indicator{margin-top:8px}.sys-card small{margin-top:7px}.sys-meter{height:7px;border-radius:8px;background:#28414c;margin:8px 0;overflow:hidden}.sys-meter i{display:block;height:100%;background:#60d7b7;width:0}.sys-meter i.warn{background:#ddb96a}.sys-meter i.high{background:#dd8375}.system-detail{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #29464e;padding:9px 0}.system-detail strong{text-align:right}.system-status{min-height:20px}details.sys-settings{margin-top:12px}details.sys-settings summary{cursor:pointer;color:#8ddfc4;padding:9px 0;font-weight:600}@media(max-width:470px){.tabs button{font-size:11px;padding:11px 1px}.control-buttons button{min-width:calc(50% - 4px)}.sys-grid{gap:7px}.sys-card{padding:10px}}
+.control-description{font-size:13px;margin:6px 0 12px}.service-control-status{min-height:18px;margin:10px 0 2px}.service-control-message{min-height:20px;margin:6px 0 0}.service-control-message:empty{display:none}.service-control-wait{color:#e6c38e}.service-control-subtitle{color:#9ab2b9;font-size:12px;margin:8px 0 4px}.service-control-status .state-indicator{max-width:100%;white-space:normal}
 </style></head><body><header><h1>📡 SDRCC <span class="status">Mobile</span></h1><small id="connection">Verbinden…</small></header><main>
-<section id="marine"><div class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · bediening</h2><span id="marinestate" class="state-indicator unknown" role="status">Status ophalen…</span></div><p class="muted">Start of stop marifoonontvangst, ATIS en koppeling met AIS. De AIS-Catcher kaart draait onafhankelijk.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Marine starten</button><button id="marine-stop" class="stop" disabled>■ Marine stoppen</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Kaart</button></div><iframe id="aismap" class="map" title="AIS-Catcher kaart" loading="eager"></iframe><p class="muted">De kaart blijft op jouw positie. Een ATIS-match licht op in het informatiepaneel; de kaart wordt niet automatisch verplaatst. Een markering op de AIS-kaart zelf vereist ondersteuning in AIS-Catcher.</p></div><div class="panel" id="matchpanel"><h2>🎙️ Laatste ATIS / AIS-match</h2><div id="match">Wachten op live ATIS-gegevens…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div class="panel"><h2>Live audio en opnames</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Live audio starten</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Laatste vier opnames</h2><div id="recordings">Wachten op opnames…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
-<section id="adsb" hidden><div class="panel"><h2>✈️ ADS-B</h2><iframe id="adsbmap" class="map" title="ADS-B kaart" loading="lazy"></iframe></div></section>
-<section id="radio" hidden><div class="panel"><h2>📻 Radio Receiver</h2><p>De bestaande radio-ontvanger blijft bereikbaar via de desktopinterface.</p><a class="action" href="/" target="_blank" rel="noopener">Radio openen ↗</a></div></section>
+<section id="marine"><div class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · bediening</h2><span id="marinestate" class="state-indicator unknown" role="status">Status ophalen…</span></div><p class="muted">Start of stop marifoonontvangst, ATIS en koppeling met AIS. De AIS-Catcher kaart draait onafhankelijk.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Marine starten</button><button id="marine-stop" class="stop" disabled>■ Marine stoppen</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · schepen</h2><span id="ais-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">AIS-Catcher ontvangt de scheepsposities voor de kaart en de ATIS/AIS-koppeling. Dit is een andere service dan Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ AIS starten</button><button id="ais-service-stop" class="stop" type="button" disabled>■ AIS stoppen</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Kaart</button></div><iframe id="aismap" class="map" title="AIS-Catcher kaart" loading="eager"></iframe><p class="muted">De kaart blijft op jouw positie. Een ATIS-match licht op in het informatiepaneel; de kaart wordt niet automatisch verplaatst. Een markering op de AIS-kaart zelf vereist ondersteuning in AIS-Catcher.</p></div><div class="panel" id="matchpanel"><h2>🎙️ Laatste ATIS / AIS-match</h2><div id="match">Wachten op live ATIS-gegevens…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div class="panel"><h2>Live audio en opnames</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Live audio starten</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Laatste vier opnames</h2><div id="recordings">Wachten op opnames…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
+<section id="adsb" hidden><div class="panel control-panel"><div class="row"><h2>✈️ ADS-B · ontvangst</h2><span id="adsb-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">Start of stop de bestaande readsb-ontvanger. De kaart gebruikt live vliegtuigdata zolang ADS-B draait.</p><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ ADS-B starten</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ ADS-B stoppen</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><h2>✈️ ADS-B · vliegtuigen</h2><iframe id="adsbmap" class="map" title="ADS-B kaart" loading="lazy"></iframe></div></section>
 <section id="sat" hidden><div class="panel"><h2>🛰️ Satellites · live ontvangstpositie</h2><div id="satstatus" aria-live="polite">Status ophalen…</div></div></section>
 <section id="missions" hidden><div class="panel"><h2>⏻ Missions · live status</h2><div id="missionstatus" aria-live="polite">Status ophalen…</div><p class="muted">Alleen actuele missiestatus en het meest recente beeld. Missieplanning en updates blijven op desktop.</p></div></section>
 <section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ Systeemoverzicht</h2><button id="system-refresh" type="button">↻ Verversen</button></div><p class="muted">Live status van SDRCC, de ontvangers en de belangrijkste services.</p><div id="systemstatus" aria-live="polite">Systeemstatus ophalen…</div></div><div class="panel"><h2>⚙️ Instellingen</h2><details class="sys-settings"><summary>Kaartverbindingen</summary><p class="muted">Deze adressen worden alleen op dit apparaat bewaard.</p><label>AIS-Catcher kaart URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label>ADS-B kaart URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Kaarten opslaan</button></details><p class="muted">Voor installatie als Android-app is HTTPS nodig. Via HTTP blijft de mobiele webpagina bruikbaar.</p><a class="action" href="/" target="_blank" rel="noopener">Desktopdashboard openen ↗</a></div></section>
-</main><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="radio">📻<br>Radio</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>Systeem</button></nav><script>
+</main><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>Systeem</button></nav><script>
 const $=id=>document.getElementById(id);
 function setMap(id,key){const host=location.hostname;const defaultUrl=key==="sdrcc-mobile-ais"?location.protocol+"//"+host+":8119/":location.protocol+"//"+host+"/tar1090/";const value=localStorage.getItem(key)||defaultUrl;if(value)$(id).src=value;else $(id).src="about:blank"}
 setMap("aismap","sdrcc-mobile-ais");setMap("adsbmap","sdrcc-mobile-adsb");
@@ -236,6 +236,95 @@ function renderMission(data){
   }
   target.append(metrics);
 }
+// AIS-Catcher and ADS-B use the existing allow-listed dashboard service actions.
+// Receiver Manager remains authoritative; mobile never calls systemctl directly.
+const serviceDefinitions=Object.freeze({
+  ais:{name:"AIS-Catcher",start:"start_ais",stop:"stop_ais"},
+  adsb:{name:"ADS-B",start:"start_adsb",stop:"stop_adsb"}
+});
+let serviceSnapshot=null,serviceActionBusy=false,serviceRefreshBusy=false;
+function serviceStateTone(status){
+  if(!status||typeof status!=="object")return"unknown";
+  const lifecycle=String(status.lifecycle_state||"").toUpperCase();
+  if(lifecycle==="RUNNING")return"on";
+  if(lifecycle==="STOPPED")return"off";
+  if(["ATTENTION","PARTIAL"].includes(lifecycle))return"bad";
+  if(lifecycle==="STARTING")return"unknown";
+  return status.can_stop?"bad":status.can_start?"off":"unknown";
+}
+function renderServiceControls(data){
+  serviceSnapshot=data&&typeof data==="object"?data:null;
+  for(const plugin of ["ais","adsb"]){
+    const status=serviceSnapshot?.[plugin],name=serviceDefinitions[plugin].name;
+    const start=$(`${plugin}-service-start`),stop=$(`${plugin}-service-stop`);
+    const badge=$(`${plugin}-service-state`),detail=$(`${plugin}-service-detail`);
+    const lifecycle=String(status?.lifecycle_state||"UNKNOWN").toUpperCase();
+    const tone=serviceStateTone(status);
+    const label=lifecycle==="RUNNING"?"● ACTIEF":lifecycle==="STOPPED"?"○ GESTOPT":
+      lifecycle==="STARTING"?"◌ STARTEN":lifecycle==="PARTIAL"?"! DEELS ACTIEF":
+      lifecycle==="ATTENTION"?"! CONTROLE NODIG":"○ ONBEKEND";
+    setServiceIndicator(badge,label,tone);
+    detail.textContent=status?.detail||(!serviceSnapshot?"Systeemstatus niet beschikbaar.":"Geen servicestatus beschikbaar.");
+    // Only perform operations explicitly allowed by the server's lifecycle snapshot.
+    start.disabled=serviceActionBusy||!status||status.can_start!==true;
+    stop.disabled=serviceActionBusy||!status||status.can_stop!==true;
+    start.textContent=plugin==="ais"?"▶ AIS starten":"▶ ADS-B starten";
+    stop.textContent=plugin==="ais"?"■ AIS stoppen":"■ ADS-B stoppen";
+  }
+}
+async function refreshServiceControls(force=false){
+  if(serviceRefreshBusy||serviceActionBusy||(!force&&!$("system").hidden))return;
+  serviceRefreshBusy=true;
+  try{
+    const response=await fetch("/api/status?include_logs=0",{cache:"no-store"});
+    if(!response.ok)throw Error("HTTP "+response.status);
+    renderServiceControls(await response.json());
+  }catch(error){
+    renderServiceControls(null);
+    for(const plugin of ["ais","adsb"]){
+      const message=$(`${plugin}-service-message`);
+      if(!message.textContent||message.dataset.kind==="status"){
+        message.dataset.kind="status";
+        message.className="service-control-message error";
+        message.textContent="Systeemstatus niet beschikbaar: "+error.message;
+      }
+    }
+  }finally{serviceRefreshBusy=false}
+}
+async function runServiceAction(plugin,operation){
+  const config=serviceDefinitions[plugin];
+  if(!config||!["start","stop"].includes(operation)||serviceActionBusy||serviceRefreshBusy)return;
+  const status=serviceSnapshot?.[plugin];
+  if(!status||(operation==="start"&&status.can_start!==true)||(operation==="stop"&&status.can_stop!==true))return;
+  const action=config[operation],message=$(`${plugin}-service-message`);
+  serviceActionBusy=true;
+  message.dataset.kind="action";message.className="service-control-message service-control-wait";
+  message.textContent=config.name+(operation==="start"?" wordt gestart…":" wordt gestopt…");
+  renderServiceControls(serviceSnapshot);
+  try{
+    const response=await fetch("/api/action",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({action})
+    });
+    const result=await response.json();
+    if(!response.ok||result.ok!==true)throw Error(result.message||"HTTP "+response.status);
+    message.className="service-control-message success";
+    message.textContent=result.message||config.name+" bijgewerkt.";
+  }catch(error){
+    message.className="service-control-message error";
+    message.textContent=config.name+": "+error.message;
+  }finally{
+    serviceActionBusy=false;
+    // The backend can report a verification problem even when systemd changed
+    // service state; always request the authoritative status again.
+    await refreshServiceControls(true);
+    if(!$("system").hidden)await refreshSystem(true);
+  }
+}
+for(const plugin of ["ais","adsb"]){
+  $((plugin+"-service-start")).addEventListener("click",()=>runServiceAction(plugin,"start"));
+  $((plugin+"-service-stop")).addEventListener("click",()=>runServiceAction(plugin,"stop"));
+}
 function sysStatus(label,tone,detail){
   const wrap=document.createElement("div");wrap.className="sys-card";
   const title=document.createElement("strong");title.textContent=label;
@@ -321,7 +410,9 @@ async function refreshSystem(force=false){
       fetch("/api/update-status",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null)
     ]);
     if(!response.ok)throw Error("HTTP "+response.status);
-    renderSystem(await response.json(),updater);
+    const data=await response.json();
+    renderServiceControls(data);
+    renderSystem(data,updater);
   }catch(e){$("systemstatus").textContent="Systeemoverzicht niet beschikbaar: "+e.message}
   finally{systemRequestBusy=false;btn.disabled=false}
 }
@@ -338,5 +429,5 @@ async function refreshSecondary(){
     }catch(e){$(output).textContent="Status niet beschikbaar: "+e.message}
   }
 }
-refresh();setInterval(refresh,5000);setInterval(refreshSecondary,15000);document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",refreshSecondary));
+refresh();refreshServiceControls();setInterval(refresh,5000);setInterval(refreshSecondary,15000);setInterval(refreshServiceControls,15000);document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{refreshSecondary();if(b.dataset.tab==="marine"||b.dataset.tab==="adsb")refreshServiceControls() }));
 </script></body></html>
