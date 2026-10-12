@@ -6,7 +6,21 @@
 <section id="marine"><div class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · bediening</h2><span id="marinestate" class="state-indicator unknown" role="status">Status ophalen…</span></div><p class="muted">Start of stop marifoonontvangst, ATIS en koppeling met AIS. De AIS-Catcher kaart draait onafhankelijk.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Marine starten</button><button id="marine-stop" class="stop" disabled>■ Marine stoppen</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · schepen</h2><span id="ais-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">AIS-Catcher ontvangt de scheepsposities voor de kaart en de ATIS/AIS-koppeling. Dit is een andere service dan Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ AIS starten</button><button id="ais-service-stop" class="stop" type="button" disabled>■ AIS stoppen</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Kaart</button></div><iframe id="aismap" class="map" title="AIS-Catcher kaart" loading="eager"></iframe><p class="muted">Een gevalideerde ATIS/AIS-match krijgt 15 seconden een groene pulserende markering bij het schip. De kaart blijft op zijn huidige positie en zoom.</p><p id="ais-highlight-status" class="muted" role="status" aria-live="polite">AIS-markering controleren…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Laatste ATIS / AIS-match</h2><div id="match">Wachten op live ATIS-gegevens…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div class="panel"><h2>Live audio en opnames</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Live audio starten</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Laatste vier opnames</h2><div id="recordings">Wachten op opnames…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
 <section id="adsb" hidden><div class="panel control-panel"><div class="row"><h2>✈️ ADS-B · ontvangst</h2><span id="adsb-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">Start of stop de bestaande readsb-ontvanger. De kaart gebruikt live vliegtuigdata zolang ADS-B draait.</p><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ ADS-B starten</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ ADS-B stoppen</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><h2>✈️ ADS-B · vliegtuigen</h2><iframe id="adsbmap" class="map" title="ADS-B kaart" loading="lazy"></iframe></div></section>
 <section id="sat" hidden><div class="panel"><h2>🛰️ Satellites · live ontvangstpositie</h2><div id="satstatus" aria-live="polite">Status ophalen…</div></div></section>
-<section id="missions" hidden><div class="panel"><h2>⏻ Missions · live status</h2><div id="missionstatus" aria-live="polite">Status ophalen…</div><p class="muted">Alleen actuele missiestatus en het meest recente beeld. Missieplanning en updates blijven op desktop.</p></div></section>
+<section id="missions" hidden>
+<div class="panel control-panel">
+<div class="row"><h2>⏻ Missions · bediening</h2><span id="mission-mode" class="state-indicator unknown" role="status">Status ophalen…</span></div>
+<p class="muted">AUTO start geplande ontvangstmissies bij een geschikte passage. Het starten van AUTO begint niet meteen een opname.</p>
+<div class="control-buttons">
+<button id="mission-auto-on" class="start" type="button" disabled>▶ AUTO aan</button>
+<button id="mission-auto-off" class="stop" type="button" disabled>■ AUTO uit</button>
+</div>
+<p id="mission-control-detail" class="service-control-subtitle">Missiestatus ophalen…</p>
+<button id="mission-stop-active" class="stop" type="button" disabled>■ Actieve missie stoppen</button>
+<p id="mission-control-message" class="service-control-message muted" role="status" aria-live="polite"></p>
+</div>
+<div class="panel"><h2>🛰️ Missieontvangst en laatste beeld</h2><div id="missionstatus" aria-live="polite">Status ophalen…</div>
+<p class="muted">Geen planning, Analyse, History of updates op mobiel. Bestaande receiverbeveiliging blijft actief.</p></div>
+</section>
 <section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ Systeemoverzicht</h2><button id="system-refresh" type="button">↻ Verversen</button></div><p class="muted">Live status van SDRCC, de ontvangers en de belangrijkste services.</p><div id="systemstatus" aria-live="polite">Systeemstatus ophalen…</div></div><div class="panel"><h2>⚙️ Instellingen</h2><details class="sys-settings"><summary>Kaartverbindingen</summary><p class="muted">Deze adressen worden alleen op dit apparaat bewaard.</p><label>AIS-Catcher kaart URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label>ADS-B kaart URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Kaarten opslaan</button></details><p class="muted">Voor installatie als Android-app is HTTPS nodig. Via HTTP blijft de mobiele webpagina bruikbaar.</p><a class="action" href="/" target="_blank" rel="noopener">Desktopdashboard openen ↗</a></div></section>
 </main><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>Systeem</button></nav><script>
 const $=id=>document.getElementById(id);
@@ -293,6 +307,108 @@ function renderMission(data){
   }
   target.append(metrics);
 }
+// Mobile mission controls intentionally reuse the existing scheduler/mission
+// APIs. AUTO arms scheduled passes; it never starts a recording immediately.
+let missionOperations=null,missionActionBusy=false,missionFetchBusy=false;
+function currentMissionStopAllowed(data){
+  if(!data||data.ok!==true)return false;
+  const job=data.mission?.active_job;
+  // ISS Voice has a separate execution/stop lifecycle. Never use the generic
+  // mission-stop endpoint on an ISS-only task.
+  return Boolean(job||(data.live_rf?.active&&!data.iss_voice?.active));
+}
+function renderMissionControls(data){
+  missionOperations=data?.ok===true?data:null;
+  const mode=String(missionOperations?.scheduler?.mode||"").trim().toUpperCase();
+  const badge=$("mission-mode");
+  const modeLabel=mode==="AUTO"?"● AUTO AAN":mode==="MANUAL"?"○ MANUAL":mode==="PAUSED"?"Ⅱ PAUSED":"○ ONBEKEND";
+  setServiceIndicator(badge,modeLabel,mode==="AUTO"?"on":mode==="MANUAL"?"off":"unknown");
+  $("mission-auto-on").disabled=missionActionBusy||!["AUTO","MANUAL","PAUSED"].includes(mode)||mode==="AUTO";
+  $("mission-auto-off").disabled=missionActionBusy||!["AUTO","MANUAL","PAUSED"].includes(mode)||mode==="MANUAL";
+  const active=currentMissionStopAllowed(missionOperations);
+  $("mission-stop-active").disabled=missionActionBusy||!active;
+  const detail=$("mission-control-detail");
+  const summary=missionOperations?.summary||{};
+  if(missionOperations?.iss_voice?.active&&!active){
+    detail.textContent="ISS Voice is actief; stop deze ontvangst via de desktopbediening.";
+  }else if(active){
+    detail.textContent="Actief: "+String(summary.satellite||summary.mission_type||"Missie")
+      +(summary.receiver?" · "+String(summary.receiver):"")
+      +(summary.status?" · "+String(summary.status):"");
+  }else{
+    detail.textContent=mode==="AUTO"
+      ?"Scheduler wacht op een geschikte passage. Geen actieve missie."
+      :mode==="MANUAL"?"Automatische missies staan uit. Geen actieve missie."
+      :mode==="PAUSED"?"Scheduler is gepauzeerd. Geen actieve missie."
+      :"Missiestatus niet beschikbaar; bediening uitgeschakeld.";
+  }
+}
+async function refreshMissionControls(force=false){
+  if(missionFetchBusy||missionActionBusy||(!force&&$("missions").hidden))return;
+  missionFetchBusy=true;
+  try{
+    const response=await fetch("/api/mission-operations",{cache:"no-store"});
+    if(!response.ok)throw Error("HTTP "+response.status);
+    const data=await response.json();
+    if(data.ok!==true)throw Error(data.error||"Mission Operations geeft geen geldige status");
+    renderMissionControls(data);
+  }catch(error){
+    renderMissionControls(null);
+    const message=$("mission-control-message");
+    if(!message.textContent||message.dataset.kind==="status"){
+      message.dataset.kind="status";
+      message.className="service-control-message error";
+      message.textContent="Mission Operations niet beschikbaar: "+error.message;
+    }
+  }finally{missionFetchBusy=false}
+}
+async function runMissionAction(action){
+  if(missionActionBusy||missionFetchBusy||!missionOperations)return;
+  const mode=String(missionOperations.scheduler?.mode||"").trim().toUpperCase();
+  let url="/api/action",payload;
+  if(action==="scheduler_auto"){
+    if(mode==="AUTO"||!["MANUAL","PAUSED"].includes(mode))return;
+    payload={action:"scheduler_auto"};
+  }else if(action==="scheduler_manual"){
+    if(mode==="MANUAL"||!["AUTO","PAUSED"].includes(mode))return;
+    payload={action:"scheduler_manual"};
+  }else if(action==="stop"){
+    if(!currentMissionStopAllowed(missionOperations))return;
+    if(!confirm("Actieve missie stoppen? De Scheduler wordt op MANUAL gezet en de receiver wordt veilig vrijgegeven."))return;
+    url="/api/mission-operations/stop";
+    payload={};
+  }else return;
+  missionActionBusy=true;
+  const message=$("mission-control-message");
+  message.dataset.kind="action";message.className="service-control-message service-control-wait";
+  message.textContent=action==="scheduler_auto"?"Automatische missies inschakelen…":
+    action==="scheduler_manual"?"Automatische missies uitschakelen…":"Actieve missie stoppen…";
+  renderMissionControls(missionOperations);
+  try{
+    const response=await fetch(url,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    const result=await response.json();
+    if(!response.ok||result.ok!==true)throw Error(result.message||result.error||"HTTP "+response.status);
+    message.className="service-control-message success";
+    message.textContent=result.message||
+      (action==="scheduler_auto"?"Scheduler AUTO ingeschakeld. Wachten op passage.":
+       action==="scheduler_manual"?"Scheduler MANUAL ingeschakeld.":"Missie gestopt.");
+  }catch(error){
+    message.className="service-control-message error";
+    message.textContent="Missions: "+error.message;
+  }finally{
+    missionActionBusy=false;
+    await refreshMissionControls(true);
+    if(!$("missions").hidden){
+      try{const response=await fetch("/api/mission-monitor",{cache:"no-store"});if(response.ok)renderMission(await response.json())}catch(_){}
+    }
+  }
+}
+$("mission-auto-on").addEventListener("click",()=>runMissionAction("scheduler_auto"));
+$("mission-auto-off").addEventListener("click",()=>runMissionAction("scheduler_manual"));
+$("mission-stop-active").addEventListener("click",()=>runMissionAction("stop"));
 // AIS-Catcher and ADS-B use the existing allow-listed dashboard service actions.
 // Receiver Manager remains authoritative; mobile never calls systemctl directly.
 const serviceDefinitions=Object.freeze({
@@ -475,6 +591,7 @@ async function refreshSystem(force=false){
 }
 async function refreshSecondary(){
   if(!$("system").hidden)await refreshSystem();
+  if(!$("missions").hidden)await refreshMissionControls();
   for(const [tab,url,output,renderer] of [
     ["sat","/api/satellite-view","satstatus",renderSatellite],
     ["missions","/api/mission-monitor","missionstatus",renderMission]
