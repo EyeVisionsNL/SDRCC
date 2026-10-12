@@ -22,6 +22,7 @@ from core import event_bus
 from core import live_rf
 from core import log_sources
 from core import config as config_core
+from core import mobile_capabilities as mobile_capabilities_core
 from core import controlled_iq_capture
 from core import iss_voice
 from core import iss_sstv
@@ -2594,6 +2595,21 @@ def start_mission_autopilot():
 @app.route("/")
 def index():
     return render_template("index.html", features=get_features(), asset_version=update_manager.installed_version())
+
+
+@app.route("/api/mobile/capabilities")
+def api_mobile_capabilities():
+    """Read-only installed/disabled feature detection for responsive Mobile UI."""
+    try:
+        return jsonify(mobile_capabilities_core.get_snapshot()), 200
+    except Exception as error:
+        write_log(f"Mobile capability detection failed: {error}")
+        return jsonify({
+            "ok": False,
+            "read_only": True,
+            "error": "Mobile feature detection unavailable",
+            "components": {},
+        }), 503
 
 
 @app.route("/api/status")
