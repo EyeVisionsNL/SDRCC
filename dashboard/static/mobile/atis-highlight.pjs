@@ -36,7 +36,8 @@ if (typeof AISCatcher !== "undefined" &&
       var ship = row && (row.raw || row);
       var lat = Number(ship && ship.lat);
       var lon = Number(ship && ship.lon);
-      if (ship && validCoords(lat, lon)) return [lon, lat];
+      if (ship && ship.lat !== null && ship.lat !== undefined &&
+          ship.lon !== null && ship.lon !== undefined && validCoords(lat, lon)) return [lon, lat];
       return [fallbackLon, fallbackLat];
     }
 
