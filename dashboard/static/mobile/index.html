@@ -54,7 +54,7 @@ function setConnectionState(state){
     indicator.title=state==="online"
       ?"SDRCC bereikbaar; verbinding automatisch hersteld na een onderbreking"
       :"De SDRCC mini-pc is via het huidige netwerk niet bereikbaar";
-    if(currentSnapshot){renderMarineControl(currentSnapshot);renderAudioState(currentSnapshot)}
+    if(currentSnapshot){renderMarineControl(currentSnapshot);renderAudioState(currentSnapshot);showRecordings(currentSnapshot)}
     if(serviceSnapshot)renderServiceControls(serviceSnapshot);
     if(missionOperations)renderMissionControls(missionOperations);
   }
@@ -123,7 +123,7 @@ async function probeMobileConnection(force=false){
     if(!response.ok)throw Error("HTTP "+response.status);
     const data=await response.json();
     if(!data||typeof data!=="object"||!data.ais||!data.adsb)throw Error("Ongeldige SDRCC-status");
-    if(probeEpoch!==mobileNetworkEpoch||navigator?.onLine===false)return;
+    if(probeEpoch!==mobileNetworkEpoch||(typeof navigator!=="undefined"&&navigator.onLine===false))return;
     const recovered=!mobileIsOnline();
     mobileConnectionFailures=0;
     mobileNextProbeAt=Date.now()+MOBILE_HEALTHY_POLL_MS;
@@ -382,6 +382,16 @@ liveAudio.addEventListener("ended",()=>{
   if(!liveAudio.getAttribute("src"))return;
   stopLive();$("audiostatus").textContent="Audiostream beëindigd; tik opnieuw om te luisteren.";
 });
+liveAudio.addEventListener("stalled",()=>{
+  if(liveAudio.getAttribute("src"))$("audiostatus").textContent="Audiostream wacht op verbinding…";
+});
+liveAudio.addEventListener("playing",()=>{
+  if(liveAudio.getAttribute("src"))$("audiostatus").textContent="LIVE";
+});
+liveAudio.addEventListener("error",()=>{
+  if(!liveAudio.getAttribute("src"))return;
+  stopLive();$("audiostatus").textContent="Audiostream onderbroken; tik opnieuw om te luisteren.";
+});
 $("audiotoggle").onclick=()=>{
   if(liveAudio.getAttribute("src")){stopLive();resumeLiveAfterReplay=false}
   else{if(playingRecordingId)stopReplay(false);startLive()}
@@ -394,6 +404,10 @@ function stopReplay(resume=true){
 replayAudio.addEventListener("ended",()=>stopReplay(true));
 async function playRecording(item){
   if(playingRecordingId===item.id){stopReplay(true);return}
+  if(!mobileIsOnline()){
+    $("recordingmessage").textContent="Geen verbinding met SDRCC; opname wordt niet opnieuw gestart.";
+    return;
+  }
   const keepResume=resumeLiveAfterReplay||Boolean(liveAudio.getAttribute("src"));
   if(playingRecordingId)stopReplay(false);
   if(liveAudio.getAttribute("src"))stopLive();
@@ -427,7 +441,7 @@ function renderMarineControl(data){
   const running=Boolean(data.service?.active);
   const marine=running&&data.selected_mode==="marine_ais";
   const airband=running&&data.selected_mode==="airband_adsb";
-  setServiceIndicator($("marinestate"),marine?"● MARINE ACTIEF":airband?"● AIRBAND ACTIEF":running?"● VOICE ACTIEF":"○ MARINE UIT",marine?"on":running?"unknown":"off");
+  setServiceIndicator($("marinestate"),!mobileIsOnline()?"○ STATUS NIET ACTUEEL":marine?"● MARINE ACTIEF":airband?"● AIRBAND ACTIEF":running?"● VOICE ACTIEF":"○ MARINE UIT",!mobileIsOnline()?"unknown":marine?"on":running?"unknown":"off");
   const valid=data.ok===true&&data.validation?.ok!==false;
   $("marine-start").disabled=!mobileIsOnline()||marineControlBusy||marine||!valid||!isMobileFeatureAvailable("traffic_voice");
   $("marine-start").textContent=airband?"↔ Naar Marine":"▶ Marine starten";
@@ -493,10 +507,10 @@ function showRecordings(data){
     detail.textContent=time+" · "+(Number.isFinite(Number(item.duration_seconds))?Number(item.duration_seconds).toFixed(1)+" s":"—");
     info.append(name,detail);
     const actions=document.createElement("div"),play=document.createElement("button"),save=document.createElement("button");
-    play.type="button";play.disabled=!item.complete||!item.play_url;
+    play.type="button";play.disabled=(!mobileIsOnline()&&playingRecordingId!==item.id)||!item.complete||!item.play_url;
     play.textContent=!item.complete?"● Opnemen":playingRecordingId===item.id?"■ Stop":"▶ Luister";
     play.onclick=()=>playRecording(item);
-    save.type="button";save.disabled=!item.complete||savedRecordings.has(item.id);
+    save.type="button";save.disabled=!mobileIsOnline()||!item.complete||savedRecordings.has(item.id);
     save.textContent=savedRecordings.has(item.id)?"✓ Opgeslagen":"💾 Bewaar";
     save.onclick=()=>saveRecording(item,save);
     actions.append(play,save);row.append(info,actions);el.append(row);
@@ -580,7 +594,7 @@ function renderMissionControls(data){
   const mode=String(missionOperations?.scheduler?.mode||"").trim().toUpperCase();
   const badge=$("mission-mode");
   const modeLabel=mode==="AUTO"?"● AUTO AAN":mode==="MANUAL"?"○ MANUAL":mode==="PAUSED"?"Ⅱ PAUSED":"○ ONBEKEND";
-  setServiceIndicator(badge,modeLabel,mode==="AUTO"?"on":mode==="MANUAL"?"off":"unknown");
+  setServiceIndicator(badge,mobileIsOnline()?modeLabel:"○ STATUS NIET ACTUEEL",!mobileIsOnline()?"unknown":mode==="AUTO"?"on":mode==="MANUAL"?"off":"unknown");
   $("mission-auto-on").disabled=!mobileIsOnline()||missionActionBusy||!isMobileFeatureAvailable("missions")||!["AUTO","MANUAL","PAUSED"].includes(mode)||mode==="AUTO";
   $("mission-auto-off").disabled=!mobileIsOnline()||missionActionBusy||!isMobileFeatureAvailable("missions")||!["AUTO","MANUAL","PAUSED"].includes(mode)||mode==="MANUAL";
   const active=currentMissionStopAllowed(missionOperations);
@@ -687,8 +701,9 @@ function renderServiceControls(data){
     const label=lifecycle==="RUNNING"?"● ACTIEF":lifecycle==="STOPPED"?"○ GESTOPT":
       lifecycle==="STARTING"?"◌ STARTEN":lifecycle==="PARTIAL"?"! DEELS ACTIEF":
       lifecycle==="ATTENTION"?"! CONTROLE NODIG":"○ ONBEKEND";
-    setServiceIndicator(badge,label,tone);
-    detail.textContent=status?.detail||(!serviceSnapshot?"Systeemstatus niet beschikbaar.":"Geen servicestatus beschikbaar.");
+    setServiceIndicator(badge,mobileIsOnline()?label:"○ STATUS NIET ACTUEEL",mobileIsOnline()?tone:"unknown");
+    detail.textContent=(!mobileIsOnline()?"Laatste bekende status: ":"")+
+      (status?.detail||(!serviceSnapshot?"Systeemstatus niet beschikbaar.":"Geen servicestatus beschikbaar."));
     // Only perform operations explicitly allowed by the server's lifecycle snapshot.
     start.disabled=!mobileIsOnline()||serviceActionBusy||!isMobileFeatureAvailable(plugin)||!status||status.can_start!==true;
     stop.disabled=!mobileIsOnline()||serviceActionBusy||!isMobileFeatureAvailable(plugin)||!status||status.can_stop!==true;
