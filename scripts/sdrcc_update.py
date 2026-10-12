@@ -432,7 +432,7 @@ def install_optional_ais_mobile_plugin(project: Path, backup: Path) -> dict:
         previous.write_bytes(old)
         os.chmod(previous, 0o644)
     else:
-        (backup / "ais-mobile-plugin-created").write_text("1\\n", encoding="utf-8")
+        (backup / "ais-mobile-plugin-created").write_text("1\n", encoding="utf-8")
     # Atomic write in the plugin directory. Never change other AIS plugins.
     fd, temp = tempfile.mkstemp(prefix=".sdrcc-atis-", dir=str(parent))
     try:
