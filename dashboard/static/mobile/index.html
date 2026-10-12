@@ -51,8 +51,12 @@ function announceAisMatch(match,data){
 highlightFrame.addEventListener("load",()=>{
   highlightReady=false;highlightLastSent="";
   const origin=aisHighlightOrigin();
-  if(origin){highlightFrame.contentWindow?.postMessage({type:"sdrcc:atis-highlight:hello",version:1},origin)}
-  else highlightStatus("Automatische markering vereist de lokale AIS-Catcher-kaart op poort 8119.");
+  if(origin){
+    highlightFrame.contentWindow?.postMessage({type:"sdrcc:atis-highlight:hello",version:1},origin);
+    window.setTimeout(()=>{
+      if(!highlightReady)highlightStatus("AIS-kaart bereikbaar, maar SDRCC-markeerplugin is nog niet actief.");
+    },6000);
+  }else highlightStatus("Automatische markering vereist de lokale AIS-Catcher-kaart op poort 8119.");
 });
 window.addEventListener("message",event=>{
   const origin=aisHighlightOrigin();
