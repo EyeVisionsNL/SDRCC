@@ -2,8 +2,16 @@
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1720"><title>SDRCC Mobile</title><link rel="manifest" href="/static/mobile/manifest.webmanifest"><link rel="icon" href="/static/assets/sdrcc-favicon.png"><style>
 :root{color-scheme:dark;font-family:system-ui,Arial;background:#09151d;color:#e6f2f4}*{box-sizing:border-box}body{margin:0;padding:0 0 85px}header{padding:16px;display:flex;align-items:center;justify-content:space-between;background:#102330;border-bottom:1px solid #31545c}h1{font-size:19px;margin:0}small,.muted{color:#9ab2b9}main{padding:12px;max-width:900px;margin:auto}.panel{background:#10232e;border:1px solid #34535a;border-radius:12px;padding:14px;margin:10px 0}h2{font-size:17px;margin:0 0 12px;color:#72d8b3}button,a.action{background:#173c41;color:#d8f9e9;border:1px solid #3c8779;border-radius:9px;padding:10px;text-decoration:none;font:inherit}button:focus-visible,a:focus-visible{outline:2px solid #91f4d4}.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0d2530;border-top:1px solid #42636b;padding-bottom:env(safe-area-inset-bottom);z-index:5}.tabs button{flex:1;border:0;border-radius:0;padding:13px 2px;background:none;font-size:12px}.tabs button[aria-selected=true]{background:#195044;color:#a7ffce}.map{width:100%;height:48vh;min-height:280px;border:0;border-radius:9px;background:#061015}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.status{color:#84e3b5}section[hidden]{display:none}.pulse{animation:pulse 1.5s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 8px #51dba62b}}input{background:#081a24;color:white;border:1px solid #54747b;border-radius:8px;padding:10px;width:100%}label{display:block;margin:12px 0}.warning{color:#e6c38e}img.photo{max-width:100%;max-height:160px;object-fit:contain;border-radius:8px}#match{word-break:break-word}.statusline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.tag{display:inline-block;background:#173d46;color:#c3e9e6;border:1px solid #326e70;border-radius:7px;padding:5px 8px;font-size:12px}.data-card{background:#0b1d27;border:1px solid #29464e;border-radius:9px;padding:10px;margin:8px 0}.data-card strong{color:#dbf6ed}.data-card small{display:block;margin-top:4px}.metric{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #26444c;padding:7px 0}.recording{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #25434b;padding:10px 0}.recording>div{display:flex;gap:6px;flex-wrap:wrap}.recording small{display:block;margin-top:3px}.recording button:disabled{opacity:.45}.success{color:#83e3b5}.error{color:#e6a8a8}.preview{width:100%;max-height:330px;object-fit:contain;border-radius:8px;margin:10px 0}.loading{color:#a5c4c9}.control-panel{border-color:#356d66}.control-panel .row{align-items:flex-start}.control-buttons{display:flex;gap:8px;flex-wrap:wrap}.control-buttons button{flex:1;min-width:132px}.control-buttons button:disabled{opacity:.4;cursor:not-allowed}.control-buttons .stop{border-color:#94625e;background:#40272d;color:#ffdfdc}.control-buttons .start{background:#195044;color:#c4ffe3}.state-indicator{display:inline-flex;gap:6px;align-items:center;border:1px solid #44636e;border-radius:999px;padding:6px 10px;font-size:12px;color:#afcbd0}.state-indicator.on{border-color:#328361;color:#91e7b4;background:#143e37}.state-indicator.off{border-color:#726054;color:#dfc0a1;background:#372c2b}.state-indicator.bad{border-color:#a25454;color:#f2a6a6;background:#3e2629}.state-indicator.unknown{color:#d5d7c0}.sys-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sys-card{background:#0b1d27;border:1px solid #29464e;border-radius:10px;padding:12px;min-width:0}.sys-card strong,.sys-card small{display:block;overflow-wrap:anywhere}.sys-card strong{font-size:13px;color:#c0dbde}.sys-card .state-indicator{margin-top:8px}.sys-card small{margin-top:7px}.sys-meter{height:7px;border-radius:8px;background:#28414c;margin:8px 0;overflow:hidden}.sys-meter i{display:block;height:100%;background:#60d7b7;width:0}.sys-meter i.warn{background:#ddb96a}.sys-meter i.high{background:#dd8375}.system-detail{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #29464e;padding:9px 0}.system-detail strong{text-align:right}.system-status{min-height:20px}details.sys-settings{margin-top:12px}details.sys-settings summary{cursor:pointer;color:#8ddfc4;padding:9px 0;font-weight:600}@media(max-width:470px){.tabs button{font-size:11px;padding:11px 1px}.control-buttons button{min-width:calc(50% - 4px)}.sys-grid{gap:7px}.sys-card{padding:10px}}
 .control-description{font-size:13px;margin:6px 0 12px}.service-control-status{min-height:18px;margin:10px 0 2px}.service-control-message{min-height:20px;margin:6px 0 0}.service-control-message:empty{display:none}.service-control-wait{color:#e6c38e}.service-control-subtitle{color:#9ab2b9;font-size:12px;margin:8px 0 4px}.service-control-status .state-indicator{max-width:100%;white-space:normal}
-.connection-online{color:#83e3b5}.connection-offline{color:#f4aca2}.connection-checking{color:#9ab2b9}.tabs button[hidden],main [hidden],details[hidden]{display:none!important}.feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.feature-item{padding:11px;border:1px solid #29464e;border-radius:9px;background:#0b1d27}.feature-item strong{display:block;overflow-wrap:anywhere}.feature-item small{display:block;margin-top:6px;color:#9ab2b9}.feature-item .state-indicator{margin-top:8px}.feature-summary{margin:8px 0;color:#9ab2b9}@media(max-width:420px){.feature-list{grid-template-columns:1fr}}
-</style></head><body><header><h1>📡 SDRCC <span class="status">Mobile</span></h1><small id="connection" role="status" aria-live="polite">Verbinden…</small></header><main>
+.connection-online{color:#83e3b5}.connection-offline{color:#f4aca2}.connection-checking{color:#9ab2b9}
+.network-banner{background:#30272b;border-bottom:1px solid #916d5a;padding:12px max(12px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:center;gap:15px;flex-wrap:wrap}
+.network-banner[hidden]{display:none!important}.network-banner strong{display:block;color:#ffcfab;font-size:14px}.network-banner small{display:block;color:#e0c7bf;max-width:550px;line-height:1.5;margin-top:3px}
+.network-banner button{flex-shrink:0;background:#40353a;border-color:#987565;color:#ffdfcb;font-size:13px;padding:8px 12px}
+.network-banner button:disabled{opacity:.65}.tabs button:disabled{opacity:.5}.tabs button[hidden],main [hidden],details[hidden]{display:none!important}.feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.feature-item{padding:11px;border:1px solid #29464e;border-radius:9px;background:#0b1d27}.feature-item strong{display:block;overflow-wrap:anywhere}.feature-item small{display:block;margin-top:6px;color:#9ab2b9}.feature-item .state-indicator{margin-top:8px}.feature-summary{margin:8px 0;color:#9ab2b9}@media(max-width:420px){.feature-list{grid-template-columns:1fr}}
+</style></head><body><header><h1>📡 SDRCC <span class="status">Mobile</span></h1><small id="connection" role="status" aria-live="polite">Verbinden…</small></header><div id="network-banner" class="network-banner" role="status" aria-live="polite" hidden>
+<div><strong id="network-heading">SDRCC is tijdelijk niet bereikbaar</strong>
+<small>Controleer of je telefoon op hetzelfde wifi-netwerk zit, of via een veilige VPN verbonden is. Via alleen mobiel internet werkt een lokaal SDRCC-adres niet. De ontvangst op de mini-pc kan intussen doorlopen. Live audio moet je mogelijk opnieuw starten.</small></div>
+<button type="button" id="network-retry">↻ Opnieuw proberen</button>
+</div><main>
 <section id="marine"><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · bediening</h2><span id="marinestate" class="state-indicator unknown" role="status">Status ophalen…</span></div><p class="muted">Start of stop marifoonontvangst, ATIS en koppeling met AIS. De AIS-Catcher kaart draait onafhankelijk.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Marine starten</button><button id="marine-stop" class="stop" disabled>■ Marine stoppen</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · schepen</h2><span id="ais-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">AIS-Catcher ontvangt de scheepsposities voor de kaart en de ATIS/AIS-koppeling. Dit is een andere service dan Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ AIS starten</button><button id="ais-service-stop" class="stop" type="button" disabled>■ AIS stoppen</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Kaart</button></div><iframe id="aismap" class="map" title="AIS-Catcher kaart" loading="eager"></iframe><p class="muted">Een gevalideerde ATIS/AIS-match krijgt 15 seconden een groene pulserende markering bij het schip. De kaart blijft op zijn huidige positie en zoom.</p><p id="ais-highlight-status" class="muted" role="status" aria-live="polite">AIS-markering controleren…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Laatste ATIS / AIS-match</h2><div id="match">Wachten op live ATIS-gegevens…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-audio" class="panel"><h2>Live audio en opnames</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Live audio starten</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Laatste vier opnames</h2><div id="recordings">Wachten op opnames…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
 <section id="adsb" hidden><div class="panel control-panel"><div class="row"><h2>✈️ ADS-B · ontvangst</h2><span id="adsb-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">Start of stop de bestaande readsb-ontvanger. De kaart gebruikt live vliegtuigdata zolang ADS-B draait.</p><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ ADS-B starten</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ ADS-B stoppen</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><h2>✈️ ADS-B · vliegtuigen</h2><iframe id="adsbmap" class="map" title="ADS-B kaart" loading="lazy"></iframe></div></section>
 <section id="sat" hidden><div class="panel"><h2>🛰️ Satellites · live ontvangstpositie</h2><div id="satstatus" aria-live="polite">Status ophalen…</div></div></section>
@@ -25,14 +33,90 @@
 <section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ Systeemoverzicht</h2><button id="system-refresh" type="button">↻ Verversen</button></div><p class="muted">Live status van SDRCC, de ontvangers en de belangrijkste services.</p><div id="systemstatus" aria-live="polite">Systeemstatus ophalen…</div><h2 style="margin-top:18px">Beschikbare onderdelen</h2><div id="mobile-feature-status" class="feature-summary" role="status" aria-live="polite">Installatie controleren…</div><div id="mobile-feature-list" class="feature-list"></div></div><div class="panel"><h2>⚙️ Instellingen</h2><details id="mobile-map-settings" class="sys-settings"><summary>Kaartverbindingen</summary><p class="muted">Deze adressen worden alleen op dit apparaat bewaard.</p><label id="mobile-ais-setting">AIS-Catcher kaart URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label id="mobile-adsb-setting">ADS-B kaart URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Kaarten opslaan</button></details><p class="muted">Voor installatie als Android-app is HTTPS nodig. Via HTTP blijft de mobiele webpagina bruikbaar.</p><a class="action" href="/" target="_blank" rel="noopener">Desktopdashboard openen ↗</a></div></section>
 </main><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>Systeem</button></nav><script>
 const $=id=>document.getElementById(id);
-function setConnectionStatus(online){
-  const indicator=$("connection");
-  indicator.className=online?"connection-online":"connection-offline";
-  indicator.textContent=online?"● SDRCC ONLINE":"○ VERBINDING VERBROKEN";
-  indicator.title=online
-    ?"SDRCC bereikbaar · gecontroleerd om "+new Date().toLocaleTimeString("nl-NL")
-    :"Geen verbinding met het SDRCC-dashboard. Ontvangstservices kunnen gewoon doorlopen.";
+// The dashboard /api/status endpoint is the only connection authority.
+ // Never infer LAN reachability from Traffic Voice, AIS or navigator.onLine alone.
+const MOBILE_HEALTHY_POLL_MS=15000;
+const MOBILE_PROBE_TIMEOUT_MS=10000;
+let mobileConnectionState="checking",mobileConnectionFailures=0;
+let mobileNextProbeAt=0,mobileProbeBusy=false;
+function mobileIsOnline(){return mobileConnectionState==="online"}
+function setConnectionState(state){
+  if(!["checking","online","offline"].includes(state))return;
+  const changed=mobileConnectionState!==state;
+  mobileConnectionState=state;
+  if(changed){
+    const indicator=$("connection"),banner=$("network-banner");
+    indicator.className=state==="online"?"connection-online":
+      state==="offline"?"connection-offline":"connection-checking";
+    indicator.textContent=state==="online"?"● SDRCC ONLINE":
+      state==="offline"?"○ VERBINDING VERBROKEN":"◌ VERBINDEN…";
+    banner.hidden=state!=="offline";
+    indicator.title=state==="online"
+      ?"SDRCC bereikbaar; verbinding automatisch hersteld na een onderbreking"
+      :"De SDRCC mini-pc is via het huidige netwerk niet bereikbaar";
+    if(currentSnapshot)renderMarineControl(currentSnapshot);
+    if(serviceSnapshot)renderServiceControls(serviceSnapshot);
+    if(missionOperations)renderMissionControls(missionOperations);
+  }
 }
+function mayPollMobile(){return mobileIsOnline()&&!document.hidden}
+async function probeMobileConnection(force=false){
+  if(mobileProbeBusy||document.hidden)return;
+  const now=Date.now();
+  if(!force&&now<mobileNextProbeAt)return;
+  if(typeof navigator!=="undefined"&&navigator.onLine===false){
+    mobileConnectionFailures=Math.max(1,mobileConnectionFailures);
+    mobileNextProbeAt=now+10000;
+    setConnectionState("offline");
+    return;
+  }
+  mobileProbeBusy=true;
+  const controller=typeof AbortController==="function"?new AbortController():null;
+  const timeout=controller?setTimeout(()=>controller.abort(),MOBILE_PROBE_TIMEOUT_MS):null;
+  try{
+    const options={cache:"no-store"};
+    if(controller)options.signal=controller.signal;
+    const response=await fetch("/api/status?include_logs=0",options);
+    if(!response.ok)throw Error("HTTP "+response.status);
+    const data=await response.json();
+    if(!data||typeof data!=="object"||!data.ais||!data.adsb)throw Error("Ongeldige SDRCC-status");
+    const recovered=!mobileIsOnline();
+    mobileConnectionFailures=0;
+    mobileNextProbeAt=Date.now()+MOBILE_HEALTHY_POLL_MS;
+    setConnectionState("online");
+    if(!serviceActionBusy)renderServiceControls(data);
+    if(recovered){
+      // Read fresh *observations*, never replay past start/stop actions.
+      refreshMobileCapabilities();
+      refresh();
+      refreshSecondary();
+    }
+  }catch(error){
+    mobileConnectionFailures=Math.min(5,mobileConnectionFailures+1);
+    mobileNextProbeAt=Date.now()+Math.min(30000,5000*2**(mobileConnectionFailures-1));
+    setConnectionState("offline");
+  }finally{
+    if(timeout!==null)clearTimeout(timeout);
+    mobileProbeBusy=false;
+    $("network-retry").disabled=false;
+  }
+}
+$("network-retry").addEventListener("click",()=>{
+  $("network-retry").disabled=true;
+  mobileNextProbeAt=0;
+  probeMobileConnection(true);
+});
+window.addEventListener("online",()=>{mobileNextProbeAt=0;probeMobileConnection(true)});
+window.addEventListener("offline",()=>{
+  mobileConnectionFailures=1;
+  mobileNextProbeAt=Date.now()+10000;
+  setConnectionState("offline");
+});
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden){mobileNextProbeAt=0;probeMobileConnection(true)}
+});
+window.addEventListener("pageshow",()=>{mobileNextProbeAt=0;probeMobileConnection(true)});
+
 function setMap(id,key){
   const host=location.hostname;
   const defaultUrl=key==="sdrcc-mobile-ais"
@@ -201,7 +285,7 @@ function applyMobileCapabilities(data){
   renderMobileFeatureList();
 }
 async function refreshMobileCapabilities(){
-  if(mobileCapabilityBusy)return;
+  if(mobileCapabilityBusy||!mayPollMobile())return;
   mobileCapabilityBusy=true;
   try{
     const response=await fetch("/api/mobile/capabilities",{cache:"no-store"});
@@ -279,7 +363,7 @@ function renderAudioState(data){
   streamUrl=voiceActive?String(data.audio?.stream_url||""):"";
   // Always leave the control clickable. If Voice is unavailable, explain why.
   // A silent receiver is not a reason to disable a user's playback control.
-  $("audiotoggle").disabled=!isMobileFeatureAvailable("traffic_voice");
+  $("audiotoggle").disabled=!isMobileFeatureAvailable("traffic_voice"); // Playback stays user-controlled; never auto-reconnect audio.
   if(!voiceActive&&liveAudio.getAttribute("src"))stopLive();
   if(!liveAudio.getAttribute("src")){
     $("audiostatus").textContent=data.selected_mode!=="marine_ais"
@@ -300,16 +384,16 @@ function renderMarineControl(data){
   const airband=running&&data.selected_mode==="airband_adsb";
   setServiceIndicator($("marinestate"),marine?"● MARINE ACTIEF":airband?"● AIRBAND ACTIEF":running?"● VOICE ACTIEF":"○ MARINE UIT",marine?"on":running?"unknown":"off");
   const valid=data.ok===true&&data.validation?.ok!==false;
-  $("marine-start").disabled=marineControlBusy||marine||!valid||!isMobileFeatureAvailable("traffic_voice");
+  $("marine-start").disabled=!mobileIsOnline()||marineControlBusy||marine||!valid||!isMobileFeatureAvailable("traffic_voice");
   $("marine-start").textContent=airband?"↔ Naar Marine":"▶ Marine starten";
   // Stopping the Airband service from the Marine screen is not allowed.
-  $("marine-stop").disabled=marineControlBusy||!marine||!isMobileFeatureAvailable("traffic_voice");
+  $("marine-stop").disabled=!mobileIsOnline()||marineControlBusy||!marine||!isMobileFeatureAvailable("traffic_voice");
   if(!marineControlBusy&&(!valid||!data.ok)&&!running&&!$("marine-action-message").textContent){
     $("marine-action-message").textContent="Marine starten is niet beschikbaar: controleer SDRCC Traffic Voice op de desktop.";
   }
 }
 async function runMarineAction(action){
-  if(marineControlBusy||!voiceApiReady||!currentSnapshot||!isMobileFeatureAvailable("traffic_voice"))return;
+  if(!mobileIsOnline()||marineControlBusy||!voiceApiReady||!currentSnapshot||!isMobileFeatureAvailable("traffic_voice"))return;
   if(action==="start_marine"){
     if(currentSnapshot.service?.active&&currentSnapshot.selected_mode==="marine_ais")return;
     if(!currentSnapshot.ok||currentSnapshot.validation?.ok===false)return;
@@ -453,10 +537,10 @@ function renderMissionControls(data){
   const badge=$("mission-mode");
   const modeLabel=mode==="AUTO"?"● AUTO AAN":mode==="MANUAL"?"○ MANUAL":mode==="PAUSED"?"Ⅱ PAUSED":"○ ONBEKEND";
   setServiceIndicator(badge,modeLabel,mode==="AUTO"?"on":mode==="MANUAL"?"off":"unknown");
-  $("mission-auto-on").disabled=missionActionBusy||!isMobileFeatureAvailable("missions")||!["AUTO","MANUAL","PAUSED"].includes(mode)||mode==="AUTO";
-  $("mission-auto-off").disabled=missionActionBusy||!isMobileFeatureAvailable("missions")||!["AUTO","MANUAL","PAUSED"].includes(mode)||mode==="MANUAL";
+  $("mission-auto-on").disabled=!mobileIsOnline()||missionActionBusy||!isMobileFeatureAvailable("missions")||!["AUTO","MANUAL","PAUSED"].includes(mode)||mode==="AUTO";
+  $("mission-auto-off").disabled=!mobileIsOnline()||missionActionBusy||!isMobileFeatureAvailable("missions")||!["AUTO","MANUAL","PAUSED"].includes(mode)||mode==="MANUAL";
   const active=currentMissionStopAllowed(missionOperations);
-  $("mission-stop-active").disabled=missionActionBusy||!active||!isMobileFeatureAvailable("missions");
+  $("mission-stop-active").disabled=!mobileIsOnline()||missionActionBusy||!active||!isMobileFeatureAvailable("missions");
   const detail=$("mission-control-detail");
   const summary=missionOperations?.summary||{};
   if(missionOperations?.iss_voice?.active&&!active){
@@ -474,7 +558,7 @@ function renderMissionControls(data){
   }
 }
 async function refreshMissionControls(force=false){
-  if(missionFetchBusy||missionActionBusy||(!force&&$("missions").hidden))return;
+  if(!mayPollMobile()||missionFetchBusy||missionActionBusy||(!force&&$("missions").hidden))return;
   missionFetchBusy=true;
   try{
     const response=await fetch("/api/mission-operations",{cache:"no-store"});
@@ -493,7 +577,7 @@ async function refreshMissionControls(force=false){
   }finally{missionFetchBusy=false}
 }
 async function runMissionAction(action){
-  if(missionActionBusy||missionFetchBusy||!missionOperations||!isMobileFeatureAvailable("missions"))return;
+  if(!mobileIsOnline()||missionActionBusy||missionFetchBusy||!missionOperations||!isMobileFeatureAvailable("missions"))return;
   const mode=String(missionOperations.scheduler?.mode||"").trim().toUpperCase();
   let url="/api/action",payload;
   if(action==="scheduler_auto"){
@@ -569,23 +653,22 @@ function renderServiceControls(data){
     setServiceIndicator(badge,label,tone);
     detail.textContent=status?.detail||(!serviceSnapshot?"Systeemstatus niet beschikbaar.":"Geen servicestatus beschikbaar.");
     // Only perform operations explicitly allowed by the server's lifecycle snapshot.
-    start.disabled=serviceActionBusy||!isMobileFeatureAvailable(plugin)||!status||status.can_start!==true;
-    stop.disabled=serviceActionBusy||!isMobileFeatureAvailable(plugin)||!status||status.can_stop!==true;
+    start.disabled=!mobileIsOnline()||serviceActionBusy||!isMobileFeatureAvailable(plugin)||!status||status.can_start!==true;
+    stop.disabled=!mobileIsOnline()||serviceActionBusy||!isMobileFeatureAvailable(plugin)||!status||status.can_stop!==true;
     start.textContent=plugin==="ais"?"▶ AIS starten":"▶ ADS-B starten";
     stop.textContent=plugin==="ais"?"■ AIS stoppen":"■ ADS-B stoppen";
   }
 }
 async function refreshServiceControls(force=false){
-  if(serviceRefreshBusy||serviceActionBusy||(!force&&!$("system").hidden))return;
+  if(!mayPollMobile()||serviceRefreshBusy||serviceActionBusy||(!force&&!$("system").hidden))return;
   serviceRefreshBusy=true;
   try{
     const response=await fetch("/api/status?include_logs=0",{cache:"no-store"});
     if(!response.ok)throw Error("HTTP "+response.status);
-    setConnectionStatus(true);
     renderServiceControls(await response.json());
   }catch(error){
-    setConnectionStatus(false);
-    renderServiceControls(null);
+    // A failed secondary request does not prove the dashboard is offline.
+    // The central health probe will decide and preserve the last snapshot.
     for(const plugin of ["ais","adsb"]){
       const message=$(`${plugin}-service-message`);
       if(!message.textContent||message.dataset.kind==="status"){
@@ -598,7 +681,7 @@ async function refreshServiceControls(force=false){
 }
 async function runServiceAction(plugin,operation){
   const config=serviceDefinitions[plugin];
-  if(!config||!["start","stop"].includes(operation)||serviceActionBusy||serviceRefreshBusy||!isMobileFeatureAvailable(plugin))return;
+  if(!mobileIsOnline()||!config||!["start","stop"].includes(operation)||serviceActionBusy||serviceRefreshBusy||!isMobileFeatureAvailable(plugin))return;
   const status=serviceSnapshot?.[plugin];
   if(!status||(operation==="start"&&status.can_start!==true)||(operation==="stop"&&status.can_stop!==true))return;
   const action=config[operation],message=$(`${plugin}-service-message`);
@@ -706,7 +789,7 @@ function renderSystem(data,updateStatus=null){
 $("system-refresh").addEventListener("click",()=>{refreshSystem(true);refreshMobileCapabilities()});
 let systemRequestBusy=false;
 async function refreshSystem(force=false){
-  if((!force&&$("system").hidden)||systemRequestBusy)return;
+  if(!mayPollMobile()||(!force&&$("system").hidden)||systemRequestBusy)return;
   systemRequestBusy=true;
   const btn=$("system-refresh");btn.disabled=true;
   try{
@@ -716,10 +799,9 @@ async function refreshSystem(force=false){
     ]);
     if(!response.ok)throw Error("HTTP "+response.status);
     const data=await response.json();
-    setConnectionStatus(true);
     renderServiceControls(data);
     renderSystem(data,updater);
-  }catch(e){setConnectionStatus(false);$("systemstatus").textContent="Systeemoverzicht niet beschikbaar: "+e.message}
+  }catch(e){$("systemstatus").textContent="Systeemoverzicht tijdelijk niet beschikbaar: "+e.message}
   finally{systemRequestBusy=false;btn.disabled=false}
 }
 async function refreshSecondary(){
