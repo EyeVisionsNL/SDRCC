@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sdrcc_background">#09151D</color>
+    <color name="sdrcc_surface">#102330</color>
+    <color name="sdrcc_accent">#72D8B3</color>
+    <color name="sdrcc_text">#E6F2F4</color>
+    <color name="sdrcc_launcher_background">#102330</color>
+</resources>

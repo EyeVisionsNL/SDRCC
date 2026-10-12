@@ -1,0 +1,89 @@
+# SDRCC Android · v0.1 Beta
+
+Native Android application around the **existing** SDRCC Mobile dashboard.
+It is **not** a second SDRCC server, a fork of the Marine/AIS/ADS-B logic, or
+the home-screen browser shortcut.
+
+## Features
+
+- Real Android APK, launcher icon copied from the existing SDRCC favicon and
+  native SDRCC splash with a small radar sweep.
+- One-time operator-selected hostname or IP for **HTTP :8080** (custom port is
+  supported); stored only in the app's private Android preferences.
+- WebView opens the existing \`/static/mobile/index.html\`; it does not copy
+  or independently reimplement Marine, ATIS/AIS match highlighting, AIS-Catcher
+  :8119, tar1090 :80, recordings, Satellite or Mission controls.
+- JavaScript and DOM Storage for the existing dashboard; HTML audio playback
+  remains triggered by a user tap.
+- Native confirmation of existing web dialogs, external photo credits opened
+  in an external browser, reload and connection settings.
+- No JavaScript-to-Android bridge, no file access and no camera/microphone
+  permissions. Only the Internet permission is requested.
+
+## Local wifi first
+
+1. Confirm SDRCC Mobile works in the Android phone browser over wifi.
+2. Install the **debug beta APK** from the GitHub Actions artifact, or build
+   it yourself in Android Studio.
+3. Open the SDRCC Mobile app and enter only your mini-PC address, for example
+   \`192.168.1.50\` or \`192.168.1.50:8080\`.
+4. Tap **Verbinden**. The existing live Mobile UI should appear.
+5. Test Marine, AIS map on :8119, ADS-B map on :80, audio, recordings,
+   ATIS matching, and Mission buttons. Tap the gear icon to change host.
+6. Do not configure public port forwarding to SDRCC.
+
+**Later 4G/5G:** connect the mini-PC and phone to the *same trusted Tailscale
+VPN*. Use the mini-PC's Tailscale IP/hostname in the app settings. The VPN
+encrypts the transport while SDRCC and AIS-Catcher can remain on HTTP.
+No VPN is installed or configured by this Android project.
+
+## Building
+
+Java 17, Android SDK platform 35, Android Build Tools 35.0.0, Gradle 8.9,
+Android Gradle Plugin 8.7.3. Open \`android/\` as an Android Studio project
+or from the \`android/\` directory run:
+
+\`\`\`bash
+gradle :app:testDebugUnitTest :app:assembleDebug
+\`\`\`
+
+The generated file is \`android/app/build/outputs/apk/debug/app-debug.apk\`.
+The GitHub workflow **Android Beta APK** builds it on pushes to \`develop\`
+that touch \`android/\` and uploads the result under the workflow run's
+**Artifacts** section.
+
+This debug APK is for internal testing and is signed with the runner's
+ephemeral debug certificate. New CI debug builds may have a different
+signing key; you may need to uninstall the previous beta before installing
+another one. A future stable APK needs a private **persistent release key**
+held in repository secrets, never in Git.
+
+## Scope and security
+
+- Only \`android/\` and \`.github/workflows/android-beta.yml\` are changed.
+  Desktop SDRCC, Python receiver services, source allowlists and the marine
+  overlay remain untouched. The SDRCC server's \`VERSION\` is unchanged.
+- Cleartext HTTP is enabled for dynamic private LAN/VPN addresses; on a
+  hostile wifi network, HTTP itself is **not authenticated or encrypted**.
+  Only use trusted wifi or a private, encrypted VPN. No HTTP endpoints
+  should be published on the public internet.
+- JavaScript navigation is restricted at the top level to the configured
+  station. External photographer-source URLs are opened by Android's browser.
+  The embedded AIS/ADS-B maps and normal external photo image resources
+  continue to load as the server normally serves them.
+- A network error never starts/stops a receiver. No failed POST is retried by
+  the Android shell. Native reload is manual; existing SDRCC Mobile network
+  recovery remains authoritative.
+- \`targetSdk 34\` is intentional for a sideloaded internal beta, not a
+  Play Store release. Future release/Play Store builds must update target SDK
+  and review edge-to-edge requirements.
+
+## Checks
+
+- \`app/src/test/.../StationAddressTest.java\` covers valid LAN, DNS and VPN
+  host input and rejects unsafe/invalid URLs.
+- \`scripts/validate_android_beta.py\` verifies the app's manifest,
+  network policy and kept hardware-independent architecture.
+- The GitHub Actions build runs checks and unit tests before packaging APK.
+- On-device receiver and WebView tests must be performed on an Android phone;
+  a CI build does not prove audio or map behavior on actual hardware.

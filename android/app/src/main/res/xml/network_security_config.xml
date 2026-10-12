@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Beta: the operator chooses a private LAN or Tailscale host at runtime.
+     Domain-scoped cleartext exceptions cannot express changing IP addresses.
+     Never expose SDRCC's receiver controls to the public Internet. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
