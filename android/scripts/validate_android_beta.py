@@ -70,15 +70,26 @@ def validate() -> None:
             "Existing server confirmation and alert dialogs must remain usable")
     require("Intent.ACTION_VIEW" in java, "Credit links need external browser")
     require("RadarView(this)" in java, "SDRCC native radar splash missing")
+    require('changeHostButton.setVisibility(View.VISIBLE);' in java,
+            "The host editor must be reachable while connecting")
+    require('Button clearAddress = button("× Wissen");' in java,
+            "The operator must have an explicit way to clear a stored address")
+    require("input.setShowSoftInputOnFocus(true)" in java,
+            "Android host text field must open the keyboard")
+    require("keyboard.showSoftInput(input," in java,
+            "Operator must be able to request keyboard input")
+    require(activity.attrib.get(NS + "windowSoftInputMode") ==
+            "adjustResize|stateAlwaysHidden", "IP field must remain visible with keyboard")
     require("static/mobile/index.html" in host, "Wrong SDRCC Mobile endpoint")
     gradle = (project / "build.gradle").read_text(encoding="utf-8")
-    require("versionName '0.1.0-beta1'" in gradle,
-            "Missing separate Android 0.1.0-beta1 version")
+    require("versionName '0.1.0-beta2'" in gradle and
+            "versionCode 2" in gradle,
+            "Missing Android 0.1.0-beta2 version bump")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")
     require((REPO / "VERSION").read_text().strip().startswith("0.66."),
             "SDRCC server VERSION was unexpectedly changed")
-    print("PASS: 19 SDRCC Android static regression checks")
+    print("PASS: SDRCC Android integration and address editing regression checks")
     print("Original logo, HTTP maps, JNI-free WebView, native dialogs and"
           " safe beta permissions verified.")
 

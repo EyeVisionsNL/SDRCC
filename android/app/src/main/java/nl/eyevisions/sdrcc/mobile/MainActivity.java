@@ -13,6 +13,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.content.Context;
+import android.view.inputmethod.InputMethodManager;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -170,19 +172,62 @@ public final class MainActivity extends Activity {
         description.setPadding(0, dp(8), 0, dp(16));
         content.addView(description);
 
+        TextView hostLabel = text("IP-adres of hostnaam van de mini-pc", 14, ACCENT);
+        hostLabel.setGravity(Gravity.START);
+        hostLabel.setPadding(0, 0, 0, dp(8));
+        content.addView(hostLabel);
+
         EditText input = new EditText(this);
         input.setSingleLine(true);
+        input.setFocusable(true);
+        input.setFocusableInTouchMode(true);
+        input.setShowSoftInputOnFocus(true);
         input.setSelectAllOnFocus(true);
         input.setTextSize(16);
         input.setTextColor(TEXT);
         input.setHintTextColor(MUTED);
-        input.setHint("192.168.1.50:8080");
+        input.setHint("Bijv. 192.168.1.50:8080");
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         input.setBackground(surface(SURFACE, 0xFF54747B, 9));
         input.setPadding(dp(14), dp(12), dp(14), dp(12));
         input.setText(preferences().getString(PREF_HOST, ""));
         content.addView(input, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(53)));
+
+        LinearLayout editControls = new LinearLayout(this);
+        editControls.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams editorParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(46));
+        editorParams.topMargin = dp(8);
+        content.addView(editControls, editorParams);
+
+        Button editAddress = button("✎ Adres bewerken");
+        editControls.addView(editAddress,
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        Button clearAddress = button("× Wissen");
+        LinearLayout.LayoutParams clearParams = new LinearLayout.LayoutParams(
+                dp(102), ViewGroup.LayoutParams.MATCH_PARENT);
+        clearParams.leftMargin = dp(8);
+        editControls.addView(clearAddress, clearParams);
+
+        editAddress.setOnClickListener(view -> {
+            input.requestFocus();
+            input.selectAll();
+            InputMethodManager keyboard = (InputMethodManager)
+                    getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (keyboard != null) {
+                keyboard.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+            }
+        });
+        clearAddress.setOnClickListener(view -> {
+            input.setText("");
+            input.requestFocus();
+            InputMethodManager keyboard = (InputMethodManager)
+                    getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (keyboard != null) {
+                keyboard.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+            }
+        });
 
         TextView validation = text(error == null ? "" : error, 13, 0xFFF4ACA2);
         validation.setPadding(0, dp(8), 0, dp(8));
@@ -301,8 +346,10 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
         retryParams.topMargin = dp(10);
         overlay.addView(retryButton, retryParams);
-        changeHostButton = button("⚙ Adres wijzigen");
-        changeHostButton.setVisibility(View.GONE);
+        changeHostButton = button("✎ IP-adres wijzigen");
+        // The operator must be able to correct an incorrect stored IP immediately.
+        // Do not hide this button while the native radar connection screen is open.
+        changeHostButton.setVisibility(View.VISIBLE);
         LinearLayout.LayoutParams changeParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
         changeParams.topMargin = dp(10);
@@ -327,7 +374,7 @@ public final class MainActivity extends Activity {
         pageFailed = false;
         loadingCover.setVisibility(View.VISIBLE);
         retryButton.setVisibility(View.GONE);
-        changeHostButton.setVisibility(View.GONE);
+        changeHostButton.setVisibility(View.VISIBLE);
         loadingText.setText("Verbinden met " + currentHost + "…");
         clearConnectionTimeout();
         loadTimeout = () -> showLoadError(

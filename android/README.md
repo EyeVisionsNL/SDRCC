@@ -1,4 +1,4 @@
-# SDRCC Android · v0.1 Beta
+# SDRCC Android · v0.1 Beta 2
 
 Native Android application around the **existing** SDRCC Mobile dashboard.
 It is **not** a second SDRCC server, a fork of the Marine/AIS/ADS-B logic, or
@@ -8,8 +8,11 @@ the home-screen browser shortcut.
 
 - Real Android APK, launcher icon copied from the existing SDRCC favicon and
   native SDRCC splash with a small radar sweep.
-- One-time operator-selected hostname or IP for **HTTP :8080** (custom port is
+- Operator-selected hostname or IP for **HTTP :8080** (custom port is
   supported); stored only in the app's private Android preferences.
+- Address can always be edited from the radar connection screen, without
+  waiting for a failed connection timeout. The editor includes explicit
+  **Adres bewerken** and **Wissen** controls and opens the Android keyboard.
 - WebView opens the existing \`/static/mobile/index.html\`; it does not copy
   or independently reimplement Marine, ATIS/AIS match highlighting, AIS-Catcher
   :8119, tar1090 :80, recordings, Satellite or Mission controls.
@@ -25,10 +28,13 @@ the home-screen browser shortcut.
 1. Confirm SDRCC Mobile works in the Android phone browser over wifi.
 2. Install the **debug beta APK** from the GitHub Actions artifact, or build
    it yourself in Android Studio.
-3. Open the SDRCC Mobile app and enter only your mini-PC address, for example
+3. Open the SDRCC Mobile app. Tap **Adres bewerken**, enter your mini-PC address, for example
    \`192.168.1.50\` or \`192.168.1.50:8080\`.
 4. Tap **Verbinden**. The existing live Mobile UI should appear.
-5. Test Marine, AIS map on :8119, ADS-B map on :80, audio, recordings,
+5. To change the IP at any time: use **IP-adres wijzigen** during the
+   radar connection screen, or the gear icon after connecting. You can clear
+   the field with **Wissen**.
+6. Test Marine, AIS map on :8119, ADS-B map on :80, audio, recordings,
    ATIS matching, and Mission buttons. Tap the gear icon to change host.
 6. Do not configure public port forwarding to SDRCC.
 
@@ -53,9 +59,11 @@ that touch \`android/\` and uploads the result under the workflow run's
 **Artifacts** section.
 
 This debug APK is for internal testing and is signed with the runner's
-ephemeral debug certificate. New CI debug builds may have a different
-signing key; you may need to uninstall the previous beta before installing
-another one. A future stable APK needs a private **persistent release key**
+ephemeral debug certificate. **Before installing beta 2, uninstall beta 1**
+if Android reports a package signature conflict. Uninstalling also resets
+the saved mini-PC IP address; enter it again after installation. New CI debug
+builds may have a different signing key; you may need to uninstall the
+previous beta before installing another one. A future stable APK needs a private **persistent release key**
 held in repository secrets, never in Git.
 
 ## Scope and security
