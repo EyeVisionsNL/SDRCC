@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1720"><title>SDRCC Mobile</title><link rel="manifest" href="/static/mobile/manifest.webmanifest"><link rel="icon" href="/static/assets/sdrcc-favicon.png"><style>
-:root{color-scheme:dark;font-family:system-ui,Arial;background:#09151d;color:#e6f2f4}*{box-sizing:border-box}body{margin:0;padding:0 0 85px}header{padding:16px;display:flex;align-items:center;justify-content:space-between;background:#102330;border-bottom:1px solid #31545c}h1{font-size:19px;margin:0}small,.muted{color:#9ab2b9}main{padding:12px;max-width:900px;margin:auto}.panel{background:#10232e;border:1px solid #34535a;border-radius:12px;padding:14px;margin:10px 0}h2{font-size:17px;margin:0 0 12px;color:#72d8b3}button,a.action{background:#173c41;color:#d8f9e9;border:1px solid #3c8779;border-radius:9px;padding:10px;text-decoration:none;font:inherit}button:focus-visible,a:focus-visible{outline:2px solid #91f4d4}.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0d2530;border-top:1px solid #42636b;padding-bottom:env(safe-area-inset-bottom);z-index:5}.tabs button{flex:1;border:0;border-radius:0;padding:13px 2px;background:none;font-size:12px}.tabs button[aria-selected=true]{background:#195044;color:#a7ffce}.map{width:100%;height:48vh;min-height:280px;border:0;border-radius:9px;background:#061015}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.status{color:#84e3b5}section[hidden]{display:none}.pulse{animation:pulse 1.5s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 8px #51dba62b}}input{background:#081a24;color:white;border:1px solid #54747b;border-radius:8px;padding:10px;width:100%}label{display:block;margin:12px 0}.warning{color:#e6c38e}img.photo{max-width:100%;max-height:160px;object-fit:contain;border-radius:8px}#match{word-break:break-word}
+:root{color-scheme:dark;font-family:system-ui,Arial;background:#09151d;color:#e6f2f4}*{box-sizing:border-box}body{margin:0;padding:0 0 85px}header{padding:16px;display:flex;align-items:center;justify-content:space-between;background:#102330;border-bottom:1px solid #31545c}h1{font-size:19px;margin:0}small,.muted{color:#9ab2b9}main{padding:12px;max-width:900px;margin:auto}.panel{background:#10232e;border:1px solid #34535a;border-radius:12px;padding:14px;margin:10px 0}h2{font-size:17px;margin:0 0 12px;color:#72d8b3}button,a.action{background:#173c41;color:#d8f9e9;border:1px solid #3c8779;border-radius:9px;padding:10px;text-decoration:none;font:inherit}button:focus-visible,a:focus-visible{outline:2px solid #91f4d4}.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0d2530;border-top:1px solid #42636b;padding-bottom:env(safe-area-inset-bottom);z-index:5}.tabs button{flex:1;border:0;border-radius:0;padding:13px 2px;background:none;font-size:12px}.tabs button[aria-selected=true]{background:#195044;color:#a7ffce}.map{width:100%;height:48vh;min-height:280px;border:0;border-radius:9px;background:#061015}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.status{color:#84e3b5}section[hidden]{display:none}.pulse{animation:pulse 1.5s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 8px #51dba62b}}input{background:#081a24;color:white;border:1px solid #54747b;border-radius:8px;padding:10px;width:100%}label{display:block;margin:12px 0}.warning{color:#e6c38e}img.photo{max-width:100%;max-height:160px;object-fit:contain;border-radius:8px}#match{word-break:break-word}.statusline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.tag{display:inline-block;background:#173d46;color:#c3e9e6;border:1px solid #326e70;border-radius:7px;padding:5px 8px;font-size:12px}.data-card{background:#0b1d27;border:1px solid #29464e;border-radius:9px;padding:10px;margin:8px 0}.data-card strong{color:#dbf6ed}.data-card small{display:block;margin-top:4px}.metric{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #26444c;padding:7px 0}.recording{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #25434b;padding:10px 0}.recording>div{display:flex;gap:6px;flex-wrap:wrap}.recording small{display:block;margin-top:3px}.recording button:disabled{opacity:.45}.success{color:#83e3b5}.error{color:#e6a8a8}.preview{width:100%;max-height:330px;object-fit:contain;border-radius:8px;margin:10px 0}.loading{color:#a5c4c9}
 </style></head><body><header><h1>📡 SDRCC <span class="status">Mobile</span></h1><small id="connection">Verbinden…</small></header><main>
-<section id="marine"><div class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Kaart</button></div><iframe id="aismap" class="map" title="AIS-Catcher kaart" loading="eager"></iframe><p class="muted">De kaart blijft op jouw positie. Een ATIS-match licht op in het informatiepaneel; de kaart wordt niet automatisch verplaatst. Een markering op de AIS-kaart zelf vereist ondersteuning in AIS-Catcher.</p></div><div class="panel" id="matchpanel"><h2>🎙️ Laatste ATIS / AIS-match</h2><div id="match">Wachten op live ATIS-gegevens…</div><div id="photo"></div></div><div class="panel"><h2>Live audio en opnames</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Live audio starten</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Laatste vier opnames</h2><div id="recordings">Wachten op opnames…</div><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
+<section id="marine"><div class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Kaart</button></div><iframe id="aismap" class="map" title="AIS-Catcher kaart" loading="eager"></iframe><p class="muted">De kaart blijft op jouw positie. Een ATIS-match licht op in het informatiepaneel; de kaart wordt niet automatisch verplaatst. Een markering op de AIS-kaart zelf vereist ondersteuning in AIS-Catcher.</p></div><div class="panel" id="matchpanel"><h2>🎙️ Laatste ATIS / AIS-match</h2><div id="match">Wachten op live ATIS-gegevens…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div class="panel"><h2>Live audio en opnames</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Live audio starten</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Laatste vier opnames</h2><div id="recordings">Wachten op opnames…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
 <section id="adsb" hidden><div class="panel"><h2>✈️ ADS-B</h2><iframe id="adsbmap" class="map" title="ADS-B kaart" loading="lazy"></iframe></div></section>
 <section id="radio" hidden><div class="panel"><h2>📻 Radio Receiver</h2><p>De bestaande radio-ontvanger blijft bereikbaar via de desktopinterface.</p><a class="action" href="/" target="_blank" rel="noopener">Radio openen ↗</a></div></section>
-<section id="sat" hidden><div class="panel"><h2>🛰️ Satellites</h2><div id="satstatus">Status ophalen…</div></div></section>
-<section id="missions" hidden><div class="panel"><h2>⏻ Missions Control</h2><div id="missionstatus">Status ophalen…</div><p class="warning">Stoppen wordt pas aangeboden nadat de bestaande missiebediening veilig is gekoppeld. Geen missieplanning of updates op mobiel.</p></div></section>
+<section id="sat" hidden><div class="panel"><h2>🛰️ Satellites · live ontvangstpositie</h2><div id="satstatus" aria-live="polite">Status ophalen…</div></div></section>
+<section id="missions" hidden><div class="panel"><h2>⏻ Missions · live status</h2><div id="missionstatus" aria-live="polite">Status ophalen…</div><p class="muted">Alleen actuele missiestatus en het meest recente beeld. Missieplanning en updates blijven op desktop.</p></div></section>
 <section id="settings" hidden><div class="panel"><h2>⚙️ Kaartverbindingen</h2><p class="muted">Stel hier de bestaande kaart-URL's van jouw SDRCC-installatie in. Ze worden alleen op deze telefoon bewaard.</p><label>AIS-Catcher kaart URL<input id="aisurl" placeholder="http://mini-pc:8100/"></label><label>ADS-B kaart URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Kaarten opslaan</button><p class="warning">Voor echte PWA-installatie via Android is een beveiligde HTTPS-verbinding nodig. HTTP op het LAN blijft als gewone webpagina bruikbaar.</p></div></section>
 </main><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="radio">📻<br>Radio</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="settings">⚙️<br>Setup</button></nav><script>
 const $=id=>document.getElementById(id);
@@ -17,7 +17,153 @@ $("save").onclick=()=>{for(const [id,key,frame] of [["aisurl","sdrcc-mobile-ais"
 $("mapreload").onclick=()=>{const f=$("aismap");if(f.src&&f.src!=="about:blank")f.src=f.src};
 document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!==tab);document.querySelectorAll("[data-tab]").forEach(x=>x.setAttribute("aria-selected",String(x===b)));});
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let lastMatch="";let lastPhotoMmsi="";const liveAudio=$("liveaudio");$("audiotoggle").onclick=()=>{if(liveAudio.src&&!liveAudio.paused){liveAudio.pause();liveAudio.removeAttribute("src");liveAudio.load();$("audiotoggle").textContent="▶ Live audio starten";$("audiotoggle").setAttribute("aria-pressed","false");$("audiostatus").textContent="Uit";return}liveAudio.src="/api/traffic-voice/audio-stream?mode=marine_ais";liveAudio.play().then(()=>{$("audiotoggle").textContent="■ Live audio stoppen";$("audiotoggle").setAttribute("aria-pressed","true");$("audiostatus").textContent="LIVE"}).catch(e=>{$("audiostatus").textContent="Audio niet beschikbaar: "+e.message})};function showRecordings(data){const audio=data.audio||{};const recordings=Array.isArray(audio.marine_recordings)?audio.marine_recordings:[];const el=$("recordings");el.replaceChildren();if(!recordings.length){el.textContent="Nog geen opnames beschikbaar";return}for(const item of recordings.slice(0,4)){const row=document.createElement("div");row.className="row";row.style.margin="8px 0";const label=document.createElement("span");label.textContent=(item.channel||"Marine")+" · "+(item.duration_seconds||0)+" s";const play=document.createElement("button");play.textContent="▶ Afspelen";play.disabled=!item.complete||!item.play_url;play.onclick=()=>{$("replay").src=item.play_url;$("replay").play().catch(()=>{})};row.append(label,play);el.append(row)}}async function showPhoto(m){const id=String(m.mmsi||"");if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;lastPhotoMmsi=id;const target=$("photo");target.textContent="Scheepsfoto zoeken…";try{const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)+"&shipname="+encodeURIComponent(m.shipname||"")+"&imo="+encodeURIComponent(m.imo||"")+"&eni="+encodeURIComponent(m.eni||"");const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(lastPhotoMmsi!==id)return;target.replaceChildren();if(!d.ok||!d.image_url){target.textContent="Geen foto beschikbaar";return}const img=document.createElement("img");img.className="photo";img.referrerPolicy="no-referrer";img.src=d.image_url;img.alt="Scheepsfoto";target.append(img);const credit=document.createElement("p");credit.className="muted";credit.textContent=[d.artist?"© "+d.artist:"",d.source||""].filter(Boolean).join(" · ");target.append(credit);if(d.page_url&&/^https:\/\/(?:www\.)?(?:binnenvaartspotter\.nl|debinnenvaart\.nl|markprummel\.nl|shipspotting\.com|commons\.wikimedia\.org)\//.test(d.page_url)){const a=document.createElement("a");a.href=d.page_url;a.target="_blank";a.rel="noopener noreferrer";a.textContent="Originele foto ↗";target.append(a)}}catch(e){target.textContent="Foto niet beschikbaar"}}
-async function refresh(){try{const r=await fetch("/api/traffic-voice",{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const data=await r.json();$("connection").textContent="● LIVE";const m=data.ais_match||{};showRecordings(data);if(m.matched){showPhoto(m);const id=String(m.mmsi||"");$("match").innerHTML="<strong>"+esc(m.shipname||m.callsign||"Schip")+"</strong><p>MMSI "+esc(id)+" · "+esc(data.possible_speaker||"ATIS herkend")+"</p><p class='muted'>ATIS/AIS-koppeling bevestigd. Kaart blijft staan.</p>";if(id!==lastMatch){lastMatch=id;$("matchpanel").classList.remove("pulse");void $("matchpanel").offsetWidth;$("matchpanel").classList.add("pulse");setTimeout(()=>$("matchpanel").classList.remove("pulse"),15000)}}else{$("match").textContent=data.possible_speaker||"Wachten op gevalideerde ATIS/AIS-match";}}catch(e){$("connection").textContent="○ Geen verbinding";$("match").textContent="Live API niet bereikbaar: "+e.message}}
-async function refreshSecondary(){for(const [tab,url,output] of [["sat","/api/satellite-view","satstatus"],["missions","/api/mission-monitor","missionstatus"]]){if(document.getElementById(tab).hidden)continue;try{const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const data=await r.json();$(output).textContent=JSON.stringify(data,null,2).slice(0,1600)}catch(e){$(output).textContent="Status niet beschikbaar: "+e.message}}}refresh();setInterval(refresh,5000);setInterval(refreshSecondary,15000);document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",refreshSecondary));
+let lastMatch="",lastPhotoMmsi="",currentSnapshot=null,playingRecordingId="",resumeLiveAfterReplay=false;
+const liveAudio=$("liveaudio"),replayAudio=$("replay"),savedRecordings=new Set();
+let streamUrl="";
+function stopLive(){
+  liveAudio.pause();liveAudio.removeAttribute("src");liveAudio.load();
+  $("audiotoggle").textContent="▶ Live audio starten";
+  $("audiotoggle").setAttribute("aria-pressed","false");$("audiostatus").textContent="Uit";
+}
+async function startLive(){
+  if(!streamUrl){$("audiostatus").textContent="Wacht op de Voice audioverbinding";return}
+  liveAudio.src=streamUrl+(streamUrl.includes("?")?"&":"?")+"mode=marine_ais&live="+Date.now();
+  try{
+    await liveAudio.play();$("audiotoggle").textContent="■ Live audio stoppen";
+    $("audiotoggle").setAttribute("aria-pressed","true");$("audiostatus").textContent="LIVE";
+  }catch(e){stopLive();$("audiostatus").textContent="Audio niet beschikbaar: "+e.message}
+}
+$("audiotoggle").onclick=()=>{
+  if(liveAudio.getAttribute("src")){stopLive();resumeLiveAfterReplay=false}
+  else{if(playingRecordingId)stopReplay(false);startLive()}
+};
+function stopReplay(resume=true){
+  replayAudio.pause();replayAudio.removeAttribute("src");replayAudio.load();
+  playingRecordingId="";const shouldResume=resumeLiveAfterReplay&&resume;resumeLiveAfterReplay=false;
+  if(shouldResume)startLive();if(currentSnapshot)showRecordings(currentSnapshot);
+}
+replayAudio.addEventListener("ended",()=>stopReplay(true));
+async function playRecording(item){
+  if(playingRecordingId===item.id){stopReplay(true);return}
+  const keepResume=resumeLiveAfterReplay||Boolean(liveAudio.getAttribute("src"));
+  if(playingRecordingId)stopReplay(false);
+  if(liveAudio.getAttribute("src"))stopLive();
+  resumeLiveAfterReplay=keepResume;playingRecordingId=item.id;
+  replayAudio.src=item.play_url+"?replay="+Date.now();
+  if(currentSnapshot)showRecordings(currentSnapshot);
+  try{await replayAudio.play()}
+  catch(e){$("recordingmessage").textContent="Afspelen mislukt: "+e.message;stopReplay(true)}
+}
+function renderAudioState(data){
+  streamUrl=data.selected_mode==="marine_ais"&&data.service?.active?String(data.audio?.stream_url||""):"";
+  $("audiotoggle").disabled=!streamUrl&&!liveAudio.getAttribute("src");
+  if(!streamUrl&&liveAudio.getAttribute("src"))stopLive();
+  if(!liveAudio.getAttribute("src"))$("audiostatus").textContent=streamUrl?"Uit":"Voice audio wacht op verbinding";
+}
+async function saveRecording(item,button){
+  button.disabled=true;button.textContent="Opslaan…";
+  try{
+    const response=await fetch("/api/traffic-voice/recordings/"+encodeURIComponent(item.id)+"/save",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({channel:item.channel,frequency_mhz:item.frequency_mhz,atis:currentSnapshot?.atis||{},ais_match:currentSnapshot?.ais_match||{}})
+    });
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw Error(result.message||"Opslaan mislukt");
+    savedRecordings.add(item.id);button.textContent="✓ Opgeslagen";
+    $("recordingmessage").textContent="Opname opgeslagen: "+(result.filename||item.channel||"Marine");
+  }catch(e){button.disabled=false;button.textContent="💾 Bewaar";$("recordingmessage").textContent="Opslaan mislukt: "+e.message}
+}
+function showRecordings(data){
+  const recordings=Array.isArray(data.audio?.marine_recordings)?data.audio.marine_recordings:[];
+  const el=$("recordings");el.replaceChildren();
+  if(data.selected_mode!=="marine_ais"){el.textContent="Traffic Voice staat niet op Marine.";return}
+  if(!recordings.length){el.textContent="Nog geen recente marifoonopnames.";return}
+  for(const item of recordings.slice(0,4)){
+    if(!item||typeof item.id!=="string")continue;
+    const row=document.createElement("div");row.className="recording";
+    const info=document.createElement("span"),name=document.createElement("strong"),detail=document.createElement("small");
+    const freq=Number(item.frequency_mhz);
+    name.textContent=(item.channel||"Marifoon")+ (Number.isFinite(freq)&&freq>0?" · "+freq.toFixed(3)+" MHz":"");
+    const t=new Date(item.received_at);
+    const time=Number.isFinite(t.getTime())?t.toLocaleTimeString("nl-NL"):"Tijd onbekend";
+    detail.textContent=time+" · "+(Number.isFinite(Number(item.duration_seconds))?Number(item.duration_seconds).toFixed(1)+" s":"—");
+    info.append(name,detail);
+    const actions=document.createElement("div"),play=document.createElement("button"),save=document.createElement("button");
+    play.type="button";play.disabled=!item.complete||!item.play_url;
+    play.textContent=!item.complete?"● Opnemen":playingRecordingId===item.id?"■ Stop":"▶ Luister";
+    play.onclick=()=>playRecording(item);
+    save.type="button";save.disabled=!item.complete||savedRecordings.has(item.id);
+    save.textContent=savedRecordings.has(item.id)?"✓ Opgeslagen":"💾 Bewaar";
+    save.onclick=()=>saveRecording(item,save);
+    actions.append(play,save);row.append(info,actions);el.append(row);
+  }
+}
+function renderAtis(data){
+  const box=$("atis");box.replaceChildren();
+  const info=data.atis?.latest||{};
+  if(data.selected_mode!=="marine_ais"||!info.fresh)return;
+  for(const value of [
+    info.atis_code?"ATIS "+info.atis_code:null,
+    info.callsign?"Roepnaam "+info.callsign:null,
+    info.channel_label||null,
+    Number.isFinite(Number(info.frequency_mhz))&&info.frequency_mhz!=null?Number(info.frequency_mhz).toFixed(3)+" MHz":null
+  ].filter(Boolean)){
+    const tag=document.createElement("span");tag.className="tag";tag.textContent=value;box.append(tag);
+  }
+}
+async function showPhoto(m){const id=String(m.mmsi||"");if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;lastPhotoMmsi=id;const target=$("photo");target.textContent="Scheepsfoto zoeken…";try{const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)+"&shipname="+encodeURIComponent(m.shipname||"")+"&imo="+encodeURIComponent(m.imo||"")+"&eni="+encodeURIComponent(m.eni||"");const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(lastPhotoMmsi!==id)return;target.replaceChildren();if(!d.ok||!d.image_url){target.textContent="Geen foto beschikbaar";return}const img=document.createElement("img");img.className="photo";img.referrerPolicy="no-referrer";img.src=d.image_url;img.alt="Scheepsfoto";target.append(img);const credit=document.createElement("p");credit.className="muted";credit.textContent=[d.artist?"© "+d.artist:"",d.source||""].filter(Boolean).join(" · ");target.append(credit);if(d.page_url&&/^https:\/\/(?:www\.)?(?:binnenvaartspotter\.nl|debinnenvaart\.nl|markprummel\.nl|shipspotting\.com|commons\.wikimedia\.org)\//.test(d.page_url)){const a=document.createElement("a");a.href=d.page_url;a.target="_blank";a.rel="noopener noreferrer";a.textContent="Originele foto ↗";target.append(a)}}catch(e){target.textContent="Foto niet beschikbaar"}}
+async function refresh(){try{const r=await fetch("/api/traffic-voice",{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const data=await r.json();$("connection").textContent="● LIVE";const m=data.ais_match||{};currentSnapshot=data;renderAtis(data);renderAudioState(data);showRecordings(data);if(m.matched){showPhoto(m);const id=String(m.mmsi||"");$("match").innerHTML="<strong>"+esc(m.shipname||m.callsign||"Schip")+"</strong><p>MMSI "+esc(id)+" · "+esc(data.possible_speaker||"ATIS herkend")+"</p><p class='muted'>ATIS/AIS-koppeling bevestigd. Kaart blijft staan.</p>";if(id!==lastMatch){lastMatch=id;$("matchpanel").classList.remove("pulse");void $("matchpanel").offsetWidth;$("matchpanel").classList.add("pulse");setTimeout(()=>$("matchpanel").classList.remove("pulse"),15000)}}else{lastMatch="";lastPhotoMmsi="";$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Wachten op gevalideerde ATIS/AIS-match";}}catch(e){$("connection").textContent="○ Geen verbinding";$("match").textContent="Live API niet bereikbaar: "+e.message}}
+function appendCard(container,title,description,metadata){
+  const card=document.createElement("div");card.className="data-card";
+  const name=document.createElement("strong");name.textContent=title;
+  const sub=document.createElement("small");sub.textContent=description;
+  card.append(name,sub);
+  if(metadata){const extra=document.createElement("small");extra.textContent=metadata;card.append(extra)}
+  container.append(card);return card;
+}
+function renderSatellite(data){
+  const target=$("satstatus");target.replaceChildren();
+  if(!data.ok){target.textContent="Satellietgegevens niet beschikbaar: "+(data.errors?.join("; ")||"Geen live TLE-data");return}
+  const header=document.createElement("p");header.className="muted";
+  header.textContent="Waarnemer: "+(data.station?.name||"SDRCC")+" · TLE: "+(data.tle?.stale?"verouderd":data.tle?.valid?"actueel":"onbekend");
+  target.append(header);
+  const satellites=Array.isArray(data.satellites)?[...data.satellites]:[];
+  satellites.sort((a,b)=>Number(b.observer?.above_horizon)-Number(a.observer?.above_horizon)||Number(b.observer?.elevation_deg||-90)-Number(a.observer?.elevation_deg||-90));
+  if(!satellites.length){target.append("Geen satellieten beschikbaar.");return}
+  for(const sat of satellites.slice(0,12)){
+    const obs=sat.observer||{},above=obs.above_horizon===true;
+    const elev=Number(obs.elevation_deg),az=Number(obs.azimuth_deg),range=Number(obs.range_km);
+    const fmt=x=>Number.isFinite(x)?x.toFixed(1)+"°":"—";
+    appendCard(target,(above?"🟢 ":"◯ ")+(sat.name||sat.key||"Satelliet"),
+      (above?"Boven de horizon":"Onder de horizon")+" · elevatie "+fmt(elev)+" · azimut "+fmt(az),
+      "Afstand "+(Number.isFinite(range)?Math.round(range)+" km":"—"));
+  }
+}
+function renderMission(data){
+  const target=$("missionstatus");target.replaceChildren();
+  const state=document.createElement("div");state.className="statusline";
+  const tag=document.createElement("span");tag.className="tag";tag.textContent=data.active?"● ACTIEVE MISSIE":"○ Geen actieve missie";state.append(tag);target.append(state);
+  appendCard(target,data.title||"Missions",data.message||"Geen statusinformatie",data.active?"Status: "+(data.state||"Actief"):"");
+  if(data.image?.url&&typeof data.image.url==="string"&&data.image.url.startsWith("/")&&!data.image.url.startsWith("//")){
+    const img=document.createElement("img");img.className="preview";img.loading="lazy";img.alt="Laatst ontvangen missiebeeld";img.src=data.image.url;target.append(img);
+  }
+  const metrics=document.createElement("div");metrics.className="statusline";
+  for(const [label,value] of [["Frames",data.frames],["Afbeeldingen",data.image_count],["Piek SNR",data.peak_snr_db]]){
+    if(value==null)continue;const chip=document.createElement("span");chip.className="tag";chip.textContent=label+": "+value;metrics.append(chip);
+  }
+  target.append(metrics);
+}
+async function refreshSecondary(){
+  for(const [tab,url,output,renderer] of [
+    ["sat","/api/satellite-view","satstatus",renderSatellite],
+    ["missions","/api/mission-monitor","missionstatus",renderMission]
+  ]){
+    if($(tab).hidden)continue;
+    try{const response=await fetch(url,{cache:"no-store"});
+      if(!response.ok)throw Error("HTTP "+response.status);
+      renderer(await response.json());
+    }catch(e){$(output).textContent="Status niet beschikbaar: "+e.message}
+  }
+}
+refresh();setInterval(refresh,5000);setInterval(refreshSecondary,15000);document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",refreshSecondary));
 </script></body></html>
