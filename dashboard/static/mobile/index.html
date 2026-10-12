@@ -103,7 +103,7 @@ function renderMarineControl(data){
   $("marine-start").textContent=airband?"↔ Naar Marine":"▶ Marine starten";
   // Stopping the Airband service from the Marine screen is not allowed.
   $("marine-stop").disabled=marineControlBusy||!marine;
-  if(!marineControlBusy&&(!valid||!data.ok)&&!running){
+  if(!marineControlBusy&&(!valid||!data.ok)&&!running&&!$("marine-action-message").textContent){
     $("marine-action-message").textContent="Marine starten is niet beschikbaar: controleer SDRCC Traffic Voice op de desktop.";
   }
 }
@@ -272,7 +272,7 @@ function lifecycleStatus(value){
   if(["ATTENTION","PARTIAL","FAILED","ERROR"].includes(state))return"bad";
   return"unknown";
 }
-function renderSystem(data){
+function renderSystem(data,updateStatus=null){
   const box=$("systemstatus");box.replaceChildren();
   const updated=document.createElement("p");updated.className="muted";
   updated.textContent="Bijgewerkt: "+new Date().toLocaleTimeString("nl-NL")+" · SDRCC API bereikbaar";
@@ -290,6 +290,8 @@ function renderSystem(data){
   const usage=document.createElement("div");usage.className="sys-grid";
   for(const [label,value] of [["CPU",data.system?.cpu_percent],["Geheugen",data.system?.ram_percent],["Schijf",data.system?.disk_percent]])usage.append(metricCard(label,value));
   box.append(usage);
+  if(updateStatus?.installed_version)appendSystemLine(box,"SDRCC versie",String(updateStatus.installed_version));
+  if(updateStatus?.source_channel)appendSystemLine(box,"Updatekanaal",String(updateStatus.source_channel));
   appendSystemLine(box,"Systeem actief",uptimeLabel(data.system?.uptime_seconds));
   const missionState=String(data.mission?.state||data.mission?.phase||"Onbekend");
   appendSystemLine(box,"Missie",missionState);
@@ -314,9 +316,12 @@ async function refreshSystem(force=false){
   systemRequestBusy=true;
   const btn=$("system-refresh");btn.disabled=true;
   try{
-    const response=await fetch("/api/status?include_logs=0",{cache:"no-store"});
+    const [response,updater]=await Promise.all([
+      fetch("/api/status?include_logs=0",{cache:"no-store"}),
+      fetch("/api/update-status",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null)
+    ]);
     if(!response.ok)throw Error("HTTP "+response.status);
-    renderSystem(await response.json());
+    renderSystem(await response.json(),updater);
   }catch(e){$("systemstatus").textContent="Systeemoverzicht niet beschikbaar: "+e.message}
   finally{systemRequestBusy=false;btn.disabled=false}
 }
