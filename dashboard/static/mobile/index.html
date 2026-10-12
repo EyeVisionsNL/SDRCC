@@ -1,12 +1,13 @@
 <!doctype html>
-<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1720"><title>SDRCC Mobile</title><link rel="manifest" href="/static/mobile/manifest.webmanifest"><link rel="icon" href="/static/assets/sdrcc-favicon.png"><style>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1720"><title>SDRCC Mobile</title><link rel="manifest" href="/static/mobile/manifest.webmanifest"><link rel="icon" href="/static/assets/sdrcc-favicon.png"><link rel="apple-touch-icon" href="/static/assets/sdrcc-favicon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="SDRCC Mobile"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><style>
 :root{color-scheme:dark;font-family:system-ui,Arial;background:#09151d;color:#e6f2f4}*{box-sizing:border-box}body{margin:0;padding:0 0 85px}header{padding:16px;display:flex;align-items:center;justify-content:space-between;background:#102330;border-bottom:1px solid #31545c}h1{font-size:19px;margin:0}small,.muted{color:#9ab2b9}main{padding:12px;max-width:900px;margin:auto}.panel{background:#10232e;border:1px solid #34535a;border-radius:12px;padding:14px;margin:10px 0}h2{font-size:17px;margin:0 0 12px;color:#72d8b3}button,a.action{background:#173c41;color:#d8f9e9;border:1px solid #3c8779;border-radius:9px;padding:10px;text-decoration:none;font:inherit}button:focus-visible,a:focus-visible{outline:2px solid #91f4d4}.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0d2530;border-top:1px solid #42636b;padding-bottom:env(safe-area-inset-bottom);z-index:5}.tabs button{flex:1;border:0;border-radius:0;padding:13px 2px;background:none;font-size:12px}.tabs button[aria-selected=true]{background:#195044;color:#a7ffce}.map{width:100%;height:48vh;min-height:280px;border:0;border-radius:9px;background:#061015}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.status{color:#84e3b5}section[hidden]{display:none}.pulse{animation:pulse 1.5s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 8px #51dba62b}}input{background:#081a24;color:white;border:1px solid #54747b;border-radius:8px;padding:10px;width:100%}label{display:block;margin:12px 0}.warning{color:#e6c38e}img.photo{max-width:100%;max-height:160px;object-fit:contain;border-radius:8px}#match{word-break:break-word}.statusline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.tag{display:inline-block;background:#173d46;color:#c3e9e6;border:1px solid #326e70;border-radius:7px;padding:5px 8px;font-size:12px}.data-card{background:#0b1d27;border:1px solid #29464e;border-radius:9px;padding:10px;margin:8px 0}.data-card strong{color:#dbf6ed}.data-card small{display:block;margin-top:4px}.metric{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #26444c;padding:7px 0}.recording{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #25434b;padding:10px 0}.recording>div{display:flex;gap:6px;flex-wrap:wrap}.recording small{display:block;margin-top:3px}.recording button:disabled{opacity:.45}.success{color:#83e3b5}.error{color:#e6a8a8}.preview{width:100%;max-height:330px;object-fit:contain;border-radius:8px;margin:10px 0}.loading{color:#a5c4c9}.control-panel{border-color:#356d66}.control-panel .row{align-items:flex-start}.control-buttons{display:flex;gap:8px;flex-wrap:wrap}.control-buttons button{flex:1;min-width:132px}.control-buttons button:disabled{opacity:.4;cursor:not-allowed}.control-buttons .stop{border-color:#94625e;background:#40272d;color:#ffdfdc}.control-buttons .start{background:#195044;color:#c4ffe3}.state-indicator{display:inline-flex;gap:6px;align-items:center;border:1px solid #44636e;border-radius:999px;padding:6px 10px;font-size:12px;color:#afcbd0}.state-indicator.on{border-color:#328361;color:#91e7b4;background:#143e37}.state-indicator.off{border-color:#726054;color:#dfc0a1;background:#372c2b}.state-indicator.bad{border-color:#a25454;color:#f2a6a6;background:#3e2629}.state-indicator.unknown{color:#d5d7c0}.sys-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sys-card{background:#0b1d27;border:1px solid #29464e;border-radius:10px;padding:12px;min-width:0}.sys-card strong,.sys-card small{display:block;overflow-wrap:anywhere}.sys-card strong{font-size:13px;color:#c0dbde}.sys-card .state-indicator{margin-top:8px}.sys-card small{margin-top:7px}.sys-meter{height:7px;border-radius:8px;background:#28414c;margin:8px 0;overflow:hidden}.sys-meter i{display:block;height:100%;background:#60d7b7;width:0}.sys-meter i.warn{background:#ddb96a}.sys-meter i.high{background:#dd8375}.system-detail{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #29464e;padding:9px 0}.system-detail strong{text-align:right}.system-status{min-height:20px}details.sys-settings{margin-top:12px}details.sys-settings summary{cursor:pointer;color:#8ddfc4;padding:9px 0;font-weight:600}@media(max-width:470px){.tabs button{font-size:11px;padding:11px 1px}.control-buttons button{min-width:calc(50% - 4px)}.sys-grid{gap:7px}.sys-card{padding:10px}}
 .control-description{font-size:13px;margin:6px 0 12px}.service-control-status{min-height:18px;margin:10px 0 2px}.service-control-message{min-height:20px;margin:6px 0 0}.service-control-message:empty{display:none}.service-control-wait{color:#e6c38e}.service-control-subtitle{color:#9ab2b9;font-size:12px;margin:8px 0 4px}.service-control-status .state-indicator{max-width:100%;white-space:normal}
 .connection-online{color:#83e3b5}.connection-offline{color:#f4aca2}.connection-checking{color:#9ab2b9}
 .network-banner{background:#30272b;border-bottom:1px solid #916d5a;padding:12px max(12px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:center;gap:15px;flex-wrap:wrap}
 .network-banner[hidden]{display:none!important}.network-banner strong{display:block;color:#ffcfab;font-size:14px}.network-banner small{display:block;color:#e0c7bf;max-width:550px;line-height:1.5;margin-top:3px}
 .network-banner button{flex-shrink:0;background:#40353a;border-color:#987565;color:#ffdfcb;font-size:13px;padding:8px 12px}
-.network-banner button:disabled{opacity:.65}.tabs button:disabled{opacity:.5}.tabs button[hidden],main [hidden],details[hidden]{display:none!important}.feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.feature-item{padding:11px;border:1px solid #29464e;border-radius:9px;background:#0b1d27}.feature-item strong{display:block;overflow-wrap:anywhere}.feature-item small{display:block;margin-top:6px;color:#9ab2b9}.feature-item .state-indicator{margin-top:8px}.feature-summary{margin:8px 0;color:#9ab2b9}@media(max-width:420px){.feature-list{grid-template-columns:1fr}}
+.network-banner button:disabled{opacity:.65}.tabs button:disabled{opacity:.5}
+.install-help p{font-size:13px;line-height:1.55;margin:8px 0;color:#b3cfd0}.install-help .hint{color:#93bcb5}.install-help button[hidden]{display:none!important}.tabs button[hidden],main [hidden],details[hidden]{display:none!important}.feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.feature-item{padding:11px;border:1px solid #29464e;border-radius:9px;background:#0b1d27}.feature-item strong{display:block;overflow-wrap:anywhere}.feature-item small{display:block;margin-top:6px;color:#9ab2b9}.feature-item .state-indicator{margin-top:8px}.feature-summary{margin:8px 0;color:#9ab2b9}@media(max-width:420px){.feature-list{grid-template-columns:1fr}}
 </style></head><body><header><h1>📡 SDRCC <span class="status">Mobile</span></h1><small id="connection" role="status" aria-live="polite">Verbinden…</small></header><div id="network-banner" class="network-banner" role="status" aria-live="polite" hidden>
 <div><strong id="network-heading">SDRCC is tijdelijk niet bereikbaar</strong>
 <small>Controleer of je telefoon op hetzelfde wifi-netwerk zit, of via een veilige VPN verbonden is. Via alleen mobiel internet werkt een lokaal SDRCC-adres niet. De ontvangst op de mini-pc kan intussen doorlopen. Live audio moet je mogelijk opnieuw starten.</small></div>
@@ -30,7 +31,13 @@
 <div class="panel"><h2>🛰️ Missieontvangst en laatste beeld</h2><div id="missionstatus" aria-live="polite">Status ophalen…</div>
 <p class="muted">Geen planning, Analyse, History of updates op mobiel. Bestaande receiverbeveiliging blijft actief.</p></div>
 </section>
-<section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ Systeemoverzicht</h2><button id="system-refresh" type="button">↻ Verversen</button></div><p class="muted">Live status van SDRCC, de ontvangers en de belangrijkste services.</p><div id="systemstatus" aria-live="polite">Systeemstatus ophalen…</div><h2 style="margin-top:18px">Beschikbare onderdelen</h2><div id="mobile-feature-status" class="feature-summary" role="status" aria-live="polite">Installatie controleren…</div><div id="mobile-feature-list" class="feature-list"></div></div><div class="panel"><h2>⚙️ Instellingen</h2><details id="mobile-map-settings" class="sys-settings"><summary>Kaartverbindingen</summary><p class="muted">Deze adressen worden alleen op dit apparaat bewaard.</p><label id="mobile-ais-setting">AIS-Catcher kaart URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label id="mobile-adsb-setting">ADS-B kaart URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Kaarten opslaan</button></details><p class="muted">Voor installatie als Android-app is HTTPS nodig. Via HTTP blijft de mobiele webpagina bruikbaar.</p><a class="action" href="/" target="_blank" rel="noopener">Desktopdashboard openen ↗</a></div></section>
+<section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ Systeemoverzicht</h2><button id="system-refresh" type="button">↻ Verversen</button></div><p class="muted">Live status van SDRCC, de ontvangers en de belangrijkste services.</p><div id="systemstatus" aria-live="polite">Systeemstatus ophalen…</div><h2 style="margin-top:18px">Beschikbare onderdelen</h2><div id="mobile-feature-status" class="feature-summary" role="status" aria-live="polite">Installatie controleren…</div><div id="mobile-feature-list" class="feature-list"></div></div><div class="panel"><h2>⚙️ Instellingen</h2><details id="mobile-map-settings" class="sys-settings"><summary>Kaartverbindingen</summary><p class="muted">Deze adressen worden alleen op dit apparaat bewaard.</p><label id="mobile-ais-setting">AIS-Catcher kaart URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label id="mobile-adsb-setting">ADS-B kaart URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Kaarten opslaan</button></details><details id="mobile-install-help" class="sys-settings install-help"><summary>📱 SDRCC op je startscherm</summary>
+<p id="mobile-install-mode" class="muted">Installatiemogelijkheden controleren…</p>
+<p id="mobile-install-steps">Open het browsermenu en kies de optie om deze pagina aan het startscherm toe te voegen.</p>
+<button id="mobile-install-now" type="button" hidden>SDRCC Mobile installeren</button>
+<p id="mobile-install-feedback" class="hint" role="status" aria-live="polite"></p>
+<p class="muted">Een startschermsnelkoppeling werkt alleen wanneer je telefoon verbinding met je SDRCC mini-pc heeft. De ontvangst en opnames blijven op de mini-pc draaien.</p>
+</details><a class="action" href="/" target="_blank" rel="noopener">Desktopdashboard openen ↗</a></div></section>
 </main><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>Systeem</button></nav><script>
 const $=id=>document.getElementById(id);
 // The dashboard /api/status endpoint is the only connection authority.
@@ -236,6 +243,69 @@ window.addEventListener("message",event=>{
   }
 });
 
+// Home-screen helper: current LAN HTTP setup remains supported without
+// forcing HTTPS, a service worker, app-store installation or extra permissions.
+let mobileDeferredInstallPrompt=null;
+function mobileIsStandalone(){
+  return Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      (typeof navigator!=="undefined"&&navigator.standalone===true));
+}
+function mobileInstallPlatform(){
+  const agent=typeof navigator!=="undefined"?String(navigator.userAgent||""):"";
+  if(/iPad|iPhone|iPod/.test(agent))return"ios";
+  if(/Android/.test(agent))return"android";
+  return"desktop";
+}
+function renderMobileInstallHelp(){
+  const mode=$("mobile-install-mode"),steps=$("mobile-install-steps");
+  const button=$("mobile-install-now"),feedback=$("mobile-install-feedback");
+  const secure=window.isSecureContext===true;
+  const platform=mobileInstallPlatform(),installed=mobileIsStandalone();
+  if(installed){
+    mode.textContent="SDRCC Mobile is al geopend vanaf je startscherm.";
+    steps.textContent="De app gebruikt dezelfde SDRCC-verbinding als de gewone webpagina.";
+    button.hidden=true;
+    feedback.textContent="";
+    return;
+  }
+  if(platform==="ios"){
+    steps.textContent="Open de pagina in Safari. Tik op Delen (vierkant met pijl) en kies 'Zet op beginscherm'.";
+  }else if(platform==="android"){
+    steps.textContent="Open de pagina in Chrome. Tik rechtsboven op ⋮ en kies 'Toevoegen aan startscherm', 'Snelkoppeling maken' of 'Installeren' (de naam verschilt per browser).";
+  }else{
+    steps.textContent="Open de pagina op je telefoon. Kies in het browsermenu 'Toevoegen aan startscherm' of 'Snelkoppeling maken'.";
+  }
+  mode.textContent=secure
+    ?"Via deze beveiligde verbinding kan je browser eventueel een zelfstandige app-installatie aanbieden."
+    :"Via lokaal HTTP maak je een snelkoppeling naar SDRCC. Een volledige PWA-installatie vereist normaal HTTPS.";
+  button.hidden=!secure||!mobileDeferredInstallPrompt;
+  feedback.textContent="";
+}
+window.addEventListener("beforeinstallprompt",event=>{
+  event.preventDefault();
+  mobileDeferredInstallPrompt=event;
+  renderMobileInstallHelp();
+});
+window.addEventListener("appinstalled",()=>{
+  mobileDeferredInstallPrompt=null;
+  renderMobileInstallHelp();
+});
+$("mobile-install-now").addEventListener("click",async()=>{
+  const prompt=mobileDeferredInstallPrompt;
+  if(!prompt||window.isSecureContext!==true)return;
+  mobileDeferredInstallPrompt=null;
+  $("mobile-install-now").hidden=true;
+  try{
+    await prompt.prompt();
+    const choice=await prompt.userChoice;
+    $("mobile-install-feedback").textContent=choice?.outcome==="accepted"
+      ?"Installatie aangevraagd via je browser."
+      :"Installatie geannuleerd. Je kunt de browseroptie later opnieuw gebruiken.";
+  }catch(error){
+    $("mobile-install-feedback").textContent="Installatie niet beschikbaar. Gebruik de optie in het browsermenu.";
+  }
+});
+renderMobileInstallHelp();
 // Only affirmative server results can hide a feature; failures are fail-open.
 const MOBILE_TABS=["marine","adsb","sat","missions","system"];
 const LAST_MOBILE_TAB_KEY="sdrcc-mobile-selected-tab";
