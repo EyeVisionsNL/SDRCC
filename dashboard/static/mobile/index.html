@@ -38,7 +38,7 @@ const $=id=>document.getElementById(id);
 const MOBILE_HEALTHY_POLL_MS=15000;
 const MOBILE_PROBE_TIMEOUT_MS=10000;
 let mobileConnectionState="checking",mobileConnectionFailures=0;
-let mobileNextProbeAt=0,mobileProbeBusy=false;
+let mobileNextProbeAt=0,mobileProbeBusy=false,mobileNetworkEpoch=0;
 function mobileIsOnline(){return mobileConnectionState==="online"}
 function setConnectionState(state){
   if(!["checking","online","offline"].includes(state))return;
@@ -54,7 +54,7 @@ function setConnectionState(state){
     indicator.title=state==="online"
       ?"SDRCC bereikbaar; verbinding automatisch hersteld na een onderbreking"
       :"De SDRCC mini-pc is via het huidige netwerk niet bereikbaar";
-    if(currentSnapshot)renderMarineControl(currentSnapshot);
+    if(currentSnapshot){renderMarineControl(currentSnapshot);renderAudioState(currentSnapshot)}
     if(serviceSnapshot)renderServiceControls(serviceSnapshot);
     if(missionOperations)renderMissionControls(missionOperations);
   }
@@ -68,9 +68,11 @@ async function probeMobileConnection(force=false){
     mobileConnectionFailures=Math.max(1,mobileConnectionFailures);
     mobileNextProbeAt=now+10000;
     setConnectionState("offline");
+    $("network-retry").disabled=false;
     return;
   }
   mobileProbeBusy=true;
+  const probeEpoch=mobileNetworkEpoch;
   const controller=typeof AbortController==="function"?new AbortController():null;
   const timeout=controller?setTimeout(()=>controller.abort(),MOBILE_PROBE_TIMEOUT_MS):null;
   try{
@@ -80,6 +82,7 @@ async function probeMobileConnection(force=false){
     if(!response.ok)throw Error("HTTP "+response.status);
     const data=await response.json();
     if(!data||typeof data!=="object"||!data.ais||!data.adsb)throw Error("Ongeldige SDRCC-status");
+    if(probeEpoch!==mobileNetworkEpoch||navigator?.onLine===false)return;
     const recovered=!mobileIsOnline();
     mobileConnectionFailures=0;
     mobileNextProbeAt=Date.now()+MOBILE_HEALTHY_POLL_MS;
@@ -92,6 +95,7 @@ async function probeMobileConnection(force=false){
       refreshSecondary();
     }
   }catch(error){
+    if(probeEpoch!==mobileNetworkEpoch)return;
     mobileConnectionFailures=Math.min(5,mobileConnectionFailures+1);
     mobileNextProbeAt=Date.now()+Math.min(30000,5000*2**(mobileConnectionFailures-1));
     setConnectionState("offline");
@@ -108,6 +112,7 @@ $("network-retry").addEventListener("click",()=>{
 });
 window.addEventListener("online",()=>{mobileNextProbeAt=0;probeMobileConnection(true)});
 window.addEventListener("offline",()=>{
+  mobileNetworkEpoch++;
   mobileConnectionFailures=1;
   mobileNextProbeAt=Date.now()+10000;
   setConnectionState("offline");
@@ -312,6 +317,7 @@ function stopLive(){
   $("audiotoggle").setAttribute("aria-pressed","false");$("audiostatus").textContent="Uit";
 }
 async function startLive(){
+  if(!mobileIsOnline()){$("audiostatus").textContent="SDRCC niet bereikbaar; wacht op de verbinding.";return}
   if(!voiceActive||!isMobileFeatureAvailable("traffic_voice")){
     $("audiostatus").textContent="Traffic Voice Marine draait niet. Start Marine Voice in de desktopinterface.";
     return;
@@ -363,7 +369,7 @@ function renderAudioState(data){
   streamUrl=voiceActive?String(data.audio?.stream_url||""):"";
   // Always leave the control clickable. If Voice is unavailable, explain why.
   // A silent receiver is not a reason to disable a user's playback control.
-  $("audiotoggle").disabled=!isMobileFeatureAvailable("traffic_voice"); // Playback stays user-controlled; never auto-reconnect audio.
+  $("audiotoggle").disabled=!isMobileFeatureAvailable("traffic_voice")||(!mobileIsOnline()&&!liveAudio.getAttribute("src")); // Keep Stop usable; never auto-reconnect audio.
   if(!voiceActive&&liveAudio.getAttribute("src"))stopLive();
   if(!liveAudio.getAttribute("src")){
     $("audiostatus").textContent=data.selected_mode!=="marine_ais"
@@ -480,7 +486,15 @@ function renderAtis(data){
   }
 }
 async function showPhoto(m){const id=String(m.mmsi||"");if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;lastPhotoMmsi=id;const target=$("photo");target.textContent="Scheepsfoto zoeken…";try{const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)+"&shipname="+encodeURIComponent(m.shipname||"")+"&imo="+encodeURIComponent(m.imo||"")+"&eni="+encodeURIComponent(m.eni||"");const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(lastPhotoMmsi!==id)return;target.replaceChildren();if(!d.ok||!d.image_url){target.textContent="Geen foto beschikbaar";return}const img=document.createElement("img");img.className="photo";img.referrerPolicy="no-referrer";img.src=d.image_url;img.alt="Scheepsfoto";target.append(img);const credit=document.createElement("p");credit.className="muted";credit.textContent=[d.artist?"© "+d.artist:"",d.source||""].filter(Boolean).join(" · ");target.append(credit);if(d.page_url&&/^https:\/\/(?:www\.)?(?:binnenvaartspotter\.nl|debinnenvaart\.nl|markprummel\.nl|shipspotting\.com|commons\.wikimedia\.org)\//.test(d.page_url)){const a=document.createElement("a");a.href=d.page_url;a.target="_blank";a.rel="noopener noreferrer";a.textContent="Originele foto ↗";target.append(a)}}catch(e){target.textContent="Foto niet beschikbaar"}}
-async function refresh(){try{const r=await fetch("/api/traffic-voice",{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const data=await r.json();const m=data.ais_match||{};currentSnapshot=data;renderMarineControl(data);renderAtis(data);renderAudioState(data);showRecordings(data);if(m.matched){announceAisMatch(m,data);showPhoto(m);const id=String(m.mmsi||"");$("match").innerHTML="<strong>"+esc(m.shipname||m.callsign||"Schip")+"</strong><p>MMSI "+esc(id)+" · "+esc(data.possible_speaker||"ATIS herkend")+"</p><p class='muted'>ATIS/AIS-koppeling bevestigd. Kaart blijft staan.</p>";if(id!==lastMatch){lastMatch=id;$("matchpanel").classList.remove("pulse");void $("matchpanel").offsetWidth;$("matchpanel").classList.add("pulse");setTimeout(()=>$("matchpanel").classList.remove("pulse"),15000)}}else{lastMatch="";lastPhotoMmsi="";$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Wachten op gevalideerde ATIS/AIS-match";}}catch(e){$("match").textContent="Live API niet bereikbaar: "+e.message}}
+let mobileTrafficFetchBusy=false;
+async function refresh(){
+  if(!mayPollMobile()||mobileTrafficFetchBusy||!isMobileFeatureAvailable("traffic_voice"))return;
+  mobileTrafficFetchBusy=true;
+  try{const r=await fetch("/api/traffic-voice",{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const data=await r.json();const m=data.ais_match||{};currentSnapshot=data;renderMarineControl(data);renderAtis(data);renderAudioState(data);showRecordings(data);if(m.matched){announceAisMatch(m,data);showPhoto(m);const id=String(m.mmsi||"");$("match").innerHTML="<strong>"+esc(m.shipname||m.callsign||"Schip")+"</strong><p>MMSI "+esc(id)+" · "+esc(data.possible_speaker||"ATIS herkend")+"</p><p class='muted'>ATIS/AIS-koppeling bevestigd. Kaart blijft staan.</p>";if(id!==lastMatch){lastMatch=id;$("matchpanel").classList.remove("pulse");void $("matchpanel").offsetWidth;$("matchpanel").classList.add("pulse");setTimeout(()=>$("matchpanel").classList.remove("pulse"),15000)}}else{lastMatch="";lastPhotoMmsi="";$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Wachten op gevalideerde ATIS/AIS-match";}}catch(e){
+    // A Traffic Voice error alone does not mean the complete dashboard is down.
+    // Preserve the latest ATIS match/photo across temporary network failures.
+  }finally{mobileTrafficFetchBusy=false}
+}
 function appendCard(container,title,description,metadata){
   const card=document.createElement("div");card.className="data-card";
   const name=document.createElement("strong");name.textContent=title;
@@ -786,7 +800,10 @@ function renderSystem(data,updateStatus=null){
     box.append(card);
   }
 }
-$("system-refresh").addEventListener("click",()=>{refreshSystem(true);refreshMobileCapabilities()});
+$("system-refresh").addEventListener("click",()=>{
+  if(!mobileIsOnline()){mobileNextProbeAt=0;probeMobileConnection(true)}
+  else{refreshSystem(true);refreshMobileCapabilities()}
+});
 let systemRequestBusy=false;
 async function refreshSystem(force=false){
   if(!mayPollMobile()||(!force&&$("system").hidden)||systemRequestBusy)return;
@@ -805,6 +822,7 @@ async function refreshSystem(force=false){
   finally{systemRequestBusy=false;btn.disabled=false}
 }
 async function refreshSecondary(){
+  if(!mayPollMobile())return;
   if(!$("system").hidden)await refreshSystem();
   if(!$("missions").hidden)await refreshMissionControls();
   for(const [tab,url,output,renderer] of [
@@ -818,5 +836,18 @@ async function refreshSecondary(){
     }catch(e){$(output).textContent="Status niet beschikbaar: "+e.message}
   }
 }
-refreshMobileCapabilities();refresh();refreshServiceControls();setInterval(refreshMobileCapabilities,60000);setInterval(refresh,5000);setInterval(refreshSecondary,15000);setInterval(refreshServiceControls,15000);document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{refreshSecondary();if(b.dataset.tab==="marine"||b.dataset.tab==="adsb")refreshServiceControls() }));
+// One status poll controls connectivity, separate read-only views follow only
+// while this page is visible and SDRCC is known reachable.
+probeMobileConnection(true);
+setInterval(()=>probeMobileConnection(),5000);
+setInterval(()=>{if(mayPollMobile())refresh()},5000);
+setInterval(()=>{if(mayPollMobile())refreshSecondary()},15000);
+setInterval(()=>{if(mayPollMobile())refreshMobileCapabilities()},60000);
+document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
+  if(!mobileIsOnline()){mobileNextProbeAt=0;probeMobileConnection(true);return}
+  refreshSecondary();
+  // The central health probe already refreshes AIS/ADS-B controls; this is a
+  // forced fresh observation on intentional navigation, not a service action.
+  if(b.dataset.tab==="marine"||b.dataset.tab==="adsb")refreshServiceControls();
+}));
 </script></body></html>
