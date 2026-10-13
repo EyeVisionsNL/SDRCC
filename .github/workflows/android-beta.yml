@@ -1,4 +1,4 @@
-name: Android Beta APK
+name: Android Beta 2 APK
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   apk:
-    name: Build and test SDRCC Android v0.1 Beta
+    name: Build and test SDRCC Android v0.1 Beta 2
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -55,7 +55,7 @@ jobs:
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: SDRCC-Android-v0.1-Beta-APK
+          name: SDRCC-Android-v0.1-Beta2-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
