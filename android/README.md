@@ -24,6 +24,42 @@ the home-screen browser shortcut.
 - No JavaScript-to-Android bridge, no file access and no camera/microphone
   permissions. Only the Internet permission is requested.
 
+## One-tap Android app update check
+
+The Android toolbar has a **↓** update button. The same check is available on
+the connection screen if the mini-PC is temporarily unreachable.
+
+- The app reads `android/update.json` publicly from the `develop` branch over
+  HTTPS. A bounded, read-only request checks the published APK versionCode.
+- If a newer *signed* APK is published, the app offers **APK openen**. Android
+  opens the trusted GitHub release download in the device browser and the
+  operator confirms installation. The app never silently installs a package.
+- `android/update.json` starts with version_code 0 and no download link,
+  because **no consistently signed Android release has yet been published**.
+  The button honestly reports no published update until this is configured.
+- Each published Android APK needs the **same protected release signing key**
+  and a larger versionCode than the installed app. This is NOT the SDRCC
+  mini-PC Update Manager. No APK/signing secrets may be committed to Git.
+
+**Initial migration:** earlier GitHub Actions APKs are signed with temporary
+debug keys. Switching to the first permanently signed APK may require
+uninstalling the old beta **once**, which clears its stored mini-PC IP.
+After that, later APKs signed with the same permanent key can install as upgrades.
+
+Only publish update.json after the signed GitHub Release asset actually exists,
+using a versioned GitHub release tag `sdrcc-mobile-v<versionCode>` and APK asset
+named `SDRCC-Mobile.apk`. Example:
+
+```json
+{
+  "version_code": 6,
+  "version_name": "0.1.0-beta3",
+  "apk_url": "https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v6/SDRCC-Mobile.apk"
+}
+```
+
+Never put an ephemeral debug APK in this update feed.
+
 ## Local wifi first
 
 1. Confirm SDRCC Mobile works in the Android phone browser over wifi.
@@ -54,7 +90,7 @@ or from the \`android/\` directory run:
 gradle :app:testDebugUnitTest :app:assembleDebug
 \`\`\`
 
-The Beta 2 VPN diagnostic build uses Android `versionCode 4` and retains the `0.1.0-beta2` version name. The connection screen reports the Android WebView error code, description and a bounded native HTTP HEAD probe of the configured station URL. This distinguishes VPN/app reachability failures from WebView-only failures. No receiver POST actions are retried by diagnostics.
+The Beta 2 app-update check uses Android `versionCode 5` and retains the `0.1.0-beta2` version name. The connection screen reports the Android WebView error code, description and a bounded native HTTP HEAD probe of the configured station URL. This distinguishes VPN/app reachability failures from WebView-only failures. No receiver POST actions are retried by diagnostics.
 
 The generated file is \`android/app/build/outputs/apk/debug/app-debug.apk\`.
 The GitHub workflow **Android Beta 2 APK** builds it on pushes to \`develop\`

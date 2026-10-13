@@ -91,12 +91,28 @@ def validate() -> None:
     require("via wifi of een privé-Tailscale-VPN" in java and
             "Controleer het IP-adres en de wifi-verbinding." not in java,
             "Obsolete Wi-Fi-only connection errors must be removed")
+    require('Button update = button("↓");' in java and
+            "checkForAppUpdate()" in java and
+            'Button updateApp = button("↓ App-update controleren");' in java,
+            "App update button must be available when connected and disconnected")
+    require('APP_UPDATE_FEED' in java and
+            'APP_UPDATE_MAX_BYTES' in java and
+            'trustedAndroidApkUrl(link)' in java and
+            'setInstanceFollowRedirects(false)' in java and
+            '"APK openen"' in java and
+            'new Thread(() ->' in java,
+            "Update must verify a bounded public feed and ask before browser APK handoff")
+    update_feed = (ANDROID / "update.json").read_text(encoding="utf-8")
+    import json
+    feed = json.loads(update_feed)
+    require(feed == {"version_code": 0, "version_name": "", "apk_url": ""},
+            "Never claim a release exists before a persistent-signature APK is published")
     require('ANDROID  ·  0.1 BETA' not in java and
             'SDRCC Android  ·  BETA' not in java,
             "Stale hard-coded beta label found")
     gradle = (project / "build.gradle").read_text(encoding="utf-8")
     require("versionName '0.1.0-beta2'" in gradle and
-            "versionCode 4" in gradle,
+            "versionCode 5" in gradle,
             "Missing Android 0.1.0-beta2 version bump")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")

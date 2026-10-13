@@ -37,6 +37,14 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 import android.net.http.SslError;
 import java.net.URI;
@@ -57,6 +65,11 @@ public final class MainActivity extends Activity {
     private static final int TEXT = 0xFFE6F2F4;
     private static final int MUTED = 0xFF9AB2B9;
     private static final long CONNECT_TIMEOUT_MS = 20000L;
+    // Public update metadata is distinct from the private SDRCC receiver API.
+    // Never download or execute an APK inside the app itself.
+    private static final String APP_UPDATE_FEED =
+            "https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/develop/android/update.json";
+    private static final int APP_UPDATE_MAX_BYTES = 16384;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private WebView webView;
@@ -66,6 +79,7 @@ public final class MainActivity extends Activity {
     private Button changeHostButton;
     private Runnable loadTimeout;
     private boolean pageFailed;
+    private boolean updateCheckBusy;
     private String connectionErrorDetails = "";
     private String currentHost;
     private int currentPort;
@@ -253,6 +267,12 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(54));
         connectParams.topMargin = dp(7);
         content.addView(connect, connectParams);
+        Button updateApp = button("↓ App-update controleren");
+        LinearLayout.LayoutParams updateParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        updateParams.topMargin = dp(10);
+        content.addView(updateApp, updateParams);
+        updateApp.setOnClickListener(view -> checkForAppUpdate());
         connect.setOnClickListener(view -> {
             try {
                 String raw = input.getText().toString().trim();
@@ -304,6 +324,9 @@ public final class MainActivity extends Activity {
         Button refresh = button("⟳");
         refresh.setContentDescription("SDRCC verversen");
         bar.addView(refresh, new LinearLayout.LayoutParams(dp(44), dp(42)));
+        Button update = button("↓");
+        update.setContentDescription("Android app-update controleren");
+        bar.addView(update, new LinearLayout.LayoutParams(dp(42), dp(42)));
         Button settings = button("⚙");
         settings.setContentDescription("SDRCC adres wijzigen");
         LinearLayout.LayoutParams settingsParams = new LinearLayout.LayoutParams(dp(44), dp(42));
@@ -376,6 +399,7 @@ public final class MainActivity extends Activity {
         setContentView(outer);
 
         refresh.setOnClickListener(v -> reloadStation());
+        update.setOnClickListener(v -> checkForAppUpdate());
         settings.setOnClickListener(v -> showConnectionScreen(null));
         retryButton.setOnClickListener(v -> reloadStation());
         changeHostButton.setOnClickListener(v -> showConnectionScreen(null));
@@ -463,6 +487,123 @@ public final class MainActivity extends Activity {
                 }
             });
         }, "sdrcc-android-network-diagnostic").start();
+    }
+
+    private int installedAppVersionCode() {
+        try {
+            android.content.pm.PackageInfo info =
+                    getPackageManager().getPackageInfo(getPackageName(), 0);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                return (int) info.getLongVersionCode();
+            }
+            return info.versionCode;
+        } catch (android.content.pm.PackageManager.NameNotFoundException exception) {
+            return 0;
+        }
+    }
+
+    /**
+     * Read public metadata with a strict size bound; the app never needs
+     * GitHub credentials and the station's private HTTP API is untouched.
+     */
+    private String readUpdateFeed() throws Exception {
+        HttpURLConnection connection = (HttpURLConnection)
+                new URL(APP_UPDATE_FEED).openConnection();
+        try {
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(7000);
+            connection.setReadTimeout(7000);
+            connection.setInstanceFollowRedirects(false);
+            connection.setUseCaches(false);
+            connection.setRequestProperty("Accept", "application/json");
+            int status = connection.getResponseCode();
+            if (status != 200) throw new IOException("Updatebron geeft HTTP " + status);
+            try (InputStream input = connection.getInputStream();
+                 ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[2048];
+                int n;
+                while ((n = input.read(buffer)) != -1) {
+                    if (bytes.size() + n > APP_UPDATE_MAX_BYTES) {
+                        throw new IOException("Updatebericht is onverwacht groot.");
+                    }
+                    bytes.write(buffer, 0, n);
+                }
+                return bytes.toString(StandardCharsets.UTF_8.name());
+            }
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private boolean trustedAndroidApkUrl(String link) {
+        if (link == null || link.isEmpty()) return false;
+        Uri uri = Uri.parse(link);
+        return "https".equalsIgnoreCase(uri.getScheme())
+                && "github.com".equalsIgnoreCase(uri.getHost())
+                && uri.getUserInfo() == null
+                && uri.getQuery() == null
+                && uri.getFragment() == null
+                && uri.getPath() != null
+                && uri.getPath().matches(
+                        "/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v[0-9]+/SDRCC-Mobile\\\\.apk");
+    }
+
+    private void checkForAppUpdate() {
+        if (updateCheckBusy) return;
+        updateCheckBusy = true;
+        Toast.makeText(this, "SDRCC app-update controleren…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                JSONObject feed = new JSONObject(readUpdateFeed());
+                int offeredCode = feed.optInt("version_code", 0);
+                String name = feed.optString("version_name", "").trim();
+                String link = feed.optString("apk_url", "").trim();
+                if (offeredCode < 0 || offeredCode > 1000000) {
+                    throw new IOException("Ongeldige updateversie.");
+                }
+                int installed = installedAppVersionCode();
+                handler.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (offeredCode <= installed) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("SDRCC Mobile update")
+                                .setMessage("Geen nieuwere Android-app gepubliceerd. "
+                                        + "Geïnstalleerd: " + appVersionLabel() + ".")
+                                .setPositiveButton("OK", null)
+                                .show();
+                    } else if (!trustedAndroidApkUrl(link)) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("SDRCC Mobile update")
+                                .setMessage("Een nieuwere versie is aangekondigd, maar "
+                                        + "de ondertekende APK is nog niet gepubliceerd.")
+                                .setPositiveButton("OK", null)
+                                .show();
+                    } else {
+                        new AlertDialog.Builder(this)
+                                .setTitle("Nieuwe SDRCC Mobile-versie")
+                                .setMessage("Versie " + name + " is beschikbaar. "
+                                        + "Android vraagt zelf toestemming voor downloaden "
+                                        + "en installeren. Je SDRCC mini-pc blijft draaien.")
+                                .setNegativeButton("Annuleren", null)
+                                .setPositiveButton("APK openen", (dialog, which) ->
+                                        openExternal(Uri.parse(link)))
+                                .show();
+                    }
+                });
+            } catch (Exception exception) {
+                handler.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    new AlertDialog.Builder(this)
+                            .setTitle("Updatecontrole niet beschikbaar")
+                            .setMessage("Kan de openbare GitHub-updatebron niet bereiken. "
+                                    + "Probeer later opnieuw. Je SDRCC-ontvangst blijft actief.")
+                            .setPositiveButton("OK", null)
+                            .show();
+                });
+            } finally {
+                handler.post(() -> updateCheckBusy = false);
+            }
+        }, "sdrcc-app-update-check").start();
     }
 
     private boolean isStationUri(Uri uri) {
