@@ -142,7 +142,7 @@ const root={children:[],replaceChildren(){this.children=[]},
 const summary={textContent:""};
 const nodes={"sat-mission-queue":root,"sat-mission-queue-summary":summary};
 const sandbox={document:{createElement:element},$:id=>nodes[id],
-  Date:{now:()=>1000000000}};
+  Date:{now:()=>1000000000000}};
 vm.runInNewContext(source.slice(start,end),sandbox);
 assert.equal(sandbox.stationMissionTime("2026-10-13 19:30:00"),"13 Oct · 19:30");
 const queue=[
