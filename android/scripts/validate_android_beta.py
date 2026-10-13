@@ -81,9 +81,14 @@ def validate() -> None:
     require(activity.attrib.get(NS + "windowSoftInputMode") ==
             "adjustResize|stateAlwaysHidden", "IP field must remain visible with keyboard")
     require("static/mobile/index.html" in host, "Wrong SDRCC Mobile endpoint")
+    require("getPackageInfo(getPackageName(), 0).versionName" in java,
+            "Native UI must read version from installed APK")
+    require('ANDROID  ·  0.1 BETA' not in java and
+            'SDRCC Android  ·  BETA' not in java,
+            "Stale hard-coded beta label found")
     gradle = (project / "build.gradle").read_text(encoding="utf-8")
     require("versionName '0.1.0-beta2'" in gradle and
-            "versionCode 2" in gradle,
+            "versionCode 3" in gradle,
             "Missing Android 0.1.0-beta2 version bump")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")

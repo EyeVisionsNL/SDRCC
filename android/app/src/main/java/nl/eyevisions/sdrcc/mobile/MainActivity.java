@@ -134,6 +134,18 @@ public final class MainActivity extends Activity {
         }
     }
 
+    // Display the installed APK version instead of an outdated hard-coded label.
+    private String appVersionLabel() {
+        try {
+            String version = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0).versionName;
+            return version == null ? "versie onbekend"
+                    : "v" + version.replace("-beta", " BETA ");
+        } catch (android.content.pm.PackageManager.NameNotFoundException error) {
+            return "versie onbekend";
+        }
+    }
+
     private void showConnectionScreen(String error) {
         destroyPreviousWebView();
         getWindow().getDecorView().setBackgroundColor(BG);
@@ -158,7 +170,7 @@ public final class MainActivity extends Activity {
         heading.setPadding(0, dp(16), 0, 0);
         content.addView(heading);
 
-        TextView beta = text("ANDROID  ·  0.1 BETA", 12, MUTED);
+        TextView beta = text("ANDROID  ·  " + appVersionLabel(), 12, MUTED);
         beta.setPadding(0, dp(3), 0, dp(10));
         content.addView(beta);
 
@@ -280,7 +292,7 @@ public final class MainActivity extends Activity {
         logo.setImageResource(R.drawable.sdrcc_logo);
         logo.setContentDescription("SDRCC");
         bar.addView(logo, new LinearLayout.LayoutParams(dp(35), dp(35)));
-        TextView title = text("SDRCC Android  ·  BETA", 14, ACCENT);
+        TextView title = text("SDRCC Android  ·  " + appVersionLabel(), 14, ACCENT);
         title.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         title.setPadding(dp(8), 0, 0, 0);
         bar.addView(title, new LinearLayout.LayoutParams(
