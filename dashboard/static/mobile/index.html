@@ -8,7 +8,42 @@
 .network-banner button{flex-shrink:0;background:#40353a;border-color:#987565;color:#ffdfcb;font-size:13px;padding:8px 12px}
 .network-banner button:disabled{opacity:.65}.tabs button:disabled{opacity:.5}
 .install-help p{font-size:13px;line-height:1.55;margin:8px 0;color:#b3cfd0}.install-help .hint{color:#93bcb5}.install-help button[hidden]{display:none!important}.tabs button[hidden],main [hidden],details[hidden]{display:none!important}.feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.feature-item{padding:11px;border:1px solid #29464e;border-radius:9px;background:#0b1d27}.feature-item strong{display:block;overflow-wrap:anywhere}.feature-item small{display:block;margin-top:6px;color:#9ab2b9}.feature-item .state-indicator{margin-top:8px}.feature-summary{margin:8px 0;color:#9ab2b9}@media(max-width:420px){.feature-list{grid-template-columns:1fr}}
-</style></head><body><header><h1>📡 SDRCC <span class="status">Mobile</span></h1><small id="connection" role="status" aria-live="polite">Verbinden…</small></header><div id="network-banner" class="network-banner" role="status" aria-live="polite" hidden>
+
+/* SDRCC Mobile skin: presentation only; receiver, audio and AIS handlers unchanged. */
+body{background:radial-gradient(ellipse 120% 380px at 50% -100px,#15343b 0%,#09151d 72%);font-size:14px}
+.mobile-brand-banner{position:relative;display:flex;align-items:center;gap:11px;min-height:68px;padding:9px 13px;overflow:hidden;isolation:isolate;background:linear-gradient(114deg,#14343c 0%,#0c2731 59%,#0b1b27 100%);border-bottom:1px solid #38776f}
+.mobile-brand-banner:before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,#5aceac 19%,#83edce 53%,transparent 88%);opacity:.9}
+.mobile-brand-banner:after{content:"";position:absolute;top:7px;right:7px;width:16px;height:16px;border-top:2px solid #62cdb1;border-right:2px solid #62cdb1;opacity:.6;pointer-events:none}
+.mobile-radar{position:relative;flex:0 0 47px;width:47px;height:47px;border:1px solid #4ca58f;border-radius:50%;overflow:hidden;background:repeating-radial-gradient(circle at center,transparent 0 9px,#376d67a0 10px,transparent 11px),linear-gradient(0deg,transparent calc(50% - .5px),#326e6980 50%,transparent calc(50% + .5px)),linear-gradient(90deg,transparent calc(50% - .5px),#326e6980 50%,transparent calc(50% + .5px)),#102f33;box-shadow:0 0 16px #48be9120,inset 0 0 12px #123c36}
+.mobile-radar:before{content:"";position:absolute;inset:0;background:conic-gradient(from 0deg,transparent 0deg,transparent 284deg,#71e4b208 298deg,#71e4b28a 356deg,transparent 360deg);animation:mobile-radar-turn 5s linear infinite}
+.mobile-radar:after{content:"";position:absolute;left:64%;top:29%;width:4px;height:4px;border-radius:50%;background:#a8ffcf;box-shadow:0 0 7px 2px #6affb0}
+@keyframes mobile-radar-turn{to{transform:rotate(360deg)}}
+.mobile-brand-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:1px}
+.mobile-brand-copy strong{font-size:19px;letter-spacing:1.8px;line-height:1.05;color:#ecf9f5;font-weight:800;text-shadow:0 0 12px #4ac49c18}
+.mobile-brand-copy .mobile-brand-subtitle{color:#9bdfcf;font-size:9px;letter-spacing:1.3px;font-weight:700;text-transform:uppercase}
+.mobile-brand-banner #connection{flex:0 0 auto;max-width:105px;min-width:0;padding:5px 7px;border:1px solid #416860;border-radius:7px;background:#0c2628d9;font-size:10px;line-height:1.2;font-weight:700;letter-spacing:.4px;text-align:center}
+main{padding:9px 11px;max-width:900px}
+.panel{position:relative;margin:9px 0;padding:12px;border-color:#315961;border-radius:11px;background:linear-gradient(160deg,#122d36 0%,#10232e 50%,#0d202b 100%);box-shadow:inset 2px 0 0 #62dab917}
+.panel:after{content:"";position:absolute;right:7px;top:7px;width:10px;height:10px;border-top:1px solid #5fc5ac;border-right:1px solid #5fc5ac;opacity:.4;pointer-events:none}
+.panel h2{font-size:16px;line-height:1.3;margin-bottom:9px}
+.panel .muted{line-height:1.4}
+.control-panel .row{gap:7px}
+.control-description{margin:5px 0 9px}
+.state-indicator{padding:5px 8px;font-size:11px}
+.control-buttons button{padding:9px 8px}
+#matchpanel #photo{margin-top:10px}
+#matchpanel img.photo{display:block;max-height:195px;margin:0 auto 6px;border:1px solid #355d64;box-shadow:0 6px 16px #040c1280}
+.photo-credit{font-size:12px;color:#a9ddd3;margin:7px 0 0;line-height:1.5}
+.photo-credit a{color:#79e4bd;font-weight:700;text-decoration:underline;text-decoration-color:#4a9e88;text-underline-offset:3px}
+.photo-credit a:focus-visible{outline:2px solid #a1f2d7;outline-offset:3px}
+.photo-source{color:#91adb2;font-weight:400}
+@media(max-width:365px){.mobile-brand-banner{gap:8px;padding-inline:9px}.mobile-radar{flex-basis:41px;width:41px;height:41px}.mobile-brand-copy strong{font-size:16px;letter-spacing:1.1px}.mobile-brand-copy .mobile-brand-subtitle{font-size:8px;letter-spacing:.65px}.mobile-brand-banner #connection{font-size:9px;padding:5px;max-width:87px}}
+@media(prefers-reduced-motion:reduce){.mobile-radar:before{animation:none}}
+</style></head><body><header class="mobile-brand-banner" aria-label="SDRCC Mobile">
+<span class="mobile-radar" aria-hidden="true"></span>
+<span class="mobile-brand-copy"><strong>SDRCC</strong><span class="mobile-brand-subtitle">Mobile · Ground Station</span></span>
+<small id="connection" role="status" aria-live="polite">Verbinden…</small>
+</header><div id="network-banner" class="network-banner" role="status" aria-live="polite" hidden>
 <div><strong id="network-heading">SDRCC is tijdelijk niet bereikbaar</strong>
 <small>Controleer of je telefoon op hetzelfde wifi-netwerk zit, of via een veilige VPN verbonden is. Via alleen mobiel internet werkt een lokaal SDRCC-adres niet. De ontvangst op de mini-pc kan intussen doorlopen. Live audio moet je mogelijk opnieuw starten.</small></div>
 <button type="button" id="network-retry">↻ Opnieuw proberen</button>
@@ -55,8 +90,8 @@ function setConnectionState(state){
     const indicator=$("connection"),banner=$("network-banner");
     indicator.className=state==="online"?"connection-online":
       state==="offline"?"connection-offline":"connection-checking";
-    indicator.textContent=state==="online"?"● SDRCC ONLINE":
-      state==="offline"?"○ VERBINDING VERBROKEN":"◌ VERBINDEN…";
+    indicator.textContent=state==="online"?"● ONLINE":
+      state==="offline"?"○ OFFLINE":"◌ VERBINDEN…";
     banner.hidden=state!=="offline";
     indicator.title=state==="online"
       ?"SDRCC bereikbaar; verbinding automatisch hersteld na een onderbreking"
@@ -599,7 +634,68 @@ function renderAtis(data){
     const tag=document.createElement("span");tag.className="tag";tag.textContent=value;box.append(tag);
   }
 }
-async function showPhoto(m){const id=String(m.mmsi||"");if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;lastPhotoMmsi=id;const target=$("photo");target.textContent="Scheepsfoto zoeken…";try{const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)+"&shipname="+encodeURIComponent(m.shipname||"")+"&imo="+encodeURIComponent(m.imo||"")+"&eni="+encodeURIComponent(m.eni||"");const d=await readMobileJson(url,20000);if(lastPhotoMmsi!==id)return;target.replaceChildren();if(!d.ok||!d.image_url){target.textContent="Geen foto beschikbaar";return}const img=document.createElement("img");img.className="photo";img.referrerPolicy="no-referrer";img.src=d.image_url;img.alt="Scheepsfoto";target.append(img);const credit=document.createElement("p");credit.className="muted";credit.textContent=[d.artist?"© "+d.artist:"",d.source||""].filter(Boolean).join(" · ");target.append(credit);if(d.page_url&&/^https:\/\/(?:www\.)?(?:binnenvaartspotter\.nl|debinnenvaart\.nl|markprummel\.nl|shipspotting\.com|commons\.wikimedia\.org)\//.test(d.page_url)){const a=document.createElement("a");a.href=d.page_url;a.target="_blank";a.rel="noopener noreferrer";a.textContent="Originele foto ↗";target.append(a)}}catch(e){target.textContent="Foto niet beschikbaar"}}
+function photoSourceUrl(value){
+  if(typeof value!=="string"||!/^https:\/\//i.test(value))return "";
+  try{
+    const link=new URL(value);
+    const allowed=["binnenvaartspotter.nl","www.binnenvaartspotter.nl","debinnenvaart.nl",
+      "www.debinnenvaart.nl","markprummel.nl","www.markprummel.nl",
+      "shipspotting.com","www.shipspotting.com","commons.wikimedia.org"];
+    return link.protocol==="https:"&&allowed.includes(link.hostname.toLowerCase())?link.href:"";
+  }catch(_){return ""}
+}
+function renderPhotoCredit(target,photo){
+  const source=String(photo.source||"").trim();
+  const isDeBinnenvaart=source==="De Binnenvaart";
+  const artist=String(photo.artist||"").trim().replace(/^(?:©\\s*)+/u,"").trim();
+  const original=photoSourceUrl(photo.page_url);
+  if(artist){
+    const credit=document.createElement("p");credit.className="photo-credit";
+    const label="© "+artist;
+    if(original){
+      const link=document.createElement("a");
+      link.href=original;link.target="_blank";link.rel="noopener noreferrer";
+      link.textContent=label;link.title="Originele foto van "+artist;
+      credit.append(link);
+    }else credit.textContent=label;
+    // De Binnenvaart permits the photographer's name and original source link,
+    // not an additional visible "De Binnenvaart" source label.
+    if(source&&!isDeBinnenvaart){
+      const by=document.createElement("span");by.className="photo-source";
+      by.textContent=" · "+source;credit.append(by);
+    }
+    target.append(credit);
+  }else if(!isDeBinnenvaart&&source){
+    const credit=document.createElement("p");credit.className="photo-credit";
+    credit.textContent=source;target.append(credit);
+  }
+  if(original&&!artist&&!isDeBinnenvaart){
+    const link=document.createElement("a");link.href=original;
+    link.target="_blank";link.rel="noopener noreferrer";
+    link.textContent="Originele foto ↗";target.append(link);
+  }
+}
+async function showPhoto(m){
+  const id=String(m.mmsi||"");
+  if(!/^\\d{9}$/.test(id)||id===lastPhotoMmsi)return;
+  lastPhotoMmsi=id;
+  const target=$("photo");target.textContent="Scheepsfoto zoeken…";
+  try{
+    const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)
+      +"&shipname="+encodeURIComponent(m.shipname||"")
+      +"&imo="+encodeURIComponent(m.imo||"")
+      +"&eni="+encodeURIComponent(m.eni||"");
+    const d=await readMobileJson(url,20000);
+    if(lastPhotoMmsi!==id)return;
+    target.replaceChildren();
+    if(!d.ok||!d.image_url){target.textContent="Geen foto beschikbaar";return}
+    const img=document.createElement("img");
+    img.className="photo";img.referrerPolicy="no-referrer";
+    img.src=d.image_url;img.alt="Scheepsfoto";
+    target.append(img);
+    renderPhotoCredit(target,d);
+  }catch(_){if(lastPhotoMmsi===id)target.textContent="Foto niet beschikbaar"}
+}
 let mobileTrafficFetchBusy=false;
 async function refresh(){
   if(!mayPollMobile()||mobileTrafficFetchBusy||!isMobileFeatureAvailable("traffic_voice"))return;
