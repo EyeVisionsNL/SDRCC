@@ -6,7 +6,8 @@ the home-screen browser shortcut.
 
 ## Features
 
-- App start screen and toolbar show the installed APK version, such as `v0.1.0 BETA 2`.\n- Real Android APK, launcher icon copied from the existing SDRCC favicon and
+- App start screen and toolbar show the installed APK version, such as `v0.1.0 BETA 2`.
+- Real Android APK, launcher icon copied from the existing SDRCC favicon and
   native SDRCC splash with a small radar sweep.
 - Operator-selected hostname or IP for **HTTP :8080** (custom port is
   supported); stored only in the app's private Android preferences.
@@ -53,7 +54,9 @@ or from the \`android/\` directory run:
 gradle :app:testDebugUnitTest :app:assembleDebug
 \`\`\`
 
-The Beta 2 display correction uses Android `versionCode 3` and retains the `0.1.0-beta2` version name.\n\nThe generated file is \`android/app/build/outputs/apk/debug/app-debug.apk\`.
+The Beta 2 display correction uses Android `versionCode 3` and retains the `0.1.0-beta2` version name.
+
+The generated file is \`android/app/build/outputs/apk/debug/app-debug.apk\`.
 The GitHub workflow **Android Beta 2 APK** builds it on pushes to \`develop\`
 that touch \`android/\` and uploads the result under the workflow run's
 **Artifacts** section.
