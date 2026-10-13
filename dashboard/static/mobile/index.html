@@ -101,6 +101,24 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 #matchpanel.pulse{border-color:#55edb2;animation:mobile-atis-card-pulse 1.5s ease-in-out infinite}
 @keyframes mobile-atis-card-pulse{50%{box-shadow:inset 0 0 0 1px #62f6c884,0 0 0 6px #4ddc922b,0 0 16px #41e59e35}}
 @media(prefers-reduced-motion:reduce){#matchpanel.pulse{animation:none;border-color:#55edb2}}
+
+/* Satellite Mission Queue is read-only; desktop status and timings are authoritative. */
+#sat-mission-queue-panel .row{align-items:center}
+#sat-mission-queue-panel .row h2{margin-bottom:0}
+#sat-mission-queue-panel #sat-mission-queue-summary{margin:10px 0 8px;font-size:12px}
+#sat-mission-queue{display:grid;gap:8px}
+.mobile-upcoming-mission{padding:10px 11px;border:1px solid #39516b;border-left:3px solid #9b86e4;border-radius:9px;background:#0c1d30}
+.mobile-upcoming-mission[data-state="NEXT"],.mobile-upcoming-mission[data-state="TARGET"]{border-left-color:#7fdcf5;background:linear-gradient(100deg,#163047,#0c1d30 55%)}
+.mobile-upcoming-mission[data-state="IN PROGRESS"]{border-left-color:#67e6ab}
+.mobile-upcoming-mission[data-state="BLOCKED"]{border-left-color:#da8d78}
+.mobile-upcoming-main{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px}
+.mobile-upcoming-main strong{font-size:14px;color:#f1f3ff}
+.mobile-upcoming-state{font-size:10px;letter-spacing:.03em;font-weight:700;color:#c6b7ff;white-space:nowrap}
+.mobile-upcoming-mission[data-state="NEXT"] .mobile-upcoming-state,.mobile-upcoming-mission[data-state="TARGET"] .mobile-upcoming-state{color:#91dbff}
+.mobile-upcoming-mission[data-state="IN PROGRESS"] .mobile-upcoming-state{color:#81e5b3}
+.mobile-upcoming-mission[data-state="BLOCKED"] .mobile-upcoming-state{color:#ffbfa6}
+.mobile-upcoming-time{font-size:12px;color:#d5e5fb;margin-top:4px}
+.mobile-upcoming-details{font-size:11px;color:#9fb6d1;margin-top:4px;overflow-wrap:anywhere}
 </style></head><body><header class="mobile-brand-banner" aria-label="SDRCC Mobile">
 <span class="mobile-radar" aria-hidden="true"></span>
 <span class="mobile-brand-copy"><strong>SDRCC</strong><span id="mobile-scene-title" class="mobile-brand-subtitle">Mobile · Marine Traffic</span></span>
@@ -112,7 +130,14 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 </div><main>
 <section id="marine"><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · Control</h2><span id="marinestate" class="state-indicator unknown" role="status">Loading status…</span></div><p class="muted">Control marine VHF and ATIS. AIS-Catcher runs independently.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Start Marine</button><button id="marine-stop" class="stop" disabled>■ Stop Marine</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · Vessels</h2><span id="ais-service-state" class="state-indicator unknown">Loading status…</span></div><p class="muted control-description">AIS positions for the map and ATIS matching, independent of Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ Start AIS</button><button id="ais-service-stop" class="stop" type="button" disabled>■ Stop AIS</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Map</button></div><iframe id="aismap" class="map" title="AIS-Catcher map" loading="eager"></iframe><p id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden>Checking AIS highlighting…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Latest ATIS / AIS match</h2><div id="match">Waiting for live ATIS data…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-audio" class="panel"><h2>Live Audio & Recordings</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Start Live Audio</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Last Four Recordings</h2><div id="recordings">Waiting for recordings…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
 <section id="adsb" hidden><div class="panel control-panel"><div class="row"><h2>✈️ ADS-B · Reception</h2><span id="adsb-service-state" class="state-indicator unknown">Loading status…</span></div><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ Start ADS-B</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ Stop ADS-B</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><h2>✈️ ADS-B · Aircraft</h2><iframe id="adsbmap" class="map" title="ADS-B map" loading="lazy"></iframe></div></section>
-<section id="sat" hidden><div class="panel"><h2>🛰️ Satellites · Live Tracking</h2><div id="satstatus" aria-live="polite">Loading status…</div></div></section>
+<section id="sat" hidden>
+<div class="panel"><h2>🛰️ Satellites · Live Tracking</h2><div id="satstatus" aria-live="polite">Loading status…</div></div>
+<div class="panel" id="sat-mission-queue-panel">
+<div class="row"><h2>📅 Upcoming Missions</h2><span class="tag">Next 48 hours</span></div>
+<p class="muted" id="sat-mission-queue-summary">Loading scheduled passes…</p>
+<div id="sat-mission-queue" aria-live="polite"></div>
+</div>
+</section>
 <section id="missions" hidden>
 <div class="panel control-panel">
 <div class="row"><h2>⏻ Missions · Control</h2><span id="mission-mode" class="state-indicator unknown" role="status">Loading status…</span></div>
@@ -814,6 +839,83 @@ function renderSatellite(data){
        "Range "+(Number.isFinite(range)?Math.round(range)+" km":"—"));
   }
 }
+
+function stationMissionTime(value){
+  // Mission Queue times come pre-formatted in the mini-PC's local timezone.
+  const match=/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(String(value||""));
+  if(!match)return "Time unavailable";
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const month=months[Number(match[2])-1];
+  return month?Number(match[3])+" "+month+" · "+match[4]+":"+match[5]:"Time unavailable";
+}
+function renderUpcomingMissionQueue(payload){
+  const root=$("sat-mission-queue"),summary=$("sat-mission-queue-summary");
+  root.replaceChildren();
+  // Reflect the real desktop queue: skip completed/skipped entries, retain BLOCKED warnings.
+  const now=Math.floor(Date.now()/1000);
+  const queue=(Array.isArray(payload.queue)?payload.queue:[])
+    .filter(item=>item&&typeof item==="object"&&!item.skipped
+      &&String(item.status||"").toUpperCase()!=="SKIPPED"
+      &&Number.isFinite(Number(item.end_epoch))
+      &&Number(item.end_epoch)>=now-30)
+    .sort((a,b)=>Number(a.start_epoch)-Number(b.start_epoch));
+  if(!queue.length){
+    summary.textContent="No upcoming planned missions in the next 48 hours.";
+    return;
+  }
+  summary.textContent=queue.length+" planned pass"+(queue.length===1?"":"es")+
+    " · 48 hours · station local time";
+  for(const item of queue){
+    const status=String(item.status||"QUEUED").toUpperCase();
+    const safeStatus=["NEXT","TARGET","QUEUED","BLOCKED","IN PROGRESS"].includes(status)
+      ?status:"QUEUED";
+    const card=document.createElement("article");
+    card.className="mobile-upcoming-mission";
+    card.dataset.state=safeStatus;
+    const heading=document.createElement("div");heading.className="mobile-upcoming-main";
+    const title=document.createElement("strong");
+    title.textContent=String(item.name||"Satellite");
+    const badge=document.createElement("span");badge.className="mobile-upcoming-state";
+    badge.textContent=safeStatus;
+    heading.append(title,badge);
+    const time=document.createElement("div");time.className="mobile-upcoming-time";
+    time.textContent=stationMissionTime(item.start)+" → "+stationMissionTime(item.end);
+    const details=document.createElement("div");details.className="mobile-upcoming-details";
+    const pieces=[];
+    if(item.mode||item.pipeline)pieces.push(String(item.mode||item.pipeline));
+    const receiver=String(item.active_receiver||item.reserved_receiver||
+      item.configured_receiver||item.receiver||"");
+    if(receiver&&receiver!=="-")pieces.push(receiver);
+    const elevation=Number(item.max_elevation);
+    if(item.max_elevation!=null&&Number.isFinite(elevation))
+      pieces.push("Max "+elevation.toFixed(1)+"°");
+    const frequency=Number(item.frequency_mhz);
+    if(item.frequency_mhz!=null&&Number.isFinite(frequency)&&frequency>0)
+      pieces.push(frequency.toFixed(3)+" MHz");
+    details.textContent=pieces.join(" · ");
+    card.append(heading,time);
+    if(pieces.length)card.append(details);
+    root.append(card);
+  }
+}
+const MOBILE_MISSION_QUEUE_REFRESH_MS=60000;
+let mobileMissionQueueBusy=false,mobileMissionQueueLastRefresh=0;
+async function refreshMobileMissionQueue(){
+  if(!mayPollMobile()||$("sat").hidden||mobileMissionQueueBusy)return;
+  if(Date.now()-mobileMissionQueueLastRefresh<MOBILE_MISSION_QUEUE_REFRESH_MS)return;
+  mobileMissionQueueBusy=true;
+  mobileMissionQueueLastRefresh=Date.now();
+  try{
+    const payload=await readMobileJson("/api/mission-queue?limit=50&hours=48",20000);
+    if(payload.ok!==true||!Array.isArray(payload.queue))
+      throw Error(payload.error||"Mission Queue unavailable");
+    renderUpcomingMissionQueue(payload);
+  }catch(error){
+    $("sat-mission-queue-summary").textContent=
+      "Mission Queue temporarily unavailable. Last received plan may be outdated.";
+  }finally{mobileMissionQueueBusy=false}
+}
+
 function renderMission(data){
   const target=$("missionstatus");target.replaceChildren();
   const state=document.createElement("div");state.className="statusline";
@@ -1103,6 +1205,7 @@ async function refreshSecondary(){
   if(!mayPollMobile())return;
   if(!$("system").hidden)await refreshSystem();
   if(!$("missions").hidden)await refreshMissionControls();
+  if(!$("sat").hidden)void refreshMobileMissionQueue();
   for(const [tab,url,output,renderer] of [
     ["sat","/api/satellite-view","satstatus",renderSatellite],
     ["missions","/api/mission-monitor","missionstatus",renderMission]
