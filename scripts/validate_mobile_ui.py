@@ -110,6 +110,66 @@ def validate() -> None:
     require(mobile_manifest.get("lang") == "en",
             "Installed Mobile PWA manifest must be English")
 
+    # Sat shows the real planned missions in read-only mode. No new planner controls.
+    require('id="sat-mission-queue-panel"' in html and
+            'id="sat-mission-queue"' in html and
+            'id="sat-mission-queue-summary"' in html and
+            "Upcoming Missions" in html,
+            "Missing Satellite Mission Queue panel")
+    require('readMobileJson("/api/mission-queue?limit=50&hours=48",20000)' in script and
+            'function renderUpcomingMissionQueue(payload)' in script and
+            'if(!$("sat").hidden)void refreshMobileMissionQueue();' in script and
+            "MOBILE_MISSION_QUEUE_REFRESH_MS=60000" in script and
+            'postMobileJson("/api/mission-queue"' not in script,
+            "Mobile must poll the real Mission Queue with GET and never mutate the plan")
+    require('item.status||"").toUpperCase()!=="SKIPPED"' in script and
+            'Number(item.end_epoch)>=now-30' in script and
+            'stationMissionTime(item.start)' in script,
+            "Skipped/completed passes and station times must be treated correctly")
+    node_queue_test = r"""
+const vm = require("node:vm");
+const assert = require("node:assert/strict");
+const source = process.argv[1];
+const start = source.indexOf("function stationMissionTime(value){");
+const end = source.indexOf("function renderMission(data){",start);
+assert.ok(start > 0 && end > start);
+function element(tag) {
+  return {tag,children:[],className:"",dataset:{},textContent:"",
+    append(...elements){this.children.push(...elements)}};
+}
+const root={children:[],replaceChildren(){this.children=[]},
+  append(element){this.children.push(element)}};
+const summary={textContent:""};
+const nodes={"sat-mission-queue":root,"sat-mission-queue-summary":summary};
+const sandbox={document:{createElement:element},$:id=>nodes[id],
+  Date:{now:()=>1000000000}};
+vm.runInNewContext(source.slice(start,end),sandbox);
+assert.equal(sandbox.stationMissionTime("2026-10-13 19:30:00"),"13 Oct · 19:30");
+const queue=[
+  {name:"ISS (ZARYA)",start:"2026-10-13 19:30:00",
+    end:"2026-10-13 19:39:00",start_epoch:1000000150,end_epoch:1000001000,
+    status:"NEXT",receiver:"SDR2",max_elevation:54.3,frequency_mhz:145.800},
+  {name:"METEOR-M2 4",start:"2026-10-13 20:20:00",
+    end:"2026-10-13 20:31:00",start_epoch:1000001500,end_epoch:1000002200,
+    status:"BLOCKED",receiver:"SDR1",max_elevation:31.5},
+  {name:"Skipped",start_epoch:1000002300,end_epoch:1000002600,
+    status:"SKIPPED",skipped:true},
+  {name:"Expired",start_epoch:999000000,end_epoch:999000600,status:"QUEUED"}
+];
+sandbox.renderUpcomingMissionQueue({queue,ok:true});
+assert.equal(root.children.length,2);
+assert.equal(root.children[0].children[0].children[0].textContent,"ISS (ZARYA)");
+assert.equal(root.children[0].dataset.state,"NEXT");
+assert.ok(root.children[0].children[2].textContent.includes("145.800 MHz"));
+assert.equal(root.children[1].dataset.state,"BLOCKED");
+assert.ok(summary.textContent.includes("2 planned passes"));
+sandbox.renderUpcomingMissionQueue({queue:[],ok:true});
+assert.equal(root.children.length,0);
+assert.ok(summary.textContent.startsWith("No upcoming"));
+console.log("PASS: Upcoming Missions read-only status and station times");
+"""
+    subprocess.run(["node", "-e", node_queue_test, script],check=True)
+
     with tempfile.TemporaryDirectory() as temp:
         path = Path(temp) / "mobile-script.js"
         path.write_text(script, encoding="utf-8")
