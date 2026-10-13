@@ -647,7 +647,7 @@ function photoSourceUrl(value){
 function renderPhotoCredit(target,photo){
   const source=String(photo.source||"").trim();
   const isDeBinnenvaart=source==="De Binnenvaart";
-  const artist=String(photo.artist||"").trim().replace(/^(?:©\\s*)+/u,"").trim();
+  const artist=String(photo.artist||"").trim().replace(/^(?:©\s*)+/u,"").trim();
   const original=photoSourceUrl(photo.page_url);
   if(artist){
     const credit=document.createElement("p");credit.className="photo-credit";
@@ -677,7 +677,7 @@ function renderPhotoCredit(target,photo){
 }
 async function showPhoto(m){
   const id=String(m.mmsi||"");
-  if(!/^\\d{9}$/.test(id)||id===lastPhotoMmsi)return;
+  if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;
   lastPhotoMmsi=id;
   const target=$("photo");target.textContent="Scheepsfoto zoeken…";
   try{
