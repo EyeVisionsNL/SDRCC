@@ -545,7 +545,7 @@ public final class MainActivity extends Activity {
                 && uri.getFragment() == null
                 && uri.getPath() != null
                 && uri.getPath().matches(
-                        "/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v[0-9]+/SDRCC-Mobile\\\\.apk");
+                        "/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v[0-9]+/SDRCC-Mobile[.]apk");
     }
 
     private void checkForAppUpdate() {
