@@ -52,6 +52,36 @@ def validate() -> None:
     ):
         require(marker in html, f"Existing Mobile feature disappeared: {marker}")
 
+    # SDRCC Mobile visual polish must not change any receiver operations.
+    require('id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden' in html,
+            "Keep AIS highlight plumbing but hide its technical status copy")
+    for old_copy in (
+        "Een gevalideerde ATIS/AIS-match krijgt 15 seconden",
+        "Start of stop de bestaande readsb-ontvanger",
+        "AUTO schakelt de bestaande missieplanning in",
+    ):
+        require(old_copy not in html, f"Verbose mobile help text still visible: {old_copy}")
+    scenes = {
+        "marine": "marine-panorama.webp",
+        "adsb": "aviation-panorama.webp",
+        "sat": "satellite-panorama.webp",
+        "missions": "overview-panorama.webp",
+        "system": "overview-panorama.webp",
+    }
+    for tab, banner in scenes.items():
+        require(f'body[data-mobile-tab="{tab}"]' in html,
+                f"Missing distinct mobile tab styling: {tab}")
+        require((ROOT / "dashboard/static/assets/banners" / banner).is_file(),
+                f"Missing existing desktop panorama: {banner}")
+    require('document.body.dataset.mobileTab=tab;' in script and
+            'id="mobile-scene-title"' in html,
+            "Mobile banner must follow selected tab without switching the live map")
+    require('#system #mobile-map-settings + #mobile-install-help' in html and
+            '#system #mobile-install-help + a.action' in html,
+            "Only adjacent bottom System controls should receive extra spacing")
+    require('#adsb-service-state.off{display:none}' in html,
+            "Redundant stopped badge above ADS-B controls must be hidden")
+
     with tempfile.TemporaryDirectory() as temp:
         path = Path(temp) / "mobile-script.js"
         path.write_text(script, encoding="utf-8")
