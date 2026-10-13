@@ -39,22 +39,45 @@ main{padding:9px 11px;max-width:900px}
 .photo-source{color:#91adb2;font-weight:400}
 @media(max-width:365px){.mobile-brand-banner{gap:8px;padding-inline:9px}.mobile-radar{flex-basis:41px;width:41px;height:41px}.mobile-brand-copy strong{font-size:16px;letter-spacing:1.1px}.mobile-brand-copy .mobile-brand-subtitle{font-size:8px;letter-spacing:.65px}.mobile-brand-banner #connection{font-size:9px;padding:5px;max-width:87px}}
 @media(prefers-reduced-motion:reduce){.mobile-radar:before{animation:none}}
+
+/* Desktop SDRCC panoramas / colors, responsive to Mobile tab selection. */
+body{--mobile-accent:#2dd4bf;--mobile-line:#317a72;--mobile-halo:rgba(45,212,191,.24);--mobile-scene:url("/static/assets/banners/marine-panorama.webp")}
+body[data-mobile-tab="marine"]{--mobile-accent:#2dd4bf;--mobile-line:#317a72;--mobile-halo:rgba(45,212,191,.24);--mobile-scene:url("/static/assets/banners/marine-panorama.webp")}
+body[data-mobile-tab="adsb"]{--mobile-accent:#60caff;--mobile-line:#356f9b;--mobile-halo:rgba(56,189,248,.28);--mobile-scene:url("/static/assets/banners/aviation-panorama.webp")}
+body[data-mobile-tab="sat"]{--mobile-accent:#c4b5fd;--mobile-line:#7453a4;--mobile-halo:rgba(167,139,250,.28);--mobile-scene:url("/static/assets/banners/satellite-panorama.webp")}
+body[data-mobile-tab="missions"]{--mobile-accent:#86efac;--mobile-line:#367b53;--mobile-halo:rgba(74,222,128,.25);--mobile-scene:url("/static/assets/banners/overview-panorama.webp")}
+body[data-mobile-tab="system"]{--mobile-accent:#7dd3fc;--mobile-line:#366d91;--mobile-halo:rgba(56,189,248,.24);--mobile-scene:url("/static/assets/banners/overview-panorama.webp")}
+.mobile-brand-banner{background-color:#082032;background-image:linear-gradient(90deg,rgba(5,20,34,.96) 0%,rgba(6,23,39,.93) 33%,rgba(6,23,39,.55) 64%,rgba(6,23,39,.20) 100%),var(--mobile-scene);background-repeat:no-repeat;background-position:center,right center;background-size:cover,auto 100%;border-bottom-color:var(--mobile-line)}
+body[data-mobile-tab] .mobile-brand-banner:before{background:linear-gradient(90deg,transparent,var(--mobile-accent) 23%,var(--mobile-accent) 58%,transparent 95%)}
+body[data-mobile-tab] .mobile-brand-banner:after{border-color:var(--mobile-accent)}
+body[data-mobile-tab] .mobile-radar{border-color:var(--mobile-line);box-shadow:0 0 16px var(--mobile-halo),inset 0 0 12px #123c36}
+body[data-mobile-tab] .mobile-brand-copy .mobile-brand-subtitle{color:var(--mobile-accent)}
+body[data-mobile-tab] .mobile-brand-banner #connection{border-color:var(--mobile-line);background:rgba(2,19,33,.82)}
+body[data-mobile-tab] main .panel{border-color:var(--mobile-line);box-shadow:inset 2px 0 0 var(--mobile-halo),0 4px 16px rgba(2,9,19,.12)}
+body[data-mobile-tab] main .panel:after{border-color:var(--mobile-accent)}
+body[data-mobile-tab] main .panel h2{color:var(--mobile-accent)}
+body[data-mobile-tab] .tabs button[aria-selected="true"]{color:var(--mobile-accent);background:linear-gradient(180deg,var(--mobile-halo),rgba(7,26,38,.98));box-shadow:inset 0 3px 0 var(--mobile-accent)}
+/* Only the two bottom settings controls on the System tab need separation. */
+#system #mobile-map-settings + #mobile-install-help{margin-top:15px}
+#system #mobile-install-help + a.action{display:inline-flex;align-items:center;margin-top:20px;max-width:100%}
+/* Do not show redundant stopped badge above the ADS-B start/stop controls. */
+#adsb-service-state.off{display:none}
 </style></head><body><header class="mobile-brand-banner" aria-label="SDRCC Mobile">
 <span class="mobile-radar" aria-hidden="true"></span>
-<span class="mobile-brand-copy"><strong>SDRCC</strong><span class="mobile-brand-subtitle">Mobile · Ground Station</span></span>
+<span class="mobile-brand-copy"><strong>SDRCC</strong><span id="mobile-scene-title" class="mobile-brand-subtitle">Mobile · Marine Traffic</span></span>
 <small id="connection" role="status" aria-live="polite">Verbinden…</small>
 </header><div id="network-banner" class="network-banner" role="status" aria-live="polite" hidden>
 <div><strong id="network-heading">SDRCC is tijdelijk niet bereikbaar</strong>
 <small>Controleer of je telefoon op hetzelfde wifi-netwerk zit, of via een veilige VPN verbonden is. Via alleen mobiel internet werkt een lokaal SDRCC-adres niet. De ontvangst op de mini-pc kan intussen doorlopen. Live audio moet je mogelijk opnieuw starten.</small></div>
 <button type="button" id="network-retry">↻ Opnieuw proberen</button>
 </div><main>
-<section id="marine"><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · bediening</h2><span id="marinestate" class="state-indicator unknown" role="status">Status ophalen…</span></div><p class="muted">Bedien marifoonontvangst en ATIS. AIS-Catcher werkt onafhankelijk.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Marine starten</button><button id="marine-stop" class="stop" disabled>■ Marine stoppen</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · schepen</h2><span id="ais-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">AIS-posities voor de kaart en ATIS-koppeling. Onafhankelijk van Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ AIS starten</button><button id="ais-service-stop" class="stop" type="button" disabled>■ AIS stoppen</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Kaart</button></div><iframe id="aismap" class="map" title="AIS-Catcher kaart" loading="eager"></iframe><p class="muted">Een gevalideerde ATIS/AIS-match krijgt 15 seconden een groene pulserende markering bij het schip. De kaart blijft op zijn huidige positie en zoom.</p><p id="ais-highlight-status" class="muted" role="status" aria-live="polite">AIS-markering controleren…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Laatste ATIS / AIS-match</h2><div id="match">Wachten op live ATIS-gegevens…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-audio" class="panel"><h2>Live audio en opnames</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Live audio starten</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Laatste vier opnames</h2><div id="recordings">Wachten op opnames…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
-<section id="adsb" hidden><div class="panel control-panel"><div class="row"><h2>✈️ ADS-B · ontvangst</h2><span id="adsb-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">Start of stop de bestaande readsb-ontvanger. De kaart gebruikt live vliegtuigdata zolang ADS-B draait.</p><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ ADS-B starten</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ ADS-B stoppen</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><h2>✈️ ADS-B · vliegtuigen</h2><iframe id="adsbmap" class="map" title="ADS-B kaart" loading="lazy"></iframe></div></section>
+<section id="marine"><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · bediening</h2><span id="marinestate" class="state-indicator unknown" role="status">Status ophalen…</span></div><p class="muted">Bedien marifoonontvangst en ATIS. AIS-Catcher werkt onafhankelijk.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Marine starten</button><button id="marine-stop" class="stop" disabled>■ Marine stoppen</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · schepen</h2><span id="ais-service-state" class="state-indicator unknown">Status ophalen…</span></div><p class="muted control-description">AIS-posities voor de kaart en ATIS-koppeling. Onafhankelijk van Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ AIS starten</button><button id="ais-service-stop" class="stop" type="button" disabled>■ AIS stoppen</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Kaart</button></div><iframe id="aismap" class="map" title="AIS-Catcher kaart" loading="eager"></iframe><p id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden>AIS-markering controleren…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Laatste ATIS / AIS-match</h2><div id="match">Wachten op live ATIS-gegevens…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-audio" class="panel"><h2>Live audio en opnames</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Live audio starten</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Laatste vier opnames</h2><div id="recordings">Wachten op opnames…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
+<section id="adsb" hidden><div class="panel control-panel"><div class="row"><h2>✈️ ADS-B · ontvangst</h2><span id="adsb-service-state" class="state-indicator unknown">Status ophalen…</span></div><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ ADS-B starten</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ ADS-B stoppen</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><h2>✈️ ADS-B · vliegtuigen</h2><iframe id="adsbmap" class="map" title="ADS-B kaart" loading="lazy"></iframe></div></section>
 <section id="sat" hidden><div class="panel"><h2>🛰️ Satellites · live ontvangstpositie</h2><div id="satstatus" aria-live="polite">Status ophalen…</div></div></section>
 <section id="missions" hidden>
 <div class="panel control-panel">
 <div class="row"><h2>⏻ Missions · bediening</h2><span id="mission-mode" class="state-indicator unknown" role="status">Status ophalen…</span></div>
-<p class="muted">AUTO schakelt de bestaande missieplanning in. Hiermee start je geen losse opname.</p>
+
 <div class="control-buttons">
 <button id="mission-auto-on" class="start" type="button" disabled>▶ AUTO aan</button>
 <button id="mission-auto-off" class="stop" type="button" disabled>■ AUTO uit</button>
@@ -363,6 +386,12 @@ function selectMobileTab(tab,fromTap=false){
   const changed=selectedMobileTab!==tab;
   selectedMobileTab=tab;
   rememberMobileTab(tab);
+  document.body.dataset.mobileTab=tab;
+  $("mobile-scene-title").textContent={
+    marine:"Mobile · Marine Traffic",adsb:"Mobile · ADS-B",
+    sat:"Mobile · Satellites",missions:"Mobile · Missions",
+    system:"Mobile · Systeem"
+  }[tab];
   document.querySelectorAll("main section").forEach(section=>{section.hidden=section.id!==tab});
   mobileTabButtons.forEach(button=>button.setAttribute("aria-selected",String(button.dataset.tab===tab)));
   // A phone can be scrolled far down a map or recording list: always show the
