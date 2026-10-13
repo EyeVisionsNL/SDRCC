@@ -83,12 +83,20 @@ def validate() -> None:
     require("static/mobile/index.html" in host, "Wrong SDRCC Mobile endpoint")
     require("getPackageInfo(getPackageName(), 0).versionName" in java,
             "Native UI must read version from installed APK")
+    require("probeStationAfterWebError(view)" in java and
+            "getErrorCode()" in java and "getDescription()" in java and
+            "new URL(target).openConnection()" in java and
+            "setInstanceFollowRedirects(false)" in java,
+            "VPN/WebView main-frame diagnostic must report actual errors without redirect")
+    require("via wifi of een privé-Tailscale-VPN" in java and
+            "Controleer het IP-adres en de wifi-verbinding." not in java,
+            "Obsolete Wi-Fi-only connection errors must be removed")
     require('ANDROID  ·  0.1 BETA' not in java and
             'SDRCC Android  ·  BETA' not in java,
             "Stale hard-coded beta label found")
     gradle = (project / "build.gradle").read_text(encoding="utf-8")
     require("versionName '0.1.0-beta2'" in gradle and
-            "versionCode 3" in gradle,
+            "versionCode 4" in gradle,
             "Missing Android 0.1.0-beta2 version bump")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")

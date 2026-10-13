@@ -40,6 +40,8 @@ import android.widget.TextView;
 
 import android.net.http.SslError;
 import java.net.URI;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Locale;
 
 /**
@@ -64,6 +66,7 @@ public final class MainActivity extends Activity {
     private Button changeHostButton;
     private Runnable loadTimeout;
     private boolean pageFailed;
+    private String connectionErrorDetails = "";
     private String currentHost;
     private int currentPort;
     private String currentPageUrl;
@@ -178,7 +181,7 @@ public final class MainActivity extends Activity {
         content.addView(radar, new LinearLayout.LayoutParams(dp(170), dp(170)));
 
         TextView description = text(
-                "Verbind met je SDRCC mini-pc via het lokale wifi-netwerk. "
+                "Verbind met je SDRCC mini-pc via wifi of een privé-Tailscale-VPN. "
                         + "AIS en ADS-B blijven op hun bestaande HTTP-poorten werken.",
                 14, MUTED);
         description.setPadding(0, dp(8), 0, dp(16));
@@ -384,13 +387,20 @@ public final class MainActivity extends Activity {
             return;
         }
         pageFailed = false;
+        connectionErrorDetails = "";
         loadingCover.setVisibility(View.VISIBLE);
         retryButton.setVisibility(View.GONE);
         changeHostButton.setVisibility(View.VISIBLE);
         loadingText.setText("Verbinden met " + currentHost + "…");
         clearConnectionTimeout();
-        loadTimeout = () -> showLoadError(
-                "SDRCC reageert niet. Controleer het adres, wifi en of de mini-pc aanstaat.");
+        loadTimeout = () -> {
+            showLoadError("SDRCC reageert niet binnen 20 seconden via wifi of VPN."
+                    + " Controleer het adres en de netwerkverbinding."
+                    + "\nAndroid-netwerktest wordt uitgevoerd…");
+            probeStationAfterWebError(webView);
+        };
+        // Probe with the app's own HTTP stack as a second diagnostic signal.
+        // The probe never starts/stops services or retries a receiver action.
         handler.postDelayed(loadTimeout, CONNECT_TIMEOUT_MS);
         // User-initiated refresh or initial load. No receiver POST is replayed.
         webView.loadUrl(currentPageUrl);
@@ -410,9 +420,49 @@ public final class MainActivity extends Activity {
         pageFailed = true;
         clearConnectionTimeout();
         loadingCover.setVisibility(View.VISIBLE);
+        connectionErrorDetails = text;
         loadingText.setText(text);
         retryButton.setVisibility(View.VISIBLE);
         changeHostButton.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Compare the native Android network path with WebView for the configured
+     * SDRCC page. An HTTP HEAD request is read-only, bounded, and never follows
+     * redirects. It is only used after a main-frame WebView error.
+     */
+    private void probeStationAfterWebError(final WebView failingView) {
+        final String target = currentPageUrl;
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            String result;
+            try {
+                connection = (HttpURLConnection) new URL(target).openConnection();
+                connection.setRequestMethod("HEAD");
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+                connection.setInstanceFollowRedirects(false);
+                connection.setUseCaches(false);
+                int status = connection.getResponseCode();
+                result = "Android-netwerktest: HTTP " + status +
+                        (status >= 200 && status < 400
+                                ? " (mini-pc bereikbaar; probleem zit in WebView)."
+                                : " (mini-pc antwoordt met HTTP-fout).");
+            } catch (Exception exception) {
+                String detail = String.valueOf(exception.getMessage());
+                if (detail.length() > 140) detail = detail.substring(0, 140);
+                result = "Android-netwerktest: " +
+                        exception.getClass().getSimpleName() + ": " + detail;
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            final String probeResult = result;
+            handler.post(() -> {
+                if (webView == failingView && pageFailed && loadingText != null) {
+                    loadingText.setText(connectionErrorDetails + "\n" + probeResult);
+                }
+            });
+        }, "sdrcc-android-network-diagnostic").start();
     }
 
     private boolean isStationUri(Uri uri) {
@@ -483,8 +533,14 @@ public final class MainActivity extends Activity {
         public void onReceivedError(
                 WebView view, WebResourceRequest request, WebResourceError error) {
             if (request.isForMainFrame()) {
-                showLoadError("SDRCC is niet bereikbaar via dit netwerk. "
-                        + "Controleer het IP-adres en de wifi-verbinding.");
+                String explanation = String.valueOf(error.getDescription());
+                if (explanation.length() > 140) explanation = explanation.substring(0, 140);
+                String location = request.getUrl() == null
+                        ? currentHost : request.getUrl().getHost();
+                showLoadError("WebView-fout " + error.getErrorCode() + ": " + explanation
+                        + "\nHost: " + location + ". Wifi of VPN mag allebei."
+                        + "\nAndroid-netwerktest wordt uitgevoerd…");
+                probeStationAfterWebError(view);
             }
         }
 

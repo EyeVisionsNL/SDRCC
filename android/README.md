@@ -54,7 +54,7 @@ or from the \`android/\` directory run:
 gradle :app:testDebugUnitTest :app:assembleDebug
 \`\`\`
 
-The Beta 2 display correction uses Android `versionCode 3` and retains the `0.1.0-beta2` version name.
+The Beta 2 VPN diagnostic build uses Android `versionCode 4` and retains the `0.1.0-beta2` version name. The connection screen reports the Android WebView error code, description and a bounded native HTTP HEAD probe of the configured station URL. This distinguishes VPN/app reachability failures from WebView-only failures. No receiver POST actions are retried by diagnostics.
 
 The generated file is \`android/app/build/outputs/apk/debug/app-debug.apk\`.
 The GitHub workflow **Android Beta 2 APK** builds it on pushes to \`develop\`
