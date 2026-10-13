@@ -115,5 +115,38 @@ class PriorityTests(unittest.TestCase):
         self.assertEqual(calls, ["Mark", "Peter", "Shipspotting"])
 
 
+    def test_commons_is_preferred_over_de_binnenvaart(self):
+        commons_photo = {"ok": True, "source": "Wikimedia Commons", "cached_at": 500}
+        with patch.object(photos, "_mark_lookup", return_value=None), \
+             patch.object(photos, "_spotter_lookup", return_value=None), \
+             patch.object(photos, "_shipspotting_lookup", return_value=None), \
+             patch.object(photos, "_commons_search", return_value=[{}]), \
+             patch.object(photos, "_score", return_value=250), \
+             patch.object(photos, "_result_from_page", return_value=commons_photo), \
+             patch.object(photos, "_binnenvaart_lookup") as de_binnenvaart:
+            result = photos.lookup(MMSI, "SPIRIT OF GLACIER BAY", IMO)
+        self.assertEqual(result["source"], "Wikimedia Commons")
+        de_binnenvaart.assert_not_called()
+
+    def test_de_binnenvaart_only_after_commons_has_no_match(self):
+        calls = []
+        def commons(query):
+            calls.append("Wikimedia")
+            return []
+        def de_binnenvaart(*args):
+            calls.append("De Binnenvaart")
+            return {"ok": True, "source": "De Binnenvaart", "cached_at": 500}
+        with patch.object(photos, "_mark_lookup", return_value=None), \
+             patch.object(photos, "_spotter_lookup", return_value=None), \
+             patch.object(photos, "_shipspotting_lookup", return_value=None), \
+             patch.object(photos, "_commons_search", side_effect=commons), \
+             patch.object(photos, "_binnenvaart_lookup", side_effect=de_binnenvaart):
+            result = photos.lookup(MMSI, "SPIRIT OF GLACIER BAY", IMO)
+        self.assertEqual(result["source"], "De Binnenvaart")
+        self.assertGreaterEqual(calls.count("Wikimedia"), 1)
+        self.assertEqual(calls[-1], "De Binnenvaart")
+        self.assertEqual(calls.count("De Binnenvaart"), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

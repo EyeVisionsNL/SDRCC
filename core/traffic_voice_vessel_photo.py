@@ -23,7 +23,7 @@ from core.traffic_voice_shipspotting import lookup as _shipspotting_lookup
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 11
+PHOTO_POLICY_VERSION = 12
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
 NEGATIVE_CACHE_SECONDS = 6 * 3600
 _lock = threading.RLock()
@@ -429,20 +429,8 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
                 pass
         return {**shipspotting_result, "cached": False}
 
-    # Priority 4: De Binnenvaart.
-    binnenvaart_result = _binnenvaart_lookup(mmsi, shipname, imo, eni, now)
-    if binnenvaart_result:
-        with _lock:
-            cache = _load()
-            cache[key] = binnenvaart_result
-            try:
-                _save(cache)
-            except OSError:
-                pass
-        return {**binnenvaart_result, "cached": False}
-
-    # Priority 5: Wikimedia Commons. Ordered fallbacks: exact identifiers first.
-    # Ordered fallbacks: exact identifiers first, then vessel name. Each query
+    # Priority 4: Wikimedia Commons. Ordered fallbacks: exact identifiers first,
+    # then vessel name. Each query
     # is small and sequential; once a trustworthy candidate is found we stop.
     queries: list[str] = []
     if eni:
@@ -487,6 +475,12 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
         }
         if error and best is None:
             result["error"] = error
+
+    # Priority 5 (last resort): De Binnenvaart, after Commons had no verified photo.
+    if not result.get("ok"):
+        binnenvaart_result = _binnenvaart_lookup(mmsi, shipname, imo, eni, now)
+        if binnenvaart_result:
+            result = binnenvaart_result
 
     with _lock:
         cache = _load()

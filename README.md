@@ -58,7 +58,7 @@ Recent Marine transmissions can be replayed or saved, with up to four latest rec
 
 Optional **Ship photos** adds a vessel thumbnail after a validated live ATIS/AIS match, with the photographer/source credit and a clickable link to the original page. **Google Images** remains available as a separate search link.
 
-Photo source preference: **Mark Prummel → Peter / Binnenvaartspotter → Shipspotting.com → De Binnenvaart → Wikimedia Commons**. Shipspotting images are only used when a reduced thumbnail, photographer attribution, source link and verified vessel identifier can be obtained. Unavailable or unverified results fall through to the next source.
+Photo source preference: **Mark Prummel → Peter / Binnenvaartspotter → Shipspotting.com → Wikimedia Commons → De Binnenvaart**. Shipspotting images are only used when a reduced thumbnail, photographer attribution, source link and verified vessel identifier can be obtained. Unavailable or unverified results fall through to the next source.
 
 ## 📻 Sometimes you just want a radio
 
