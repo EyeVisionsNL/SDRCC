@@ -2,13 +2,13 @@
   "name": "SDRCC Mobile",
   "short_name": "SDRCC",
   "id": "/static/mobile/index.html",
-  "lang": "nl",
-  "description": "SDRCC Mobile: lokale AIS, ADS-B, Marine Voice, ATIS en satellietstatus op je telefoon.",
+  "lang": "en",
+  "description": "SDRCC Mobile: live AIS, ADS-B, marine VHF, ATIS matching and satellite status on your phone.",
   "start_url": "/static/mobile/index.html",
   "scope": "/static/mobile/",
   "display": "standalone",
-  "background_color": "#09151d",
-  "theme_color": "#0b1720",
+  "background_color": "#071321",
+  "theme_color": "#0b213b",
   "icons": [
     {
       "src": "/static/assets/sdrcc-favicon.png",

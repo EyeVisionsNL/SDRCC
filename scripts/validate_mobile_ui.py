@@ -82,6 +82,34 @@ def validate() -> None:
     require('#adsb-service-state.off{display:none}' in html,
             "Redundant stopped badge above ADS-B controls must be hidden")
 
+    require('<html lang="en">' in html and
+            "ATIS/AIS match confirmed. Map stays in place." in html and
+            "ATIS/AIS-koppeling bevestigd" not in html,
+            "Mobile visual text and ATIS card must be in English")
+    require('let atisCardPulseTimer=null;' in script and
+            "if(atisCardPulseTimer!==null)clearTimeout(atisCardPulseTimer);" in script and
+            "String(data.atis?.latest?.received_at||\"\")" in script and
+            "},30000);" in script,
+            "Every new ATIS transmission must replace the previous 30s panel pulse")
+    require('panel.classList.add(["on","off","bad"].includes(tone)' in script and
+            "state-on" in html and "state-off" in html and "state-bad" in html,
+            "SDRCC status must update card borders, not just labels")
+    require('.control-buttons .start:not(:disabled)' in html and
+            '.control-buttons .stop:not(:disabled)' in html and
+            '--mobile-accent:#7dd3fc' in html,
+            "Buttons must use state and Marine must be light blue")
+    highlight_source = (ROOT / "dashboard/static/mobile/atis-highlight.pjs").read_text()
+    require("expires: Date.now() + 30000" in highlight_source and
+            "lastEvent = eventId;" in highlight_source and
+            "endHighlight();" in highlight_source and
+            "view.setCenter" not in highlight_source and
+            "view.setZoom" not in highlight_source,
+            "AIS-Catcher ATIS ring must last 30 seconds, replace older events, and not pan")
+    mobile_manifest = json.loads(
+        (ROOT / "dashboard/static/mobile/manifest.webmanifest").read_text())
+    require(mobile_manifest.get("lang") == "en",
+            "Installed Mobile PWA manifest must be English")
+
     with tempfile.TemporaryDirectory() as temp:
         path = Path(temp) / "mobile-script.js"
         path.write_text(script, encoding="utf-8")
