@@ -4,7 +4,7 @@
  *
  * Dedicated and reversible AIS-Catcher plugin. It deliberately does not
  * modify the VTS Rijnmond overlay, ship selection or the map view.
- * A validated SDRCC ATIS/AIS event draws a 15-second ring over one ship.
+ * A validated SDRCC ATIS/AIS event draws a 30-second ring over one ship.
  */
 if (typeof AISCatcher !== "undefined" &&
     AISCatcher.PLUGIN_API_VERSION >= 5 &&
@@ -115,7 +115,7 @@ if (typeof AISCatcher !== "undefined" &&
       layer.setOpacity(1);
       layer.setVisible(true);
       current = {mmsi: mmsi, lat: lat, lon: lon, start: Date.now(),
-                 expires: Date.now() + 15000};
+                 expires: Date.now() + 30000};
       tick();
       pulseTimer = window.setInterval(tick, 200);
       reply("shown", {mmsi: mmsi, event_id: eventId});
