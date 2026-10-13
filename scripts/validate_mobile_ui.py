@@ -157,6 +157,80 @@ assert.equal(other.children[0].children[1].textContent, " · Binnenvaartspotter.
 console.log("PASS: mobile photographer credits and links");
 """
     subprocess.run(["node", "-e", node_test, script], check=True)
+    # Simulate AIS-Catcher's plugin bridge without a browser or RF device.
+    # A new event replaces the previous feature and 30s expiry. It cannot pan.
+    bridge_test = r"""
+const vm = require("node:vm");
+const assert = require("node:assert/strict");
+const source = process.argv[1];
+let clock = 100000, timer, onMessage, managedSource, managedLayer, panned = 0, replies = [];
+const parent = {postMessage: (msg) => replies.push(msg)};
+const win = {
+  parent, location: null,
+  addEventListener: (event, fn) => {if(event==="message")onMessage=fn},
+  setTimeout: (fn) => { fn(); return 1; },
+  setInterval: (fn) => {timer=fn; return 7;},
+  clearInterval: () => {timer=null},
+};
+const ol = {
+  source: {Vector: class {
+    constructor(){ this.items=[]; managedSource=this; }
+    addFeature(feature){ this.items.push(feature) }
+    clear(){ this.items=[] }
+  }},
+  layer: {Vector: class {
+    constructor(options){this.visible=true;managedLayer=this}
+    setVisible(v){this.visible=v}
+    getVisible(){return this.visible}
+    setOpacity(v){this.opacity=v}
+  }},
+  Feature: class {
+    constructor(o){this.geometry=o.geometry}
+    getGeometry(){return this.geometry}
+    set() {}
+    setStyle(styles){this.style=styles}
+  },
+  geom: {Point: class {
+    constructor(coords){this.coords=coords}
+    setCoordinates(coords){this.coords=coords}
+  }},
+  proj: {fromLonLat: x=>x},
+  style: {Circle: class {}, Stroke: class {}, Fill: class {}, Style: class {}}
+};
+const context = {
+  AISCatcher: {PLUGIN_API_VERSION: 5, addOverlayLayer(){}, shipsDB: {}},
+  ol, window: win,
+  location: {protocol:"http:", hostname:"mini-pc"},
+  Date: {now:()=>clock},
+  console: {info(){}}
+};
+vm.runInNewContext(source, context);
+assert.ok(onMessage);
+function send(event, id, mmsi){
+  onMessage({source:parent,origin:"http://mini-pc:8080",
+    data:{type:"sdrcc:atis-highlight:show",version:1,event_id:id,
+      mmsi,latitude:51.91,longitude:4.35}});
+}
+send(null,"first","244700365");
+assert.equal(managedSource.items.length,1);
+assert.equal(managedLayer.visible,true);
+clock+=29000;timer();
+assert.equal(managedSource.items.length,1,"highlight should be alive at 29s");
+send(null,"second","244700365");
+assert.equal(managedSource.items.length,1,"new ATIS transmission must replace old ring");
+clock+=29000;timer();
+assert.equal(managedSource.items.length,1,"replacement should last its own 30s");
+clock+=1000;timer();
+assert.equal(managedSource.items.length,0,"replacement must expire at 30s");
+assert.equal(managedLayer.visible,false);
+assert.equal(panned,0);
+assert.equal(replies.filter(x=>x.type==="sdrcc:atis-highlight:shown").length,2);
+console.log("PASS: AIS-Catcher ring expiry and replacement (30 seconds)");
+"""
+    subprocess.run(
+        ["node", "-e", bridge_test,
+         (ROOT / "dashboard/static/mobile/atis-highlight.pjs").read_text()],
+        check=True)
     print("PASS: mobile HTML script, SDRCC radar banner, receiver controls and update hashes")
 
 
