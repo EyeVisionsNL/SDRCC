@@ -60,6 +60,36 @@ named `SDRCC-Mobile.apk`. Example:
 
 Never put an ephemeral debug APK in this update feed.
 
+### A stable signing key is required only once
+
+Create your own Android release keystore on a trusted workstation, and store
+a secure backup **outside GitHub**. Do not share the private key in ChatGPT.
+An example first-time setup (choose your own strong keystore password):
+
+```bash
+keytool -genkeypair -keystore sdrcc-mobile-release.p12 -storetype PKCS12 \
+  -alias sdrcc-mobile -keyalg RSA -keysize 3072 -validity 10000
+base64 -w0 sdrcc-mobile-release.p12
+```
+
+Go to the repository's **Settings → Secrets and variables → Actions**, and
+configure these repository secrets (never place actual values in source files):
+
+- `SDRCC_ANDROID_KEYSTORE_BASE64`: base64 output of the private .p12 file
+- `SDRCC_ANDROID_SIGNING_KEY_ALIAS`: the chosen signing alias
+- `SDRCC_ANDROID_SIGNING_STORE_PASSWORD`: your chosen keystore password
+- `SDRCC_ANDROID_SIGNING_KEY_PASSWORD`: key password (often the same for PKCS12)
+
+Once configured, GitHub Actions workflow **SDRCC Mobile Signed Release** is
+manually runnable on **develop**. It validates the app, builds a release APK,
+signs it using the protected key, verifies its signature, creates the versioned
+GitHub release and writes the published release link to `android/update.json`.
+The workflow refuses to overwrite a previous release with the same versionCode.
+Future app versions must raise `versionCode` before publishing.
+
+Android will prompt the operator for every APK installation. No background
+installation and no SDRCC receiver restart are involved.
+
 ## Local wifi first
 
 1. Confirm SDRCC Mobile works in the Android phone browser over wifi.

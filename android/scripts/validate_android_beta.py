@@ -105,8 +105,28 @@ def validate() -> None:
     update_feed = (ANDROID / "update.json").read_text(encoding="utf-8")
     import json
     feed = json.loads(update_feed)
-    require(feed == {"version_code": 0, "version_name": "", "apk_url": ""},
-            "Never claim a release exists before a persistent-signature APK is published")
+    require(set(feed) == {"version_code", "version_name", "apk_url"},
+            "Update feed has unexpected fields")
+    code = feed["version_code"]
+    url = feed["apk_url"]
+    require(type(code) is int and code >= 0, "Published app version must be numeric")
+    if code == 0:
+        require(feed["version_name"] == "" and url == "",
+                "Unpublished Android app feed must have no download")
+    else:
+        import re
+        require(re.fullmatch(
+            rf"https://github[.]com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v{code}/SDRCC-Mobile[.]apk",
+            url) is not None and bool(feed["version_name"]),
+            "Published APK must be an exact matching versioned GitHub release")
+    signed_release = (REPO / ".github/workflows/android-release.yml").read_text(encoding="utf-8")
+    require("workflow_dispatch:" in signed_release and
+            "apksigner" in signed_release and
+            "SDRCC_ANDROID_KEYSTORE_BASE64" in signed_release and
+            "gh release create" in signed_release and
+            "android/update.json" in signed_release and
+            "git push origin HEAD:develop" in signed_release,
+            "Stable signed release publishing contract is missing")
     require('ANDROID  ·  0.1 BETA' not in java and
             'SDRCC Android  ·  BETA' not in java,
             "Stale hard-coded beta label found")
