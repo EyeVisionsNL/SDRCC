@@ -19,9 +19,9 @@
     <link rel="stylesheet" href="/static/css/radio.css?v=0.54.0h-r2">
     <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.54.0g">
     <link rel="stylesheet" href="/static/css/history.css?v=0.56.0x-r9">
-    <link rel="stylesheet" href="/static/css/mission_sounds.css">
+    <link rel="stylesheet" href="/static/css/mission_sounds.css?v=0.65.9">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
-    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.63.5">
+    <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.65.1">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
     <link rel="stylesheet" href="/static/css/execution_journal.css?v=0.43.0c4">
@@ -32,9 +32,11 @@
     <link rel="stylesheet" href="/static/css/home_position.css?v=0.56.0m">
     <link rel="stylesheet" href="/static/css/mission_recordings.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
-    <link rel="stylesheet" href="/static/css/header_theme.css?v=0.56.0x-r3">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.63.9">
+    <link rel="stylesheet" href="/static/css/header_theme.css?v=0.65.25">
+    <link rel="stylesheet" href="/static/css/banner_scenes.css?v=0.64.21">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.66.1">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
+    <link rel="stylesheet" href="/static/css/dashboard_polish.css?v=0.65.8">
 </head>
 <body>
 <div
@@ -55,52 +57,42 @@
     </div>
 </div>
 
-<header class="topbar">
-    <svg class="topbar-space-art" viewBox="0 0 760 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <path class="topbar-earth" d="M248 188 Q 470 74 780 158"></path>
-        <path class="topbar-earth-glow" d="M262 188 Q 478 88 770 158"></path>
-        <ellipse class="topbar-orbit" cx="548" cy="98" rx="268" ry="64" transform="rotate(-9 548 98)"></ellipse>
-        <g class="topbar-satellite" transform="translate(545 86) rotate(-12)">
-            <rect class="topbar-satellite-panel" x="-62" y="-10" width="45" height="20" rx="2"></rect>
-            <rect class="topbar-satellite-panel" x="17" y="-10" width="45" height="20" rx="2"></rect>
-            <rect class="topbar-satellite-body" x="-17" y="-15" width="34" height="30" rx="5"></rect>
-            <path class="topbar-satellite-dish" d="M-4 -17 Q 0 -31 15 -29 Q 9 -18 -4 -17 Z"></path>
-        </g>
-    </svg>
-    <div class="brand-block">
-        <img
-            class="brand-logo"
-            src="/static/assets/sdrcc.png?v=0.56.0x-r3"
-            alt="SDRCC logo"
-        >
-        <div class="brand-copy">
-            <div class="brand-title-row">
-                <h1>SDRCC <span aria-hidden="true">–</span> SDR Control Center</h1>
-            </div>
-            <p>Listen · Decode · Analyze · Share</p>
-        </div>
+<header class="topbar" data-banner-scene="system">
+    <div class="topbar-visuals" aria-hidden="true">
+        <div class="topbar-radar-art"><span class="topbar-radar-sweep"></span><i class="topbar-radar-dot topbar-radar-dot--one"></i><i class="topbar-radar-dot topbar-radar-dot--two"></i><i class="topbar-radar-dot topbar-radar-dot--three"></i><span class="topbar-radar-core"></span></div>
+        <svg class="topbar-scene-art" viewBox="0 0 900 180" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+            <defs>
+                <linearGradient id="topbar-boat-hull" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e0f7ff"></stop><stop offset=".5" stop-color="#58c8ed"></stop><stop offset="1" stop-color="#0a527a"></stop></linearGradient>
+                <linearGradient id="topbar-paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fbff"></stop><stop offset="1" stop-color="#b8d5e7"></stop></linearGradient>
+                <linearGradient id="topbar-earth-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8" stop-opacity=".28"></stop><stop offset="1" stop-color="#06223d" stop-opacity=".04"></stop></linearGradient>
+                <filter id="topbar-scene-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur><feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
+                <g id="topbar-boat">
+                    <path class="topbar-boat-hull" d="M0 103 H286 L265 128 Q256 139 238 141 H47 Q21 140 8 123 Z"></path><path class="topbar-boat-deck" d="M58 103 V72 H92 V54 H151 V72 H201 V103 Z"></path><path class="topbar-boat-deck-line" d="M58 103 H201 M92 72 H151"></path>
+                    <rect class="topbar-boat-window" x="101" y="61" width="10" height="8" rx="1"></rect><rect class="topbar-boat-window" x="117" y="61" width="10" height="8" rx="1"></rect><rect class="topbar-boat-window" x="133" y="61" width="10" height="8" rx="1"></rect><rect class="topbar-boat-window" x="164" y="78" width="13" height="9" rx="1"></rect><rect class="topbar-boat-window" x="181" y="78" width="13" height="9" rx="1"></rect>
+                    <path class="topbar-boat-mast" d="M121 54 V30 M115 39 H127 M121 30 L132 24"></path><path class="topbar-waterline" d="M-12 151 Q38 144 84 151 T179 151 T275 151 T363 151"></path><path class="topbar-waterline topbar-waterline--soft" d="M22 162 Q69 155 116 162 T210 162 T303 162"></path><circle class="topbar-light" cx="211" cy="77" r="3"></circle>
+                </g>
+                <g id="topbar-aircraft"><path class="topbar-aircraft-body" d="M0 48 L61 43 L88 13 L101 13 L95 42 L156 38 L176 45 L96 57 L111 71 L100 73 L81 61 L34 67 L20 79 L11 78 L22 61 L0 55 Z"></path><path class="topbar-aircraft-trail" d="M-24 82 Q18 73 48 63"></path><circle class="topbar-light" cx="87" cy="45" r="3"></circle></g>
+                <g id="topbar-satellite">
+                    <ellipse class="topbar-satellite-orbit" cx="124" cy="73" rx="164" ry="54" transform="rotate(-13 124 73)"></ellipse><g transform="translate(130 65) rotate(-11)">
+                        <rect class="topbar-satellite-panel" x="-72" y="-11" width="51" height="22" rx="2"></rect><path class="topbar-satellite-panel-grid" d="M-55 -11 V11 M-38 -11 V11 M-72 0 H-21 M21 -11 V11 M38 -11 V11 M55 -11 V11 M21 0 H72"></path><rect class="topbar-satellite-body" x="-20" y="-17" width="40" height="34" rx="5"></rect><path class="topbar-satellite-dish" d="M-4 -18 Q1 -39 19 -35 Q12 -20 -4 -18 Z"></path><path class="topbar-satellite-boom" d="M0 17 V28 M-5 28 H5"></path>
+                    </g>
+                </g>
+                <g id="topbar-log-sheet" transform="rotate(-5 681 92)">
+                    <rect class="topbar-log-paper" x="548" y="22" width="258" height="137" rx="8"></rect><path class="topbar-log-fold" d="M774 22 V49 H806"></path><path class="topbar-log-rule" d="M566 56 H787 M566 78 H787 M566 100 H787 M566 122 H787 M566 144 H787"></path>
+                    <g class="topbar-log-symbols"><circle cx="576" cy="45" r="3"></circle><path d="M589 45 H631 M646 45 H666"></path><path d="M571 66 h10 v8 h-10 z M589 70 H649 M662 70 H690"></path><path d="M573 89 l5 -8 5 8 z M594 85 H646 M659 85 H676"></path><circle cx="576" cy="111" r="4"></circle><path d="M590 111 H640 M653 111 H684"></path><path d="M571 130 h9 M585 126 v9 M596 130 h42 M651 130 h24"></path></g>
+                </g>
+                <g id="topbar-radio-unit"><path class="topbar-radio-antenna" d="M605 41 L591 9 M601 32 L613 15"></path><rect class="topbar-radio-body" x="567" y="44" width="205" height="105" rx="14"></rect><rect class="topbar-radio-screen" x="583" y="60" width="99" height="40" rx="5"></rect><path class="topbar-radio-wave" d="M596 85 Q604 63 612 85 T628 85 T644 85 T660 85"></path><circle class="topbar-radio-knob" cx="716" cy="81" r="14"></circle><circle class="topbar-radio-knob-core" cx="716" cy="81" r="5"></circle><path class="topbar-radio-buttons" d="M589 119 H750 M605 119 V132 M625 119 V132 M645 119 V132 M665 119 V132 M685 119 V132"></path><circle class="topbar-light" cx="752" cy="58" r="3"></circle></g>
+            </defs>
+            <g class="topbar-scene topbar-scene--system"><path class="topbar-station-base" d="M560 148 H852"></path><path class="topbar-station-mast" d="M704 144 L724 56 L744 144 M714 103 H735 M718 85 H730"></path><path class="topbar-station-dish" d="M689 71 Q711 39 741 52 Q725 78 697 80 Z"></path><path class="topbar-station-wave" d="M742 44 Q758 29 775 44 M750 52 Q762 42 774 52"></path><rect class="topbar-station-console" x="600" y="111" width="80" height="37" rx="5"></rect><path class="topbar-station-console-line" d="M611 121 H669 M611 130 H651 M611 139 H660"></path><circle class="topbar-light" cx="668" cy="121" r="3"></circle><circle class="topbar-light topbar-light--amber" cx="720" cy="52" r="3"></circle></g>
+            <g class="topbar-scene topbar-scene--radio"><use href="#topbar-radio-unit"></use></g>
+            <g class="topbar-scene topbar-scene--traffic"><use href="#topbar-boat" transform="translate(494 4) scale(.94)"></use><use href="#topbar-aircraft" transform="translate(673 20) scale(.88)"></use></g>
+            <g class="topbar-scene topbar-scene--marine"><use href="#topbar-boat" transform="translate(525 4) scale(1.02)"></use></g>
+            <g class="topbar-scene topbar-scene--aviation"><use href="#topbar-aircraft" transform="translate(600 25) scale(1.15)"></use></g>
+            <g class="topbar-scene topbar-scene--satellite"><path class="topbar-earth" d="M442 179 Q623 103 900 164"></path><path class="topbar-earth-glow" d="M450 179 Q632 113 900 166"></path><path class="topbar-earth-fill" d="M442 179 Q623 103 900 164 L900 190 L442 190 Z"></path><use href="#topbar-satellite" transform="translate(595 12)"></use></g>
+            <g class="topbar-scene topbar-scene--logs"><use href="#topbar-log-sheet"></use></g>
+        </svg>
     </div>
-    <div class="topbar-actions">
-        <a
-            class="github-project-link"
-            href="https://github.com/EyeVisionsNL/SDRCC"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="View the SDRCC project on GitHub (opens in a new tab)"
-        >
-            <svg class="github-project-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.78.62-3.37-1.21-3.37-1.21-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .08 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05A9.35 9.35 0 0 1 12 7.11c.85 0 1.69.12 2.49.34 1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.25 10.25 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"></path>
-            </svg>
-            <span class="github-project-copy">
-                <strong>View project on GitHub</strong>
-                <small>EyeVisionsNL / SDRCC</small>
-            </span>
-        </a>
-        <div class="topbar-status" aria-label="Dashboard live status">
-            <span class="status-dot"></span>
-            <span>LIVE</span>
-        </div>
-    </div>
+    <div class="brand-block"><img class="brand-logo" src="/static/assets/sdrcc.png?v=0.56.0x-r3" alt="SDRCC logo"><div class="brand-copy"><div class="brand-title-row"><h1>SDRCC <span aria-hidden="true">–</span> SDR Control Center</h1></div><p>Listen · Decode · Analyze · Share</p><div class="topbar-status" aria-label="Dashboard live status"><span class="status-dot"></span><span>LIVE</span></div></div></div>
 </header>
 
 <nav class="tabs">
@@ -413,7 +405,7 @@
                 <section class="system-maintenance-group-v0540f" data-control-scope="ais-autostart" aria-labelledby="ais-autostart-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
-                            <h3 id="ais-autostart-title">AIS update protection</h3>
+                            <h3 id="ais-autostart-title"><span class="sdrcc-inline-icon" aria-hidden="true">🔒</span>AIS update protection</h3>
                             <p class="muted">Use once after an AIS-Catcher update if it enabled boot autostart again. Current reception keeps running.</p>
                         </div>
                         <span class="system-maintenance-warning-v0540f">AFTER AIS UPDATE</span>
@@ -427,7 +419,7 @@
                 <section class="system-maintenance-group-v0540f" data-control-scope="sdrcc-autostart" aria-labelledby="sdrcc-autostart-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
-                            <h3 id="sdrcc-autostart-title">SDRCC test mode</h3>
+                            <h3 id="sdrcc-autostart-title"><span class="sdrcc-inline-icon" aria-hidden="true">🧪</span>SDRCC test mode</h3>
                             <p class="muted">Disable dashboard autostart for reboot testing. The current dashboard keeps running. Restore with <code>sudo systemctl enable --now sdrcc.service</code>.</p>
                         </div>
                         <span class="system-maintenance-warning-v0540f">REBOOT IMPACT</span>
@@ -438,13 +430,25 @@
                 <section class="system-maintenance-group-v0540f mission-sounds-panel" aria-labelledby="mission-sounds-title">
                     <div class="mission-sounds-heading">
                         <div>
-                            <h3 id="mission-sounds-title">Mission notifications</h3>
-                            <p class="muted">Sound alerts and dashboard event notifications.</p>
+                            <h3 id="mission-sounds-title"><span class="sdrcc-inline-icon" aria-hidden="true">🔔</span>Mission notifications</h3>
+                            <p class="muted">Mission alerts, dashboard notifications and optional navigation sounds.</p>
                         </div>
                         <label class="mission-sounds-toggle"><input id="mission-sounds-enabled" type="checkbox"><span>Sound enabled</span></label>
                     </div>
                     <label class="mission-sounds-volume" for="mission-sounds-volume"><span>Volume</span><input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35"><strong id="mission-sounds-volume-value">35%</strong></label>
-                    <button class="control-button" id="mission-sounds-test" type="button">🚀 Test start sound</button>
+                    <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-tab-sounds-enabled" type="checkbox"><span>Luchtige Whoosh when switching tabs</span></label>
+                    <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-control-sounds-enabled" type="checkbox"><span>Soft Start / Stop button sounds</span></label>
+                    <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-interface-clicks-enabled" type="checkbox"><span>Subtle control clicks (no refresh / save / replay)</span></label>
+                    <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-startup-sound-enabled" type="checkbox"><span>Space Startup with SDRCC logo</span></label>
+                    <p class="muted" id="mission-startup-sound-status" role="status" hidden></p>
+                    <div class="mission-sounds-test-actions">
+                        <button class="control-button" id="mission-sounds-test" type="button">🚀 Test start sound</button>
+                        <button class="control-button" id="mission-tab-sounds-test" type="button">🌬 Test whoosh</button>
+                        <button class="control-button" id="mission-control-sounds-test-start" type="button">▶ Test start click</button>
+                        <button class="control-button" id="mission-control-sounds-test-stop" type="button">■ Test stop click</button>
+                        <button class="control-button" id="mission-interface-clicks-test" type="button">☝ Test control click</button>
+                        <button class="control-button" id="mission-startup-sound-test" type="button">🛸 Test Space Startup</button>
+                    </div>
                     <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
                 </section>
             </div>
@@ -761,7 +765,7 @@
             <div class="traffic-voice-section-heading">
                 <div>
                     <span>ACTIVE RECEIVER</span>
-                    <h3>Shared Voice Controls &amp; Audio</h3>
+                    <h3><span class="sdrcc-inline-icon" aria-hidden="true">🎛️</span>Shared Voice Controls &amp; Audio</h3>
                 </div>
                 <div class="traffic-voice-header-badges">
                     <span id="traffic-voice-execution" class="traffic-voice-badge is-offline">EXECUTION DISABLED</span>
@@ -775,11 +779,11 @@
                 <div><dt>Receiver software</dt><dd id="traffic-voice-backend">-</dd></div>
             </dl>
             <div class="traffic-voice-controls">
-                <button id="traffic-voice-stop" type="button" class="traffic-voice-button is-stop">Stop Voice</button>
+                <button id="traffic-voice-stop" type="button" class="traffic-voice-button is-stop">■ Stop Voice</button>
                 <span id="traffic-voice-action-message" aria-live="polite">Ready.</span>
             </div>
             <div class="traffic-voice-channel-list-tools" aria-label="Traffic Voice channel list">
-                <div><strong>Channel List</strong><span>Load another port / airfield list or export the current list for editing.</span></div>
+                <div><strong><span class="sdrcc-inline-icon" aria-hidden="true">📋</span>Channel List</strong><span>Load another port / airfield list or export the current list for editing.</span></div>
                 <div class="traffic-voice-channel-list-actions">
                     <input id="traffic-voice-channel-list-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
                     <button id="traffic-voice-channel-list-load" type="button" class="traffic-voice-button">Load Excel</button>
@@ -815,7 +819,7 @@
                 <button id="traffic-voice-channel-filter" type="button" class="traffic-voice-button is-test" aria-pressed="true" hidden>Channel filter: ON · 15 kHz</button>
             </div>
             <div class="traffic-voice-audio-controls">
-                <button id="traffic-voice-audio-toggle" type="button" class="traffic-voice-button" disabled>▶ Live audio</button>
+                <button id="traffic-voice-audio-toggle" type="button" class="traffic-voice-button" aria-pressed="false" disabled>▶ Live audio</button>
                 <label>Browser volume
                     <input id="traffic-voice-volume" type="range" min="0" max="1" step="0.05" value="0.85">
                 </label>
@@ -842,7 +846,7 @@
                 <div class="traffic-voice-recordings-heading">
                     <div>
                         <span>MARINE REPLAY</span>
-                        <h3>Recent transmissions</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">🎙️</span>Recent transmissions</h3>
                     </div>
                     <small>Up to four latest receptions</small>
                 </div>
@@ -851,13 +855,13 @@
                 <audio id="traffic-voice-replay-audio" class="traffic-voice-replay-audio" preload="none"></audio>
             </section>
             <div class="traffic-voice-signal-metrics">
-                <div><span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
-                <div><span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
-                <div><span>Gain / squelch</span><strong id="traffic-voice-rf-settings">-</strong></div>
-                <div><span>Strongest channel</span><strong id="traffic-voice-active-channel">-</strong></div>
-                <div><span>Signal / SNR</span><strong id="traffic-voice-signal">-</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🔊</span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🎚️</span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🎛️</span>Gain / squelch</span><strong id="traffic-voice-rf-settings">-</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📡</span>Strongest channel</span><strong id="traffic-voice-active-channel">-</strong></div>
+                <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Signal / SNR</span><strong id="traffic-voice-signal">-</strong></div>
                 <div class="traffic-voice-speaker-metric">
-                    <span>Possible speaker</span>
+                    <span><span class="sdrcc-inline-icon" aria-hidden="true">🚢</span>Possible speaker</span>
                     <strong id="traffic-voice-possible-speaker">NOT INFERRED</strong>
                     <small id="traffic-voice-ais-match-detail">Waiting for validated Marine ATIS.</small>
                     <div class="traffic-voice-map-actions">
@@ -866,6 +870,15 @@
                             <input id="traffic-voice-ais-zoom" type="number" min="3" max="18" step="1" value="14" aria-label="AIS map zoom level">
                         </label>
                         <button id="traffic-voice-auto-ais-vessel" type="button" class="traffic-voice-map-button" aria-pressed="false">Auto: off</button>
+                        <button id="traffic-voice-vessel-photos-toggle" type="button" class="traffic-voice-map-button" aria-pressed="false">Ship photos: off</button>
+                        <a id="traffic-voice-google-images" class="traffic-voice-map-button" href="#" target="_blank" rel="noopener noreferrer" hidden>Google Images ↗</a>
+                    </div>
+                    <div id="traffic-voice-vessel-photo-card" class="traffic-voice-vessel-photo-card" hidden>
+                        <a id="traffic-voice-vessel-photo-link" class="traffic-voice-vessel-photo-link" target="_blank" rel="noopener noreferrer"><img id="traffic-voice-vessel-photo" alt=""></a>
+                        <div>
+                            <strong id="traffic-voice-vessel-photo-name">Matched vessel</strong>
+                            <small id="traffic-voice-vessel-photo-credit" class="traffic-voice-vessel-photo-credit"></small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -894,7 +907,7 @@
                 <div class="hf-monitor-section-heading">
                     <div>
                         <span>OPERATOR SETUP</span>
-                        <h3>Preset &amp; receiver</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">📻</span>Preset &amp; receiver</h3>
                     </div>
                     <span id="hf-monitor-controller-state" class="hf-monitor-state-label">READY</span>
                 </div>
@@ -961,10 +974,10 @@
                 </div>
 
                 <dl class="hf-monitor-contract-grid">
-                    <div><dt>Receiver authority</dt><dd>Receiver Manager</dd></div>
-                    <div><dt>Service restore</dt><dd>Exact pre-start state</dd></div>
-                    <div><dt>Backend</dt><dd id="hf-monitor-backend">LOADING</dd></div>
-                    <div><dt>Execution</dt><dd id="hf-monitor-execution">LOADING</dd></div>
+                    <div><dt><span class="sdrcc-inline-icon" aria-hidden="true">🛡️</span>Receiver authority</dt><dd>Receiver Manager</dd></div>
+                    <div><dt><span class="sdrcc-inline-icon" aria-hidden="true">↩️</span>Service restore</dt><dd>Exact pre-start state</dd></div>
+                    <div><dt><span class="sdrcc-inline-icon" aria-hidden="true">⚙️</span>Backend</dt><dd id="hf-monitor-backend">LOADING</dd></div>
+                    <div><dt><span class="sdrcc-inline-icon" aria-hidden="true">⚡</span>Execution</dt><dd id="hf-monitor-execution">LOADING</dd></div>
                 </dl>
             </article>
 
@@ -972,7 +985,7 @@
                 <div class="hf-monitor-section-heading">
                     <div>
                         <span>LIVE RF</span>
-                        <h3>Spectrum &amp; waterfall</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">📈</span>Spectrum &amp; waterfall</h3>
                     </div>
                     <span id="hf-monitor-spectrum-state" class="hf-monitor-state-label">NO LIVE DATA</span>
                 </div>
@@ -1027,15 +1040,15 @@
         </section>
 
         <div class="mission-planner-summary">
-            <article class="card mission-planner-summary-card is-passes"><span>Planned passes</span><strong id="mission-planner-pass-count">-</strong></article>
-            <article class="card mission-planner-summary-card is-conflicts"><span>Receiver conflicts</span><strong id="mission-planner-conflict-count">-</strong></article>
-            <article class="card mission-planner-summary-card is-skipped"><span>Skipped missions</span><strong id="mission-planner-skipped-count">-</strong></article>
-            <article class="card mission-planner-summary-card is-window"><span>Planning window</span><strong id="mission-planner-window">48 hours</strong></article>
+            <article class="card mission-planner-summary-card is-passes"><span><span class="sdrcc-inline-icon" aria-hidden="true">🛰️</span>Planned passes</span><strong id="mission-planner-pass-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-conflicts"><span><span class="sdrcc-inline-icon" aria-hidden="true">🔀</span>Receiver conflicts</span><strong id="mission-planner-conflict-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-skipped"><span><span class="sdrcc-inline-icon" aria-hidden="true">⏭️</span>Skipped missions</span><strong id="mission-planner-skipped-count">-</strong></article>
+            <article class="card mission-planner-summary-card is-window"><span><span class="sdrcc-inline-icon" aria-hidden="true">🕒</span>Planning window</span><strong id="mission-planner-window">48 hours</strong></article>
         </div>
 
         <section class="card mission-planner-settings">
             <div class="mission-planner-settings-copy">
-                <h2>Satellite planning settings</h2>
+                <h2><span class="sdrcc-inline-icon" aria-hidden="true">⚙️</span>Satellite planning settings</h2>
                 <p class="muted">Each satellite has its own downlink selection, peak gate, rising start angle and falling close angle. Values use the configured station location.</p>
             </div>
             <form id="mission-planner-settings-form" class="mission-planner-settings-form">
@@ -1104,10 +1117,18 @@
         </section>
 
         <section class="card mission-planner-settings iss-sstv-event-card">
-            <div class="mission-planner-settings-copy">
-                <h2>📺 ISS SSTV event</h2>
-                <p class="muted">Schedule image receptions during an announced ISS SSTV window. During an enabled event, matching ISS passes use the SSTV downlink instead of creating a voice recording. The receiver handover and service restore stay under Mission AutoPilot.</p>
+            <div class="iss-sstv-heading">
+                <h2>📺 ISS SSTV</h2>
+                <span id="iss-sstv-event-status" class="mission-planner-tle-status">Checking event…</span>
             </div>
+            <div class="iss-sstv-announcement">
+                <a href="https://www.ariss.org/upcoming-sstv-events.html" target="_blank" rel="noopener noreferrer">Official ARISS announcements ↗</a>
+                <p id="iss-sstv-announcement-status" class="muted" aria-live="polite">Checking latest announcement…</p>
+                <details><summary>Announcement details</summary><p id="iss-sstv-announcement-text"></p></details>
+            </div>
+            <details class="iss-sstv-settings-details">
+                <summary>Reception settings</summary>
+                <p class="muted">Set the announced window, frequency and mode, then enable reception.</p>
             <form id="iss-sstv-event-form" class="mission-planner-settings-form">
                 <div class="iss-sstv-event-fields">
                     <label class="iss-sstv-enable"><span>Schedule this event</span><input id="iss-sstv-enabled" type="checkbox"></label>
@@ -1121,8 +1142,9 @@
                     <span id="iss-sstv-decoder-status" class="muted" aria-live="polite">Checking SSTV decoder…</span>
                     <button type="submit" class="control-button">Save ISS SSTV event</button>
                 </div>
-                <p id="iss-sstv-event-message" class="muted iss-sstv-event-message" aria-live="polite">Series 33 is preloaded: Oct 2–6, 2026 · 437.550 MHz · Robot 36 · 36 seconds on, 2 minutes pause.</p>
+                <p id="iss-sstv-event-message" class="muted iss-sstv-event-message" aria-live="polite">Loading reception settings…</p>
             </form>
+            </details>
         </section>
 
         <section class="card mission-planner-table-card">
@@ -1159,18 +1181,18 @@
         </section>
 
         <section class="mission-analytics-summary" aria-label="Mission summary">
-            <article class="card mission-analytics-stat is-total"><span>Total missions</span><strong id="analytics-total">-</strong><small id="analytics-completed">- completed</small></article>
-            <article class="card mission-analytics-stat is-success"><span>Success rate</span><strong id="analytics-success-rate">-</strong><small id="analytics-success-count">- successful</small></article>
-            <article class="card mission-analytics-stat is-snr"><span>Average peak SNR</span><strong id="analytics-average-snr">-</strong><small id="analytics-best-snr">Best: -</small></article>
-            <article class="card mission-analytics-stat is-elevation"><span>Average elevation</span><strong id="analytics-average-elevation">-</strong><small>Maximum pass elevation</small></article>
-            <article class="card mission-analytics-stat is-images"><span>Total images</span><strong id="analytics-total-images">-</strong><small id="analytics-average-duration">Average duration: -</small></article>
-            <article class="card mission-analytics-stat is-frames"><span>Total frames</span><strong id="analytics-total-frames">-</strong><small id="analytics-total-cadu">CADU: -</small></article>
+            <article class="card mission-analytics-stat is-total"><span><span class="sdrcc-inline-icon" aria-hidden="true">🗂️</span>Total missions</span><strong id="analytics-total">-</strong><small id="analytics-completed">- completed</small></article>
+            <article class="card mission-analytics-stat is-success"><span><span class="sdrcc-inline-icon" aria-hidden="true">✅</span>Success rate</span><strong id="analytics-success-rate">-</strong><small id="analytics-success-count">- successful</small></article>
+            <article class="card mission-analytics-stat is-snr"><span><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Average peak SNR</span><strong id="analytics-average-snr">-</strong><small id="analytics-best-snr">Best: -</small></article>
+            <article class="card mission-analytics-stat is-elevation"><span><span class="sdrcc-inline-icon" aria-hidden="true">🧭</span>Average elevation</span><strong id="analytics-average-elevation">-</strong><small>Maximum pass elevation</small></article>
+            <article class="card mission-analytics-stat is-images"><span><span class="sdrcc-inline-icon" aria-hidden="true">🖼️</span>Total images</span><strong id="analytics-total-images">-</strong><small id="analytics-average-duration">Average duration: -</small></article>
+            <article class="card mission-analytics-stat is-frames"><span><span class="sdrcc-inline-icon" aria-hidden="true">▦</span>Total frames</span><strong id="analytics-total-frames">-</strong><small id="analytics-total-cadu">CADU: -</small></article>
         </section>
 
         <div class="mission-analytics-grid">
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Receiver Performance</h2><p class="muted">Performance grouped by physical receiver.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">📻</span>Receiver Performance</h2><p class="muted">Performance grouped by physical receiver.</p></div>
                 </div>
                 <div id="analytics-receivers" class="mission-analytics-cards">
                     <div class="mission-analytics-empty">Loading receiver statistics...</div>
@@ -1179,7 +1201,7 @@
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Satellite Performance</h2><p class="muted">Mission results grouped by satellite.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🛰️</span>Satellite Performance</h2><p class="muted">Mission results grouped by satellite.</p></div>
                 </div>
                 <div id="analytics-satellites" class="mission-analytics-cards">
                     <div class="mission-analytics-empty">Loading satellite statistics...</div>
@@ -1190,7 +1212,7 @@
         <div class="mission-analytics-trends">
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Peak SNR Trend</h2><p class="muted">Peak signal-to-noise ratio per stored mission.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Peak SNR Trend</h2><p class="muted">Peak signal-to-noise ratio per stored mission.</p></div>
                 </div>
                 <div id="analytics-snr-trend" class="mission-analytics-trend-list">
                     <div class="mission-analytics-empty">Loading SNR trend...</div>
@@ -1199,7 +1221,7 @@
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>RF Gain vs Peak SNR</h2><p class="muted">Historical mission gain setting alongside the measured peak SNR.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🎚️</span>RF Gain vs Peak SNR</h2><p class="muted">Historical mission gain setting alongside the measured peak SNR.</p></div>
                 </div>
                 <div id="analytics-gain-snr" class="mission-analytics-gain-list">
                     <div class="mission-analytics-empty">Loading RF gain history...</div>
@@ -1208,7 +1230,7 @@
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Images per Mission</h2><p class="muted">Decoded image output per stored mission.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🖼️</span>Images per Mission</h2><p class="muted">Decoded image output per stored mission.</p></div>
                 </div>
                 <div id="analytics-images-trend" class="mission-analytics-trend-list">
                     <div class="mission-analytics-empty">Loading image trend...</div>
@@ -1217,7 +1239,7 @@
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Mission Outcome Timeline</h2><p class="muted">Chronological mission result overview.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🕒</span>Mission Outcome Timeline</h2><p class="muted">Chronological mission result overview.</p></div>
                 </div>
                 <div id="analytics-outcome-timeline" class="mission-analytics-timeline">
                     <div class="mission-analytics-empty">Loading mission timeline...</div>
@@ -1230,14 +1252,14 @@
         <div class="mission-analytics-grid mission-analytics-grid-secondary">
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Mission Results</h2><p class="muted">Stored result classification across all missions.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">📊</span>Mission Results</h2><p class="muted">Stored result classification across all missions.</p></div>
                 </div>
                 <div id="analytics-results" class="mission-analytics-breakdown"></div>
             </section>
 
             <section class="card mission-analytics-panel">
                 <div class="mission-analytics-panel-heading">
-                    <div><h2>Quality Distribution</h2><p class="muted">Quality grades generated by Mission History diagnostics.</p></div>
+                    <div><h2><span class="sdrcc-inline-icon" aria-hidden="true">🎯</span>Quality Distribution</h2><p class="muted">Quality grades generated by Mission History diagnostics.</p></div>
                 </div>
                 <div id="analytics-quality" class="mission-analytics-breakdown"></div>
             </section>
@@ -1259,12 +1281,12 @@
             </div>
 
             <div class="history-stat-grid">
-                <div class="history-stat is-total"><span>Missions</span><strong id="history-stat-total">0</strong></div>
-                <div class="history-stat is-success"><span>Success</span><strong id="history-stat-success">0%</strong></div>
-                <div class="history-stat is-images"><span>Images</span><strong id="history-stat-images">0</strong></div>
-                <div class="history-stat is-duration"><span>Avg. duration</span><strong id="history-stat-duration">-</strong></div>
-                <div class="history-stat is-snr"><span>Best SNR</span><strong id="history-stat-snr">-</strong></div>
-                <div class="history-stat is-frames"><span>Total frames</span><strong id="history-stat-frames">0</strong></div>
+                <div class="history-stat is-total"><span><span class="sdrcc-inline-icon" aria-hidden="true">🗂️</span>Missions</span><strong id="history-stat-total">0</strong></div>
+                <div class="history-stat is-success"><span><span class="sdrcc-inline-icon" aria-hidden="true">✅</span>Success</span><strong id="history-stat-success">0%</strong></div>
+                <div class="history-stat is-images"><span><span class="sdrcc-inline-icon" aria-hidden="true">🖼️</span>Images</span><strong id="history-stat-images">0</strong></div>
+                <div class="history-stat is-duration"><span><span class="sdrcc-inline-icon" aria-hidden="true">⏱️</span>Avg. duration</span><strong id="history-stat-duration">-</strong></div>
+                <div class="history-stat is-snr"><span><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Best SNR</span><strong id="history-stat-snr">-</strong></div>
+                <div class="history-stat is-frames"><span><span class="sdrcc-inline-icon" aria-hidden="true">▦</span>Total frames</span><strong id="history-stat-frames">0</strong></div>
             </div>
 
             <div class="history-toolbar">
@@ -1314,7 +1336,7 @@
                 <div class="mission-operations-section-title">
                     <div>
                         <span class="mission-operations-eyebrow">LIVE WORKSPACE</span>
-                        <h3>Active Mission</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">🎯</span>Active Mission</h3>
                     </div>
                     <span id="mission-operations-state" class="mission-operations-state standby">IDLE</span>
                 </div>
@@ -1398,7 +1420,7 @@
                     <div class="mission-operations-section-title">
                         <div>
                             <span class="mission-operations-eyebrow">ISS VOICE</span>
-                            <h3>Live Audio</h3>
+                            <h3><span class="sdrcc-inline-icon" aria-hidden="true">🔊</span>Live Audio</h3>
                         </div>
                         <span id="mission-operations-audio-state" class="mission-operations-state standby">STANDBY</span>
                     </div>
@@ -1432,7 +1454,7 @@
                 <div class="mission-operations-section-title">
                     <div>
                         <span class="mission-operations-eyebrow">RECORDING LIBRARY</span>
-                        <h3>Mission Results</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">🗂️</span>Mission Results</h3>
                     </div>
                     <span id="mission-operations-result-count" class="mission-operations-state info">0 FILES</span>
                 </div>
@@ -1443,7 +1465,7 @@
                 <div class="mission-operations-section-title">
                     <div>
                         <span class="mission-operations-eyebrow">RESULT VIEWER</span>
-                        <h3>Selected Result</h3>
+                        <h3><span class="sdrcc-inline-icon" aria-hidden="true">🔍</span>Selected Result</h3>
                     </div>
                     <span id="mission-operations-selected-kind" class="mission-operations-state standby">NONE</span>
                 </div>
@@ -1466,15 +1488,15 @@
                     </div>
                 </div>
                 <div class="mission-operations-summary">
-                    <h3>Mission Summary</h3>
+                    <h3><span class="sdrcc-inline-icon" aria-hidden="true">📋</span>Mission Summary</h3>
                     <div class="mission-operations-summary-grid">
-                        <div><span>Mission ID</span><strong id="mission-operations-result-id">-</strong></div>
-                        <div><span>Satellite</span><strong id="mission-operations-result-satellite">-</strong></div>
-                        <div><span>Receiver</span><strong id="mission-operations-result-receiver">-</strong></div>
-                        <div><span>Pipeline</span><strong id="mission-operations-result-pipeline">-</strong></div>
-                        <div><span>Result</span><strong id="mission-operations-result-status">-</strong></div>
-                        <div><span>Duration</span><strong id="mission-operations-result-duration">-</strong></div>
-                        <div><span>Channel / wideband power</span><strong id="mission-operations-result-rf-ratio">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🆔</span>Mission ID</span><strong id="mission-operations-result-id">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🛰️</span>Satellite</span><strong id="mission-operations-result-satellite">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📻</span>Receiver</span><strong id="mission-operations-result-receiver">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">⚙️</span>Pipeline</span><strong id="mission-operations-result-pipeline">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📊</span>Result</span><strong id="mission-operations-result-status">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">⏱️</span>Duration</span><strong id="mission-operations-result-duration">-</strong></div>
+                        <div><span><span class="sdrcc-inline-icon" aria-hidden="true">📶</span>Channel / wideband power</span><strong id="mission-operations-result-rf-ratio">-</strong></div>
                     </div>
                 </div>
             </section>
@@ -1525,8 +1547,8 @@
     <span id="statusbar-right">Live update elke 5 seconden</span>
 </footer>
 
-<script src="/static/js/startup_splash.js?v=0.54.0v-r1"></script>
-<script src="/static/dashboard.js?v=0.63.10"></script>
+<script src="/static/js/startup_splash.js?v=0.65.26"></script>
+<script src="/static/dashboard.js?v=0.65.9"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
@@ -1534,12 +1556,12 @@
 <script src="/static/js/radio.js?v=0.63.11"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
 <script src="/static/js/mission_state.js"></script>
-<script src="/static/js/mission_sounds.js?v=0.54.0f"></script>
+<script src="/static/js/mission_sounds.js?v=0.65.23"></script>
 <script src="/static/js/iss_voice_sounds.js?v=0.48.0e"></script>
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.56.0o"></script>
-<script src="/static/js/mission_planner.js?v=0.63.5"></script>
-<script src="/static/js/traffic_voice.js?v=0.63.9"></script>
+<script src="/static/js/mission_planner.js?v=0.65.1"></script>
+<script src="/static/js/traffic_voice.js?v=0.66.2"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>

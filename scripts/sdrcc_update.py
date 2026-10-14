@@ -394,6 +394,61 @@ def deploy_manifest(source: Path, project: Path, backup: Path, install_user: str
     run(["/bin/chown", "-R", f"{install_user}:{install_group}", backup], check=True)
 
 
+AIS_MOBILE_PLUGIN_RELATIVE = Path("dashboard/static/mobile/atis-highlight.pjs")
+AIS_MOBILE_PLUGIN_DIR = Path("/etc/AIS-catcher/plugins")
+AIS_MOBILE_PLUGIN_TARGET = AIS_MOBILE_PLUGIN_DIR / "sdrcc-mobile-atis.pjs"
+AIS_MOBILE_PLUGIN_MARKER = b"SDRCC-ATIS-MOBILE-BRIDGE"
+
+
+def install_optional_ais_mobile_plugin(project: Path, backup: Path) -> dict:
+    """Install only our dedicated AIS-Catcher map bridge; never alter other plugins.
+
+    The managed updater already stops AIS-Catcher prior to source deployment,
+    and restores the exact prior service state after installation. Do not start
+    AIS-Catcher here and do not change the Rijnmond VTS plugin.
+    """
+    src = project / AIS_MOBILE_PLUGIN_RELATIVE
+    parent = AIS_MOBILE_PLUGIN_DIR
+    target = AIS_MOBILE_PLUGIN_TARGET
+    if not parent.is_dir() or parent.is_symlink():
+        log("AIS Mobile bridge deferred: AIS-Catcher plugin directory missing or unsafe")
+        return {"installed": False, "reason": "plugin directory unavailable"}
+    if not src.is_file() or src.is_symlink():
+        raise RuntimeError("SDRCC mobile AIS-Catcher companion source missing")
+    data = src.read_bytes()
+    if AIS_MOBILE_PLUGIN_MARKER not in data or len(data) > 25000:
+        raise RuntimeError("Invalid SDRCC Mobile AIS companion plugin source")
+    if target.is_symlink() or (target.exists() and not target.is_file()):
+        log("AIS Mobile bridge deferred: external plugin target is not a regular file")
+        return {"installed": False, "reason": "unsafe existing plugin target"}
+    if target.exists():
+        old = target.read_bytes()
+        if AIS_MOBILE_PLUGIN_MARKER not in old:
+            log("AIS Mobile bridge deferred: existing plugin is not owned by SDRCC")
+            return {"installed": False, "reason": "plugin name conflict"}
+        if old == data:
+            return {"installed": True, "changed": False}
+        previous = backup / "ais-mobile-plugin-previous.pjs"
+        previous.write_bytes(old)
+        os.chmod(previous, 0o644)
+    else:
+        (backup / "ais-mobile-plugin-created").write_text("1\n", encoding="utf-8")
+    # Atomic write in the plugin directory. Never change other AIS plugins.
+    fd, temp = tempfile.mkstemp(prefix=".sdrcc-atis-", dir=str(parent))
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temp, 0o644)
+        os.replace(temp, target)
+    finally:
+        if os.path.exists(temp):
+            os.unlink(temp)
+    log("AIS Mobile ATIS bridge installed: " + str(target))
+    return {"installed": True, "changed": True}
+
+
 def install_privileged_helpers(source: Path, install_user: str) -> None:
     helpers = {
         "scripts/sdrcc_disable_ais_autostart.py": "/usr/local/sbin/sdrcc-disable-ais-autostart",
@@ -528,6 +583,18 @@ def worker() -> int:
             )
 
             verify_source_manifest(source)
+            # Validate the downloaded Python code before touching the installed
+            # service. A syntax error must never stop a working SDRCC instance.
+            source_compile = run(
+                [project / "venv/bin/python", "-m", "compileall", "-q",
+                 source / "core", source / "dashboard"],
+                timeout=120,
+            )
+            if source_compile.returncode:
+                raise RuntimeError(
+                    "Update source has invalid Python code; aborting before "
+                    "stopping SDRCC (see /var/log/sdrcc-update.log)."
+                )
             target = (source / "VERSION").read_text(encoding="utf-8").strip()
             comparison = compare_versions(current, target)
             commit = run(
@@ -613,6 +680,7 @@ def worker() -> int:
             )
             deploy_manifest(source, project, backup, install_user, install_group)
             install_privileged_helpers(source, install_user)
+            ais_mobile_bridge = install_optional_ais_mobile_plugin(project, backup)
             latitude, longitude = home_position(project, install_user)
             run(
                 ["/usr/local/sbin/sdrcc-sync-readsb-position", latitude, longitude],
@@ -655,6 +723,9 @@ def worker() -> int:
             )
             if service_restore.get("errors"):
                 success_message += " Receiver service restore requires attention."
+            if not ais_mobile_bridge.get("installed"):
+                success_message += " Optional Mobile AIS map bridge is not installed; inspect update log."
+
 
             write_status(
                 "success",
@@ -667,6 +738,7 @@ def worker() -> int:
                 source_channel=branch,
                 backup=str(backup),
                 service_restore=service_restore,
+                ais_mobile_bridge=ais_mobile_bridge,
             )
             log(f"Managed update completed via {branch}: {current} -> {target}")
             return 0

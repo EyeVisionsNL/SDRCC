@@ -13,8 +13,89 @@
 </p>
 
 <p align="center">
-  <img src="dashboard/static/assets/sdrcc-banner.png" alt="SDRCC — SDR Control Center" width="100%">
+  <img src="images/sdrcc-banner.webp" alt="SDRCC — ships, aircraft and satellites" width="100%">
 </p>
+
+## 📱 Android app
+
+**[Download SDRCC Mobile v2.0.0 (signed APK)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v7/SDRCC-Mobile.apk)** · **[Step-by-step installation and settings](android/README.md)**
+
+The official Android APK is distributed through GitHub Releases with a permanent signing key. The **↓** button inside the app checks for updates and opens the newer signed APK in your phone's browser. Android always asks you to confirm the installation. Updates from the signed beta to v2.0.0 keep the existing station address; do **not** uninstall the current signed app.
+
+On first launch, enter the mini-PC address (for example `192.168.1.50:8080`). In the AIS map plugin selector, enable **VTS sector** and **SDRCC ATIS**; see the picture-by-picture guide above.
+
+Marine Traffic is central: control Marine Voice and AIS, view the live vessel map, see ATIS/AIS matches and photographs, and replay recent recordings. Separate tabs provide ADS-B, satellites, mission controls and system status.
+
+<p align="center">
+<img src="images/android-marine-control.webp" alt="SDRCC Mobile Marine and AIS controls" width="240">
+<img src="images/android-ais-map.webp" alt="Live AIS map with VTS sectors" width="240">
+<img src="images/android-atis-photo.webp" alt="ATIS and AIS vessel match with photograph" width="240">
+</p>
+
+### Android screenshots — 14 October 2026
+
+<details>
+<summary>Connect to your station</summary>
+
+Enter the mini-PC address with **IP-adres wijzigen**. Use your local network or connect your phone and mini-PC through Tailscale.
+
+<p align="center">
+<img src="images/android-startup.webp" alt="Start screen and station address" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Marine, AIS and recordings</summary>
+
+Start or stop Marine Voice and AIS independently. An ATIS/AIS match highlights the vessel without moving the map. Tap the vessel for details, follow the photo credit to the original, or listen to and save recent recordings.
+
+<p align="center">
+<img src="images/android-marine-control.webp" alt="Marine and AIS controls" width="240">
+<img src="images/android-ais-map.webp" alt="AIS map and VTS sectors" width="240">
+<img src="images/android-atis-photo.webp" alt="Matched vessel and original photo link" width="240">
+<img src="images/android-recordings.webp" alt="Live audio and last four recordings" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Aircraft</summary>
+
+Control ADS-B reception and view aircraft on the embedded map.
+
+<p align="center">
+<img src="images/android-adsb.webp" alt="ADS-B reception and aircraft map" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Satellites and missions</summary>
+
+View satellite positions, upcoming missions and the latest received image. Enable or disable automatic scheduling, or stop an active mission. Planning and manual mission starts remain on the mini-PC.
+
+<p align="center">
+<img src="images/android-satellites.webp" alt="Live satellite tracking" width="240">
+<img src="images/android-upcoming-missions.webp" alt="Upcoming mission queue" width="240">
+<img src="images/android-missions.webp" alt="Mission controls and latest received image" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>System and settings</summary>
+
+Check service status and system usage. Open **Settings → Map Connections** to change map addresses.
+
+<p align="center">
+<img src="images/android-system.webp" alt="Live component status and system usage" width="240">
+<img src="images/android-settings.webp" alt="Available components and map settings" width="240">
+</p>
+
+</details>
+
+On the AIS map, enable the **VTS sector** and **SDRCC ATIS** plugins in the plugin selector. [Android installation and connection guide](android/README.md#download-and-install).
 
 ## 📡 What is SDRCC?
 
@@ -30,7 +111,7 @@ SDRCC is designed around multiple RTL-SDR receivers, but the logical SDR slots a
 
 **✈️ Aircraft · 🚢 Ships · 🛰️ Satellites · 📻 Radio**
 
-![SDRCC Radio View showing live ADS-B, AIS and satellite tracks](images/radio-view.png)
+![SDRCC Radio View](images/radio-view.webp)
 
 **Radio View** gives you the quick picture: aircraft from ADS-B, vessels from AIS and satellites currently moving over the station.
 
@@ -42,27 +123,33 @@ In **Marine Voice + AIS**, SDRCC can scan marine VHF channels, decode marine **A
 
 When a correlation is found, **Possible Speaker** shows the vessel, callsign and matching information next to the live receiver.
 
-![Traffic Voice ATIS and AIS Possible Speaker](images/traffic-voice-atis-ais.png)
+![Traffic Voice ATIS and AIS Possible Speaker](images/traffic-marine-photo.webp)
 
 The **Auto** function can follow newly validated matches in the AIS-catcher map. The same map window is reused, and the chosen zoom level is retained.
 
-![Matched Possible Speaker on AIS map](images/ais-map-match.png)
+![Marine Traffic Voice and receiver status](images/traffic-marine.webp)
 
 > Hearing marine traffic is fun. Knowing which ship you're hearing makes it a little more interesting. 🚢🎙️
 
 A match depends on the ATIS and AIS information available at that moment, so **Possible Speaker** is exactly what the name says: useful correlation information for the operator, not a claim that every transmission can always be identified.
 
-Traffic Voice also supports **Airband Voice + ADS-B**, fixed-channel listening, channel scanning, scan exclusions, adjustable scan speed, squelch, selectable voice noise reduction, Auto Gain/manual gain and Excel channel-list import/export.
+Traffic Voice also supports **Airband Voice + ADS-B**, fixed-channel listening, channel scanning, scan exclusions, adjustable scan speed, squelch, Smart Gain/manual gain and Excel channel-list import/export.
+
+Recent Marine transmissions can be replayed or saved, with up to four latest receptions available. Speech filtering and noise reduction have separate Marine and Airband preferences, while the ATIS decoding input remains unchanged. A selectable channel filter improves Marine voice reception.
+
+Optional **Ship photos** adds a vessel thumbnail after a validated live ATIS/AIS match, with the photographer/source credit and a clickable link to the original page. **Google Images** remains available as a separate search link.
+
+Photo source preference: **Mark Prummel → Peter / Binnenvaartspotter → Shipspotting.com → Wikimedia Commons → De Binnenvaart**. Shipspotting images are only used when a reduced thumbnail, photographer attribution, source link and verified vessel identifier can be obtained. Unavailable or unverified results fall through to the next source.
 
 ## 📻 Sometimes you just want a radio
 
-![SDRCC Radio Receiver with Smart Gain, spectrum and waterfall](images/radio-receiver.png)
+![SDRCC Radio Receiver spectrum and waterfall](images/radio-receiver.webp)
 
 Not everything needs to be a mission.
 
 The built-in **Radio Receiver** turns an available RTL-SDR into a browser-controlled receiver with live audio, spectrum and waterfall.
 
-Tune directly or use presets. Supported modes include **LSB, USB, CW, AM, NFM, FM and WFM**, with tuning steps, click-to-tune, **Smart Gain or manual tuner gain**, and RF-power squelch. Smart Gain briefly measures signal and noise, then holds a fixed gain for the session.
+Tune directly or use presets. Supported modes include **LSB, USB, CW, AM, NFM, FM and WFM**, with tuning steps, click-to-tune, RF-power squelch and Auto Gain/manual gain.
 
 Receiver Manager takes care of borrowing the SDR from another role and restoring its previous job when you're finished.
 
@@ -72,33 +159,23 @@ Fortunately, SDRCC can do the waiting.
 
 **Mission Planner** calculates upcoming passes and applies the reception rules configured for each satellite.
 
-![SDRCC Mission Planner with METEOR and ISS SSTV plans](images/mission-planner.png)
+![SDRCC Mission Planner](images/mission-planner.webp)
 
 **Mission Control** shows what's coming next, which receiver will be used and what the scheduler is doing.
 
-![SDRCC Mission Control showing separate METEOR and ISS receiver plans](images/mission-control.png)
+![SDRCC Mission Control](images/mission-control.webp)
 
 When it's time, SDRCC reserves the required receiver, handles conflicting receiver services and starts the mission. After the pass, the receiver is released and its previous context can be restored.
 
-![Smart Gain settings for Weather/METEOR and ISS Voice](images/weather-meteor-smart-gain.png)
-
-Weather / METEOR and ISS Voice settings offer Smart Gain with an operator-selected fallback when the signal measurement is inconclusive. ISS SSTV events can be scheduled for announced transmission windows and processed for Robot36 image decoding.
-
 ### And hopefully...
 
-![Mission Operations keeping received satellite products with their mission](images/mission-operations.png)
+![METEOR MSU-MR MCIR image received at the station](images/meteor-mcir.webp)
 
 ...you get something from space. 🌍📡
 
 **Mission Operations** keeps received products with their mission. Mission History and Mission Analytics provide the deeper view when you want to inspect results, telemetry, Peak SNR and receiver performance.
 
-![Mission History showing a METEOR-M2 4 pass](images/mission-history-meteor.png)
-
-![Sample METEOR-M2 4 MSU-MR RGB MCIR image product](images/meteor-m2-4-mcir-result.png)
-
-This is an example product from a received pass; image completeness varies with reception conditions.
-
-SDRCC supports automated **METEOR-M2 3 / METEOR-M2 4 LRPT** reception through SatDump, **ISS Voice** pass planning and reception, and scheduled **ISS SSTV** events with Robot36 image decoding.
+SDRCC currently supports automated **METEOR-M2 3 / METEOR-M2 4 LRPT** reception through SatDump and **ISS Voice** pass planning and reception.
 
 ## 🚢 AIS, ✈️ ADS-B and a bit more
 
@@ -120,7 +197,7 @@ Roles such as AIS and ADS-B can be reassigned from the dashboard. SDRCC stops co
 
 SDRCC is software, but eventually every signal has to come in through some metal in the sky. 😄
 
-The current station uses a **Scan-King Royal Discone 2000** at about **12 metres**, connected with **Ultraflex 7** coax to a **Mini-Circuits ZFSC-4-1** splitter.
+The current station uses a **Scan-King Royal Discone 2000** at about **15 metres**, connected with **Ultraflex 7** coax to a **Mini-Circuits ZFSC-4-1** splitter.
 
 From there the RF is shared between:
 
@@ -153,6 +230,22 @@ SDRCC stands on the shoulders of some excellent open-source projects. These are 
 | [librtlsdr / rtl-sdr](https://github.com/steve-m/librtlsdr) | Access to RTL2832U-based SDR receivers |
 
 If SDRCC is useful to you, please have a look at the upstream projects too. ❤️
+
+## 📷 Vessel photographs and thanks
+
+Thank you to the photographers and websites that make the optional vessel-photo view possible:
+
+| Website | Photo credit and use in SDRCC |
+|---|---|
+| [Binnenvaartspotter.nl](https://www.binnenvaartspotter.nl/) | Peter's vessel photographs, displayed as thumbnails with permission and a link to the original page |
+| [Mark Prummel](https://markprummel.nl/) | Photographs by Mark & Chris Prummel, with source credit and a link to the original ship page |
+| [Shipspotting.com](https://www.shipspotting.com/photos) | Attributed thumbnails only, with vessel identity verification and a direct link to the original photo; subject to Shipspotting's third-party conditions |
+| [Wikimedia Commons](https://commons.wikimedia.org/) | Vessel photographs with the individual photographer and license shown alongside the image |
+| Various vessel photographers | Photographs from various photographers, with the photographer’s name and a clickable link to the original photograph. Existing watermarks remain intact. |
+
+Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs.
+
+A special thank you to **Mbruins** for the many tests, careful feedback and help improving SDRCC. Real-world testing makes a difference. ❤️
 
 ## 🔧 Getting started
 
@@ -207,16 +300,197 @@ The navigation brings the station together in one place:
 
 `System · Radio Control · Radio View · Traffic Voice · Radio Receiver · Mission Control · Mission Planner · Mission Operations · Mission History · Mission Analytics · Logs`
 
-**System** handles health, detected hardware, receiver bindings and maintenance. Advanced Maintenance groups AIS controls under AIS Update Protection and manages SDRCC updates.
+**System** handles health, detected hardware, receiver bindings and maintenance.
 
 **Radio Control** shows receiver status, assignments and RF settings.
 
 **Mission History & Analytics** keep the technical detail available without turning the README into an operations manual.
 
+### Screenshots — 14 October 2026
+
+<details>
+<summary>System</summary>
+
+![System](images/system.webp)
+
+</details>
+
+<details>
+<summary>System — services and receiver bindings</summary>
+
+![System — services and receiver bindings](images/system-services.webp)
+
+</details>
+
+<details>
+<summary>System — maintenance</summary>
+
+![System — maintenance](images/maintenance.webp)
+
+</details>
+
+<details>
+<summary>Radio Control</summary>
+
+![Radio Control](images/radio-control.webp)
+
+</details>
+
+<details>
+<summary>Radio Control — receiver settings</summary>
+
+![Radio Control — receiver settings](images/receiver-settings.webp)
+
+</details>
+
+<details>
+<summary>Radio View</summary>
+
+![Radio View](images/radio-view.webp)
+
+</details>
+
+<details>
+<summary>Traffic Voice — idle</summary>
+
+![Traffic Voice — idle](images/traffic-idle.webp)
+
+</details>
+
+<details>
+<summary>Traffic Voice — channel and audio settings</summary>
+
+![Traffic Voice — channel and audio settings](images/traffic-idle-settings.webp)
+
+</details>
+
+<details>
+<summary>Traffic Voice — Marine</summary>
+
+![Traffic Voice — Marine](images/traffic-marine.webp)
+
+</details>
+
+<details>
+<summary>Traffic Voice — replay, tuning and vessel photo</summary>
+
+![Traffic Voice — replay, tuning and vessel photo](images/traffic-marine-photo.webp)
+
+</details>
+
+<details>
+<summary>Traffic Voice — Airband</summary>
+
+![Traffic Voice — Airband](images/traffic-airband.webp)
+
+</details>
+
+<details>
+<summary>Radio Receiver</summary>
+
+![Radio Receiver](images/radio-receiver.webp)
+
+</details>
+
+<details>
+<summary>Radio Receiver — tuning and audio settings</summary>
+
+![Radio Receiver — tuning and audio settings](images/radio-receiver-settings.webp)
+
+</details>
+
+<details>
+<summary>Mission Control</summary>
+
+![Mission Control](images/mission-control.webp)
+
+</details>
+
+<details>
+<summary>Mission Control — timeline and journal</summary>
+
+![Mission Control — timeline and journal](images/mission-timeline.webp)
+
+</details>
+
+<details>
+<summary>Mission Planner</summary>
+
+![Mission Planner](images/mission-planner.webp)
+
+</details>
+
+<details>
+<summary>Mission Planner — upcoming passes</summary>
+
+![Mission Planner — upcoming passes](images/mission-passes.webp)
+
+</details>
+
+<details>
+<summary>Mission Operations</summary>
+
+![Mission Operations](images/mission-operations.webp)
+
+</details>
+
+<details>
+<summary>Mission Operations — result viewer</summary>
+
+![Mission Operations — result viewer](images/mission-result.webp)
+
+</details>
+
+<details>
+<summary>Mission History</summary>
+
+![Mission History](images/mission-history.webp)
+
+</details>
+
+<details>
+<summary>Mission History — received images</summary>
+
+![Mission History — received images](images/mission-history-result.webp)
+
+</details>
+
+<details>
+<summary>Mission Analytics</summary>
+
+![Mission Analytics](images/mission-analytics.webp)
+
+</details>
+
+<details>
+<summary>Mission Analytics — outcomes and quality</summary>
+
+![Mission Analytics — outcomes and quality](images/mission-analytics-results.webp)
+
+</details>
+
+<details>
+<summary>Logs</summary>
+
+![Logs](images/logs.webp)
+
+</details>
+
+Technical architecture and internal validation notes remain on the `develop` branch; the stable `main` branch is installation-focused.
 
 ## 🧪 Still evolving
 
-SDRCC is an active project; the current release on `main` is **v0.63.15**.
+The current SDRCC release is **v0.67.0** and the signed Android app is **v2.0.0**.
+
+Recent development changes include:
+
+- Improved marine ATIS decoding with tone filtering, bounded soft correction, international identity handling and shared decoder logic with AIS-ATIS-Bridge.
+- Smart Gain, a selectable Marine channel filter, recent-transmission replay/save and updated Excel channel lists with marine data channels excluded from voice scanning.
+- Optional matched-vessel photographs from Binnenvaartspotter.nl, De Binnenvaart, Mark Prummel and Wikimedia Commons.
+- More reliable managed updates and receiver handovers, with station settings preserved.
+- New compact panoramic banners for the dashboard tabs, with the animated radar centered. Traffic Voice shows a ship and aircraft while stopped, then the corresponding scene during Marine or Airband reception. Radio Receiver has its own antenna-mast background.
+
+These changes are tested on `develop` before being promoted to `main`.
 
 A lot of its features came from actually using the station: receivers fighting over the same dongle, wondering which vessel was talking, missing a satellite pass, wanting to borrow the ADS-B receiver as an ordinary radio...
 
@@ -226,7 +500,7 @@ Usually the next feature starts with:
 
 ...and then somehow turns into another button. 😄
 
-Development happens on the `develop` branch first. Changes are tested before they move to `main`.
+Development happens on the `develop` branch first. Changes are reviewed and validated before they move to `main`.
 
 ---
 

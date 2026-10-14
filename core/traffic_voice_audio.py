@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from collections import deque
 from datetime import datetime
+from pathlib import Path
+import json
 import math
 import re
 import socket
@@ -20,6 +22,9 @@ from typing import Any, Iterator
 from uuid import uuid4
 
 from core import config
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SAVED_RECORDINGS_DIR = PROJECT_ROOT / "data" / "traffic_voice" / "saved_recordings"
 from core import traffic_voice_atis, traffic_voice_denoise
 
 
@@ -641,6 +646,37 @@ def get_recording_wav(recording_id: str) -> bytes | None:
     if not re.fullmatch(r"[a-f0-9]{32}", str(recording_id or "")):
         return None
     return _marine_recordings.get_wav(recording_id)
+
+
+def save_recording(recording_id: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Persist one temporary Marine replay plus bounded ATIS/AIS metadata."""
+    if not re.fullmatch(r"[a-f0-9]{32}", str(recording_id or "")):
+        raise ValueError("Invalid recording id")
+    wav = _marine_recordings.get_wav(recording_id)
+    if wav is None:
+        raise ValueError("Recording is no longer available or is not complete")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    safe = {
+        "recording_id": recording_id,
+        "saved_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "channel": str(metadata.get("channel") or "")[:120],
+        "frequency_mhz": metadata.get("frequency_mhz"),
+        "atis": metadata.get("atis") if isinstance(metadata.get("atis"), dict) else {},
+        "ais_match": metadata.get("ais_match") if isinstance(metadata.get("ais_match"), dict) else {},
+    }
+    stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+    mmsi = str((safe["ais_match"] or {}).get("mmsi") or "")
+    suffix = f"-mmsi-{mmsi}" if re.fullmatch(r"\d{9}", mmsi) else ""
+    stem = f"{stamp}{suffix}-{recording_id[:8]}"
+    SAVED_RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+    wav_path = SAVED_RECORDINGS_DIR / f"{stem}.wav"
+    json_path = SAVED_RECORDINGS_DIR / f"{stem}.json"
+    wav_path.write_bytes(wav)
+    json_path.write_text(json.dumps(safe, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {
+        "ok": True, "recording_id": recording_id, "filename": wav_path.name,
+        "metadata_filename": json_path.name, "saved_at": safe["saved_at"],
+    }
 
 
 class MarineSpeechFilter:

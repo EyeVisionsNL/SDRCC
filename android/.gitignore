@@ -1,0 +1,12 @@
+/.gradle/
+/.idea/
+/local.properties
+*.iml
+**/build/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Published installer, intentionally available directly in this folder.
+!/SDRCC-Mobile.apk

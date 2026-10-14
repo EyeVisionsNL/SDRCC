@@ -3,6 +3,9 @@
 
     const STORAGE_ENABLED = "sdrcc.missionSounds.enabled";
     const STORAGE_VOLUME = "sdrcc.missionSounds.volume";
+    const STORAGE_TAB_BLIP = "sdrcc.missionSounds.tabBlipEnabled";
+    const STORAGE_CONTROL_CUES = "sdrcc.missionSounds.controlCuesEnabled";
+    const STORAGE_INTERFACE_CLICKS = "sdrcc.missionSounds.interfaceClicksEnabled";
     const BASE_TITLE = document.title;
 
     const SOUND_URLS = Object.freeze({
@@ -31,6 +34,54 @@
     let previousImages = 0;
     let previousResultKey = "";
     let titleResetTimer = null;
+    const tabWhoosh = new Audio("/static/audio/tab-whoosh.wav");
+    tabWhoosh.preload = "auto";
+    // Separate, quieter interface clicks; mission alerts and tab whoosh stay untouched.
+    const controlCues = {
+        start: new Audio("/static/audio/control-start.wav"),
+        stop: new Audio("/static/audio/control-stop.wav"),
+        click: new Audio("/static/audio/control-click.wav"),
+    };
+    for (const audio of Object.values(controlCues)) audio.preload = "auto";
+
+    // Deliberately identify receiver operations, rather than matching generic
+    // "start" or "stop" text (which would catch tests, replay and navigation).
+    const startControlActions = new Set(["start_ais", "start_adsb"]);
+    const stopControlActions = new Set(["stop_ais", "stop_adsb"]);
+    const startControlIds = new Set([
+        "traffic-voice-start", "traffic-voice-start-airband", "hf-monitor-start",
+    ]);
+    const stopControlIds = new Set([
+        "traffic-voice-stop", "hf-monitor-stop",
+        "stop-mission-button", "stop-mission-sdr2-button",
+    ]);
+    const liveAudioToggleIds = new Set([
+        "traffic-voice-audio-toggle", "hf-monitor-audio-toggle",
+        "mission-operations-audio-play",
+    ]);
+
+    // Small command/selection buttons only. Do not click for refresh, save,
+    // update, replay, ordinary tab navigation, or existing start/stop cues.
+    const interfaceClickActions = new Set([
+        "scheduler_auto", "scheduler_manual", "scheduler_paused",
+    ]);
+    const interfaceClickIds = new Set([
+        "traffic-voice-apply-settings",
+        "traffic-voice-open-squelch",
+        "traffic-voice-channel-filter",
+        "traffic-voice-auto-ais-vessel",
+        "traffic-voice-vessel-photos-toggle",
+        "hf-monitor-step-down",
+        "hf-monitor-step-up",
+        "hf-monitor-apply-rf",
+        "hf-monitor-retune",
+    ]);
+    const interfaceQueueActions = new Set([
+        "priority_down", "priority_up", "skip", "activate",
+    ]);
+    const interfaceSatelliteKeys = new Set([
+        "iss", "meteor_m2_3", "meteor_m2_4",
+    ]);
 
     function byId(id) {
         return document.getElementById(id);
@@ -42,9 +93,84 @@
     }
 
     function readVolume() {
-        const stored = Number(localStorage.getItem(STORAGE_VOLUME));
-        if (!Number.isFinite(stored)) return 35;
-        return Math.max(0, Math.min(100, Math.round(stored)));
+        const stored = localStorage.getItem(STORAGE_VOLUME);
+        if (stored === null) return 35;
+        const volume = Number(stored);
+        if (!Number.isFinite(volume)) return 35;
+        return Math.max(0, Math.min(100, Math.round(volume)));
+    }
+
+    function readTabBlipEnabled() {
+        try {
+            const stored = localStorage.getItem(STORAGE_TAB_BLIP);
+            return stored === null ? true : stored === "true";
+        } catch (_) {
+            return true;
+        }
+    }
+
+    function readControlCuesEnabled() {
+        try {
+            const stored = localStorage.getItem(STORAGE_CONTROL_CUES);
+            return stored === null ? true : stored === "true";
+        } catch (_) {
+            return true;
+        }
+    }
+
+    function readInterfaceClicksEnabled() {
+        try {
+            const stored = localStorage.getItem(STORAGE_INTERFACE_CLICKS);
+            return stored === null ? true : stored === "true";
+        } catch (_) {
+            return true;
+        }
+    }
+
+    function cueForButton(button) {
+        if (!button || button.disabled || button.getAttribute("aria-disabled") === "true") return "";
+        if (startControlActions.has(button.dataset.action) || startControlIds.has(button.id)) return "start";
+        if (stopControlActions.has(button.dataset.action) || stopControlIds.has(button.id)) return "stop";
+        if (liveAudioToggleIds.has(button.id)) {
+            // This label is updated by the existing Live Audio handlers.
+            return String(button.textContent || "").toLowerCase().includes("stop audio") ? "stop" : "start";
+        }
+        if (
+            interfaceClickActions.has(button.dataset.action)
+            || interfaceClickIds.has(button.id)
+            || interfaceQueueActions.has(button.dataset.queueAction)
+            || interfaceSatelliteKeys.has(button.dataset.satelliteKey)
+        ) return "click";
+        return "";
+    }
+
+    function playControlCue(kind, { test = false } = {}) {
+        if (!test && !readEnabled()) return;
+        if (!test && kind === "click" && !readInterfaceClicksEnabled()) return;
+        if (!test && kind !== "click" && !readControlCuesEnabled()) return;
+        const audio = controlCues[kind];
+        if (!audio) return;
+        // Command clicks are much quieter than the existing start/stop cues.
+        const volume = Math.min(1, readVolume() / 100 * (kind === "click" ? 0.20 : 0.544));
+        if (volume <= 0) return;
+        try {
+            for (const other of Object.values(controlCues)) {
+                other.pause();
+                other.currentTime = 0;
+            }
+            audio.volume = volume;
+            void audio.play().catch(error => console.debug("Control cue unavailable:", error));
+        } catch (error) {
+            // The operator action must never depend on browser audio permissions.
+            console.debug("Control cue unavailable:", error);
+        }
+    }
+
+    function handleControlButtonClick(event) {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const kind = cueForButton(target.closest("button"));
+        if (kind) playControlCue(kind);
     }
 
     function setStatus(message, className = "") {
@@ -59,6 +185,27 @@
         for (const audio of Object.values(audios)) audio.volume = normalized / 100;
         const valueElement = byId("mission-sounds-volume-value");
         if (valueElement) valueElement.textContent = `${Math.round(normalized)}%`;
+    }
+
+    // Play the lightweight airy whoosh file once per real tab switch.
+    // The existing sound toggle and volume preference apply here too.
+    function playTabWhoosh({ test = false } = {}) {
+        if (!test && (!readEnabled() || !readTabBlipEnabled())) return;
+        const volume = Math.min(1, readVolume() / 100 * 0.04571504);
+        if (volume <= 0) return;
+
+        try {
+            // Restart rather than layer multiple sounds on rapid tab switches.
+            tabWhoosh.pause();
+            tabWhoosh.currentTime = 0;
+            tabWhoosh.volume = volume;
+            void tabWhoosh.play().catch(error => {
+                console.debug("Tab whoosh unavailable:", error);
+            });
+        } catch (error) {
+            // A blocked audio API must never interfere with navigation.
+            console.debug("Tab whoosh unavailable:", error);
+        }
     }
 
     function ensureToastHost() {
@@ -285,6 +432,13 @@
         const enabled = byId("mission-sounds-enabled");
         const volume = byId("mission-sounds-volume");
         const test = byId("mission-sounds-test");
+        const tabBlipToggle = byId("mission-tab-sounds-enabled");
+        const tabBlipTest = byId("mission-tab-sounds-test");
+        const controlToggle = byId("mission-control-sounds-enabled");
+        const controlStartTest = byId("mission-control-sounds-test-start");
+        const controlStopTest = byId("mission-control-sounds-test-stop");
+        const interfaceClickToggle = byId("mission-interface-clicks-enabled");
+        const interfaceClickTest = byId("mission-interface-clicks-test");
         const enabledValue = readEnabled();
         const volumeValue = readVolume();
 
@@ -297,6 +451,41 @@
                 setStatus(enabled.checked ? "Mission sounds are on." : "Mission sounds are off.", enabled.checked ? "is-ready" : "is-muted");
             });
         }
+
+        if (tabBlipToggle) {
+            tabBlipToggle.checked = readTabBlipEnabled();
+            tabBlipToggle.addEventListener("change", () => {
+                try {
+                    localStorage.setItem(STORAGE_TAB_BLIP, String(tabBlipToggle.checked));
+                } catch (_) { /* Sound preference still works for this session. */ }
+            });
+        }
+        if (tabBlipTest) {
+            tabBlipTest.addEventListener("click", () => playTabWhoosh({ test: true }));
+        }
+        window.addEventListener("sdrcc:tab-changed", () => playTabWhoosh());
+        if (controlToggle) {
+            controlToggle.checked = readControlCuesEnabled();
+            controlToggle.addEventListener("change", () => {
+                try {
+                    localStorage.setItem(STORAGE_CONTROL_CUES, String(controlToggle.checked));
+                } catch (_) { /* The session can still use its current controls. */ }
+            });
+        }
+        controlStartTest?.addEventListener("click", () => playControlCue("start", { test: true }));
+        controlStopTest?.addEventListener("click", () => playControlCue("stop", { test: true }));
+        if (interfaceClickToggle) {
+            interfaceClickToggle.checked = readInterfaceClicksEnabled();
+            interfaceClickToggle.addEventListener("change", () => {
+                try {
+                    localStorage.setItem(STORAGE_INTERFACE_CLICKS, String(interfaceClickToggle.checked));
+                } catch (_) { /* The current session continues using browser preferences. */ }
+            });
+        }
+        interfaceClickTest?.addEventListener("click", () => playControlCue("click", { test: true }));
+        // Capture before action handlers update button labels; one cue per enabled
+        // human button click, including keyboard activation and dynamic controls.
+        document.addEventListener("click", handleControlButtonClick, true);
 
         if (volume) {
             volume.value = String(volumeValue);

@@ -1,0 +1,139 @@
+// {"author":"EyeVisionsNL","version":5,"description":"SDRCC Mobile ATIS vessel highlight bridge v1"}
+/*
+ * SDRCC-ATIS-MOBILE-BRIDGE
+ *
+ * Dedicated and reversible AIS-Catcher plugin. It deliberately does not
+ * modify the VTS Rijnmond overlay, ship selection or the map view.
+ * A validated SDRCC ATIS/AIS event draws a 30-second ring over one ship.
+ */
+if (typeof AISCatcher !== "undefined" &&
+    AISCatcher.PLUGIN_API_VERSION >= 5 &&
+    typeof ol !== "undefined" &&
+    window.parent !== window) {
+  (function () {
+    "use strict";
+
+    var trustedOrigin = location.protocol + "//" + location.hostname + ":8080";
+    var layerName = "SDRCC ATIS Mobile";
+    var source = new ol.source.Vector();
+    var layer = new ol.layer.Vector({source: source, zIndex: 2500});
+    var current = null;
+    var pulseTimer = null;
+    var lastEvent = "";
+    var feature = null;
+
+    AISCatcher.addOverlayLayer(layerName, layer);
+
+    function validCoords(lat, lon) {
+      return typeof lat === "number" && Number.isFinite(lat) &&
+        typeof lon === "number" && Number.isFinite(lon) &&
+        Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+    }
+
+    function coordinatesFor(mmsi, fallbackLat, fallbackLon) {
+      var db = AISCatcher.shipsDB || {};
+      var row = db[mmsi];
+      var ship = row && (row.raw || row);
+      var lat = Number(ship && ship.lat);
+      var lon = Number(ship && ship.lon);
+      if (ship && ship.lat !== null && ship.lat !== undefined &&
+          ship.lon !== null && ship.lon !== undefined && validCoords(lat, lon)) return [lon, lat];
+      return [fallbackLon, fallbackLat];
+    }
+
+    function reply(type, extra) {
+      if (window.parent === window) return;
+      var message = {type: "sdrcc:atis-highlight:" + type, version: 1};
+      if (extra) Object.keys(extra).forEach(function (key) { message[key] = extra[key]; });
+      window.parent.postMessage(message, trustedOrigin);
+    }
+
+    function endHighlight() {
+      current = null;
+      source.clear();
+      layer.setVisible(false);
+      if (pulseTimer !== null) {
+        window.clearInterval(pulseTimer);
+        pulseTimer = null;
+      }
+      feature = null;
+    }
+
+    function tick() {
+      if (!current) return;
+      // AIS-Catcher initially hides all registered overlays while creating
+      // the map. Keep this ephemeral ring visible without touching the view.
+      if (typeof layer.getVisible === "function" && !layer.getVisible()) {
+        layer.setVisible(true);
+      }
+      var now = Date.now();
+      if (now >= current.expires) {
+        endHighlight();
+        return;
+      }
+      var coords = coordinatesFor(current.mmsi, current.lat, current.lon);
+      if (feature && validCoords(coords[1], coords[0])) {
+        feature.getGeometry().setCoordinates(ol.proj.fromLonLat(coords));
+      }
+      var progress = (now - current.start) / 1350 * 2 * Math.PI;
+      var expansion = (Math.sin(progress) + 1) / 2;
+      var ring = new ol.style.Circle({
+        radius: 11 + 6 * expansion,
+        stroke: new ol.style.Stroke({
+          color: "rgba(76,240,184," + (0.85 - 0.35 * expansion).toFixed(3) + ")",
+          width: 3
+        }),
+        fill: new ol.style.Fill({color: "rgba(64,235,170,0.08)"})
+      });
+      var center = new ol.style.Circle({
+        radius: 4,
+        stroke: new ol.style.Stroke({color: "rgba(255,255,255,0.95)", width: 1.2}),
+        fill: new ol.style.Fill({color: "rgba(23,194,134,0.45)"})
+      });
+      if (feature) feature.setStyle([
+        new ol.style.Style({image: ring}),
+        new ol.style.Style({image: center})
+      ]);
+    }
+
+    function highlight(message) {
+      var mmsi = String(message.mmsi || "");
+      var lat = message.latitude;
+      var lon = message.longitude;
+      var eventId = String(message.event_id || "").slice(0, 120);
+      if (!/^\d{9}$/.test(mmsi) ||
+          !validCoords(lat, lon) ||
+          !eventId || eventId === lastEvent) return;
+      lastEvent = eventId;
+      endHighlight();
+      var coords = coordinatesFor(mmsi, lat, lon);
+      feature = new ol.Feature({
+        geometry: new ol.geom.Point(ol.proj.fromLonLat(coords))
+      });
+      feature.set("sdrcc_mmsi", mmsi);
+      source.addFeature(feature);
+      layer.setOpacity(1);
+      layer.setVisible(true);
+      current = {mmsi: mmsi, lat: lat, lon: lon, start: Date.now(),
+                 expires: Date.now() + 30000};
+      tick();
+      pulseTimer = window.setInterval(tick, 200);
+      reply("shown", {mmsi: mmsi, event_id: eventId});
+    }
+
+    window.addEventListener("message", function (event) {
+      if (event.source !== window.parent || event.origin !== trustedOrigin) return;
+      var data = event.data;
+      if (!data || typeof data !== "object" || data.version !== 1) return;
+      if (data.type === "sdrcc:atis-highlight:hello") {
+        reply("ready");
+      } else if (data.type === "sdrcc:atis-highlight:show") {
+        highlight(data);
+      }
+    });
+
+    // Defer readiness until AIS-Catcher's synchronous map creation completes.
+    window.setTimeout(function () { reply("ready"); }, 0);
+    console.info("[SDRCC Mobile] AIS ATIS highlight bridge ready");
+  })();
+}

@@ -23,7 +23,8 @@ import numpy as np
 from core import config
 
 
-DECODER_VERSION = 3
+DECODER_VERSION = 4
+DECODER_PROFILE = "sdrcc-atis-v4"
 SAMPLE_RATE_HZ = 16_000
 BIT_RATE = 1_200.0
 LOW_TONE_HZ = 1_300.0
@@ -50,6 +51,9 @@ _SOFT_MIN_PAIR_SCORE = 0.35
 _SOFT_MAX_SELECTED_GAP = 0.24
 _SOFT_MIN_MEAN_SCORE = 0.45
 _SOFT_MIN_SOLUTION_MARGIN = 0.12
+_SOFT_MAX_IDENTITY_CORRECTIONS = 2
+_SOFT_LETTER_MIN_MARGIN = 0.08
+_TONE_OFFSETS_HZ = (-30.0, 0.0, 30.0)
 
 _PHASING_SYMBOLS = (
     125, 111, 125, 110, 125, 109, 125, 108,
@@ -223,7 +227,9 @@ def _identity_projection(groups: list[int]) -> dict[str, Any] | None:
         "atis_code": atis_code,
         "mid": mid,
         "country": country,
+        "letter_code": letter_code,
         "callsign": callsign,
+        "callsign_projection": "dutch_display" if callsign else "ais_correlation",
     }
 
 
@@ -301,6 +307,9 @@ def _decode_packet(
         if identity is not None:
             return {
                 **identity,
+                "decoder_version": DECODER_VERSION,
+                "decoder_profile": DECODER_PROFILE,
+                "tone_filter_profile": "dc_blocked_three_bin_matched",
                 "format_specifier": 121,
                 "end_of_sequence": 127,
                 "ecc_received": int(received_ecc),
@@ -309,6 +318,9 @@ def _decode_packet(
                 "corrected_symbols": hard_corrections,
                 "soft_decoding_used": False,
                 "soft_corrected_symbols": 0,
+                "soft_identity_corrections": 0,
+                "identity_group_margins": None,
+                "letter_group_margin": None,
                 "phasing_exact_symbols": phasing_exact,
                 "phasing_mean_score": round(phasing_mean_score, 4),
                 "phasing_score": round(float(phasing_score), 4),
@@ -416,6 +428,33 @@ def _decode_packet(
         _pair_recovery_kind(symbols, primary, repeated, selected)
         for (primary, repeated), selected in zip(pair_positions, groups)
     ]
+    identity_soft_corrections = sum(kind == "soft" for kind in recovery_kinds)
+    if identity_soft_corrections > _SOFT_MAX_IDENTITY_CORRECTIONS:
+        return None
+
+    identity_group_margins: list[float] = []
+    for index, ((primary, repeated), selected) in enumerate(zip(pair_positions, groups)):
+        scores = _pair_soft_scores(values, primary, repeated)
+        selected_score = float(scores[selected])
+        alternatives = [
+            float(scores[value])
+            for value, _score in group_candidates[index]
+            if value != selected
+        ]
+        margin = selected_score - max(alternatives) if alternatives else 1.0
+        identity_group_margins.append(margin)
+
+    # The third identity group contains the callsign letter code. F/G differs
+    # by only one information bit. If that group itself needed soft recovery,
+    # require a clear local winner instead of letting ECC guess between near
+    # equals. Ambiguous receptions are rejected and can be diagnosed in logs.
+    letter_group_margin = identity_group_margins[2]
+    if (
+        recovery_kinds[2] == "soft"
+        and letter_group_margin < _SOFT_LETTER_MIN_MARGIN
+    ):
+        return None
+
     ecc_kind = _pair_recovery_kind(symbols, 29, 34, received_ecc)
     all_recovery = control_recovery + recovery_kinds + [ecc_kind]
     corrected = sum(kind != "exact" for kind in all_recovery)
@@ -431,6 +470,11 @@ def _decode_packet(
         "corrected_symbols": corrected,
         "soft_decoding_used": True,
         "soft_corrected_symbols": soft_corrected,
+        "soft_identity_corrections": identity_soft_corrections,
+        "identity_group_margins": [
+            round(float(margin), 4) for margin in identity_group_margins
+        ],
+        "letter_group_margin": round(float(letter_group_margin), 4),
         "soft_mean_score": round(float(np.mean(message_scores)), 4),
         "soft_solution_margin": (
             round(solution_margin, 4) if solution_margin is not None else None
@@ -444,6 +488,21 @@ def _decode_packet(
     }
 
 def _tone_discriminator(samples: np.ndarray, sample_rate: int) -> np.ndarray:
+    """Return a DC-blocked, small-offset tone-bank discriminator.
+
+    Marine ATIS transmitters and receiver clocks can be a few tens of hertz
+    away from nominal.  Three narrow matched bins per tone improve tolerance
+    without widening soft correction into arbitrary speech/noise.
+    """
+    audio = np.asarray(samples, dtype=np.float64).reshape(-1)
+    dc_window = max(5, int(round(sample_rate / 400.0)))
+    if dc_window % 2 == 0:
+        dc_window += 1
+    baseline = np.convolve(
+        audio, np.ones(dc_window, dtype=np.float64) / dc_window, mode="same",
+    )
+    audio = audio - baseline
+
     window_length = max(9, int(round(sample_rate / BIT_RATE)))
     if window_length % 2 == 0:
         window_length += 1
@@ -451,9 +510,14 @@ def _tone_discriminator(samples: np.ndarray, sample_rate: int) -> np.ndarray:
     window = np.hanning(window_length)
 
     def energy(frequency: float) -> np.ndarray:
-        kernel = window * np.exp(-2j * np.pi * frequency * offsets / sample_rate)
-        filtered = np.convolve(samples, kernel[::-1], mode="same")
-        return np.square(filtered.real) + np.square(filtered.imag)
+        banks: list[np.ndarray] = []
+        for tone_offset in _TONE_OFFSETS_HZ:
+            kernel = window * np.exp(
+                -2j * np.pi * (frequency + tone_offset) * offsets / sample_rate,
+            )
+            filtered = np.convolve(audio, kernel[::-1], mode="same")
+            banks.append(np.square(filtered.real) + np.square(filtered.imag))
+        return np.maximum.reduce(banks)
 
     low = energy(LOW_TONE_HZ)
     high = energy(HIGH_TONE_HZ)
