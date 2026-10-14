@@ -18,6 +18,62 @@ Only enter a station address you control. The phone must be on the same trusted 
 
 If the station is temporarily unreachable, select **IP-adres wijzigen** on the radar connection screen. Use **Adres bewerken** or **Wissen** to correct the saved address. The app also reports relevant Android/WebView connection failures.
 
+### Connect from outside home Wi-Fi with Tailscale
+
+Tailscale creates a private, encrypted connection between your SDRCC mini-PC and Android phone. This lets SDRCC Mobile reach your home station when the phone is on mobile data or another Wi-Fi network, **without forwarding ports on your internet router**. Tailscale is optional if you only use SDRCC Mobile on your own Wi-Fi.
+
+**Step A — Install Tailscale on the Ubuntu mini-PC**
+
+1. Open **Terminal** on the mini-PC that runs SDRCC.
+2. Install `curl` if needed, then install Tailscale using the [official Linux installation instructions](https://tailscale.com/docs/install/linux):
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y curl
+   curl -fsSL https://tailscale.com/install.sh | sh
+   ```
+
+3. Start Tailscale and connect the mini-PC to your private Tailscale network (called a *tailnet*):
+
+   ```bash
+   sudo tailscale up
+   ```
+
+4. Open the sign-in link printed by the command, complete the sign-in in your browser, then check the connection and find the mini-PC's **Tailscale IPv4 address**:
+
+   ```bash
+   tailscale status
+   tailscale ip -4
+   ```
+
+   Write down the IPv4 address returned by the second command, such as `100.101.102.103` (**example only; use your own address**). If Tailscale is already installed, skip the installation and just check its status and IP.
+
+**Step B — Install Tailscale on your Android phone**
+
+1. Install the official [Tailscale Android app](https://tailscale.com/download/android) from Google Play.
+2. Open Tailscale, tap **Get Started / Log in**, accept Android's VPN connection prompt, and sign in to **the same tailnet as the mini-PC**.
+3. Make sure Tailscale shows **Connected** on the phone. Leave Tailscale connected while using SDRCC Mobile remotely.
+4. Do not share your login details with other testers. Everyone should use their own account/tailnet, or be granted access through Tailscale's sharing or user-invitation features.
+
+**Step C — Connect SDRCC Mobile over Tailscale**
+
+1. Open **SDRCC Mobile** on Android.
+2. Choose **IP-adres wijzigen** or **Adres bewerken** on its connection screen.
+3. Enter **your mini-PC's Tailscale IPv4 address**, optionally followed by SDRCC's port `8080`. For the example above, enter `100.101.102.103:8080` (do **not** enter the phone's own Tailscale IP).
+4. Tap **Verbinden met SDRCC**. Your mini-PC must be switched on, SDRCC must be running, and both Tailscale devices must be connected.
+5. In **System → Settings → Map Connections**, use the **same mini-PC Tailscale IP** for the embedded map URLs if the maps do not open remotely:
+
+   | Mobile map | Example address |
+   |---|---|
+   | AIS-Catcher Map URL | `http://100.101.102.103:8119/` |
+   | ADS-B Map URL (tar1090) | `http://100.101.102.103/tar1090/` |
+
+   Choose **Save Map Addresses**. The example assumes the standard AIS-Catcher and ADS-B web ports. Enable **VTS sector** and **SDRCC ATIS** in the AIS map's plugin selector as described in the next section.
+
+**Test with Wi-Fi switched off:** activate mobile data, leave Tailscale connected, and open `http://YOUR-TAILSCALE-IP:8080/static/mobile/index.html` in your phone browser (replacing the placeholder with your mini-PC's real address). Then open SDRCC Mobile using that same IP. If SDRCC works but an AIS/ADS-B map does not, verify the map's URL, the relevant service, its listening interface/port and the mini-PC firewall or tailnet access policy. The update button downloads Android APKs from GitHub separately; it is **not** the mini-PC's Tailscale connection.
+
+Official reference: [Tailscale Linux setup](https://tailscale.com/docs/install/linux) · [Tailscale Android setup](https://tailscale.com/docs/install/android).
+
 ## 2. Configure the live AIS map
 
 1. Open the **Marine** tab in SDRCC Mobile.
