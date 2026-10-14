@@ -57,9 +57,8 @@ body[data-mobile-tab] main .panel{border-color:var(--mobile-line);box-shadow:ins
 body[data-mobile-tab] main .panel:after{border-color:var(--mobile-accent)}
 body[data-mobile-tab] main .panel h2{color:var(--mobile-accent)}
 body[data-mobile-tab] .tabs button[aria-selected="true"]{color:var(--mobile-accent);background:linear-gradient(180deg,var(--mobile-halo),rgba(7,26,38,.98));box-shadow:inset 0 3px 0 var(--mobile-accent)}
-/* Only the two bottom settings controls on the System tab need separation. */
-#system #mobile-map-settings + #mobile-install-help{margin-top:15px}
-#system #mobile-install-help + a.action{display:inline-flex;align-items:center;margin-top:20px;max-width:100%}
+/* Keep the desktop dashboard link separated from mobile map settings. */
+#system #mobile-map-settings + a.action{display:inline-flex;align-items:center;margin-top:20px;max-width:100%}
 /* Do not show redundant stopped badge above the ADS-B start/stop controls. */
 #adsb-service-state.off{display:none}
 
@@ -153,13 +152,7 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 <div class="panel"><h2>🛰️ Mission Reception & Latest Image</h2><div id="missionstatus" aria-live="polite">Loading status…</div>
 <p class="muted">Mission planning and manual starts stay on the mini-PC. Receiver safety remains active.</p></div>
 </section>
-<section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ System Overview</h2><button id="system-refresh" type="button">↻ Refresh</button></div><p class="muted">Live receiver and service status.</p><div id="systemstatus" aria-live="polite">Loading system status…</div><h2 style="margin-top:18px">Available Components</h2><div id="mobile-feature-status" class="feature-summary" role="status" aria-live="polite">Checking installed components…</div><div id="mobile-feature-list" class="feature-list"></div></div><div class="panel"><h2>⚙️ Settings</h2><details id="mobile-map-settings" class="sys-settings"><summary>Map Connections</summary><p class="muted">These addresses are stored only on this device.</p><label id="mobile-ais-setting">AIS-Catcher Map URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label id="mobile-adsb-setting">ADS-B Map URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Save Map Addresses</button></details><details id="mobile-install-help" class="sys-settings install-help"><summary>📱 SDRCC on Your Home Screen</summary>
-<p id="mobile-install-mode" class="muted">Checking installation options…</p>
-<p id="mobile-install-steps">Open your browser menu and add this page to your home screen.</p>
-<button id="mobile-install-now" type="button" hidden>Install SDRCC Mobile</button>
-<p id="mobile-install-feedback" class="hint" role="status" aria-live="polite"></p>
-<p class="muted">The shortcut works over Wi-Fi or your private VPN. Reception and recordings continue on your mini-PC.</p>
-</details><a class="action" href="/" target="_blank" rel="noopener">Open Desktop Dashboard ↗</a></div></section>
+<section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ System Overview</h2><button id="system-refresh" type="button">↻ Refresh</button></div><p class="muted">Live receiver and service status.</p><div id="systemstatus" aria-live="polite">Loading system status…</div><h2 style="margin-top:18px">Available Components</h2><div id="mobile-feature-status" class="feature-summary" role="status" aria-live="polite">Checking installed components…</div><div id="mobile-feature-list" class="feature-list"></div></div><div class="panel"><h2>⚙️ Settings</h2><details id="mobile-map-settings" class="sys-settings"><summary>Map Connections</summary><p class="muted">These addresses are stored only on this device.</p><label id="mobile-ais-setting">AIS-Catcher Map URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label id="mobile-adsb-setting">ADS-B Map URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Save Map Addresses</button></details><a class="action" href="/" target="_blank" rel="noopener">Open Desktop Dashboard ↗</a></div></section>
 </main><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>System</button></nav><script>
 const $=id=>document.getElementById(id);
 // The dashboard /api/status endpoint is the only connection authority.
@@ -365,69 +358,6 @@ window.addEventListener("message",event=>{
   }
 });
 
-// Home-screen helper: current LAN HTTP setup remains supported without
-// forcing HTTPS, a service worker, app-store installation or extra permissions.
-let mobileDeferredInstallPrompt=null;
-function mobileIsStandalone(){
-  return Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches ||
-      (typeof navigator!=="undefined"&&navigator.standalone===true));
-}
-function mobileInstallPlatform(){
-  const agent=typeof navigator!=="undefined"?String(navigator.userAgent||""):"";
-  if(/iPad|iPhone|iPod/.test(agent))return"ios";
-  if(/Android/.test(agent))return"android";
-  return"desktop";
-}
-function renderMobileInstallHelp(){
-  const mode=$("mobile-install-mode"),steps=$("mobile-install-steps");
-  const button=$("mobile-install-now"),feedback=$("mobile-install-feedback");
-  const secure=window.isSecureContext===true;
-  const platform=mobileInstallPlatform(),installed=mobileIsStandalone();
-  if(installed){
-    mode.textContent="SDRCC Mobile is already running from your home screen.";
-    steps.textContent="The app uses the same SDRCC connection as the regular webpage.";
-    button.hidden=true;
-    feedback.textContent="";
-    return;
-  }
-  if(platform==="ios"){
-    steps.textContent="Open in Safari, tap Share, then choose Add to Home Screen.";
-  }else if(platform==="android"){
-    steps.textContent="Open in Chrome, tap ⋮ and select Add to Home Screen, Create Shortcut, or Install (depending on your browser).";
-  }else{
-    steps.textContent="Open the page on your phone and select Add to Home Screen or Create Shortcut from the browser menu.";
-  }
-  mode.textContent=secure
-    ?"Your browser may offer an app installation over this secure connection."
-    :"Local HTTP supports a home-screen shortcut; a full PWA installation normally requires HTTPS.";
-  button.hidden=!secure||!mobileDeferredInstallPrompt;
-  feedback.textContent="";
-}
-window.addEventListener("beforeinstallprompt",event=>{
-  event.preventDefault();
-  mobileDeferredInstallPrompt=event;
-  renderMobileInstallHelp();
-});
-window.addEventListener("appinstalled",()=>{
-  mobileDeferredInstallPrompt=null;
-  renderMobileInstallHelp();
-});
-$("mobile-install-now").addEventListener("click",async()=>{
-  const prompt=mobileDeferredInstallPrompt;
-  if(!prompt||window.isSecureContext!==true)return;
-  mobileDeferredInstallPrompt=null;
-  $("mobile-install-now").hidden=true;
-  try{
-    await prompt.prompt();
-    const choice=await prompt.userChoice;
-    $("mobile-install-feedback").textContent=choice?.outcome==="accepted"
-      ?"Installation requested through your browser."
-      :"Installation cancelled. You can use the browser option again later.";
-  }catch(error){
-    $("mobile-install-feedback").textContent="Installation unavailable. Use the option in your browser menu.";
-  }
-});
-renderMobileInstallHelp();
 // Only affirmative server results can hide a feature; failures are fail-open.
 const MOBILE_TABS=["marine","adsb","sat","missions","system"];
 const LAST_MOBILE_TAB_KEY="sdrcc-mobile-selected-tab";
