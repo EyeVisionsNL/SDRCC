@@ -146,7 +146,7 @@ def validate() -> None:
             "Missing Android 2.0.0 version bump")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")
-    require((REPO / "VERSION").read_text().strip().startswith("0.66."),
+    require((REPO / "VERSION").read_text().strip() == "0.67.0",
             "SDRCC server VERSION was unexpectedly changed")
     print("PASS: SDRCC Android integration and address editing regression checks")
     print("Original logo, HTTP maps, JNI-free WebView, native dialogs and"
