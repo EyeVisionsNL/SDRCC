@@ -18,9 +18,11 @@
 
 ## 📱 Android app
 
-**[Download SDRCC-Mobile.apk](https://github.com/EyeVisionsNL/SDRCC/raw/refs/heads/develop/android/SDRCC-Mobile.apk)** · [Installation instructions](android/README.md#download-and-install)
+**[Download SDRCC Mobile v2.0.0 (signed APK)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v7/SDRCC-Mobile.apk)** · **[Step-by-step installation and settings](android/README.md)**
 
-The APK is available directly in the **android** folder.
+The official Android APK is distributed through GitHub Releases with a permanent signing key. The **↓** button inside the app checks for updates and opens the newer signed APK in your phone's browser. Android always asks you to confirm the installation. Updates from the signed beta to v2.0.0 keep the existing station address; do **not** uninstall the current signed app.
+
+On first launch, enter the mini-PC address (for example `192.168.1.50:8080`). In the AIS map plugin selector, enable **VTS sector** and **SDRCC ATIS**; see the picture-by-picture guide above.
 
 Marine Traffic is central: control Marine Voice and AIS, view the live vessel map, see ATIS/AIS matches and photographs, and replay recent recordings. Separate tabs provide ADS-B, satellites, mission controls and system status.
 
@@ -474,11 +476,11 @@ The navigation brings the station together in one place:
 
 </details>
 
-The deeper architecture, validation notes and version-specific implementation details live in the [docs](docs/) directory.
+Technical architecture and internal validation notes remain on the `develop` branch; the stable `main` branch is installation-focused.
 
 ## 🧪 Still evolving
 
-SDRCC is an active project. The current development version is **v0.66.23**.
+The current SDRCC release is **v0.67.0** and the signed Android app is **v2.0.0**.
 
 Recent development changes include:
 
