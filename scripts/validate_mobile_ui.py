@@ -76,9 +76,11 @@ def validate() -> None:
     require('document.body.dataset.mobileTab=tab;' in script and
             'id="mobile-scene-title"' in html,
             "Mobile banner must follow selected tab without switching the live map")
-    require('#system #mobile-map-settings + #mobile-install-help' in html and
-            '#system #mobile-install-help + a.action' in html,
-            "Only adjacent bottom System controls should receive extra spacing")
+    require('#system #mobile-map-settings + a.action' in html and
+            'id="mobile-install-help"' not in html and
+            'mobileDeferredInstallPrompt' not in script and
+            'beforeinstallprompt' not in script,
+            "Obsolete PWA install card must be removed from System")
     require('#adsb-service-state.off{display:none}' in html,
             "Redundant stopped badge above ADS-B controls must be hidden")
 
