@@ -139,9 +139,9 @@ def validate() -> None:
             'SDRCC Android  ·  BETA' not in java,
             "Stale hard-coded beta label found")
     gradle = (project / "build.gradle").read_text(encoding="utf-8")
-    require("versionName '0.1.0-beta2'" in gradle and
-            "versionCode 5" in gradle,
-            "Missing Android 0.1.0-beta2 version bump")
+    require("versionName '0.1.0-beta3'" in gradle and
+            "versionCode 6" in gradle,
+            "Missing Android 0.1.0-beta3 version bump")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")
     require((REPO / "VERSION").read_text().strip().startswith("0.66."),
