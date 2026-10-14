@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="dashboard/static/assets/banners/overview-panorama.webp" alt="SDRCC — ships, aircraft and satellites" width="100%">
+  <img src="images/sdrcc-banner.webp" alt="SDRCC — ships, aircraft and satellites" width="100%">
 </p>
 
 ## 📱 Android app
@@ -163,10 +163,10 @@ Thank you to the photographers and websites that make the optional vessel-photo 
 | Website | Photo credit and use in SDRCC |
 |---|---|
 | [Binnenvaartspotter.nl](https://www.binnenvaartspotter.nl/) | Peter's vessel photographs, displayed as thumbnails with permission and a link to the original page |
-| Independent vessel photographers | Where available, SDRCC shows the photographer's name and a clickable link to the original photograph. Existing watermarks remain intact; photo credits do not imply permission for further reuse. |
 | [Mark Prummel](https://markprummel.nl/) | Photographs by Mark & Chris Prummel, with source credit and a link to the original ship page |
 | [Shipspotting.com](https://www.shipspotting.com/photos) | Attributed thumbnails only, with vessel identity verification and a direct link to the original photo; subject to Shipspotting's third-party conditions |
 | [Wikimedia Commons](https://commons.wikimedia.org/) | Vessel photographs with the individual photographer and license shown alongside the image |
+| Various vessel photographers | Photographs from various photographers, with the photographer’s name and a clickable link to the original photograph. Existing watermarks remain intact. |
 
 Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs.
 
@@ -231,12 +231,19 @@ The navigation brings the station together in one place:
 
 **Mission History & Analytics** keep the technical detail available without turning the README into an operations manual.
 
-### Screenshots — October 2026
+### Screenshots — 14 October 2026
 
 <details>
 <summary>System</summary>
 
 ![System](images/system.webp)
+
+</details>
+
+<details>
+<summary>System — services and receiver bindings</summary>
+
+![System — services and receiver bindings](images/system-services.webp)
 
 </details>
 
@@ -276,6 +283,13 @@ The navigation brings the station together in one place:
 </details>
 
 <details>
+<summary>Traffic Voice — channel and audio settings</summary>
+
+![Traffic Voice — channel and audio settings](images/traffic-idle-settings.webp)
+
+</details>
+
+<details>
 <summary>Traffic Voice — Marine</summary>
 
 ![Traffic Voice — Marine](images/traffic-marine.webp)
@@ -300,6 +314,13 @@ The navigation brings the station together in one place:
 <summary>Radio Receiver</summary>
 
 ![Radio Receiver](images/radio-receiver.webp)
+
+</details>
+
+<details>
+<summary>Radio Receiver — tuning and audio settings</summary>
+
+![Radio Receiver — tuning and audio settings](images/radio-receiver-settings.webp)
 
 </details>
 
@@ -353,9 +374,23 @@ The navigation brings the station together in one place:
 </details>
 
 <details>
+<summary>Mission History — received images</summary>
+
+![Mission History — received images](images/mission-history-result.webp)
+
+</details>
+
+<details>
 <summary>Mission Analytics</summary>
 
 ![Mission Analytics](images/mission-analytics.webp)
+
+</details>
+
+<details>
+<summary>Mission Analytics — outcomes and quality</summary>
+
+![Mission Analytics — outcomes and quality](images/mission-analytics-results.webp)
 
 </details>
 
@@ -370,7 +405,7 @@ The deeper architecture, validation notes and version-specific implementation de
 
 ## 🧪 Still evolving
 
-SDRCC is an active project. The current development version is **v0.64.21**.
+SDRCC is an active project. The current development version is **v0.66.23**.
 
 Recent development changes include:
 
