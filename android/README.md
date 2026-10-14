@@ -1,5 +1,25 @@
 # SDRCC Android · v0.1 Beta 2
 
+## Download and install
+
+**[Download SDRCC-Mobile.apk](https://github.com/EyeVisionsNL/SDRCC/raw/refs/heads/develop/android/SDRCC-Mobile.apk)**
+
+The installable APK is directly in this folder: **SDRCC-Mobile.apk**. No ZIP
+extraction or search through GitHub Actions is needed.
+
+1. Open the download link on your Android phone.
+2. Open the downloaded APK and allow installation from your browser if Android asks.
+3. Start SDRCC Mobile and enter the mini-PC IP address using **Adres bewerken**.
+4. In the AIS map plugin selector, enable the **VTS sector** and **SDRCC ATIS** plugins.
+
+This is the existing **0.1.0-beta2, versionCode 5** debug build from
+[successful build 38423860655](https://github.com/EyeVisionsNL/SDRCC/actions/runs/38423860655).
+It has not been rebuilt or re-signed. If Android reports a signature conflict
+with an older beta, uninstall that beta first and enter the mini-PC address again.
+If your installed app already works, downloading this copy is unnecessary.
+
+SHA-256: `b0033c1bbe6d673f9ad191604890e30bd1b8570696b0f5b4d1fcb53f3deeaaa5`.
+
 Native Android application around the **existing** SDRCC Mobile dashboard.
 It is **not** a second SDRCC server, a fork of the Marine/AIS/ADS-B logic, or
 the home-screen browser shortcut.
@@ -93,8 +113,7 @@ installation and no SDRCC receiver restart are involved.
 ## Local wifi first
 
 1. Confirm SDRCC Mobile works in the Android phone browser over wifi.
-2. Install the **debug beta APK** from the GitHub Actions artifact, or build
-   it yourself in Android Studio.
+2. Download **SDRCC-Mobile.apk** using the link at the top of this page and install it.
 3. Open the SDRCC Mobile app. Tap **Adres bewerken**, enter your mini-PC address, for example
    \`192.168.1.50\` or \`192.168.1.50:8080\`.
 4. Tap **Verbinden**. The existing live Mobile UI should appear.

@@ -16,6 +16,12 @@
   <img src="dashboard/static/assets/banners/overview-panorama.webp" alt="SDRCC — ships, aircraft and satellites" width="100%">
 </p>
 
+## 📱 Android app
+
+**[Download SDRCC-Mobile.apk](https://github.com/EyeVisionsNL/SDRCC/raw/refs/heads/develop/android/SDRCC-Mobile.apk)** · [Installation instructions](android/README.md#download-and-install)
+
+The APK is available directly in the **android** folder.
+
 ## 📡 What is SDRCC?
 
 What started with a couple of SDR receivers and the question *“what else can we do with these?”* has grown into **SDRCC**.
