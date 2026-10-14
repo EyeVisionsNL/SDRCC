@@ -109,6 +109,13 @@ Check service status and system usage. Open **Settings → Map Connections** to 
 
 ## One-tap Android app update check
 
+**Release gate (14 October 2026):** the update button is being hardened and
+checked in CI, but the current feed remains unpublished. Do not call this v2.0
+until a permanently signed Android APK can be downloaded via the button and
+installed on a phone. The first switch away from an ephemeral debug signing
+key may require one uninstall; subsequent upgrades must use the same permanent
+certificate. The server VERSION is unchanged until that phone test passes.
+
 The Android toolbar has a **↓** update button. The same check is available on
 the connection screen if the mini-PC is temporarily unreachable.
 

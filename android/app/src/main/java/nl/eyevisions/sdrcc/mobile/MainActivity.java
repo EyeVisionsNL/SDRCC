@@ -535,19 +535,6 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private boolean trustedAndroidApkUrl(String link) {
-        if (link == null || link.isEmpty()) return false;
-        Uri uri = Uri.parse(link);
-        return "https".equalsIgnoreCase(uri.getScheme())
-                && "github.com".equalsIgnoreCase(uri.getHost())
-                && uri.getUserInfo() == null
-                && uri.getQuery() == null
-                && uri.getFragment() == null
-                && uri.getPath() != null
-                && uri.getPath().matches(
-                        "/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v[0-9]+/SDRCC-Mobile[.]apk");
-    }
-
     private void checkForAppUpdate() {
         if (updateCheckBusy) return;
         updateCheckBusy = true;
@@ -555,48 +542,62 @@ public final class MainActivity extends Activity {
         new Thread(() -> {
             try {
                 JSONObject feed = new JSONObject(readUpdateFeed());
-                int offeredCode = feed.optInt("version_code", 0);
+                Object rawCode = feed.opt("version_code");
+                if (!(rawCode instanceof Integer) && !(rawCode instanceof Long)) {
+                    throw new IOException("Het versieveld van de updatebron is ongeldig.");
+                }
+                long code = ((Number) rawCode).longValue();
+                if (code < Integer.MIN_VALUE || code > Integer.MAX_VALUE) {
+                    throw new IOException("De aangeboden versiecode is ongeldig.");
+                }
+                int offeredCode = (int) code;
                 String name = feed.optString("version_name", "").trim();
                 String link = feed.optString("apk_url", "").trim();
-                if (offeredCode < 0 || offeredCode > 1000000) {
-                    throw new IOException("Ongeldige updateversie.");
-                }
-                int installed = installedAppVersionCode();
+                AppUpdatePolicy.Status status = AppUpdatePolicy.evaluate(
+                        installedAppVersionCode(), offeredCode, name, link);
                 handler.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
-                    if (offeredCode <= installed) {
-                        new AlertDialog.Builder(this)
-                                .setTitle("SDRCC Mobile update")
+                    AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+                    if (status == AppUpdatePolicy.Status.UNPUBLISHED) {
+                        dialog.setTitle("Nog geen ondertekende app-release")
+                                .setMessage("De updatecontrole is bereikbaar, maar er staat "
+                                        + "nog geen officieel ondertekende Android-APK op GitHub. "
+                                        + "Je huidige app blijft gewoon werken.")
+                                .setPositiveButton("OK", null);
+                    } else if (status == AppUpdatePolicy.Status.INVALID) {
+                        dialog.setTitle("Update tijdelijk niet beschikbaar")
+                                .setMessage("GitHub geeft een onvolledig of onjuist "
+                                        + "updatebericht. Er wordt geen APK geopend.")
+                                .setPositiveButton("OK", null);
+                    } else if (status == AppUpdatePolicy.Status.UP_TO_DATE) {
+                        dialog.setTitle("SDRCC Mobile is bijgewerkt")
                                 .setMessage("Geen nieuwere Android-app gepubliceerd. "
                                         + "Geïnstalleerd: " + appVersionLabel() + ".")
-                                .setPositiveButton("OK", null)
-                                .show();
-                    } else if (!trustedAndroidApkUrl(link)) {
-                        new AlertDialog.Builder(this)
-                                .setTitle("SDRCC Mobile update")
-                                .setMessage("Een nieuwere versie is aangekondigd, maar "
-                                        + "de ondertekende APK is nog niet gepubliceerd.")
-                                .setPositiveButton("OK", null)
-                                .show();
+                                .setPositiveButton("OK", null);
                     } else {
-                        new AlertDialog.Builder(this)
-                                .setTitle("Nieuwe SDRCC Mobile-versie")
+                        dialog.setTitle("Nieuwe SDRCC Mobile-versie")
                                 .setMessage("Versie " + name + " is beschikbaar. "
-                                        + "Android vraagt zelf toestemming voor downloaden "
-                                        + "en installeren. Je SDRCC mini-pc blijft draaien.")
+                                        + "De officiële GitHub APK wordt in je browser geopend. "
+                                        + "Android vraagt zelf toestemming voor de installatie. "
+                                        + "Je SDRCC mini-pc blijft draaien.")
                                 .setNegativeButton("Annuleren", null)
-                                .setPositiveButton("APK openen", (dialog, which) ->
-                                        openExternal(Uri.parse(link)))
-                                .show();
+                                .setPositiveButton("APK openen", (whichDialog, which) ->
+                                        openExternal(Uri.parse(link)));
                     }
+                    dialog.show();
                 });
             } catch (Exception exception) {
+                String details = exception.getMessage() == null
+                        ? exception.getClass().getSimpleName() : exception.getMessage();
+                if (details.length() > 160) details = details.substring(0, 160);
+                final String failure = details;
                 handler.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     new AlertDialog.Builder(this)
                             .setTitle("Updatecontrole niet beschikbaar")
-                            .setMessage("Kan de openbare GitHub-updatebron niet bereiken. "
-                                    + "Probeer later opnieuw. Je SDRCC-ontvangst blijft actief.")
+                            .setMessage("Kan de openbare GitHub-updatebron niet controleren. "
+                                    + "Controleer internet op je telefoon. Details: " + failure
+                                    + "\nDe SDRCC-ontvangst blijft actief.")
                             .setPositiveButton("OK", null)
                             .show();
                 });

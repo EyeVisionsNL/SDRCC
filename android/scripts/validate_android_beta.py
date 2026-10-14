@@ -97,11 +97,19 @@ def validate() -> None:
             "App update button must be available when connected and disconnected")
     require('APP_UPDATE_FEED' in java and
             'APP_UPDATE_MAX_BYTES' in java and
-            'trustedAndroidApkUrl(link)' in java and
+            'AppUpdatePolicy.evaluate(' in java and
             'setInstanceFollowRedirects(false)' in java and
             '"APK openen"' in java and
             'new Thread(() ->' in java,
             "Update must verify a bounded public feed and ask before browser APK handoff")
+    policy = (project / "src/main/java/nl/eyevisions/sdrcc/mobile/"
+              "AppUpdatePolicy.java").read_text(encoding="utf-8")
+    policy_tests = (project / "src/test/java/nl/eyevisions/sdrcc/mobile/"
+                    "AppUpdatePolicyTest.java").read_text(encoding="utf-8")
+    require("UNPUBLISHED" in policy and "trustedReleaseUrl" in policy
+            and "mismatchedCodeAndAssetTagAreRejected" in policy_tests
+            and "firstUnpublishedFeedIsNotAnUpdate" in policy_tests,
+            "Android signed APK update-policy tests are missing")
     update_feed = (ANDROID / "update.json").read_text(encoding="utf-8")
     import json
     feed = json.loads(update_feed)
