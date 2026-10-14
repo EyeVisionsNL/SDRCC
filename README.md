@@ -22,6 +22,79 @@
 
 The APK is available directly in the **android** folder.
 
+Marine Traffic is central: control Marine Voice and AIS, view the live vessel map, see ATIS/AIS matches and photographs, and replay recent recordings. Separate tabs provide ADS-B, satellites, mission controls and system status.
+
+<p align="center">
+<img src="images/android-marine-control.webp" alt="SDRCC Mobile Marine and AIS controls" width="240">
+<img src="images/android-ais-map.webp" alt="Live AIS map with VTS sectors" width="240">
+<img src="images/android-atis-photo.webp" alt="ATIS and AIS vessel match with photograph" width="240">
+</p>
+
+### Android screenshots — 14 October 2026
+
+<details>
+<summary>Connect to your station</summary>
+
+Enter the mini-PC address with **IP-adres wijzigen**. Use your local network or connect your phone and mini-PC through Tailscale.
+
+<p align="center">
+<img src="images/android-startup.webp" alt="Start screen and station address" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Marine, AIS and recordings</summary>
+
+Start or stop Marine Voice and AIS independently. An ATIS/AIS match highlights the vessel without moving the map. Tap the vessel for details, follow the photo credit to the original, or listen to and save recent recordings.
+
+<p align="center">
+<img src="images/android-marine-control.webp" alt="Marine and AIS controls" width="240">
+<img src="images/android-ais-map.webp" alt="AIS map and VTS sectors" width="240">
+<img src="images/android-atis-photo.webp" alt="Matched vessel and original photo link" width="240">
+<img src="images/android-recordings.webp" alt="Live audio and last four recordings" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Aircraft</summary>
+
+Control ADS-B reception and view aircraft on the embedded map.
+
+<p align="center">
+<img src="images/android-adsb.webp" alt="ADS-B reception and aircraft map" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Satellites and missions</summary>
+
+View satellite positions, upcoming missions and the latest received image. Enable or disable automatic scheduling, or stop an active mission. Planning and manual mission starts remain on the mini-PC.
+
+<p align="center">
+<img src="images/android-satellites.webp" alt="Live satellite tracking" width="240">
+<img src="images/android-upcoming-missions.webp" alt="Upcoming mission queue" width="240">
+<img src="images/android-missions.webp" alt="Mission controls and latest received image" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>System and settings</summary>
+
+Check service status and system usage. Open **Settings → Map Connections** to change map addresses.
+
+<p align="center">
+<img src="images/android-system.webp" alt="Live component status and system usage" width="240">
+<img src="images/android-settings.webp" alt="Available components and map settings" width="240">
+</p>
+
+</details>
+
+On the AIS map, enable the **VTS sector** and **SDRCC ATIS** plugins in the plugin selector. [Android installation and connection guide](android/README.md#download-and-install).
+
 ## 📡 What is SDRCC?
 
 What started with a couple of SDR receivers and the question *“what else can we do with these?”* has grown into **SDRCC**.

@@ -24,6 +24,69 @@ Native Android application around the **existing** SDRCC Mobile dashboard.
 It is **not** a second SDRCC server, a fork of the Marine/AIS/ADS-B logic, or
 the home-screen browser shortcut.
 
+## App screenshots — 14 October 2026
+
+<details>
+<summary>Connect to your station</summary>
+
+Enter the mini-PC address with **IP-adres wijzigen**. Use your local network or connect your phone and mini-PC through Tailscale.
+
+<p align="center">
+<img src="../images/android-startup.webp" alt="Start screen and station address" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Marine, AIS and recordings</summary>
+
+Start or stop Marine Voice and AIS independently. An ATIS/AIS match highlights the vessel without moving the map. Tap the vessel for details, follow the photo credit to the original, or listen to and save recent recordings.
+
+<p align="center">
+<img src="../images/android-marine-control.webp" alt="Marine and AIS controls" width="240">
+<img src="../images/android-ais-map.webp" alt="AIS map and VTS sectors" width="240">
+<img src="../images/android-atis-photo.webp" alt="Matched vessel and original photo link" width="240">
+<img src="../images/android-recordings.webp" alt="Live audio and last four recordings" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Aircraft</summary>
+
+Control ADS-B reception and view aircraft on the embedded map.
+
+<p align="center">
+<img src="../images/android-adsb.webp" alt="ADS-B reception and aircraft map" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>Satellites and missions</summary>
+
+View satellite positions, upcoming missions and the latest received image. Enable or disable automatic scheduling, or stop an active mission. Planning and manual mission starts remain on the mini-PC.
+
+<p align="center">
+<img src="../images/android-satellites.webp" alt="Live satellite tracking" width="240">
+<img src="../images/android-upcoming-missions.webp" alt="Upcoming mission queue" width="240">
+<img src="../images/android-missions.webp" alt="Mission controls and latest received image" width="240">
+</p>
+
+</details>
+
+<details>
+<summary>System and settings</summary>
+
+Check service status and system usage. Open **Settings → Map Connections** to change map addresses.
+
+<p align="center">
+<img src="../images/android-system.webp" alt="Live component status and system usage" width="240">
+<img src="../images/android-settings.webp" alt="Available components and map settings" width="240">
+</p>
+
+</details>
+
 ## Features
 
 - App start screen and toolbar show the installed APK version, such as `v0.1.0 BETA 2`.
