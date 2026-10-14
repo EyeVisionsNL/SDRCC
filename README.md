@@ -58,7 +58,7 @@ Recent Marine transmissions can be replayed or saved, with up to four latest rec
 
 Optional **Ship photos** adds a vessel thumbnail after a validated live ATIS/AIS match, with the photographer/source credit and a clickable link to the original page. **Google Images** remains available as a separate search link.
 
-Photo source preference: **Mark Prummel → Peter / Binnenvaartspotter → Shipspotting.com → Wikimedia Commons → De Binnenvaart**. Shipspotting images are only used when a reduced thumbnail, photographer attribution, source link and verified vessel identifier can be obtained. Unavailable or unverified results fall through to the next source.
+Vessel photographs are shown only when the relevant photo's use is authorized by the photographer or covered by an appropriate license. A website containing work by multiple photographers is **not** treated as blanket permission. Individual photographer credit, applicable license information, existing watermarks and a link to the original photograph must be retained.
 
 ## 📻 Sometimes you just want a radio
 
@@ -491,7 +491,7 @@ Recent development changes include:
 
 - Improved marine ATIS decoding with tone filtering, bounded soft correction, international identity handling and shared decoder logic with AIS-ATIS-Bridge.
 - Smart Gain, a selectable Marine channel filter, recent-transmission replay/save and updated Excel channel lists with marine data channels excluded from voice scanning.
-- Optional matched-vessel photographs from Binnenvaartspotter.nl, De Binnenvaart, Mark Prummel and Wikimedia Commons.
+- Optional matched-vessel photographs with individual photographer attribution, original source links and verified permissions or compatible licenses.
 - More reliable managed updates and receiver handovers, with station settings preserved.
 - New compact panoramic banners for the dashboard tabs, with the animated radar centered. Traffic Voice shows a ship and aircraft while stopped, then the corresponding scene during Marine or Airband reception. Radio Receiver has its own antenna-mast background.
 
