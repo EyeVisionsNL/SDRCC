@@ -68,7 +68,7 @@ public final class MainActivity extends Activity {
     // Public update metadata is distinct from the private SDRCC receiver API.
     // Never download or execute an APK inside the app itself.
     private static final String APP_UPDATE_FEED =
-            "https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/develop/android/update.json";
+            "https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/android/update.json";
     private static final int APP_UPDATE_MAX_BYTES = 16384;
 
     private final Handler handler = new Handler(Looper.getMainLooper());

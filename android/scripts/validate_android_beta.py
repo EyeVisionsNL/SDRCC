@@ -95,6 +95,8 @@ def validate() -> None:
             "checkForAppUpdate()" in java and
             'Button updateApp = button("↓ App-update controleren");' in java,
             "App update button must be available when connected and disconnected")
+    require('"https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/android/update.json"' in java,
+            "Production app must fetch stable update metadata from main")
     require('APP_UPDATE_FEED' in java and
             'APP_UPDATE_MAX_BYTES' in java and
             'AppUpdatePolicy.evaluate(' in java and
@@ -139,9 +141,9 @@ def validate() -> None:
             'SDRCC Android  ·  BETA' not in java,
             "Stale hard-coded beta label found")
     gradle = (project / "build.gradle").read_text(encoding="utf-8")
-    require("versionName '0.1.0-beta3'" in gradle and
-            "versionCode 6" in gradle,
-            "Missing Android 0.1.0-beta3 version bump")
+    require("versionName '2.0.0'" in gradle and
+            "versionCode 7" in gradle,
+            "Missing Android 2.0.0 version bump")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")
     require((REPO / "VERSION").read_text().strip().startswith("0.66."),
