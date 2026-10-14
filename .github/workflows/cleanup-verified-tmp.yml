@@ -1,0 +1,38 @@
+name: One-time verified temporary branch cleanup
+on:
+  push:
+    branches: [develop]
+    paths: ['.github/workflows/cleanup-verified-tmp.yml']
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Delete only the 25 verified merged temporary branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import json, os, subprocess
+          names = ["tmp-ignore","tmp-stop","tmp-test-tree-support","tmp-unwanted-cleanup-marker","tmp-v0560w-final-attempt","tmp-v0560w-normal","tmp-v0560w-normal-check","tmp-v0560w-scan-speed","tmp-v0560w-scan-speed-2","tmp-v0560w-scan-speed-3","tmp-v0560w-scan-speed-4","tmp-v0560w-scan-speed-5","tmp-v0560w-scan-speed-6","tmp-v0560w-scan-speed-7","tmp-v0560w-scan-speed-8","tmp-v0560w-scan-speed-final","tmp-v0560w-scan-speed-final2","tmp-v0560w-scan-speed-final3","tmp-v0560w-scan-speed-final4","tmp-v0560w-scan-speed-final5","tmp-v0560w-scan-speed-final6","tmp-v0560w-scan-speed-final7","tmp-v0560w-scan-speed-final8","tmp-v0560w-scan-speed-final9","tmp-v0560w-scan-speed-final10"]
+          expected = "65b58bbbf8162d5c991316a2b8881f21e34a9335"
+          repo = os.environ["GITHUB_REPOSITORY"]
+          assert repo == "EyeVisionsNL/SDRCC"
+          for name in names:
+              assert name.startswith("tmp-")
+              endpoint = f"repos/{repo}/git/refs/heads/{name}"
+              result = subprocess.run(["gh", "api", endpoint], text=True, capture_output=True)
+              if result.returncode and "404" in result.stderr:
+                  print("Already absent:", name)
+                  continue
+              result.check_returncode()
+              assert json.loads(result.stdout)["object"]["sha"] == expected, f"Changed branch: {name}"
+              assert any(subprocess.run(["git", "merge-base", "--is-ancestor", expected, ref]).returncode == 0 for ref in ["origin/develop", "origin/main"])
+              subprocess.run(["git", "push", f"--force-with-lease=refs/heads/{name}:{expected}", "origin", f":refs/heads/{name}"], check=True)
+              print("Deleted:", name)
+          
