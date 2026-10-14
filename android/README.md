@@ -2,7 +2,7 @@
 
 **Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.0)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v7/SDRCC-Mobile.apk)
 
-SDRCC Mobile is the Android companion to the existing SDRCC server. It shows the same live data as the mini-PC: Marine Voice, AIS and ATIS matches, recordings, aircraft, satellite passes, mission controls, and service status. It does **not** install or run a second receiver server.
+SDRCC Mobile is the Android companion to the existing SDRCC server. The host can be a desktop PC, mini-PC, laptop, or server that meets SDRCC's supported Linux installation requirements; its physical size makes no difference to the Android app. It shows the same live data as the SDRCC computer: Marine Voice, AIS and ATIS matches, recordings, aircraft, satellite passes, mission controls, and service status. It does **not** install or run a second receiver server.
 
 ## 1. Install the app on your phone
 
@@ -10,21 +10,21 @@ SDRCC Mobile is the Android companion to the existing SDRCC server. It shows the
 2. Open the **official signed APK** link above in your Android browser.
 3. Open the downloaded `SDRCC-Mobile.apk`. If Android asks, allow installation from this browser.
 4. Tap **Install**. Start **SDRCC Mobile**.
-5. Enter the address of your running SDRCC mini-PC, for example `192.168.1.50` or `192.168.1.50:8080`, and tap **Verbinden met SDRCC**.
+5. Enter the address of the computer running SDRCC, for example `192.168.1.50` or `192.168.1.50:8080`, and tap **Verbinden met SDRCC**.
 
-Only enter a station address you control. The phone must be on the same trusted Wi-Fi network or connected to the private Tailscale network as your mini-PC. The mini-PC runs SDRCC on HTTP port 8080; AIS-Catcher normally uses 8119, and readsb/tar1090 uses port 80.
+Only enter a station address you control. The phone must be on the same trusted Wi-Fi network or connected to the private Tailscale network as your SDRCC computer. SDRCC normally runs on HTTP port 8080; AIS-Catcher normally uses 8119, and readsb/tar1090 uses port 80.
 
-<p align="center"><img src="../images/android-startup.webp" alt="Android station connection screen with editable mini-PC address" width="260"></p>
+<p align="center"><img src="../images/android-startup.webp" alt="Android station connection screen with editable SDRCC server address" width="260"></p>
 
 If the station is temporarily unreachable, select **IP-adres wijzigen** on the radar connection screen. Use **Adres bewerken** or **Wissen** to correct the saved address. The app also reports relevant Android/WebView connection failures.
 
 ### Connect from outside home Wi-Fi with Tailscale
 
-Tailscale creates a private, encrypted connection between your SDRCC mini-PC and Android phone. This lets SDRCC Mobile reach your home station when the phone is on mobile data or another Wi-Fi network, **without forwarding ports on your internet router**. Tailscale is optional if you only use SDRCC Mobile on your own Wi-Fi.
+Tailscale creates a private, encrypted connection between the computer running SDRCC and your Android phone. This lets SDRCC Mobile reach your home station when the phone is on mobile data or another Wi-Fi network, **without forwarding ports on your internet router**. Tailscale is optional if you only use SDRCC Mobile on your own Wi-Fi.
 
-**Step A — Install Tailscale on the Ubuntu mini-PC**
+**Step A — Install Tailscale on the Ubuntu computer running SDRCC**
 
-1. Open **Terminal** on the mini-PC that runs SDRCC.
+1. Open **Terminal** on the Ubuntu computer or server that runs SDRCC.
 2. Install `curl` if needed, then install Tailscale using the [official Linux installation instructions](https://tailscale.com/docs/install/linux):
 
    ```bash
@@ -33,13 +33,13 @@ Tailscale creates a private, encrypted connection between your SDRCC mini-PC and
    curl -fsSL https://tailscale.com/install.sh | sh
    ```
 
-3. Start Tailscale and connect the mini-PC to your private Tailscale network (called a *tailnet*):
+3. Start Tailscale and connect the SDRCC computer to your private Tailscale network (called a *tailnet*):
 
    ```bash
    sudo tailscale up
    ```
 
-4. Open the sign-in link printed by the command, complete the sign-in in your browser, then check the connection and find the mini-PC's **Tailscale IPv4 address**:
+4. Open the sign-in link printed by the command, complete the sign-in in your browser, then check the connection and find the SDRCC computer's **Tailscale IPv4 address**:
 
    ```bash
    tailscale status
@@ -51,7 +51,7 @@ Tailscale creates a private, encrypted connection between your SDRCC mini-PC and
 **Step B — Install Tailscale on your Android phone**
 
 1. Install the official [Tailscale Android app](https://tailscale.com/download/android) from Google Play.
-2. Open Tailscale, tap **Get Started / Log in**, accept Android's VPN connection prompt, and sign in to **the same tailnet as the mini-PC**.
+2. Open Tailscale, tap **Get Started / Log in**, accept Android's VPN connection prompt, and sign in to **the same tailnet as the SDRCC computer**.
 3. Make sure Tailscale shows **Connected** on the phone. Leave Tailscale connected while using SDRCC Mobile remotely.
 4. Do not share your login details with other testers. Everyone should use their own account/tailnet, or be granted access through Tailscale's sharing or user-invitation features.
 
@@ -59,18 +59,18 @@ Tailscale creates a private, encrypted connection between your SDRCC mini-PC and
 
 1. Open **SDRCC Mobile** on Android.
 2. Choose **IP-adres wijzigen** or **Adres bewerken** on its connection screen.
-3. Enter **your mini-PC's Tailscale IPv4 address**, optionally followed by SDRCC's port `8080`. For the example above, enter `100.101.102.103:8080` (do **not** enter the phone's own Tailscale IP).
-4. Tap **Verbinden met SDRCC**. Your mini-PC must be switched on, SDRCC must be running, and both Tailscale devices must be connected.
-5. In **System → Settings → Map Connections**, use the **same mini-PC Tailscale IP** for the embedded map URLs if the maps do not open remotely:
+3. Enter **your SDRCC computer's Tailscale IPv4 address**, optionally followed by SDRCC's port `8080`. For the example above, enter `100.101.102.103:8080` (do **not** enter the phone's own Tailscale IP).
+4. Tap **Verbinden met SDRCC**. Your SDRCC computer must be switched on, SDRCC must be running, and both Tailscale devices must be connected.
+5. In **System → Settings → Map Connections**, use the **SDRCC computer's Tailscale IP** for the embedded map URLs if the maps do not open remotely:
 
    | Mobile map | Example address |
    |---|---|
    | AIS-Catcher Map URL | `http://100.101.102.103:8119/` |
    | ADS-B Map URL (tar1090) | `http://100.101.102.103/tar1090/` |
 
-   Choose **Save Map Addresses**. The example assumes the standard AIS-Catcher and ADS-B web ports. Enable **VTS sector** and **SDRCC ATIS** in the AIS map's plugin selector as described in the next section.
+   Choose **Save Map Addresses**. If AIS-Catcher or tar1090 runs on a **different** computer, use that computer's reachable Tailscale IP address rather than the SDRCC server's address. The example assumes the standard AIS-Catcher and ADS-B web ports. Enable **VTS sector** and **SDRCC ATIS** in the AIS map's plugin selector as described in the next section.
 
-**Test with Wi-Fi switched off:** activate mobile data, leave Tailscale connected, and open `http://YOUR-TAILSCALE-IP:8080/static/mobile/index.html` in your phone browser (replacing the placeholder with your mini-PC's real address). Then open SDRCC Mobile using that same IP. If SDRCC works but an AIS/ADS-B map does not, verify the map's URL, the relevant service, its listening interface/port and the mini-PC firewall or tailnet access policy. The update button downloads Android APKs from GitHub separately; it is **not** the mini-PC's Tailscale connection.
+**Test with Wi-Fi switched off:** activate mobile data, leave Tailscale connected, and open `http://YOUR-TAILSCALE-IP:8080/static/mobile/index.html` in your phone browser (replacing the placeholder with your SDRCC computer's real address). Then open SDRCC Mobile using that same IP. If SDRCC works but an AIS/ADS-B map does not, verify the map's URL, the relevant service, its listening interface/port and the computer's firewall or tailnet access policy. The update button downloads Android APKs from GitHub separately; it is **not** the SDRCC computer's Tailscale connection.
 
 Official reference: [Tailscale Linux setup](https://tailscale.com/docs/install/linux) · [Tailscale Android setup](https://tailscale.com/docs/install/android).
 
@@ -79,8 +79,8 @@ Official reference: [Tailscale Linux setup](https://tailscale.com/docs/install/l
 1. Open the **Marine** tab in SDRCC Mobile.
 2. Start the appropriate SDRCC Marine Voice and/or AIS service if required; they remain independent.
 3. Open the live AIS map. In the AIS-Catcher map's **plugin selector**, enable **VTS sector** (Rijnmond sector overlay) and **SDRCC ATIS** (highlight of a validated ATIS/AIS vessel match).
-4. If the map does not connect, go to **System → Settings → Map Connections** and check the AIS-Catcher Map URL (`http://mini-pc:8119/`). Correct it, then select **Save Map Addresses**.
-5. For ADS-B, verify the ADS-B Map URL (`http://mini-pc/tar1090/`) from the same settings.
+4. If the map does not connect, go to **System → Settings → Map Connections** and check the AIS-Catcher Map URL (`http://YOUR-SDRCC-IP:8119/`). Correct it, then select **Save Map Addresses**.
+5. For ADS-B, verify the ADS-B Map URL (`http://YOUR-SDRCC-IP/tar1090/`) from the same settings.
 
 The ATIS match only highlights the correct AIS vessel on the map; the map does not automatically jump or re-center. Tap the vessel yourself to inspect details and source-linked photographs. The Rijnmond sector and ATIS overlay may need to be selected again in the map plugin selector when configuring a new installation.
 
@@ -92,7 +92,7 @@ The ATIS match only highlights the correct AIS vessel on the map; the map does n
 
 ## 3. Use the other mobile features
 
-Marine recordings can be replayed and saved while live reception continues. ADS-B, satellites, future passes, active missions and service status are available through their own tabs. Mission planning, Analyze, History and desktop-only maintenance remain on the mini-PC.
+Marine recordings can be replayed and saved while live reception continues. ADS-B, satellites, future passes, active missions and service status are available through their own tabs. Mission planning, Analyze, History and desktop-only maintenance remain on the SDRCC computer.
 
 <p align="center">
 <img src="../images/android-recordings.webp" alt="Marine recordings" width="220">
@@ -110,9 +110,9 @@ Marine recordings can be replayed and saved while live reception continues. ADS-
 2. The stable v2.0.0 app reads `android/update.json` from the public **main** branch over HTTPS, separately from the station's private SDRCC API.
 3. If there is a newer signed version, tap **APK openen**. The official versioned GitHub Release APK opens in the phone browser.
 4. Open the downloaded APK and choose **Update / Bijwerken**, **not Uninstall / Verwijderen**.
-5. Launch SDRCC Mobile. Your saved mini-PC address and Android app settings should still be present.
+5. Launch SDRCC Mobile. Your saved SDRCC server address and Android app settings should still be present.
 
-The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was successfully tested on an Android phone without uninstalling. The release uses the same permanent signing key, with **v2.0.0 (code 7)** as its new public version. The button never silently installs APKs, and an Android update never stops the mini-PC receiver services.
+The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was successfully tested on an Android phone without uninstalling. The release uses the same permanent signing key, with **v2.0.0 (code 7)** as its new public version. The button never silently installs APKs, and an Android update never stops the SDRCC computer's receiver services.
 
 **Important:** do not use older debug APKs found in CI artifacts or the historical `android/SDRCC-Mobile.apk` path: they may use temporary, incompatible signing keys. The official GitHub Release link above is the supported download location.
 
@@ -126,4 +126,4 @@ The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was
 - SDRCC and the embedded maps communicate over HTTP on your trusted LAN or private encrypted Tailscale VPN. Do not expose the station to the public internet with port forwarding.
 - Keep a **secure offline backup** of your private Android signing keystore and passwords. Never add the `.p12` file, secret contents, or passwords to GitHub source control or support messages.
 
-**SDRCC v0.67.0** on the mini-PC and **SDRCC Mobile v2.0.0** on Android are two separate version numbers. Update SDRCC itself with **System → Advanced Maintenance** on the mini-PC; use the Android **↓** button only to update the phone app.
+**SDRCC v0.67.0** on the computer running SDRCC and **SDRCC Mobile v2.0.0** on Android are two separate version numbers. Update SDRCC itself with **System → Advanced Maintenance** on that computer; use the Android **↓** button only to update the phone app.
