@@ -152,7 +152,8 @@
     "07798d814123d60b4a6b983124f26d2de2754350626aab1274c0a23fecdf5bbf",
     "17cc977a429023917c06aa7d63711c9b15c858e771e0f0ab3716d780ddfef466",
     "ba5d48568346cbc3f53059c17c368c5081c9203ef5cf7b881107515ddbc074f1",
-    "a6fcc5d96eed4f7ab817b3efc0da1f6ef4e1e736e7aa83361a66f2b965ccdb1e"
+    "a6fcc5d96eed4f7ab817b3efc0da1f6ef4e1e736e7aa83361a66f2b965ccdb1e",
+    "23253fe5b17b8aa01f85c8d432f76d2a58eda90b6b4974ae3c89011dadd925bf"
   ],
   "core/device_manager.py": [
     "dd5d589b6d7660623df7f5adf3324716b43a1e67d31ef3ea8f43688d42b72797",
@@ -1007,7 +1008,8 @@
     "73706062cb95279514bffc782a2a40ee232c913147c5a12c99acd64106977319"
   ],
   "core/iss_sstv_announcements.py": [
-    "290b78dbaf45da5ed2b3c11f18b2e2c30272e7aea116fb93b5a4070b6bb72361"
+    "290b78dbaf45da5ed2b3c11f18b2e2c30272e7aea116fb93b5a4070b6bb72361",
+    "fbace50ffbb596b97c57a6127caf78e17219ea64f1411b00d5f629ca179a70de"
   ],
   "dashboard/static/css/dashboard_polish.css": [
     "f6117e63a80bff2bf69f5304d86e63a439e46ab5ad72d509d1c0d1776ec6be78",
@@ -1113,5 +1115,8 @@
   ],
   "core/mobile_capabilities.py": [
     "b7952b200e5ba2272649f433c45fe02a01566a154ae6d11db169fbbabeb098f4"
+  ],
+  "scripts/validate_ariss_sstv_announcements.py": [
+    "68b61059b547ff9cf67a73d8e7b0534fc1a1ecfa2909e7ed2ae79beb033d9bec"
   ]
 }

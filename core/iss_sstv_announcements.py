@@ -32,7 +32,9 @@ def parse_notice(document):
     parser = _Text()
     parser.feed(document)
     text = " ".join(" ".join(parser.parts).split())
-    matches = list(re.finditer(r"\b(20\d{2}-\d{2}-\d{2})\s+SSTV\b", text))
+    # ARISS headings do not always begin with "SSTV" (e.g. "Expedition 75 Series 34").
+    # Identify dated notices independently of their heading wording.
+    matches = list(re.finditer(r"\b(20\d{2}-\d{2}-\d{2})\s+(?=[A-Za-z])", text))
     if not matches:
         raise ValueError("No dated SSTV announcement found on ARISS.")
     first = matches[0]
