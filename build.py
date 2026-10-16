@@ -1,0 +1,33 @@
+from pathlib import Path
+import re,json,html,markdown
+
+root=Path(__file__).parent
+base='https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/'
+pages=[('Home','Start here','overview','Your station. Your signals.','A friendly field guide to radio, ships, aircraft and satellites.'),('Installation','Installation','overview','From zero to receiving.','Install SDRCC on Ubuntu. We’ll take it one step at a time.'),('First-steps','First steps','overview','Meet your receivers.','Give every dongle a job and bring your station to life.'),('Marine-and-ATIS','Marine & ATIS','marine','Which ship was that?','Follow the voice. Find the vessel. Replay the moment.'),('Radio-and-aircraft','Radio & aircraft','aviation','There’s plenty on air.','Tune in, explore the spectrum and follow the aircraft above you.'),('Satellite-missions','Satellite missions','satellite','Something from space.','Plan the pass, let SDRCC do the waiting, and see what comes down.'),('Android-companion','Android app','marine','Your station. In your pocket.','Connect your phone and take the view from your station with you.'),('Updates-and-troubleshooting','Updates & help','logs','Keep the signals flowing.','Updates, practical checks and a little help when things go quiet.')]
+def url(slug): return 'index.html' if slug=='Home' else slug.lower()+'.html'
+nav=''.join(f'<a href="{url(p[0])}" DATA-{p[0]}><span>{i:02}</span> &nbsp; {html.escape(p[1])}</a>' for i,p in enumerate(pages))
+search=[]
+for idx,(slug,label,scene,title,subtitle) in enumerate(pages):
+    source=(root/'source'/f'{slug}.md').read_text()
+    source=re.sub(r'\[\[([^\]]+)\]\]',lambda m:f'[{"Android app" if m[1]=="Android companion" else m[1]}]({url(m[1].replace(" ","-"))})',source)
+    source=source.replace('https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/',base)
+    source=re.sub(r'^# .+\n','',source,count=1,flags=re.M)
+    md=markdown.Markdown(extensions=['tables','fenced_code','toc'])
+    body=md.convert(source)
+    search.append({'title':label,'url':url(slug),'text':re.sub('<[^>]+>',' ',body)})
+    if idx==0:
+        cards=''.join(f'<a class="card" href="{url(p[0])}"><img src="{base}dashboard/static/assets/banners/{p[2]}-panorama.webp" alt="" loading="lazy"><div class="card-body"><span class="num">GUIDE {i:02}</span><h3>{html.escape(p[1])}</h3><p>{html.escape(p[4])}</p><span class="arrow">Open guide ↗</span></div></a>' for i,p in enumerate(pages[1:],1))
+        body=f'<div class="welcome"><strong>Welcome aboard.</strong> A few receivers, some antennas, and probably more cables than planned. Let’s make them do something interesting.</div><div class="section-head"><h2>Choose your next adventure</h2><span>07 GUIDES · ONE STATION</span></div><div class="cards">{cards}</div><div class="section-head"><h2>Built around your station</h2></div><p>Start with installation and receiver setup. Then follow the signals that interest you. Every guide includes practical steps and real SDRCC screenshots.</p><a class="button" href="https://github.com/EyeVisionsNL/SDRCC/discussions">Have an idea? Join the discussion ↗</a>'
+        main=body
+    else:
+        main=f'<div class="article-wrap"><article class="article">{body}</article><aside class="toc" aria-label="On this page"><strong>ON THIS PAGE</strong>{md.toc}</aside></div>'
+    prev=pages[idx-1] if idx else None
+    nxt=pages[idx+1] if idx+1<len(pages) else None
+    pager='<div class="pager">'+(f'<a href="{url(prev[0])}">← {html.escape(prev[1])}</a>' if prev else '<span></span>')+(f'<a href="{url(nxt[0])}">{html.escape(nxt[1])} →</a>' if nxt else '<a href="index.html">Back to start ↑</a>')+'</div>'
+    active=re.sub(r' DATA-([^ >]+)',lambda m:' aria-current="page"' if m[1]==slug else '',nav)
+    buttons='<div class="buttons"><a class="button primary" href="installation.html">Get started →</a><a class="button" href="android-companion.html">Android app ↗</a></div>' if idx==0 else ''
+    doc=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{html.escape(subtitle)} SDRCC documentation and practical guides."><meta name="theme-color" content="#0f172a"><title>{html.escape(label)} · SDRCC Guide</title><link rel="icon" href="{base}dashboard/static/assets/sdrcc.png"><link rel="stylesheet" href="style.css"><script src="app.js" defer></script></head><body><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="index.html"><img src="{base}dashboard/static/assets/sdrcc.png" alt=""> <span>SDRCC<small>THE FIELD GUIDE</small></span></a><div class="top-links"><a href="https://github.com/EyeVisionsNL/SDRCC">GitHub ↗</a><a href="android-companion.html">Android app</a><span class="pill">● &nbsp; LISTEN · DECODE · EXPLORE</span><button class="menu" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">☰</button></div></header><div class="layout"><aside class="sidebar" id="sidebar"><div class="eyebrow">STATION HANDBOOK</div><div class="search"><label for="search" class="eyebrow">Find a guide</label><input id="search" type="search" placeholder="Search AIS, Android, updates…" autocomplete="off"><div class="search-results" aria-live="polite"></div></div><nav aria-label="Guides">{active}</nav><div class="side-note">Radio · AIS · ATIS · ADS-B<br>Satellites · Android<br><br>Made for curious listeners.<br><a href="https://github.com/EyeVisionsNL/SDRCC/discussions">Questions & ideas ↗</a><br><a href="https://github.com/EyeVisionsNL/SDRCC/wiki">Original GitHub Wiki ↗</a></div></aside><main class="content" id="main"><div class="crumb">SDRCC / Documentation / {html.escape(label)}</div><section class="hero"><div class="hero-art" style="background-image:url('{base}dashboard/static/assets/banners/{scene}-panorama.webp')"></div><div class="hero-copy"><div class="eyebrow">{'WELCOME TO SDR CONTROL CENTER' if idx==0 else 'THE SDRCC GUIDE / '+label.upper()}</div><h1>{html.escape(title)}</h1><p>{html.escape(subtitle)}</p>{buttons}</div><div class="radar" aria-hidden="true"><div class="sweep"></div><i></i><i></i><i></i></div></section>{main}{pager}<footer class="footer"><span>SDRCC — SDR Control Center · Listen. Decode. Analyze. Share.</span><span>Guide: SDRCC 0.67.0 / Android 2.0.0</span></footer></main></div><dialog aria-label="Enlarged screenshot"><button aria-label="Close screenshot">×</button><img alt=""></dialog></body></html>'''
+    (root/url(slug)).write_text(doc)
+(root/'search.json').write_text(json.dumps(search,ensure_ascii=False))
+(root/'.nojekyll').write_text('')
+print(f'Built {len(pages)} pages with local navigation and full-text guide search.')

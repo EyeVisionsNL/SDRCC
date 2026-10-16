@@ -1,0 +1,83 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Updates, practical checks and a little help when things go quiet. SDRCC documentation and practical guides."><meta name="theme-color" content="#0f172a"><title>Updates &amp; help · SDRCC Guide</title><link rel="icon" href="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/sdrcc.png"><link rel="stylesheet" href="style.css"><script src="app.js" defer></script></head><body><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="index.html"><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/sdrcc.png" alt=""> <span>SDRCC<small>THE FIELD GUIDE</small></span></a><div class="top-links"><a href="https://github.com/EyeVisionsNL/SDRCC">GitHub ↗</a><a href="android-companion.html">Android app</a><span class="pill">● &nbsp; LISTEN · DECODE · EXPLORE</span><button class="menu" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">☰</button></div></header><div class="layout"><aside class="sidebar" id="sidebar"><div class="eyebrow">STATION HANDBOOK</div><div class="search"><label for="search" class="eyebrow">Find a guide</label><input id="search" type="search" placeholder="Search AIS, Android, updates…" autocomplete="off"><div class="search-results" aria-live="polite"></div></div><nav aria-label="Guides"><a href="index.html"><span>00</span> &nbsp; Start here</a><a href="installation.html"><span>01</span> &nbsp; Installation</a><a href="first-steps.html"><span>02</span> &nbsp; First steps</a><a href="marine-and-atis.html"><span>03</span> &nbsp; Marine &amp; ATIS</a><a href="radio-and-aircraft.html"><span>04</span> &nbsp; Radio &amp; aircraft</a><a href="satellite-missions.html"><span>05</span> &nbsp; Satellite missions</a><a href="android-companion.html"><span>06</span> &nbsp; Android app</a><a href="updates-and-troubleshooting.html" aria-current="page"><span>07</span> &nbsp; Updates &amp; help</a></nav><div class="side-note">Radio · AIS · ATIS · ADS-B<br>Satellites · Android<br><br>Made for curious listeners.<br><a href="https://github.com/EyeVisionsNL/SDRCC/discussions">Questions & ideas ↗</a><br><a href="https://github.com/EyeVisionsNL/SDRCC/wiki">Original GitHub Wiki ↗</a></div></aside><main class="content" id="main"><div class="crumb">SDRCC / Documentation / Updates &amp; help</div><section class="hero"><div class="hero-art" style="background-image:url('https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/banners/logs-panorama.webp')"></div><div class="hero-copy"><div class="eyebrow">THE SDRCC GUIDE / UPDATES & HELP</div><h1>Keep the signals flowing.</h1><p>Updates, practical checks and a little help when things go quiet.</p></div><div class="radar" aria-hidden="true"><div class="sweep"></div><i></i><i></i><i></i></div></section><div class="article-wrap"><article class="article"><h2 id="update-sdrcc">Update SDRCC</h2>
+<ol>
+<li>Open the desktop dashboard and go to <strong>System → Advanced Maintenance</strong>.</li>
+<li>Check the offered version and release notes. Use the stable main channel for the stable release; develop contains changes under test.</li>
+<li>Finish active reception work that should not be interrupted, then start the managed update.</li>
+<li>Wait for the update result. Reopen or refresh the dashboard and check the installed version and service status.</li>
+</ol>
+<p>The managed workflow preserves local station settings, receiver bindings and runtime data outside the code replacement path.</p>
+<p><img alt="Advanced Maintenance" src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/maintenance.webp" /></p>
+<h2 id="find-the-right-first-check">Find the right first check</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dashboard will not open</td>
+<td>Computer powered on, SDRCC running, correct IP and port, reachable network</td>
+</tr>
+<tr>
+<td>Receiver is missing</td>
+<td>USB connection, detected serial and System receiver bindings</td>
+</tr>
+<tr>
+<td>Receiver is busy</td>
+<td>Active mission, Traffic Voice or Radio Receiver ownership in the dashboard</td>
+</tr>
+<tr>
+<td>Receiver runs but there is no audio</td>
+<td>Page playback control, browser audio permission, muted tab/system output and squelch</td>
+</tr>
+<tr>
+<td>Voice is audible but no vessel match</td>
+<td>Validated ATIS decode and available AIS vessel identity data; not every transmission yields a match</td>
+</tr>
+<tr>
+<td>Android connects but maps do not</td>
+<td>Each map URL under System → Settings → Map Connections, relevant map service and reachability</td>
+</tr>
+<tr>
+<td>Sector or ATIS overlay is missing</td>
+<td>Installed map plugins and selection of VTS sector / SDRCC ATIS</td>
+</tr>
+<tr>
+<td>Works on Wi-Fi but not remotely</td>
+<td>Tailscale connected on both devices; computer's Tailscale address used for station and maps</td>
+</tr>
+<tr>
+<td>Satellite mission has no usable image/audio</td>
+<td>Mission logs, actual reception window, receiver, antenna, gain and satellite transmission activity</td>
+</tr>
+</tbody>
+</table>
+<h2 id="an-update-failed">An update failed</h2>
+<p>Copy the exact error and check the update log. For <strong>Update source hash is not approved</strong>, report the named file, current version and update channel so the release metadata can be checked. Do not edit hashes or disable verification as a workaround.</p>
+<p>If a receiver or mission is reported as active, inspect Mission Control and the listening pages before retrying. Stop an active task through its normal controls. If the warning remains despite an idle station, include that in the report.</p>
+<h2 id="make-a-useful-bug-report">Make a useful bug report</h2>
+<p>Include:</p>
+<ul>
+<li>SDRCC version and branch/channel; Android version if relevant.</li>
+<li>Ubuntu version and receiver model, plus the affected service.</li>
+<li>The steps to reproduce the problem.</li>
+<li>Expected result and actual result.</li>
+<li>Exact error, relevant log excerpt and a screenshot where useful.</li>
+</ul>
+<p>Remove passwords, tokens and other private information from shared logs or screenshots.</p>
+<p><img alt="Logs" src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/logs.webp" /></p>
+<p><a href="https://github.com/EyeVisionsNL/SDRCC/issues">Report a bug</a> · <a href="https://github.com/EyeVisionsNL/SDRCC/discussions">Questions and future ideas</a></p>
+<h2 id="remove-sdrcc">Remove SDRCC</h2>
+<p>If you intend to uninstall, run <strong>~/SDRCC/uninstall.sh</strong> and read its prompts carefully. The receipt-aware uninstaller removes externally provisioned radio applications only when the installation receipt records that SDRCC installed them. Shared Ubuntu packages are preserved.</p>
+<p><a href="index.html">Home</a> · <a href="installation.html">Installation</a> · <a href="android-companion.html">Android app</a></p></article><aside class="toc" aria-label="On this page"><strong>ON THIS PAGE</strong><div class="toc">
+<ul>
+<li><a href="#update-sdrcc">Update SDRCC</a></li>
+<li><a href="#find-the-right-first-check">Find the right first check</a></li>
+<li><a href="#an-update-failed">An update failed</a></li>
+<li><a href="#make-a-useful-bug-report">Make a useful bug report</a></li>
+<li><a href="#remove-sdrcc">Remove SDRCC</a></li>
+</ul>
+</div>
+</aside></div><div class="pager"><a href="android-companion.html">← Android app</a><a href="index.html">Back to start ↑</a></div><footer class="footer"><span>SDRCC — SDR Control Center · Listen. Decode. Analyze. Share.</span><span>Guide: SDRCC 0.67.0 / Android 2.0.0</span></footer></main></div><dialog aria-label="Enlarged screenshot"><button aria-label="Close screenshot">×</button><img alt=""></dialog></body></html>
