@@ -137,4 +137,19 @@ if __name__ == "__main__":
     check_shipspotting()
     check_binnenvaart()
     check_new_site()
+    # Inspect only the public SPA bundle, not any photographs.
+    try:
+        from urllib.request import Request, urlopen
+        asset = "https://debinnenvaart.nl/assets/index-tos2UP46.js"
+        with urlopen(Request(asset, headers={"User-Agent":"Mozilla/5.0"}), timeout=12) as response:
+            js = response.read(4000000).decode("utf-8","replace")
+        print("SPA JS bytes="+str(len(js)),flush=True)
+        needles = ("/api/","fetch(","axios","/schepen","/schip/","search_field","search_value","/search","/vessels","/ships","photo","/graphql")
+        for term in needles:
+            places=[m.start() for m in re.finditer(re.escape(term),js,re.I)][:5]
+            print("  JS TERM "+term+" hits="+str(len(places)),flush=True)
+            for at in places[:3]:
+                print("    "+re.sub(r"\\s+"," ",js[max(at-130,0):at+180])[:310],flush=True)
+    except Exception as e:
+        print("SPA JS ERROR "+type(e).__name__+": "+str(e)[:160],flush=True)
     print("Diagnostic complete: read-only public data; no image copies.", flush=True)
