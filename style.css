@@ -28,3 +28,8 @@
 .article p:has(>.screenshot-link){text-align:center}
 @media(max-width:760px){.hero{padding:0;min-height:0}.hero-copy{padding:22px}.hero-copy,.hero p{max-width:100%}.hero h1{max-width:none;font-size:30px}.hero-image{width:100%;height:auto}.hero .radar{width:42px}.card img{height:auto;min-height:0}.article .screenshot-link.phone{max-width:calc(50% - 20px)}.article img[width]{max-width:100%}}
 @media(max-width:420px){.card{display:flex}.card img{width:100%;height:auto;min-height:0}}
+/* Equal, centered image stages keep card headings aligned without cropping. */
+.card img{height:64px;min-height:0;object-fit:contain;object-position:center;background:#031426}
+.card::after{display:none}
+.card-body{position:relative;flex:1}
+.card-body::after{content:"";position:absolute;right:0;top:0;width:46px;height:30px;background:radial-gradient(circle 33px at 33px -3px,color-mix(in srgb,var(--card-accent) 14%,transparent) 99%,transparent 100%);pointer-events:none}
