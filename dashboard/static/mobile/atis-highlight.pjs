@@ -8,8 +8,7 @@
  */
 if (typeof AISCatcher !== "undefined" &&
     AISCatcher.PLUGIN_API_VERSION >= 5 &&
-    typeof ol !== "undefined" &&
-    window.parent !== window) {
+    typeof ol !== "undefined") {
   (function () {
     "use strict";
 
@@ -232,6 +231,34 @@ if (typeof AISCatcher !== "undefined" &&
         emergencySync(data);
       }
     });
+
+    // In an independent AIS-Catcher viewer (port 8119), there is no SDRCC
+    // parent iframe to relay events. Pull only the bounded read-only ring API
+    // on the same station's port 8080; CORS is limited to this station's viewer.
+    if (window.parent === window) {
+      var standaloneBusy = false;
+      function standaloneEmergencySync() {
+        if (standaloneBusy) return;
+        standaloneBusy = true;
+        fetch(trustedOrigin + "/api/emergency-monitor/map-highlights", {
+          cache: "no-store"
+        }).then(function (response) {
+          if (!response.ok) throw new Error("Emergency rings unavailable");
+          return response.json();
+        }).then(function (data) {
+          if (data && data.ok === true && Array.isArray(data.vessels)) {
+            emergencySync({vessels: data.vessels});
+          }
+        }).catch(function () {
+          // The AIS map keeps working when SDRCC or its observer is offline.
+          // Previously received rings expire locally and are never retained.
+        }).finally(function () {
+          standaloneBusy = false;
+        });
+      }
+      window.setTimeout(standaloneEmergencySync, 1200);
+      window.setInterval(standaloneEmergencySync, 15000);
+    }
 
     // Defer readiness until AIS-Catcher's synchronous map creation completes.
     window.setTimeout(function () { reply("ready"); }, 0);
