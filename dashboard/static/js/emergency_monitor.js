@@ -24,6 +24,7 @@
     function fill(settings) {
         $("em-enabled").checked = settings.enabled;
         $("em-radius").value = settings.radius_km;
+        $("em-motion-only").checked = Boolean(settings.motion_only);
         for (const category of categories) {
             $("em-cat-" + category).checked = Boolean(settings.categories?.[category]);
         }
@@ -47,6 +48,7 @@
         return {
             enabled: $("em-enabled").checked,
             radius_km: Number($("em-radius").value),
+            motion_only: $("em-motion-only").checked,
             categories: Object.fromEntries(categories.map(c => [c, $("em-cat-" + c).checked])),
             ha_notifications: $("em-ha").checked,
             mqtt_host: $("em-host").value.trim(),
@@ -82,8 +84,9 @@
             title.textContent = event.title || "Detection";
             const meta = document.createElement("small");
             const distance = typeof event.distance_km === "number" ? " · " + event.distance_km.toFixed(1) + " km" : "";
+            const speed = typeof event.speed_knots === "number" ? " · " + event.speed_knots.toFixed(1) + " kn" : "";
             meta.textContent = (event.timestamp || "").replace("T", " ").slice(0, 19) +
-                " · " + (event.source || "").toUpperCase() + distance;
+                " · " + (event.source || "").toUpperCase() + distance + speed;
             row.append(title, meta);
             list.appendChild(row);
         }
