@@ -13,7 +13,6 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 import re
 
-from PIL import Image, ImageChops, ImageOps
 
 LOGO_URL = "https://quem.nl/wp-content/uploads/2021/12/RensenDriessen-Logo-1.jpg"
 PHOTO_HOSTS = {"www.rensendriessen.com", "rensendriessen.com"}
@@ -51,6 +50,7 @@ def _download(url: str, cap: int, *, logo: bool = False) -> bytes:
 
 
 def _open_limited(raw: bytes) -> Image.Image:
+    from PIL import Image, ImageOps
     with Image.open(BytesIO(raw)) as picture:
         if picture.width < 40 or picture.height < 40:
             raise ValueError("Image is too small")
@@ -61,6 +61,7 @@ def _open_limited(raw: bytes) -> Image.Image:
 
 @lru_cache(maxsize=1)
 def _logo() -> Image.Image:
+    from PIL import Image, ImageChops
     original = _open_limited(_download(LOGO_URL, MAX_LOGO_BYTES, logo=True))
     # The official JPEG has a white canvas. Crop its whitespace, retaining
     # the original green mark (including the three white portholes).
@@ -75,6 +76,7 @@ def _logo() -> Image.Image:
 @lru_cache(maxsize=24)
 def render(photo_url: str) -> bytes:
     """Create a display/save-ready branded JPEG (never a bare source image)."""
+    from PIL import Image
     photo = _open_limited(_download(photo_url, MAX_PHOTO_BYTES))
     photo.thumbnail((960, 720), Image.Resampling.LANCZOS)
     logo = _logo().copy()
