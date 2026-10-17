@@ -3078,12 +3078,15 @@ def api_traffic_voice_vessel_photo():
         values = tuple(request.args.get(key, "") for key in ("mmsi", "shipname", "imo", "eni"))
         result = traffic_voice_vessel_photo.lookup(*values)
         if result.get("ok") and result.get("source") == "Rensen-Driessen":
-            from urllib.parse import urlencode
-            result["image_url"] = "/api/traffic-voice/vessel-photo/branded?" + urlencode(
-                dict(zip(("mmsi", "shipname", "imo", "eni"), values))
-            )
-            result["logo_embedded"] = True
-            result["logo_overlay"] = False
+            from importlib.util import find_spec
+            if find_spec("PIL") is not None:
+                from urllib.parse import urlencode
+                result["source_image_url"] = result["image_url"]
+                result["image_url"] = "/api/traffic-voice/vessel-photo/branded?" + urlencode(
+                    dict(zip(("mmsi", "shipname", "imo", "eni"), values))
+                )
+                result["logo_embedded"] = True
+                result["logo_overlay"] = False
         return jsonify(result), 200
     except ValueError as error:
         return jsonify({"ok": False, "status": "invalid", "message": str(error)}), 400
