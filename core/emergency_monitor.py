@@ -409,6 +409,8 @@ def _start_mqtt(data: dict) -> None:
         client.connect(data["mqtt_host"], data["mqtt_port"], keepalive=60)
         _mqtt_client = client
         client.loop_start()
+        with _lock:
+            _runtime["last_error"] = ""
     except Exception as error:
         with _lock:
             _runtime["mqtt"] = "ERROR"
@@ -441,11 +443,13 @@ def _loop(cancel: threading.Event) -> None:
         _start_mqtt(data)
         # Warm up to avoid firing for all aircraft already in range during startup.
         cancel.wait(60)
+        reconnect_after = time.monotonic() + 30
         while not cancel.is_set():
+            if (data["p2000_input"] or data["ha_notifications"]) and _mqtt_client is None and time.monotonic() >= reconnect_after:
+                _start_mqtt(data)
+                reconnect_after = time.monotonic() + 30
             try:
                 _poll_positions(data)
-                with _lock:
-                    _runtime["last_error"] = ""
             except Exception as error:
                 with _lock:
                     _runtime["last_error"] = str(error)[:160]
@@ -466,7 +470,9 @@ def sync_worker() -> None:
             _stop.set()
         previous = _worker
     if previous is not None and previous.is_alive():
-        previous.join(timeout=3)
+        previous.join(timeout=8)
+        if previous.is_alive():
+            raise RuntimeError("Emergency Monitor worker did not stop cleanly.")
     with _lock:
         _worker, _stop = None, None
         if not settings()["enabled"]:
