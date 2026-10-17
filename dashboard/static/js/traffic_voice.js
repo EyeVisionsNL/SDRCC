@@ -334,6 +334,13 @@
             };
             image.onerror = () => {
                 if (requestId !== vesselPhotoRequest) return;
+                if (result.source === "Rensen-Driessen" && result.logo_embedded === true
+                        && result.source_image_url && !image.dataset.rensenFallback) {
+                    image.dataset.rensenFallback = "1";
+                    byId("traffic-voice-vessel-photo-link")?.classList.add("rensen-logo");
+                    image.src = result.source_image_url;
+                    return;
+                }
                 image.style.display = "none";
                 image.alt = "";
                 image.removeAttribute("src");
@@ -343,6 +350,7 @@
                     "Photo could not be loaded. Open the original source link if available.");
             };
             image.alt = shipname ? "Photo of " + shipname : "Photo of matched vessel";
+            delete image.dataset.rensenFallback;
             image.src = result.image_url;
             byId("traffic-voice-vessel-photo-link")?.classList.toggle("rensen-logo",
                 result.source === "Rensen-Driessen" && result.logo_overlay === true);
