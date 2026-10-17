@@ -18,6 +18,7 @@ API = BASE + "/api/schepen"
 MAX_SEARCH = 600_000
 MAX_DETAIL = 1_100_000
 PAGE_LIMIT = 50
+MAX_PAGES = 3
 
 
 def _norm(value: object) -> str:
@@ -32,7 +33,7 @@ def _eni(value: object) -> str:
 
 def _get_json(url: str, cap: int) -> dict:
     p = urlparse(url)
-    if p.scheme != "https" or p.hostname != "debinnenvaart.nl" or not (
+    if p.scheme != "https" or p.netloc != "debinnenvaart.nl" or p.fragment or not (
         p.path == "/api/schepen" or re.fullmatch(r"/api/schepen/[A-Za-z0-9_-]{1,90}", p.path)
     ):
         raise ValueError("Unsupported photo metadata URL")
@@ -42,7 +43,7 @@ def _get_json(url: str, cap: int) -> dict:
     })
     with urlopen(req, timeout=5.0) as resp:
         final = urlparse(resp.geturl())
-        if final.scheme != "https" or final.hostname != "debinnenvaart.nl" or final.path != p.path:
+        if final.scheme != "https" or final.netloc != "debinnenvaart.nl" or final.path != p.path:
             raise ValueError("Unexpected photo metadata redirect")
         raw = resp.read(cap + 1)
     if len(raw) > cap:
@@ -61,9 +62,9 @@ def _photo_url(value: object, ship_id: str) -> str:
     if (p.scheme != "https" or p.username or p.password or p.fragment or p.query
             or not re.search(r"\.(?:jpe?g|png|webp)$", p.path, re.I)):
         return ""
-    if p.hostname == "content.epublisher-cloud.com":
+    if p.netloc == "content.epublisher-cloud.com":
         return url if p.path.startswith("/binnenvaartdata/images/" + ship_id + "/") else ""
-    if p.hostname == "de-binnenvaart.b-cdn.net":
+    if p.netloc == "de-binnenvaart.b-cdn.net":
         return url
     return ""
 
@@ -75,43 +76,57 @@ def _photographer(row: dict) -> str:
         match = re.match(r"Foto\s*:\s*(.+)", credit, re.I)
         if match:
             name = match.group(1).split(" - ")[0].strip()
-    return name[:120] if 2 <= len(name) <= 120 else ""
+    return name if 2 <= len(name) <= 120 and name.lower() not in {"unknown", "onbekend", "n/a", "anonymous"} else ""
 
 
 def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
            now: float | None = None) -> dict | None:
-    if not re.fullmatch(r"\d{9}", str(mmsi or "")) or not _norm(shipname):
+    if (not re.fullmatch(r"\d{9}", str(mmsi or "")) or
+            not _norm(shipname) or len(str(shipname)) > 120 or
+            (eni and not re.fullmatch(r"\d{7,8}", str(eni)))):
         return None
-    eni = re.sub(r"\D", "", str(eni or ""))
+    eni = str(eni or "")
     now = time.time() if now is None else now
     try:
-        query = API + "?" + urlencode({"q": shipname, "per_page": PAGE_LIMIT, "page": 1})
-        search = _get_json(query, MAX_SEARCH)
-        rows = search.get("data")
-        if not isinstance(rows, list):
-            return None
-        # Fuzzy search includes former names, e.g. older GROENENDAAL hulls.
-        # With no ENI, never decide uniqueness from a partial result page.
-        if not eni and int(search.get("totaal", len(rows))) > len(rows):
-            return None
+        # Current-name matches are preferred; old names and fuzzy matches do
+        # not establish the identity of an active AIS vessel.
         valid = {}
-        for row in rows[:PAGE_LIMIT]:
-            if not isinstance(row, dict) or _norm(row.get("laatste_naam")) != _norm(shipname):
-                continue
-            if str(row.get("status") or "").lower() in ("gesloopt", "gesloopt_of_verloren"):
-                continue
-            if eni and _eni(row.get("eu_nummer_laatste") or row.get("eu_nummer_eerste")) != _eni(eni):
-                continue
-            ship_id = str(row.get("id") or "")
-            if re.fullmatch(r"[A-Za-z0-9_-]{1,90}", ship_id):
-                valid[ship_id] = row
+        received = 0
+        for page in range(1, MAX_PAGES + 1):
+            query = API + "?" + urlencode({"q": shipname, "per_page": PAGE_LIMIT, "page": page})
+            search = _get_json(query, MAX_SEARCH)
+            rows = search.get("data")
+            if not isinstance(rows, list):
+                return None
+            total = int(search.get("totaal"))
+            if total < 0:
+                return None
+            received += len(rows)
+            for row in rows:
+                if (not isinstance(row, dict) or
+                        _norm(row.get("laatste_naam")) != _norm(shipname) or
+                        str(row.get("status") or "actief").lower() != "actief"):
+                    continue
+                if eni and _eni(row.get("eu_nummer_laatste") or row.get("eu_nummer_eerste")) != _eni(eni):
+                    continue
+                ship_id = str(row.get("id") or "")
+                if re.fullmatch(r"[A-Za-z0-9_-]{1,90}", ship_id):
+                    valid[ship_id] = row
+            if received >= total:
+                break
+            if not rows or page == MAX_PAGES:
+                return None  # Partial search cannot prove a unique match.
         if len(valid) != 1:
             return None
         ship_id, summary = next(iter(valid.items()))
         detail = _get_json(API + "/" + ship_id, MAX_DETAIL)
         if str(detail.get("id") or "") != ship_id or _norm(detail.get("laatste_naam")) != _norm(shipname):
             return None
-        if str(detail.get("status") or "").lower() in ("gesloopt", "gesloopt_of_verloren"):
+        if str(detail.get("status") or "actief").lower() != "actief":
+            return None
+        indexed_eni = str(summary.get("eu_nummer_laatste") or summary.get("eu_nummer_eerste") or "")
+        registered_eni = str(detail.get("eu_nummer_laatste") or detail.get("eu_nummer_eerste") or "")
+        if indexed_eni and _eni(indexed_eni) != _eni(registered_eni):
             return None
         found_eni = str(detail.get("eu_nummer_laatste") or detail.get("eu_nummer_eerste") or "").strip()
         if eni and _eni(eni) != _eni(found_eni):
@@ -120,7 +135,9 @@ def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
         if not isinstance(photos, list):
             return None
         for row in photos[:60]:
-            if not isinstance(row, dict) or row.get("is_vlag") or row.get("goedgekeurd") == 0:
+            if (not isinstance(row, dict) or
+                    str(row.get("is_vlag") or "0").lower() not in {"0", "false"} or
+                    str(row.get("goedgekeurd")) != "1"):
                 continue
             if row.get("schip_id") and str(row["schip_id"]) != ship_id:
                 continue
