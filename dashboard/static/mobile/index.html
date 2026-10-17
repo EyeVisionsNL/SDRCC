@@ -670,6 +670,34 @@ window.addEventListener("message",event=>{
   }
 });
 
+// SDRCC Emergency Vessels uses the existing AIS-Catcher overlay bridge.
+// Never replaces the built-in ship/ATIS icons or pans the map.
+let emergencyRingBusy=false;
+async function syncEmergencyAisRings(){
+  const origin=aisHighlightOrigin();
+  if(!origin||!highlightFrame.contentWindow||emergencyRingBusy)return;
+  emergencyRingBusy=true;
+  try{
+    const response=await fetch("/api/emergency-monitor/map-highlights",{cache:"no-store"});
+    if(!response.ok)return;
+    const snapshot=await response.json();
+    if(snapshot.ok!==true||!Array.isArray(snapshot.vessels))return;
+    highlightFrame.contentWindow.postMessage({
+      type:"sdrcc:emergency-highlight:sync",version:1,vessels:snapshot.vessels
+    },origin);
+  }catch(_){
+    // No impact on maps, P2000, existing ATIS highlights or marine audio.
+  }finally{
+    emergencyRingBusy=false;
+  }
+}
+highlightFrame.addEventListener("load",()=>{
+  window.setTimeout(syncEmergencyAisRings,1200);
+});
+window.setInterval(()=>{
+  if(!document.hidden)syncEmergencyAisRings();
+},15000);
+
 // Only affirmative server results can hide a feature; failures are fail-open.
 const MOBILE_TABS=["marine","adsb","sat","missions","system"];
 const LAST_MOBILE_TAB_KEY="sdrcc-mobile-selected-tab";
