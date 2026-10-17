@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""Offline regression checks for Emergency Monitor v0.67.5; never starts SDRs/MQTT."""
+"""Offline regression tests for SDRCC Emergency Monitor v0.67.6.
+
+Read-only: never starts a receiver, opens MQTT or modifies local config.
+"""
 from __future__ import annotations
+
 import math
 from pathlib import Path
 import sys
@@ -10,40 +14,59 @@ sys.path.insert(0, str(ROOT))
 from core import emergency_monitor as monitor
 
 
-def check() -> None:
+def must_reject(payload):
+    try:
+        monitor.validate(payload)
+    except ValueError:
+        return
+    raise AssertionError("Emergency Monitor accepted invalid settings: " + str(payload))
+
+
+def check():
     assert math.isclose(monitor.distance_km(51.9, 4.35, 51.9, 4.35), 0.0)
     assert 110 < monitor.distance_km(51.9, 4.35, 52.9, 4.35) < 112
     assert 15 < monitor.distance_km(51.908401, 4.351168, 51.908401, 4.60) < 20
-    config = monitor.validate({"enabled": True, "radius_km": 20})
-    assert config["radius_km"] == 20
-    assert config["enabled"] is True
-    assert set(config["categories"]) == {"lifeliner", "police_helicopter", "knrm", "waterpolitie", "p2000"}
-    assert monitor.classify_aircraft({"hex": "ABC123", "flight": "LIFELN2"}, config) == "lifeliner"
-    assert monitor.classify_aircraft({"hex": "ABC123", "flight": "UNKNOWN"}, config) is None
-    config["aircraft_hex"]["police_helicopter"] = ["ABC123"]
-    assert monitor.classify_aircraft({"hex": "ABC123", "flight": ""}, config) == "police_helicopter"
-    config["vessel_mmsi"]["knrm"] = ["244123456"]
-    assert monitor.classify_vessel({"mmsi": "244123456"}, config) == "knrm"
-    assert monitor.classify_vessel({"mmsi": "244123457"}, config) is None
+
+    cfg = monitor.validate({"enabled": True, "radius_km": 20})
+    assert cfg["enabled"] is True
+    assert cfg["radius_km"] == 20
+    assert set(cfg["categories"]) == {"lifeliner", "police_helicopter", "knrm", "waterpolitie"}
+    assert monitor.classify_aircraft({"hex": "ABC123", "flight": "LIFELN2"}, cfg) == "lifeliner"
+    assert monitor.classify_aircraft({"hex": "ABC123", "flight": "UNKNOWN"}, cfg) is None
+    cfg["aircraft_hex"]["police_helicopter"] = ["ABC123"]
+    assert monitor.classify_aircraft({"hex": "ABC123", "flight": ""}, cfg) == "police_helicopter"
+    cfg["vessel_mmsi"]["knrm"] = ["244123456"]
+    assert monitor.classify_vessel({"mmsi": "244123456"}, cfg) == "knrm"
+    assert monitor.classify_vessel({"mmsi": "244123457"}, cfg) is None
+
     for invalid in (0, 101, float("inf"), "20"):
-        try:
-            monitor.validate({"radius_km": invalid})
-        except ValueError:
-            continue
-        raise AssertionError(f"Invalid radius was accepted: {invalid}")
-    assert "mqtt_password" not in monitor.public_settings()
+        must_reject({"radius_km": invalid})
+    must_reject({"categories": {"p2000": True}})
     assert monitor._DEFAULT["enabled"] is False
-    assert monitor._DEFAULT["p2000_input"] is False
     assert monitor._DEFAULT["ha_notifications"] is False
+    assert "p2000_input" not in monitor._DEFAULT
+    assert "p2000" not in monitor._DEFAULT["categories"]
+    assert "mqtt_password" not in monitor.public_settings()
+
     html = (ROOT / "dashboard/templates/index.html").read_text(encoding="utf-8")
-    first = html.index('<details class="card system-maintenance-card-v0540f"')
+    begin = html.index('<details class="card system-maintenance-card-v0540f"')
     panel = html.index('id="em-monitor"')
-    end = html.index("</details>", first)
-    assert first < panel < end, "Emergency Monitor must be INSIDE Advanced Maintenance"
+    end = html.index("</details>", begin)
+    assert begin < panel < end, "Emergency Monitor must be INSIDE Advanced Maintenance"
     assert '<button class="tab-button" data-tab="em-monitor">' not in html
-    assert "static/js/emergency_monitor.js?v=0.67.5" in html
-    assert "static/css/emergency_monitor.css?v=0.67.5" in html
-    print("PASS: Emergency Monitor 0.67.5 offline checks (no receiver or MQTT used)")
+    assert "em-cat-p2000" not in html and "em-p2000-input" not in html
+    assert "static/js/emergency_monitor.js?v=0.67.6" in html
+    assert "static/css/emergency_monitor.css?v=0.67.6" in html
+
+    js = (ROOT / "dashboard/static/js/emergency_monitor.js").read_text(encoding="utf-8")
+    assert "em-p2000-input" not in js and "em-cat-p2000" not in js
+    assert '["lifeliner", "police_helicopter", "knrm", "waterpolitie"]' in js
+    backend = (ROOT / "core/emergency_monitor.py").read_text(encoding="utf-8")
+    assert "p2000_input" not in backend
+    assert 'client.subscribe(' not in backend
+    assert "homeassistant/sensor/p2000_rtlsdr" not in backend
+    assert 'sdrcc/emergency/events' in backend
+    print("PASS: v0.67.6 Emergency Monitor — HA owns P2000, SDRCC reads ADS-B/AIS only")
 
 
 if __name__ == "__main__":
