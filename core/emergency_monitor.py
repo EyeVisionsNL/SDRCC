@@ -1,7 +1,7 @@
 """Optional read-only SDRCC Emergency Monitor (v0.67.5).
 
 Consumes local readsb/AIS-catcher observations without touching receiver ownership.
-P2000 MQTT input and outbound Home Assistant notifications are opt-in.
+Only outgoing Home Assistant MQTT notifications are opt-in. P2000 remains entirely in Home Assistant.
 """
 from __future__ import annotations
 
@@ -25,18 +25,16 @@ STATE_FILE = ROOT / "data" / "state" / "emergency_monitor.json"
 _lock = threading.RLock()
 _worker: threading.Thread | None = None
 _stop: threading.Event | None = None
-_runtime: dict[str, Any] = {"mqtt": "OFF", "adsb": "OFF", "ais": "OFF", "p2000": "OFF", "last_error": ""}
+_runtime: dict[str, Any] = {"mqtt": "OFF", "adsb": "OFF", "ais": "OFF", "last_error": ""}
 _recent: dict[str, float] = {}
 _presence: dict[str, int] = {}
-_attributes: dict[str, tuple[float, dict]] = {}
 _mqtt_client: Any = None
 _mqtt_ha_active = False
 _DEFAULT = {
     "enabled": False,
     "radius_km": 20,
     "categories": {"lifeliner": True, "police_helicopter": True, "knrm": True,
-                   "waterpolitie": True, "p2000": True},
-    "p2000_input": False,
+                   "waterpolitie": True},
     "ha_notifications": False,
     "mqtt_host": "",
     "mqtt_port": 1883,
@@ -115,7 +113,7 @@ def validate(payload: Any) -> dict:
         raise ValueError("Settings must be a JSON object.")
     previous = settings()
     data = deepcopy(previous)
-    for field in ("enabled", "p2000_input", "ha_notifications", "mqtt_tls"):
+    for field in ("enabled", "ha_notifications", "mqtt_tls"):
         if field in payload:
             if not isinstance(payload[field], bool):
                 raise ValueError(field + " must be a boolean.")
@@ -219,10 +217,23 @@ def classify_vessel(item: dict, data: dict) -> str | None:
 
 def _load_history() -> dict:
     state = _read_json(STATE_FILE)
-    return {
-        "history": (state.get("history") or [])[-50:],
-        "last_sent": state.get("last_sent") if isinstance(state.get("last_sent"), dict) else {},
-    }
+    history = state.get("history") or []
+    if not isinstance(history, list):
+        history = []
+    history = [event for event in history if isinstance(event, dict) and event.get("source") != "p2000"]
+    last_sent = state.get("last_sent") if isinstance(state.get("last_sent"), dict) else {}
+    last_sent = {key: value for key, value in last_sent.items() if not str(key).startswith("p2000:")}
+    return {"history": history[:50], "last_sent": last_sent}
+
+
+def _purge_legacy_p2000_history() -> None:
+    """Remove any old P2000 events stored by the withdrawn beta implementation."""
+    if not STATE_FILE.is_file():
+        return
+    raw = _read_json(STATE_FILE)
+    sanitized = _load_history()
+    if raw.get("history") != sanitized["history"] or raw.get("last_sent") != sanitized["last_sent"]:
+        _atomic(STATE_FILE, sanitized)
 
 
 def _store_event(event: dict, *, send_mqtt: bool = True) -> None:
@@ -319,43 +330,15 @@ def _poll_positions(data: dict) -> None:
         _target_event("ais", category, mmsi, label, distance_km(home_lat, home_lon, lat, lon), data)
 
 
-def _p2000_event(sensor: str, payload: str) -> None:
-    data = settings()
-    if not data["enabled"] or not data["p2000_input"] or not data["categories"]["p2000"]:
-        return
-    info = _attributes.get(sensor)
-    if info is None or time.monotonic() - info[0] > 90:
-        return
-    attributes = info[1]
-    received = str(attributes.get("time received") or "")[:32]
-    digest = hashlib.sha256((sensor + received + payload).encode("utf-8")).hexdigest()[:16]
-    key = "p2000:" + digest
-    now = time.time()
-    if now - _recent.get(key, 0) < 86400:
-        return
-    _recent[key] = now
-    name = {"2002": "GRIP", "2003": "Lifeliner", "2004": "Regional", "2005": "KNRM"}.get(sensor, "P2000")
-    event = {
-        "id": digest, "timestamp": datetime.now(timezone.utc).isoformat(),
-        "source": "p2000", "category": "p2000", "kind": "dispatch",
-        "title": "P2000 " + name,
-        "detail": "Dispatch received by the existing P2000 RTL-SDR receiver.",
-        "identity": sensor, "priority": str(attributes.get("priority") or "")[:20],
-    }
-    _store_event(event, send_mqtt=False)  # Existing HA alerts already consume P2000; no duplicate HA push.
-
-
 def _start_mqtt(data: dict) -> None:
     global _mqtt_client, _mqtt_ha_active
-    if not (data["p2000_input"] or data["ha_notifications"]):
+    if not data["ha_notifications"]:
         with _lock:
             _runtime["mqtt"] = "OFF"
-            _runtime["p2000"] = "OFF"
         return
     if not data["mqtt_host"]:
         with _lock:
             _runtime["mqtt"] = "NOT CONFIGURED"
-            _runtime["p2000"] = "NOT CONFIGURED"
         return
     try:
         import paho.mqtt.client as mqtt
@@ -371,38 +354,13 @@ def _start_mqtt(data: dict) -> None:
     def connected(client, userdata, flags, rc, *args):
         with _lock:
             _runtime["mqtt"] = "CONNECTED" if rc == 0 else "ERROR " + str(rc)
-            _runtime["p2000"] = "LISTENING" if rc == 0 and data["p2000_input"] else "OFF"
         if rc == 0:
-            if data["p2000_input"]:
-                for sid in ("2002", "2003", "2004", "2005"):
-                    for suffix in ("attributes", "state"):
-                        client.subscribe("homeassistant/sensor/p2000_rtlsdr/" + sid + "/" + suffix, qos=0)
-            if data["ha_notifications"]:
-                client.publish("sdrcc/emergency/status", "online", qos=1, retain=True)
+            client.publish("sdrcc/emergency/status", "online", qos=1, retain=True)
     def disconnected(client, userdata, rc, *args):
         with _lock:
             _runtime["mqtt"] = "DISCONNECTED"
-            _runtime["p2000"] = "UNAVAILABLE" if data["p2000_input"] else "OFF"
-    def message(client, userdata, msg):
-        try:
-            segments = msg.topic.split("/")
-            if len(segments) != 5 or segments[:3] != ["homeassistant", "sensor", "p2000_rtlsdr"]:
-                return
-            sensor, field = segments[-2:]
-            if sensor not in {"2002", "2003", "2004", "2005"}:
-                return
-            decoded = msg.payload.decode("utf-8", "replace")
-            if field == "attributes":
-                parsed = json.loads(decoded)
-                if isinstance(parsed, dict):
-                    _attributes[sensor] = (time.monotonic(), parsed)
-            elif field == "state":
-                _p2000_event(sensor, decoded[:1200])
-        except (ValueError, TypeError):
-            return
     client.on_connect = connected
     client.on_disconnect = disconnected
-    client.on_message = message
     if data["ha_notifications"]:
         client.will_set("sdrcc/emergency/status", "offline", qos=1, retain=True)
     try:
@@ -437,6 +395,7 @@ def _close_mqtt() -> None:
 def _loop(cancel: threading.Event) -> None:
     _presence.clear()
     try:
+        _purge_legacy_p2000_history()
         state = _load_history()
         now = time.time()
         _recent.clear()
@@ -453,7 +412,7 @@ def _loop(cancel: threading.Event) -> None:
         cancel.wait(60)
         reconnect_after = time.monotonic() + 30
         while not cancel.is_set():
-            if (data["p2000_input"] or data["ha_notifications"]) and _mqtt_client is None and time.monotonic() >= reconnect_after:
+            if data["ha_notifications"] and _mqtt_client is None and time.monotonic() >= reconnect_after:
                 try:
                     _start_mqtt(data)
                 except Exception as error:
@@ -473,12 +432,12 @@ def _loop(cancel: threading.Event) -> None:
             _runtime["adsb"] = "OFF"
             _runtime["ais"] = "OFF"
             _runtime["mqtt"] = "OFF"
-            _runtime["p2000"] = "OFF"
 
 
 def sync_worker() -> None:
     global _worker, _stop
     with _lock:
+        _purge_legacy_p2000_history()
         if _stop is not None:
             _stop.set()
         previous = _worker
@@ -489,7 +448,7 @@ def sync_worker() -> None:
     with _lock:
         _worker, _stop = None, None
         if not settings()["enabled"]:
-            _runtime.update({"adsb": "OFF", "ais": "OFF", "mqtt": "OFF", "p2000": "OFF"})
+            _runtime.update({"adsb": "OFF", "ais": "OFF", "mqtt": "OFF"})
             return
         _stop = threading.Event()
         _worker = threading.Thread(target=_loop, args=(_stop,), daemon=True, name="sdrcc-emergency")
