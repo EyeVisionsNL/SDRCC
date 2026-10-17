@@ -44,7 +44,7 @@
 - **No MQTT subscriptions to any topic**, including `homeassistant/sensor/p2000_rtlsdr/#`.
 - This MQTT broker may be the same broker already serving Home Assistant, but SDRCC uses its own client ID and publishes on separate topics.
 - Secure per-client MQTT credentials and broker ACLs are recommended. Never commit credentials, OpenCage tokens or raw P2000 messages.
-- An existing beta setting such as `p2000_input` or `categories.p2000` is discarded by the v0.67.6 settings loader. Previously persisted P2000 events in Emergency Monitor's own state are purged on startup.
+- An existing beta setting such as `p2000_input` or `categories.p2000` is discarded by the v0.67.6 settings loader. Previously persisted P2000 events are purged from Emergency Monitor's state **and** precisely matched old P2000 copies are removed from SDRCC's general Event Bus at startup, leaving all unrelated events intact.
 
 ## Optional dependency
 
