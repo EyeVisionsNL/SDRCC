@@ -185,7 +185,7 @@ if (typeof AISCatcher !== "undefined" &&
         var category = String(item.category || "");
         var lat = Number(item.latitude), lon = Number(item.longitude);
         var left = Number(item.remaining_seconds);
-        if (!/^\\d{9}$/.test(mmsi) || !["knrm", "waterpolitie"].includes(category) ||
+        if (!/^\d{9}$/.test(mmsi) || !["knrm", "waterpolitie"].includes(category) ||
             item.latitude == null || item.longitude == null ||
             !validCoords(lat, lon) || !Number.isFinite(left) || left <= 0 || left > 300) {
           return;
