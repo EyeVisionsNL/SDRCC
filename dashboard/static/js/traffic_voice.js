@@ -239,6 +239,7 @@
             image.removeAttribute("src");
         }
         byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
+        byId("traffic-voice-vessel-photo-link")?.classList.remove("rensen-logo");
         byId("traffic-voice-vessel-photo-credit")?.classList.remove("is-attributed");
     }
 
@@ -298,6 +299,7 @@
             image.removeAttribute("src");
         }
         byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
+        byId("traffic-voice-vessel-photo-link")?.classList.remove("rensen-logo");
         byId("traffic-voice-vessel-photo-credit")?.classList.remove("is-attributed");
         text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
         text("traffic-voice-vessel-photo-credit", "Searching vessel photo…");
@@ -318,6 +320,7 @@
                 image.alt = "";
                 image.removeAttribute("src");
                 byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
+                byId("traffic-voice-vessel-photo-link")?.classList.remove("rensen-logo");
                 text("traffic-voice-vessel-photo-credit",
                     result.status === "unavailable"
                         ? "Photo source temporarily unavailable."
@@ -334,14 +337,17 @@
                 image.style.display = "none";
                 image.alt = "";
                 image.removeAttribute("src");
+                byId("traffic-voice-vessel-photo-link")?.classList.remove("rensen-logo");
                 vesselPhotoRetryAfter = Date.now() + 30 * 60 * 1000;
                 text("traffic-voice-vessel-photo-credit",
                     "Photo could not be loaded. Open the original source link if available.");
             };
             image.alt = shipname ? "Photo of " + shipname : "Photo of matched vessel";
             image.src = result.image_url;
+            byId("traffic-voice-vessel-photo-link")?.classList.toggle("rensen-logo",
+                result.source === "Rensen-Driessen" && result.logo_overlay === true);
             image.style.objectFit = result.source === "De Binnenvaart" ? "contain" : "";
-            if (result.page_url && /^(?:https:\/\/(?:(?:www\.)?binnenvaartspotter|(?:www\.)?debinnenvaart)\.nl\/|https:\/\/(?:markprummel\.nl|(?:www\.)?shipspotting\.com|commons\.wikimedia\.org)\/)/.test(result.page_url)) {
+            if (result.page_url && /^(?:https:\/\/(?:(?:www\.)?binnenvaartspotter|(?:www\.)?debinnenvaart)\.nl\/|https:\/\/(?:markprummel\.nl|(?:www\.)?shipspotting\.com|commons\.wikimedia\.org|(?:www\.)?rensendriessen\.com)\/)/.test(result.page_url)) {
                 byId("traffic-voice-vessel-photo-link")?.setAttribute("href", result.page_url);
             }
             text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
@@ -351,7 +357,7 @@
                 credit.textContent = result.source === "De Binnenvaart" && result.artist
                     ? "Foto: © " + result.artist
                     : [result.source, result.artist, /^thumbnail met toestemming/i.test(String(result.license || '').trim()) ? '' : result.license].filter(Boolean).join(" · ") || "Wikimedia Commons";
-                if (result.page_url && /^(?:https:\/\/(?:(?:www\.)?binnenvaartspotter|(?:www\.)?debinnenvaart)\.nl\/|https:\/\/(?:markprummel\.nl|(?:www\.)?shipspotting\.com|commons\.wikimedia\.org)\/)/.test(result.page_url)) {
+                if (result.page_url && /^(?:https:\/\/(?:(?:www\.)?binnenvaartspotter|(?:www\.)?debinnenvaart)\.nl\/|https:\/\/(?:markprummel\.nl|(?:www\.)?shipspotting\.com|commons\.wikimedia\.org|(?:www\.)?rensendriessen\.com)\/)/.test(result.page_url)) {
                     const original = document.createElement("a");
                     original.href = result.page_url;
                     original.target = "_blank"; original.rel = "noopener noreferrer";
@@ -369,6 +375,7 @@
                     image.removeAttribute("src");
                 }
                 byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
+                byId("traffic-voice-vessel-photo-link")?.classList.remove("rensen-logo");
                 text("traffic-voice-vessel-photo-credit", "Photo lookup failed.");
             }
         }
