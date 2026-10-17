@@ -75,7 +75,9 @@ def settings() -> dict:
     for key in data:
         if key in ("categories", "aircraft_hex", "vessel_mmsi"):
             if isinstance(stored.get(key), dict):
-                data[key].update(stored[key])
+                for name, value in stored[key].items():
+                    if name in data[key]:
+                        data[key][name] = value
         elif key in stored:
             data[key] = stored[key]
     return data
