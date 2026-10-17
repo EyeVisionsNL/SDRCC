@@ -117,12 +117,23 @@ def _candidates(name: str, eni: str) -> list[str]:
     value = _norm(name)
     if not value or not value[0].isalpha():
         return []
-    names = [(record_eni, url) for record_name, record_eni, url in _index(value[0]) if _norm(record_name) == value]
+    rows = _index(value[0])
+    names = [(record_eni, url) for record_name, record_eni, url in rows if _norm(record_name) == value]
     if eni:
         names = [(record_eni, url) for record_eni, url in names if _eni(record_eni) == _eni(eni)]
-    # Refuse guesses between separate vessels with the same name.
+    # Never guess between different vessels with identical names.
     unique = list(dict.fromkeys(url for _, url in names))
-    return unique if len(unique) == 1 else []
+    if len(unique) == 1:
+        return unique
+    if unique or not eni:
+        return []
+    # A vessel may be renamed while retaining its ENI. The same first-letter
+    # register may contain its previous name; use a single exact ENI match only.
+    by_eni = list(dict.fromkeys(
+        url for _, record_eni, url in rows
+        if record_eni and _eni(record_eni) == _eni(eni)
+    ))
+    return by_eni if len(by_eni) == 1 else []
 
 
 def _safe_image(url: str) -> str:
@@ -151,13 +162,13 @@ def _image_from_attrs(attrs: dict[str, str]) -> str:
             bits = pair.strip().split()
             if len(bits) == 2 and re.fullmatch(r"\d+w", bits[1]):
                 width = int(bits[1][:-1])
-                candidate = _safe_image(bits[0])
+                candidate = _safe_image(urljoin(BASE, bits[0]))
                 if candidate and 160 <= width <= 540:
                     variants.append((width, candidate))
     if variants:
         return min(variants, key=lambda x: abs(x[0] - 320))[1]
     for key in ("data-src", "data-lazy-src", "src"):
-        candidate = _safe_image(attrs.get(key, ""))
+        candidate = _safe_image(urljoin(BASE, attrs.get(key, "")))
         if candidate:
             return candidate
     return ""
@@ -209,23 +220,31 @@ def _parse_detail(doc: str, name: str, eni: str, page_url: str, mmsi: str,
                   imo: str, now: float) -> dict | None:
     page = _ShipDetail()
     page.feed(doc)
-    if _norm(name) not in {_norm(title) for title in page.headings}:
-        return None
+    matching_name = _norm(name) in {_norm(title) for title in page.headings}
     body = " ".join(page.text[:4000])
     if not VESSEL_WORD.search(body):
         return None
+    # The page can still use the previous registered name. Only the identical
+    # eight-digit ENI proves that a different heading belongs to the AIS hull.
+    confirmed_eni = False
     if eni:
-        known = [_eni(n) for n in ENI_TAG.findall(body)]
+        known = {_eni(n) for n in ENI_TAG.findall(body)}
         if known and _eni(eni) not in known:
             return None
-    # Require per-photo photographer caption, not a generic page image or flag.
+        confirmed_eni = _eni(eni) in known
+    if not matching_name and not confirmed_eni:
+        return None
+    # Require a photographer credit for the individual photo. Some genuine
+    # gallery thumbnails use opaque filenames and captions naming an older
+    # vessel identity. Accept them only on a profile with a confirmed ENI.
     target = _norm(name)
     possibles = []
     for index, (url, artist, alt) in enumerate(page.images):
         if not artist:
             continue
         file_name = _norm(unquote(urlparse(url).path.split("/")[-1]))
-        if target in _norm(alt) or target in file_name or (eni and _eni(eni) in file_name):
+        if (target in _norm(alt) or target in file_name or
+                (eni and _eni(eni) in file_name) or confirmed_eni):
             possibles.append((index, url, artist))
     if not possibles:
         return None
