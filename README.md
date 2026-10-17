@@ -156,13 +156,13 @@ Thank you to the photographers and websites that make the optional vessel-photo 
 
 | Website | Photo credit and use in SDRCC |
 |---|---|
-| [Binnenvaartspotter.nl](https://www.binnenvaartspotter.nl/) | Peter's vessel photographs, displayed as thumbnails with permission and a link to the original page |
 | [Mark Prummel](https://markprummel.nl/) | Photographs by Mark & Chris Prummel, with source credit and a link to the original ship page |
-| [Shipspotting.com](https://www.shipspotting.com/photos) | Attributed thumbnails only, with vessel identity verification and a direct link to the original photo; subject to Shipspotting's third-party conditions |
+| [Binnenvaartspotter.nl](https://www.binnenvaartspotter.nl/) | Peter's vessel photographs, displayed as thumbnails with permission and a link to the original page |
+| [Rensen-Driessen](https://www.rensendriessen.com/building/our-ships/) | Vessel photos used with Wim Driessen's permission; a small Rensen-Driessen logo is displayed on every thumbnail alongside a link to its original ship page |
 | [Wikimedia Commons](https://commons.wikimedia.org/) | Vessel photographs with the individual photographer and license shown alongside the image |
 | Various vessel photographers | Photographs from various photographers, with the photographer’s name and a clickable link to the original photograph. Existing watermarks remain intact. |
 
-Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs.
+Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs. Rensen-Driessen's logo is a display overlay in the SDRCC photo card; the remote original is unchanged. The Google Images fallback remains a search link only.
 
 A special thank you to **Mbruins** for the many tests, careful feedback and help improving SDRCC. Real-world testing makes a difference. ❤️
 
