@@ -48,6 +48,7 @@ from core import receiver_runtime as receiver_runtime_core
 from core import receiver_inventory as receiver_inventory_core
 from core import receiver_contexts as receiver_contexts_core
 from core import receiver_monitor
+from core import emergency_monitor
 from core import state
 from core import tle
 from core import system_stats
@@ -5127,6 +5128,32 @@ def api_receiver_bindings():
         return jsonify({'ok': False, 'message': str(error)}), 409
 
 
+
+@app.route("/api/emergency-monitor", methods=["GET", "POST"])
+def api_emergency_monitor():
+    """Opt-in observer; never changes any receiver service or P2000 add-on."""
+    if request.method == "GET":
+        return jsonify(emergency_monitor.snapshot())
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "message": "Expected a settings object."}), 400
+    try:
+        new_settings = emergency_monitor.save(payload)
+        return jsonify({"ok": True, "settings": new_settings, "message": "Emergency Monitor settings saved."})
+    except (ValueError, TypeError) as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+    except OSError:
+        return jsonify({"ok": False, "message": "Cannot save Emergency Monitor settings."}), 500
+
+
+@app.route("/api/emergency-monitor/test", methods=["POST"])
+def api_emergency_monitor_test():
+    try:
+        return jsonify(emergency_monitor.test_ha())
+    except ValueError as error:
+        return jsonify({"ok": False, "message": str(error)}), 409
+
+
 def run():
     recover_stale_hf_monitor()
     recover_stale_iss_voice_observer()
@@ -5138,6 +5165,7 @@ def run():
     threading.Thread(target=update_manager.check_remote_version, name="update-check", daemon=True).start()
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
+    emergency_monitor.sync_worker()
     app.run(
         host="0.0.0.0",
         port=8080,
