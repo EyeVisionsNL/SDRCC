@@ -118,9 +118,14 @@ def _candidates(name: str, eni: str) -> list[str]:
     if not value or not value[0].isalpha():
         return []
     rows = _index(value[0])
-    names = [(record_eni, url) for record_name, record_eni, url in rows if _norm(record_name) == value]
+    named_rows = [(record_eni, url) for record_name, record_eni, url in rows if _norm(record_name) == value]
+    names = named_rows
     if eni:
         names = [(record_eni, url) for record_eni, url in names if _eni(record_eni) == _eni(eni)]
+        # A same-name record with another ENI is a known identity conflict.
+        # Do not bypass that conflict with a guessed first-party slug.
+        if named_rows and not names:
+            return []
     # Never guess between different vessels with identical names.
     unique = list(dict.fromkeys(url for _, url in names))
     if len(unique) == 1:
