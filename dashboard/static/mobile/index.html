@@ -814,7 +814,7 @@ async function refreshMobileCapabilities(){
 }
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let lastMatch="",lastPhotoMmsi="",currentSnapshot=null,playingRecordingId="",resumeLiveAfterReplay=false;
+let lastMatch="",lastPhotoMmsi="",lastPhotoRetryAfter=0,currentSnapshot=null,playingRecordingId="",resumeLiveAfterReplay=false;
 let atisCardPulseTimer=null;
 const liveAudio=$("liveaudio"),replayAudio=$("replay"),savedRecordings=new Set();
 let streamUrl="",voiceActive=false,audioAttempt=0;
@@ -1124,8 +1124,10 @@ function renderPhotoCredit(target,photo){
 }
 async function showPhoto(m){
   const id=String(m.mmsi||"");
-  if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;
+  if(!/^\d{9}$/.test(id))return;
+  if(id===lastPhotoMmsi&&Date.now()<lastPhotoRetryAfter)return;
   lastPhotoMmsi=id;
+  lastPhotoRetryAfter=Number.POSITIVE_INFINITY;
   const target=$("photo");target.textContent="Looking up vessel photo…";
   try{
     const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)
@@ -1135,13 +1137,27 @@ async function showPhoto(m){
     const d=await readMobileJson(url,20000);
     if(lastPhotoMmsi!==id)return;
     target.replaceChildren();
-    if(!d.ok||!d.image_url){target.textContent="No photo available";return}
+    if(!d.ok||!d.image_url){
+      lastPhotoRetryAfter=Date.now()+30*60*1000;
+      target.textContent="No photo available";return
+    }
     const img=document.createElement("img");
     img.className="photo";img.referrerPolicy="no-referrer";
+    img.onerror=()=>{
+      if(lastPhotoMmsi!==id)return;
+      lastPhotoRetryAfter=Date.now()+30*60*1000;
+      img.remove();
+      const note=document.createElement("p");
+      note.textContent="Photo could not be loaded; original photo link remains available.";
+      target.prepend(note);
+    };
     img.src=d.image_url;img.alt="Vessel photo";
     target.append(img);
     renderPhotoCredit(target,d);
-  }catch(_){if(lastPhotoMmsi===id)target.textContent="Photo unavailable"}
+  }catch(_){if(lastPhotoMmsi===id){
+    lastPhotoRetryAfter=Date.now()+30*60*1000;
+    target.textContent="Photo unavailable"
+  }}
 }
 let mobileTrafficFetchBusy=false;
 async function refresh(){
@@ -1155,7 +1171,7 @@ async function refresh(){
       void $("matchpanel").offsetWidth;
       $("matchpanel").classList.add("pulse");
       atisCardPulseTimer=setTimeout(()=>{$("matchpanel").classList.remove("pulse");atisCardPulseTimer=null},30000);
-    }}else{lastMatch="";lastPhotoMmsi="";$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Waiting for a validated ATIS/AIS match";}}catch(e){
+    }}else{lastMatch="";lastPhotoMmsi="";lastPhotoRetryAfter=0;$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Waiting for a validated ATIS/AIS match";}}catch(e){
     // A Traffic Voice error alone does not mean the complete dashboard is down.
     // Preserve the latest ATIS match/photo across temporary network failures.
   }finally{mobileTrafficFetchBusy=false}
