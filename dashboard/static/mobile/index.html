@@ -135,6 +135,22 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 #marine>.panel.mobile-drop-before{border-top:4px solid #7dd3fc}
 #marine>.panel.mobile-drop-after{border-bottom:4px solid #7dd3fc}
 @media(prefers-reduced-motion:reduce){#marine>.panel.mobile-dragging{transition:none}}
+
+/* Desktop-equivalent Marine listening controls, folded into the movable audio card. */
+.mobile-audio-filters{margin:0 0 15px;border:1px solid #385f7e;border-radius:9px;background:linear-gradient(160deg,#122d43,#0d2033);padding:0 10px 8px}
+.mobile-audio-filters summary{cursor:pointer;list-style:none;padding:12px 20px 7px 2px;color:#a3ddff;font-weight:700;position:relative}
+.mobile-audio-filters summary::-webkit-details-marker{display:none}
+.mobile-audio-filters summary:after{content:"⌄";position:absolute;right:1px;top:11px;transition:transform .15s ease}
+.mobile-audio-filters[open] summary:after{transform:rotate(180deg)}
+.mobile-audio-filters #mobile-audio-filter-summary{display:inline-block;margin-left:5px;color:#9db8d6;font-size:11px;font-weight:500}
+.mobile-audio-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px}
+.mobile-audio-filter-grid label{display:block;margin:8px 0 5px;font-size:12px;font-weight:600;color:#bdd8ef}
+.mobile-audio-filter-grid input,.mobile-audio-filter-grid select{display:block;width:100%;margin-top:6px;min-height:36px;background:#0c1e32;color:#edf6ff;border:1px solid #466681;border-radius:7px;padding:7px}
+.mobile-audio-filter-grid input[type="range"]{padding:0;min-height:28px;accent-color:#7dd3fc}
+.mobile-audio-filter-grid #mobile-audio-volume-value{float:right;color:#9fd9fb;font-weight:500}
+.mobile-audio-filters #mobile-audio-processing-detail{font-size:11px;margin:9px 0 1px;line-height:1.4}
+.mobile-audio-filters summary:focus-visible,.mobile-audio-filter-grid select:focus-visible,.mobile-audio-filter-grid input:focus-visible{outline:2px solid #7dd3fc;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.mobile-audio-filters summary:after{transition:none}}
 </style></head><body><header class="mobile-brand-banner" aria-label="SDRCC Mobile">
 <span class="mobile-radar" aria-hidden="true"></span>
 <span class="mobile-brand-copy"><strong>SDRCC</strong><span id="mobile-scene-title" class="mobile-brand-subtitle">Mobile · Marine Traffic</span></span>
@@ -144,7 +160,31 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 <small>Connect to the same Wi-Fi network or your private Tailscale VPN. Reception continues on the mini-PC; live audio may need to be started again.</small></div>
 <button type="button" id="network-retry">↻ Retry</button>
 </div><main>
-<section id="marine"><div id="marine-layout-toolbar" class="marine-layout-toolbar"><button type="button" id="marine-layout-edit" aria-pressed="false" aria-controls="marine">⇅ Arrange panels</button><button type="button" id="marine-layout-reset" hidden>↺ Reset order</button><span id="marine-layout-hint" class="muted" hidden>Drag ⠿ or use ↑ ↓ to move a panel.</span></div><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Map</button></div><iframe id="aismap" class="map" title="AIS-Catcher map" loading="eager"></iframe><p id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden>Checking AIS highlighting…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Latest ATIS / AIS match</h2><div id="match">Waiting for live ATIS data…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · Control</h2><span id="marinestate" class="state-indicator unknown" role="status">Loading status…</span></div><p class="muted">Control marine VHF and ATIS. AIS-Catcher runs independently.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Start Marine</button><button id="marine-stop" class="stop" disabled>■ Stop Marine</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · Vessels</h2><span id="ais-service-state" class="state-indicator unknown">Loading status…</span></div><p class="muted control-description">AIS positions for the map and ATIS matching, independent of Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ Start AIS</button><button id="ais-service-stop" class="stop" type="button" disabled>■ Stop AIS</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-voice-audio" class="panel"><h2>Live Audio & Recordings</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Start Live Audio</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Last Four Recordings</h2><div id="recordings">Waiting for recordings…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
+<section id="marine"><div id="marine-layout-toolbar" class="marine-layout-toolbar"><button type="button" id="marine-layout-edit" aria-pressed="false" aria-controls="marine">⇅ Arrange panels</button><button type="button" id="marine-layout-reset" hidden>↺ Reset order</button><span id="marine-layout-hint" class="muted" hidden>Drag ⠿ or use ↑ ↓ to move a panel.</span></div><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Map</button></div><iframe id="aismap" class="map" title="AIS-Catcher map" loading="eager"></iframe><p id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden>Checking AIS highlighting…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Latest ATIS / AIS match</h2><div id="match">Waiting for live ATIS data…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · Control</h2><span id="marinestate" class="state-indicator unknown" role="status">Loading status…</span></div><p class="muted">Control marine VHF and ATIS. AIS-Catcher runs independently.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Start Marine</button><button id="marine-stop" class="stop" disabled>■ Stop Marine</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · Vessels</h2><span id="ais-service-state" class="state-indicator unknown">Loading status…</span></div><p class="muted control-description">AIS positions for the map and ATIS matching, independent of Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ Start AIS</button><button id="ais-service-stop" class="stop" type="button" disabled>■ Stop AIS</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-voice-audio" class="panel">
+<details id="mobile-audio-filters" class="mobile-audio-filters">
+  <summary>🎚️ Audio Filters <span id="mobile-audio-filter-summary">Normal · Noise off</span></summary>
+  <div class="mobile-audio-filter-grid">
+    <label for="mobile-audio-volume">Browser volume <span id="mobile-audio-volume-value">85%</span>
+      <input id="mobile-audio-volume" type="range" min="0" max="1" step="0.05" value="0.85">
+    </label>
+    <label for="mobile-audio-speech-filter">Speech filter
+      <select id="mobile-audio-speech-filter">
+        <option value="off">Off</option>
+        <option value="light">Light</option>
+        <option value="normal" selected>Normal</option>
+        <option value="strong">Strong</option>
+      </select>
+    </label>
+    <label for="mobile-audio-denoise">Noise reduction
+      <select id="mobile-audio-denoise">
+        <option value="off">Off</option>
+        <option value="speex">SpeexDSP</option>
+        <option value="rnnoise">RNNoise</option>
+      </select>
+    </label>
+  </div>
+  <p id="mobile-audio-processing-detail" class="muted" role="status" aria-live="polite">Marine listening only · ATIS and saved recordings unchanged.</p>
+</details><h2>Live Audio & Recordings</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Start Live Audio</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Last Four Recordings</h2><div id="recordings">Waiting for recordings…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
 <section id="adsb" hidden><div class="panel control-panel"><div class="row"><h2>✈️ ADS-B · Reception</h2><span id="adsb-service-state" class="state-indicator unknown">Loading status…</span></div><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ Start ADS-B</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ Stop ADS-B</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><h2>✈️ ADS-B · Aircraft</h2><iframe id="adsbmap" class="map" title="ADS-B map" loading="lazy"></iframe></div></section>
 <section id="sat" hidden>
 <div class="panel"><h2>🛰️ Satellites · Live Tracking</h2><div id="satstatus" aria-live="polite">Loading status…</div></div>
@@ -617,6 +657,77 @@ let lastMatch="",lastPhotoMmsi="",currentSnapshot=null,playingRecordingId="",res
 let atisCardPulseTimer=null;
 const liveAudio=$("liveaudio"),replayAudio=$("replay"),savedRecordings=new Set();
 let streamUrl="",voiceActive=false,audioAttempt=0;
+const MOBILE_AUDIO_SETTINGS_KEY="sdrcc-mobile-marine-audio-v1";
+const MOBILE_SPEECH_FILTERS=["off","light","normal","strong"];
+const MOBILE_DENOISERS=["off","speex","rnnoise"];
+function loadMobileAudioSettings(){
+  const defaults={filter:"normal",denoise:"off",volume:0.85};
+  try{
+    const data=JSON.parse(localStorage.getItem(MOBILE_AUDIO_SETTINGS_KEY)||"null");
+    if(data&&typeof data==="object"){
+      if(MOBILE_SPEECH_FILTERS.includes(data.filter))defaults.filter=data.filter;
+      if(MOBILE_DENOISERS.includes(data.denoise))defaults.denoise=data.denoise;
+      if(typeof data.volume==="number"&&Number.isFinite(data.volume)&&data.volume>=0&&data.volume<=1)
+        defaults.volume=data.volume;
+    }
+  }catch(_){}
+  return defaults;
+}
+const mobileAudioSettings=loadMobileAudioSettings();
+let mobileDenoiserCapabilities=null;
+function effectiveMobileDenoise(){
+  const engine=mobileAudioSettings.denoise;
+  return engine!=="off"&&mobileDenoiserCapabilities&&
+    mobileDenoiserCapabilities[engine]?.available!==true?"off":engine;
+}
+function renderMobileAudioSettings(){
+  $("mobile-audio-speech-filter").value=mobileAudioSettings.filter;
+  $("mobile-audio-denoise").value=mobileAudioSettings.denoise;
+  $("mobile-audio-volume").value=String(mobileAudioSettings.volume);
+  $("mobile-audio-volume-value").textContent=Math.round(mobileAudioSettings.volume*100)+"%";
+  $("mobile-audio-filter-summary").textContent=
+    mobileAudioSettings.filter.charAt(0).toUpperCase()+mobileAudioSettings.filter.slice(1)+
+    " · "+(mobileAudioSettings.denoise==="off"?"Noise off":
+      mobileAudioSettings.denoise==="speex"?"SpeexDSP":"RNNoise");
+  liveAudio.volume=mobileAudioSettings.volume;
+  replayAudio.volume=mobileAudioSettings.volume;
+  $("mobile-audio-processing-detail").textContent=effectiveMobileDenoise()!==mobileAudioSettings.denoise
+    ? "Noise reduction unavailable on SDRCC; streaming without it. Speech filter stays active."
+    : "Marine listening only · ATIS and saved recordings unchanged.";
+}
+function updateMobileDenoiserCapabilities(denoisers){
+  if(denoisers&&typeof denoisers==="object")mobileDenoiserCapabilities=denoisers;
+  for(const option of $("mobile-audio-denoise").options)
+    option.disabled=option.value!=="off"&&mobileDenoiserCapabilities!==null&&
+      mobileDenoiserCapabilities[option.value]?.available!==true;
+  renderMobileAudioSettings();
+}
+function saveMobileAudioSettings(restartStream=false){
+  try{localStorage.setItem(MOBILE_AUDIO_SETTINGS_KEY,JSON.stringify(mobileAudioSettings))}catch(_){}
+  renderMobileAudioSettings();
+  // Restart only the listener stream, never the receiver or ATIS decoder.
+  if(restartStream&&liveAudio.getAttribute("src")){stopLive();void startLive();}
+}
+$("mobile-audio-volume").addEventListener("input",event=>{
+  const value=Number(event.target.value);
+  if(!Number.isFinite(value))return;
+  mobileAudioSettings.volume=Math.min(1,Math.max(0,value));
+  saveMobileAudioSettings();
+});
+$("mobile-audio-speech-filter").addEventListener("change",event=>{
+  if(!MOBILE_SPEECH_FILTERS.includes(event.target.value))return;
+  mobileAudioSettings.filter=event.target.value;
+  saveMobileAudioSettings(true);
+});
+$("mobile-audio-denoise").addEventListener("change",event=>{
+  if(!MOBILE_DENOISERS.includes(event.target.value))return;
+  if(event.target.value!=="off"&&mobileDenoiserCapabilities!==null&&
+     mobileDenoiserCapabilities[event.target.value]?.available!==true)return;
+  mobileAudioSettings.denoise=event.target.value;
+  saveMobileAudioSettings(true);
+});
+renderMobileAudioSettings();
+
 function stopLive(){
   audioAttempt++;
   liveAudio.pause();liveAudio.removeAttribute("src");liveAudio.load();
@@ -633,7 +744,12 @@ async function startLive(){
   // Let the user open the waiting stream even during a quiet Marine channel.
   const endpoint=streamUrl||"/api/traffic-voice/audio-stream";
   const token=++audioAttempt;
-  liveAudio.src=endpoint+(endpoint.includes("?")?"&":"?")+"mode=marine_ais&live="+Date.now();
+  const audioUrl=new URL(endpoint,location.href);
+  audioUrl.searchParams.set("mode","marine_ais");
+  audioUrl.searchParams.set("speech_filter",mobileAudioSettings.filter);
+  audioUrl.searchParams.set("denoise",effectiveMobileDenoise());
+  audioUrl.searchParams.set("live",String(Date.now()));
+  liveAudio.src=audioUrl.href;
   $("audiotoggle").textContent="■ Stop Live Audio";
   $("audiotoggle").setAttribute("aria-pressed","true");
   $("audiostatus").textContent=streamUrl?"Connecting…":"Waiting for marine VHF activity…";
@@ -686,6 +802,7 @@ async function playRecording(item){
   catch(e){$("recordingmessage").textContent= "Playback failed: "+e.message;stopReplay(true)}
 }
 function renderAudioState(data){
+  updateMobileDenoiserCapabilities(data.audio?.denoisers);
   voiceActive=data.selected_mode==="marine_ais"&&Boolean(data.service?.active);
   streamUrl=voiceActive?String(data.audio?.stream_url||""):"";
   // Always leave the control clickable. If Voice is unavailable, explain why.
