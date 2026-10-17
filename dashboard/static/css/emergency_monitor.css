@@ -30,3 +30,39 @@
 .em-events li { padding: 7px 10px; border: 1px solid rgba(126,161,191,.23); border-radius: 6px; }
 .em-events small { display: block; opacity: .8; }
 .em-note { font-size: .85rem; opacity: .83; }
+
+/* The parent Advanced Maintenance is a two-column CSS grid. Emergency
+   Monitor is one full-width item; other maintenance tools keep their layout. */
+#tab-system .system-maintenance-body-v0540f > #em-monitor {
+  grid-column: 1 / -1;
+  width: 100%;
+  box-sizing: border-box;
+}
+#tab-system #em-monitor .em-motion-toggle {
+  align-items: flex-start;
+  gap: 12px;
+  width: fit-content;
+  max-width: 100%;
+}
+#tab-system #em-monitor .em-motion-toggle input {
+  flex: 0 0 18px;
+  margin-top: 3px;
+}
+#tab-system #em-monitor .em-motion-toggle span {
+  display: grid;
+  gap: 4px;
+}
+#tab-system #em-monitor .em-motion-toggle small {
+  color: #a6bdd1;
+  font-size: .81rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+#tab-system #em-monitor .em-identity {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+@media (max-width: 650px) {
+  #tab-system #em-monitor {
+    padding: 12px;
+  }
+}
