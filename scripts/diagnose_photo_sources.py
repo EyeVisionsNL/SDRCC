@@ -87,7 +87,54 @@ def check_binnenvaart():
             print("  alphabet index rows="+str(len(p.rows))+" exact_name="+str([item[:2] for item in p.rows if binnen._norm(item[0])==binnen._norm(NAME)][:5]),flush=True)
 
 
+def check_new_site():
+    from urllib.request import urlopen, Request
+    from html.parser import HTMLParser
+    from urllib.parse import urljoin
+
+    class Links(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.scripts = []
+            self.links = []
+            self.images = []
+            self.headings = []
+            self.title = ""
+            self.in_title = False
+        def handle_starttag(self, tag, attrs):
+            d = dict(attrs)
+            if tag == "script" and d.get("src"): self.scripts.append(d["src"])
+            if tag == "a" and d.get("href"): self.links.append(d["href"])
+            if tag == "img": self.images.append({key: d.get(key, "") for key in ("src","alt","srcset")})
+            if tag == "title": self.in_title = True
+        def handle_endtag(self, tag):
+            if tag == "title": self.in_title = False
+        def handle_data(self, value):
+            if self.in_title: self.title += value
+
+    for url in ["https://debinnenvaart.nl/",
+                "https://debinnenvaart.nl/schip/3233",
+                "https://debinnenvaart.nl/schip/14304"]:
+        started = time.monotonic()
+        try:
+            request = Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; SDRCC-source-verification/1.0)"})
+            with urlopen(request, timeout=8) as response:
+                html = response.read(1500000).decode("utf-8", "replace")
+                actual = response.geturl()
+            parsed = Links();parsed.feed(html)
+            print("NEW SITE "+url+" final="+actual+" size="+str(len(html))+" seconds="+str(round(time.monotonic()-started,2))+" title="+parsed.title[:120],flush=True)
+            print("  scripts="+str(parsed.scripts[:15]),flush=True)
+            print("  links="+str(parsed.links[:30]),flush=True)
+            print("  images="+str(parsed.images[:4]),flush=True)
+            print("  markers="+str([word for word in ("__NEXT_DATA__","_next/static","__nuxt","api/","zoeken","Invotis","EU nummer","Foto:","GROENENDAAL") if word.lower() in html.lower()]),flush=True)
+            for match in list(re.finditer(r'(?i)(api/|fetch\\(|Invotis|zoek)',html))[:3]:
+                print("  snippet="+re.sub(r"\\s+"," ",html[max(0,match.start()-80):match.end()+120])[:240],flush=True)
+        except Exception as e:
+            print("NEW SITE ERROR "+url+" "+type(e).__name__+": "+str(e)[:130]+" seconds="+str(round(time.monotonic()-started,2)),flush=True)
+
+
 if __name__ == "__main__":
     check_shipspotting()
     check_binnenvaart()
+    check_new_site()
     print("Diagnostic complete: read-only public data; no image copies.", flush=True)
