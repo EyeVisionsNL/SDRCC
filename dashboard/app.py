@@ -68,6 +68,7 @@ from core import traffic_voice as traffic_voice_core
 from core import traffic_voice_audio
 from core import traffic_voice_controller
 from core import traffic_voice_vessel_photo
+from core import traffic_voice_rensendriessen_image
 from core import hf_monitor as hf_monitor_core
 from core import hf_monitor_backend
 from core import hf_monitor_controller
@@ -3072,17 +3073,35 @@ def api_traffic_voice_recording_save(recording_id):
 
 @app.route("/api/traffic-voice/vessel-photo", methods=["GET"])
 def api_traffic_voice_vessel_photo():
-    """On-demand vessel photo lookup; never called by SDRCC while UI switch is off."""
+    """Only the enabled browser requests credited photos; Rensen JPEGs are branded."""
     try:
-        result = traffic_voice_vessel_photo.lookup(
-            request.args.get("mmsi", ""),
-            request.args.get("shipname", ""),
-            request.args.get("imo", ""),
-            request.args.get("eni", ""),
-        )
+        values = tuple(request.args.get(key, "") for key in ("mmsi", "shipname", "imo", "eni"))
+        result = traffic_voice_vessel_photo.lookup(*values)
+        if result.get("ok") and result.get("source") == "Rensen-Driessen":
+            from urllib.parse import urlencode
+            result["image_url"] = "/api/traffic-voice/vessel-photo/branded?" + urlencode(
+                dict(zip(("mmsi", "shipname", "imo", "eni"), values))
+            )
+            result["logo_embedded"] = True
+            result["logo_overlay"] = False
         return jsonify(result), 200
     except ValueError as error:
         return jsonify({"ok": False, "status": "invalid", "message": str(error)}), 400
+
+
+@app.route("/api/traffic-voice/vessel-photo/branded", methods=["GET"])
+def api_traffic_voice_rensen_driessen_photo():
+    """Return the branded JPEG; never serve the unstamped Rensen original."""
+    try:
+        values = tuple(request.args.get(key, "") for key in ("mmsi", "shipname", "imo", "eni"))
+        result = traffic_voice_vessel_photo.lookup(*values)
+        if not result.get("ok") or result.get("source") != "Rensen-Driessen":
+            abort(404)
+        image_bytes = traffic_voice_rensendriessen_image.render(result["image_url"])
+        return send_file(BytesIO(image_bytes), mimetype="image/jpeg",
+                         download_name="Rensen-Driessen-vessel.jpg", max_age=900)
+    except (OSError, ValueError):
+        abort(502)
 
 
 @app.route("/api/plugin-runtime", methods=["GET"])
