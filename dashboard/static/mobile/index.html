@@ -1134,7 +1134,7 @@ async function showPhoto(m){
       +"&shipname="+encodeURIComponent(m.shipname||"")
       +"&imo="+encodeURIComponent(m.imo||"")
       +"&eni="+encodeURIComponent(m.eni||"");
-    const d=await readMobileJson(url,20000);
+    const d=await readMobileJson(url,90000); // Last-resort photo sources can take longer than the normal 20s budget.
     if(lastPhotoMmsi!==id)return;
     target.replaceChildren();
     if(!d.ok||!d.image_url){
