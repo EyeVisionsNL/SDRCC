@@ -5146,6 +5146,14 @@ def api_emergency_monitor():
         return jsonify({"ok": False, "message": "Cannot save Emergency Monitor settings."}), 500
 
 
+@app.route("/api/emergency-monitor/map-highlights", methods=["GET"])
+def api_emergency_monitor_map_highlights():
+    """Moving KNRM and waterpolitie overlay; no control over AIS-Catcher."""
+    result = jsonify(emergency_monitor.map_highlights())
+    result.headers["Cache-Control"] = "no-store"
+    return result
+
+
 @app.route("/api/emergency-monitor/test", methods=["POST"])
 def api_emergency_monitor_test():
     try:
