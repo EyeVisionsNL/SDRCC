@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline regression tests for SDRCC Emergency Monitor v0.67.7.
+"""Offline regression tests for SDRCC Emergency Monitor v0.67.8.
 
 Read-only: never starts a receiver, opens MQTT or modifies local config.
 """
@@ -128,6 +128,48 @@ def check():
         monitor._recent.clear()
         monitor._recent.update(old_recent)
 
+    # Map overlays use real AIS positions, configured identifiers and
+    # reported movement only. The tests replace read paths without network use.
+    from core import receiver_monitor as ais_reader
+    from core import config as station_configuration
+    old_settings = monitor.settings
+    old_ais_reader = ais_reader._read_ais_ships
+    old_station = station_configuration.get_home_position
+    prior_rings = dict(monitor._map_recent)
+    try:
+        cfg = monitor.validate({"enabled": True, "radius_km": 50})
+        cfg["categories"]["knrm"] = True
+        cfg["categories"]["waterpolitie"] = True
+        cfg["vessel_mmsi"]["knrm"] = ["244123456"]
+        cfg["vessel_mmsi"]["waterpolitie"] = ["244987654"]
+        station_configuration.get_home_position = lambda: {
+            "latitude": 51.908, "longitude": 4.351
+        }
+        monitor.settings = lambda: cfg
+        moving = {"mmsi": 244123456, "validated": 1, "lat": 51.910,
+                  "lon": 4.360, "last_signal": 3, "speed": 6.0}
+        stationary = {"mmsi": 244987654, "validated": 1, "lat": 51.911,
+                      "lon": 4.362, "last_signal": 3, "speed": 0.0}
+        ais_reader._read_ais_ships = lambda: ({"ships": [moving, stationary]}, "test")
+        monitor._map_recent.clear()
+        first = monitor.map_highlights()
+        assert len(first["vessels"]) == 1
+        assert first["vessels"][0]["category"] == "knrm"
+        assert first["vessels"][0]["mmsi"] == "244123456"
+        assert first["linger_seconds"] == 300
+        ais_reader._read_ais_ships = lambda: ({"ships": []}, "test")
+        assert len(monitor.map_highlights()["vessels"]) == 1, "Five-minute linger missing"
+        monitor._map_recent["244123456"]["last_moving"] -= 301
+        assert monitor.map_highlights()["vessels"] == [], "Expired ring still present"
+        cfg["enabled"] = False
+        assert monitor.map_highlights()["vessels"] == [], "Disabled monitor drew an AIS ring"
+    finally:
+        monitor.settings = old_settings
+        ais_reader._read_ais_ships = old_ais_reader
+        station_configuration.get_home_position = old_station
+        monitor._map_recent.clear()
+        monitor._map_recent.update(prior_rings)
+
     html = (ROOT / "dashboard/templates/index.html").read_text(encoding="utf-8")
     begin = html.index('<details class="card system-maintenance-card-v0540f"')
     panel = html.index('id="em-monitor"')
@@ -135,8 +177,9 @@ def check():
     assert begin < panel < end, "Emergency Monitor must be INSIDE Advanced Maintenance"
     assert '<button class="tab-button" data-tab="em-monitor">' not in html
     assert "em-cat-p2000" not in html and "em-p2000-input" not in html
-    assert "static/js/emergency_monitor.js?v=0.67.7" in html
+    assert "static/js/emergency_monitor.js?v=0.67.8" in html
     assert "static/css/emergency_monitor.css?v=0.67.7" in html
+    assert "static/js/radio_view.js?v=0.67.8" in html
     assert 'id="em-motion-only"' in html
 
     js = (ROOT / "dashboard/static/js/emergency_monitor.js").read_text(encoding="utf-8")
@@ -153,8 +196,20 @@ def check():
     css = (ROOT / "dashboard/static/css/emergency_monitor.css").read_text(encoding="utf-8")
     assert "#tab-system .system-maintenance-body-v0540f > #em-monitor" in css
     assert "grid-column: 1 / -1" in css
+    ais_plugin = (ROOT / "dashboard/static/mobile/atis-highlight.pjs").read_text(encoding="utf-8")
+    desktop = (ROOT / "dashboard/static/js/radio_view.js").read_text(encoding="utf-8")
+    mobile = (ROOT / "dashboard/static/mobile/index.html").read_text(encoding="utf-8")
+    backend_app = (ROOT / "dashboard/app.py").read_text(encoding="utf-8")
+    assert 'SDRCC Emergency Vessels' in ais_plugin
+    assert 'target.category === "knrm" ? "255,255,255" : "36,153,255"' in ais_plugin
+    assert "sdrcc:emergency-highlight:sync" in ais_plugin
+    assert "sdrcc:emergency-highlight:sync" in desktop
+    assert "sdrcc:emergency-highlight:sync" in mobile
+    assert '"/api/emergency-monitor/map-highlights"' in backend_app
+    assert "def map_highlights()" in backend
+
     assert 'event_bus.purge_legacy_emergency_p2000_events()' in backend
-    print("PASS: v0.67.7 Emergency Monitor — motion-only filtering, full-width layout and no P2000")
+    print("PASS: v0.67.8 Emergency Monitor — moving AIS overlays, motion filters and no P2000")
 
 
 if __name__ == "__main__":
