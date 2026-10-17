@@ -1,6 +1,6 @@
 # SDRCC Emergency Monitor — implementation plan (develop only)
 
-Status: **DESIGN / NOT IMPLEMENTED**  
+Status: **v0.67.5 beta implementation committed; hardware / MQTT live acceptance pending**  
 Scope: **develop** branch only. No release or merge to main.  
 Date: 2026-10-17
 
@@ -61,24 +61,21 @@ Attributes include **time received**, **capcodes**, **priority**, **region**, **
 
 **Security:** user-supplied OpenCage API token was exposed in chat. Rotate at the provider; never copy it to repository, examples, logs or tests. MQTT credentials should come from protected local configuration or environment; do not put secrets in committed YAML. Use unique MQTT client IDs.
 
-## 4. Proposed implementation modules (later milestones, not yet added)
+## 4. Implementation modules (v0.67.5 beta)
 
 | New / changed path | Responsibility |
 | --- | --- |
-| config/emergency_monitor.yaml | Non-secret defaults: `enabled: false`, `radius_km: 20`, five category preferences, separate `p2000_mqtt_input.enabled: false`, and `home_assistant_notifications.enabled: false` |
-| core/emergency_monitor.py | Coordinator: normalize inputs, classify, calculate distances, derive event types |
-| core/emergency_monitor_adsb.py | Read-only parsing of readsb aircraft.json, source/position freshness and verified allowlist |
-| core/emergency_monitor_ais.py | Read-only parsing of AIS ships.json and verified MMSI allowlist |
-| core/emergency_monitor_p2000.py | Read-only MQTT subscriber to existing sensor topics; normalize dispatch events |
-| core/emergency_monitor_mqtt.py | Bounded outbound MQTT queue, reconnect/backoff, status/LWT, event publishing |
-| core/emergency_monitor_state.py | Atomic and bounded restart-safe per-identity deduplication |
+| data/config/emergency_monitor.json | Runtime-only persisted opt-in settings and MQTT credentials (0600, outside repository). Defaults live in core/emergency_monitor.py and remain disabled. |
+| core/emergency_monitor.py | Implemented observer worker, normalization, classifications, Haversine, deduplication, optional P2000 input, optional HA MQTT output and event history. |
+| core/receiver_monitor.py (reused) | Existing ADS-B and AIS readers/freshness helpers remain the only decoder observers. |
+| core/emergency_monitor.py | MQTT subscribe/publish and persistent bounded restart-safe cooldown are integrated into the opt-in observer. |
 | dashboard/app.py | Narrow read-only status/events endpoint, validated settings/test endpoint |
 | dashboard/templates/index.html | One opt-in Emergency Monitor group **inside System → Advanced Maintenance**; no new top-level tab |
 | dashboard/static/js/emergency_monitor.js | Status, events, settings/test action |
 | dashboard/static/css/emergency_monitor.css | Existing SDRCC theme, no unrelated green palette or style rewrite |
-| systemd/sdrcc-emergency-monitor.service.in | Single service worker as a candidate; audit installer/update lifecycle before enabling |
+| dashboard/app.py | Starts one opt-in daemon thread when SDRCC launches; no new systemd service or receiver management changes |
 | requirements.txt | Add paho-mqtt with a reviewed compatible version, only when implementation begins |
-| tests/test_emergency_monitor_*.py | Offline deterministic tests with sanitized mock data |
+| scripts/validate_emergency_monitor_v0675.py | Offline classification/geometry, default-disabled and Advanced Maintenance placement tests |
 | docs/emergency-monitor-implementation-plan.md | This develop-only design document |
 
 Prefer sharing proven read/validation helpers with **core/receiver_monitor.py** without refactoring its services or receiver authority. Keep hardware detection and MQTT transport behind independently testable interfaces.
@@ -131,7 +128,7 @@ Do not put broker credentials, API keys, full P2000 personal addresses, or unfil
 
 Home Assistant can create a notification automation from **sdrcc/emergency/events** and test with a synthetic test event (with clearly marked test=true), then from real local sources. Keep existing P2000 sensor notification automations as-is unless explicitly migrating them; protect against overlapping alerts.
 
-## 7. Proposed UI: System → Advanced Maintenance → Emergency Monitor
+## 7. Implemented UI: within System → Advanced Maintenance
 
 The Emergency Monitor **is not a separate SDRCC tab**. Add one `system-maintenance-group-v0540f` section inside the **existing closed-by-default System → Advanced Maintenance** panel, matching the current SDRCC theme:
 - Top **Enable Emergency Monitor** master switch defaults OFF. Show **DISABLED** prominently, not a false *all clear*.
@@ -142,7 +139,7 @@ The Emergency Monitor **is not a separate SDRCC tab**. Add one `system-maintenan
 - Show source freshness/availability, last detection time, and latest 20 events. Display _P2000 dispatch_ versus _nearby target detected_ separately. Never auto-center the map.
 - No new top-level navigation button and no unrelated mobile/Android changes in the first iteration.
 
-Proposed initial configuration (non-secret values only):
+Configuration defaults (represented by Python defaults; persisted under data/config/, not the tracked config directory):
 
 ~~~yaml
 emergency_monitor:
@@ -154,10 +151,8 @@ emergency_monitor:
     knrm: true
     waterpolitie: true
     p2000: true
-  p2000_mqtt_input:
-    enabled: false
-  home_assistant_notifications:
-    enabled: false
+  p2000_input: false
+  ha_notifications: false
 ~~~
 
 ## 8. Safe staged development on develop
@@ -196,3 +191,13 @@ emergency_monitor:
 - P2000 RTL-SDR add-on: https://github.com/cyberjunky/addon-p2000_rtlsdr ; inspected p2000_rtlsdr/p2000.py.
 - HA MQTT integration: https://www.home-assistant.io/integrations/mqtt/
 - HA MQTT trigger: https://www.home-assistant.io/triggers/mqtt/
+
+## v0.67.5 beta implementation notes
+
+- UI is embedded within the **existing** Advanced Maintenance disclosure, not below it or in main navigation.
+- Local ADS-B/AIS detection works without HA; P2000 MQTT input and HA notifications are separate opt-in settings.
+- Lifeliner callsigns LIFELN1–9 are matched; police helicopter hex IDs and KNMR/Waterpolitie MMSIs must be explicitly added after reliable verification. No unverified automatic classification is claimed.
+- P2000 uses existing sensors 2002–2005 and deliberately does **not** forward the same P2000 event again as a HA push notification: HA already receives the original addon sensor events.
+- Broker operation uses `paho-mqtt>=2,<3`. Fresh installs get it via requirements.txt. **Managed upgrades do not automatically pip-install new Python requirements**; existing installations must install this optional MQTT dependency separately before enabling the MQTT inputs/outputs. The dashboard displays dependency missing rather than affecting local detection.
+- Validation script: `python3 scripts/validate_emergency_monitor_v0675.py` in the SDRCC venv. Live broker/sensor verification remains pending.
+- Source code and release update manifest are updated only on develop. Main is unchanged.
