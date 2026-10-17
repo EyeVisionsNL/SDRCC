@@ -135,7 +135,7 @@ def check_new_site():
 
 if __name__ == "__main__":
     check_shipspotting()
-    check_binnenvaart()
+    # Retired HTML scraper intentionally not called (old URLs are 404).
     check_new_site()
     # Inspect only the public SPA bundle, not any photographs.
     try:
