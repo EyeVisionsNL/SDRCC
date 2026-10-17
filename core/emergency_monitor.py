@@ -30,7 +30,7 @@ _recent: dict[str, float] = {}
 _presence: dict[str, int] = {}
 _attributes: dict[str, tuple[float, dict]] = {}
 _mqtt_client: Any = None
-_last_settings = None
+_mqtt_ha_active = False
 _DEFAULT = {
     "enabled": False,
     "radius_km": 20,
@@ -346,7 +346,7 @@ def _p2000_event(sensor: str, payload: str) -> None:
 
 
 def _start_mqtt(data: dict) -> None:
-    global _mqtt_client
+    global _mqtt_client, _mqtt_ha_active
     if not (data["p2000_input"] or data["ha_notifications"]):
         with _lock:
             _runtime["mqtt"] = "OFF"
@@ -407,6 +407,7 @@ def _start_mqtt(data: dict) -> None:
         client.will_set("sdrcc/emergency/status", "offline", qos=1, retain=True)
     try:
         client.connect(data["mqtt_host"], data["mqtt_port"], keepalive=60)
+        _mqtt_ha_active = bool(data["ha_notifications"])
         _mqtt_client = client
         client.loop_start()
         with _lock:
@@ -418,12 +419,14 @@ def _start_mqtt(data: dict) -> None:
 
 
 def _close_mqtt() -> None:
-    global _mqtt_client
+    global _mqtt_client, _mqtt_ha_active
     client = _mqtt_client
+    ha_enabled = _mqtt_ha_active
     _mqtt_client = None
+    _mqtt_ha_active = False
     if client is not None:
         try:
-            if settings()["ha_notifications"]:
+            if ha_enabled:
                 client.publish("sdrcc/emergency/status", "offline", qos=1, retain=True).wait_for_publish(timeout=2)
             client.disconnect()
             client.loop_stop()
@@ -451,7 +454,12 @@ def _loop(cancel: threading.Event) -> None:
         reconnect_after = time.monotonic() + 30
         while not cancel.is_set():
             if (data["p2000_input"] or data["ha_notifications"]) and _mqtt_client is None and time.monotonic() >= reconnect_after:
-                _start_mqtt(data)
+                try:
+                    _start_mqtt(data)
+                except Exception as error:
+                    with _lock:
+                        _runtime["mqtt"] = "ERROR"
+                        _runtime["last_error"] = "Optional MQTT reconnect failed: " + str(error)[:140]
                 reconnect_after = time.monotonic() + 30
             try:
                 _poll_positions(data)
