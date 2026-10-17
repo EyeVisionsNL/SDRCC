@@ -151,6 +151,19 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 .mobile-audio-filters #mobile-audio-processing-detail{font-size:11px;margin:9px 0 1px;line-height:1.4}
 .mobile-audio-filters summary:focus-visible,.mobile-audio-filter-grid select:focus-visible,.mobile-audio-filter-grid input:focus-visible{outline:2px solid #7dd3fc;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.mobile-audio-filters summary:after{transition:none}}
+
+/* Both tabs keep the arrange button at the very end of the scrollable page.
+   Panel order is visual-only, so the live AIS and ADS-B maps are not reloaded. */
+#marine-layout-toolbar,#adsb-layout-toolbar{order:999;margin:9px 0 14px}
+#adsb:not([hidden]){display:flex;flex-direction:column}
+#adsb>.panel{min-width:0}
+#adsb-layout-hint{flex-basis:100%;font-size:11px;text-align:right}
+#adsb.adsb-layout-edit .mobile-layout-tools{display:flex}
+#adsb.adsb-layout-edit>.panel{outline:1px dashed #79c6ee55;outline-offset:-4px}
+#adsb>.panel.mobile-dragging{position:relative;z-index:6;opacity:.85;pointer-events:none;box-shadow:0 8px 28px #000a;outline:2px solid #7dd3fc}
+#adsb>.panel.mobile-drop-before{border-top:4px solid #7dd3fc}
+#adsb>.panel.mobile-drop-after{border-bottom:4px solid #7dd3fc}
+@media(prefers-reduced-motion:reduce){#adsb>.panel.mobile-dragging{transition:none}}
 </style></head><body><header class="mobile-brand-banner" aria-label="SDRCC Mobile">
 <span class="mobile-radar" aria-hidden="true"></span>
 <span class="mobile-brand-copy"><strong>SDRCC</strong><span id="mobile-scene-title" class="mobile-brand-subtitle">Mobile · Marine Traffic</span></span>
@@ -160,7 +173,7 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 <small>Connect to the same Wi-Fi network or your private Tailscale VPN. Reception continues on the mini-PC; live audio may need to be started again.</small></div>
 <button type="button" id="network-retry">↻ Retry</button>
 </div><main>
-<section id="marine"><div id="marine-layout-toolbar" class="marine-layout-toolbar"><button type="button" id="marine-layout-edit" aria-pressed="false" aria-controls="marine">⇅ Arrange panels</button><button type="button" id="marine-layout-reset" hidden>↺ Reset order</button><span id="marine-layout-hint" class="muted" hidden>Drag ⠿ or use ↑ ↓ to move a panel.</span></div><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Map</button></div><iframe id="aismap" class="map" title="AIS-Catcher map" loading="eager"></iframe><p id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden>Checking AIS highlighting…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Latest ATIS / AIS match</h2><div id="match">Waiting for live ATIS data…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · Control</h2><span id="marinestate" class="state-indicator unknown" role="status">Loading status…</span></div><p class="muted">Control marine VHF and ATIS. AIS-Catcher runs independently.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Start Marine</button><button id="marine-stop" class="stop" disabled>■ Stop Marine</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · Vessels</h2><span id="ais-service-state" class="state-indicator unknown">Loading status…</span></div><p class="muted control-description">AIS positions for the map and ATIS matching, independent of Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ Start AIS</button><button id="ais-service-stop" class="stop" type="button" disabled>■ Stop AIS</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-voice-audio" class="panel">
+<section id="marine"><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Map</button></div><iframe id="aismap" class="map" title="AIS-Catcher map" loading="eager"></iframe><p id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden>Checking AIS highlighting…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Latest ATIS / AIS match</h2><div id="match">Waiting for live ATIS data…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · Control</h2><span id="marinestate" class="state-indicator unknown" role="status">Loading status…</span></div><p class="muted">Control marine VHF and ATIS. AIS-Catcher runs independently.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Start Marine</button><button id="marine-stop" class="stop" disabled>■ Stop Marine</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · Vessels</h2><span id="ais-service-state" class="state-indicator unknown">Loading status…</span></div><p class="muted control-description">AIS positions for the map and ATIS matching, independent of Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ Start AIS</button><button id="ais-service-stop" class="stop" type="button" disabled>■ Stop AIS</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-voice-audio" class="panel">
 <details id="mobile-audio-filters" class="mobile-audio-filters">
   <summary>🎚️ Audio Filters <span id="mobile-audio-filter-summary">Normal · Noise off</span></summary>
   <div class="mobile-audio-filter-grid">
@@ -184,8 +197,8 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
     </label>
   </div>
   <p id="mobile-audio-processing-detail" class="muted" role="status" aria-live="polite">Marine listening only · ATIS and saved recordings unchanged.</p>
-</details><h2>Live Audio & Recordings</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Start Live Audio</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Last Four Recordings</h2><div id="recordings">Waiting for recordings…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div></section>
-<section id="adsb" hidden><div class="panel control-panel"><div class="row"><h2>✈️ ADS-B · Reception</h2><span id="adsb-service-state" class="state-indicator unknown">Loading status…</span></div><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ Start ADS-B</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ Stop ADS-B</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div class="panel"><h2>✈️ ADS-B · Aircraft</h2><iframe id="adsbmap" class="map" title="ADS-B map" loading="lazy"></iframe></div></section>
+</details><h2>Live Audio & Recordings</h2><div class="row"><button id="audiotoggle" aria-pressed="false">▶ Start Live Audio</button><small id="audiostatus">Uit</small></div><audio id="liveaudio" preload="none"></audio><h2 style="margin-top:16px">Last Four Recordings</h2><div id="recordings">Waiting for recordings…</div><p id="recordingmessage" class="muted" role="status" aria-live="polite"></p><audio id="replay" controls preload="none" style="width:100%;margin-top:8px"></audio></div><div id="marine-layout-toolbar" class="marine-layout-toolbar"><button type="button" id="marine-layout-edit" aria-pressed="false" aria-controls="marine">⇅ Arrange panels</button><button type="button" id="marine-layout-reset" hidden>↺ Reset order</button><span id="marine-layout-hint" class="muted" hidden>Drag ⠿ or use ↑ ↓ to move a panel.</span></div></section>
+<section id="adsb" hidden><div id="mobile-adsb-control" class="panel control-panel"><div class="row"><h2>✈️ ADS-B · Reception</h2><span id="adsb-service-state" class="state-indicator unknown">Loading status…</span></div><div class="control-buttons"><button id="adsb-service-start" class="start" type="button" disabled>▶ Start ADS-B</button><button id="adsb-service-stop" class="stop" type="button" disabled>■ Stop ADS-B</button></div><p id="adsb-service-detail" class="service-control-subtitle"></p><p id="adsb-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-adsb-map" class="panel"><h2>✈️ ADS-B · Aircraft</h2><iframe id="adsbmap" class="map" title="ADS-B map" loading="lazy"></iframe></div><div id="adsb-layout-toolbar" class="marine-layout-toolbar"><button type="button" id="adsb-layout-edit" aria-pressed="false" aria-controls="adsb">⇅ Arrange panels</button><button type="button" id="adsb-layout-reset" hidden>↺ Reset order</button><span id="adsb-layout-hint" class="muted" hidden>Drag ⠿ or use ↑ ↓ to move a panel.</span></div></section>
 <section id="sat" hidden>
 <div class="panel"><h2>🛰️ Satellites · Live Tracking</h2><div id="satstatus" aria-live="polite">Loading status…</div></div>
 <div class="panel" id="sat-mission-queue-panel">
@@ -332,6 +345,126 @@ $("marine-layout-reset").addEventListener("click",()=>{
   marinePanelOrder=[...MOBILE_MARINE_DEFAULT_ORDER];
   try{localStorage.removeItem(MOBILE_MARINE_ORDER_KEY)}catch(_){}
   drawMarinePanelOrder();
+});
+
+
+/* ADS-B uses the Marine rearrangement interaction, with an independent saved
+   order. CSS flex order keeps the embedded readsb map alive while moving cards. */
+const MOBILE_ADSB_ORDER_KEY="sdrcc-mobile-adsb-panel-order-v1";
+const MOBILE_ADSB_DEFAULT_ORDER=["mobile-adsb-control","mobile-adsb-map"];
+const adsbPanelElements=Object.fromEntries(MOBILE_ADSB_DEFAULT_ORDER.map(id=>[id,$(id)]));
+const adsbRoot=$("adsb");
+function readAdsbPanelOrder(){
+  try{
+    const order=JSON.parse(localStorage.getItem(MOBILE_ADSB_ORDER_KEY));
+    if(Array.isArray(order)&&order.length===MOBILE_ADSB_DEFAULT_ORDER.length&&
+       new Set(order).size===order.length&&order.every(id=>MOBILE_ADSB_DEFAULT_ORDER.includes(id)))return order;
+  }catch(_){}
+  return [...MOBILE_ADSB_DEFAULT_ORDER];
+}
+let adsbPanelOrder=readAdsbPanelOrder(),adsbLayoutEditing=false,adsbDrag=null;
+function drawAdsbPanelOrder(){
+  adsbPanelOrder.forEach((id,index)=>{
+    adsbPanelElements[id].style.order=String(index+1);
+    const controls=adsbPanelElements[id].querySelector(".mobile-layout-tools");
+    if(controls){
+      controls.querySelector("[data-shift='up']").disabled=index===0;
+      controls.querySelector("[data-shift='down']").disabled=index===adsbPanelOrder.length-1;
+    }
+  });
+}
+function saveAdsbPanelOrder(){
+  try{localStorage.setItem(MOBILE_ADSB_ORDER_KEY,JSON.stringify(adsbPanelOrder))}catch(_){}
+  drawAdsbPanelOrder();
+}
+function shiftAdsbPanel(id,direction){
+  const from=adsbPanelOrder.indexOf(id),to=from+direction;
+  if(from<0||to<0||to>=adsbPanelOrder.length)return;
+  [adsbPanelOrder[from],adsbPanelOrder[to]]=[adsbPanelOrder[to],adsbPanelOrder[from]];
+  saveAdsbPanelOrder();
+}
+function clearAdsbDropMarkers(){
+  for(const panel of Object.values(adsbPanelElements))
+    panel.classList.remove("mobile-drop-before","mobile-drop-after");
+}
+function adsbPointerMove(event){
+  if(!adsbDrag||event.pointerId!==adsbDrag.pointerId)return;
+  event.preventDefault();
+  const dragged=adsbPanelElements[adsbDrag.id];
+  dragged.style.transform="translate3d(0,"+(event.clientY-adsbDrag.startY)+"px,0)";
+  clearAdsbDropMarkers();
+  adsbDrag.destination=null;
+  const hovered=document.elementFromPoint(event.clientX,event.clientY)?.closest("#adsb > .panel");
+  if(hovered&&hovered!==dragged&&MOBILE_ADSB_DEFAULT_ORDER.includes(hovered.id)){
+    adsbDrag.destination=hovered.id;
+    adsbDrag.before=event.clientY<hovered.getBoundingClientRect().top+hovered.getBoundingClientRect().height/2;
+    hovered.classList.add(adsbDrag.before?"mobile-drop-before":"mobile-drop-after");
+  }
+  if(event.clientY<70)window.scrollBy(0,-12);
+  else if(event.clientY>window.innerHeight-95)window.scrollBy(0,12);
+}
+function finishAdsbDrag(event){
+  if(!adsbDrag||event.pointerId!==adsbDrag.pointerId)return;
+  const drag=adsbDrag;adsbDrag=null;
+  document.removeEventListener("pointermove",adsbPointerMove);
+  document.removeEventListener("pointerup",finishAdsbDrag);
+  document.removeEventListener("pointercancel",finishAdsbDrag);
+  const panel=adsbPanelElements[drag.id];
+  panel.style.transform="";
+  panel.classList.remove("mobile-dragging");
+  clearAdsbDropMarkers();
+  if(event.type==="pointercancel"||!drag.destination)return;
+  const order=adsbPanelOrder.filter(id=>id!==drag.id);
+  const targetIndex=order.indexOf(drag.destination);
+  if(targetIndex<0)return;
+  order.splice(targetIndex+(drag.before?0:1),0,drag.id);
+  adsbPanelOrder=order;
+  saveAdsbPanelOrder();
+}
+function startAdsbDrag(event,id){
+  if(!adsbLayoutEditing||(event.pointerType==="mouse"&&event.button!==0)||adsbDrag)return;
+  event.preventDefault();
+  try{event.currentTarget.setPointerCapture(event.pointerId)}catch(_){}
+  adsbDrag={id,pointerId:event.pointerId,startY:event.clientY,destination:null,before:true};
+  adsbPanelElements[id].classList.add("mobile-dragging");
+  document.addEventListener("pointermove",adsbPointerMove,{passive:false});
+  document.addEventListener("pointerup",finishAdsbDrag);
+  document.addEventListener("pointercancel",finishAdsbDrag);
+}
+for(const id of MOBILE_ADSB_DEFAULT_ORDER){
+  const panel=adsbPanelElements[id];
+  if(!panel)throw new Error("Missing ADS-B layout panel: "+id);
+  const actions=document.createElement("div");
+  actions.className="mobile-layout-tools";
+  const handle=document.createElement("button");
+  handle.type="button";handle.className="mobile-drag-handle";
+  handle.textContent="⠿ Drag";
+  handle.setAttribute("aria-label","Drag "+panel.querySelector("h2").textContent+" to a new position");
+  handle.addEventListener("pointerdown",event=>startAdsbDrag(event,id));
+  actions.append(handle);
+  for(const [direction,label] of [[-1,"↑"],[1,"↓"]]){
+    const button=document.createElement("button");
+    button.type="button";button.dataset.shift=direction===-1?"up":"down";
+    button.textContent=label;
+    button.setAttribute("aria-label",(direction===-1?"Move up: ":"Move down: ")+panel.querySelector("h2").textContent);
+    button.addEventListener("click",()=>shiftAdsbPanel(id,direction));
+    actions.append(button);
+  }
+  panel.prepend(actions);
+}
+drawAdsbPanelOrder();
+$("adsb-layout-edit").addEventListener("click",()=>{
+  adsbLayoutEditing=!adsbLayoutEditing;
+  adsbRoot.classList.toggle("adsb-layout-edit",adsbLayoutEditing);
+  $("adsb-layout-edit").setAttribute("aria-pressed",String(adsbLayoutEditing));
+  $("adsb-layout-edit").textContent=adsbLayoutEditing?"✓ Done":"⇅ Arrange panels";
+  $("adsb-layout-reset").hidden=!adsbLayoutEditing;
+  $("adsb-layout-hint").hidden=!adsbLayoutEditing;
+});
+$("adsb-layout-reset").addEventListener("click",()=>{
+  adsbPanelOrder=[...MOBILE_ADSB_DEFAULT_ORDER];
+  try{localStorage.removeItem(MOBILE_ADSB_ORDER_KEY)}catch(_){}
+  drawAdsbPanelOrder();
 });
 
 // The dashboard /api/status endpoint is the only connection authority.
