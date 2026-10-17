@@ -329,6 +329,31 @@ def get_events(
     return [dict(item) for item in items[:safe_limit]]
 
 
+
+def purge_legacy_emergency_p2000_events() -> int:
+    """One-time beta migration: discard ONLY the former SDRCC P2000 copies.
+
+    Keep independent P2000 processing in Home Assistant and preserve every
+    unrelated SDRCC event (including nearby ADS-B/AIS detections).
+    """
+    with _lock:
+        with _process_lock():
+            _reload_locked()
+            remaining = [
+                event for event in _events
+                if not (
+                    event.get("category") == "EMERGENCY"
+                    and (event.get("data") or {}).get("source") == "p2000"
+                )
+            ]
+            removed = len(_events) - len(remaining)
+            if removed:
+                _events.clear()
+                _events.extend(remaining)
+                _save_locked()
+            return removed
+
+
 def clear_events() -> None:
     """Clear all persisted events."""
 
