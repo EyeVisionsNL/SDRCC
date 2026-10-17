@@ -45,7 +45,8 @@ class EmbeddedPhotoTests(unittest.TestCase):
             # The upper-left photo is unchanged, and lower-right now has a
             # white/green logo badge rather than bare blue background.
             self.assertTrue(23 <= img.getpixel((20, 20))[0] <= 38)
-            self.assertGreater(img.getpixel((620, 330))[0], 170)
+            self.assertGreater(img.getpixel((515, 285))[0], 170)
+            self.assertLess(img.getpixel((565, 315))[0], 100)
         self.assertEqual(original, sample_bytes())  # source was never overwritten
 
     def test_outside_url_rejected_before_fetching(self):
