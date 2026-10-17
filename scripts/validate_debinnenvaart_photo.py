@@ -96,7 +96,7 @@ class DeBinnenvaartTests(unittest.TestCase):
 
     def test_relative_first_party_image_is_safe(self):
         path = "/image.php?url=https%3A%2F%2Fde-binnenvaart.b-cdn.net%2Fphoto.jpg"
-        self.assertTrue(photo._image_from_attrs({"src": path}).startswith("https://www.debinnenvaart.nl/image.php"))
+        self.assertEqual(photo._image_from_attrs({"src": path}), "https://de-binnenvaart.b-cdn.net/photo.jpg")
         self.assertEqual(photo._image_from_attrs({"src": "//untrusted.example/ship.jpg"}), "")
 
     def test_uncredited_generic_photo_rejected_even_with_exact_eni(self):
@@ -118,6 +118,39 @@ class DeBinnenvaartTests(unittest.TestCase):
         self.assertIn('const isDeBinnenvaart=source==="De Binnenvaart"', mobile)
         self.assertIn("renderPhotoCredit(target,d)", mobile)
         self.assertIn('"/static/mobile/index.html"', android)
+
+    def test_derova_slug_when_alphabetical_list_omits_ship(self):
+        with patch.object(photo, "_index", return_value=[]):
+            self.assertEqual(photo._candidates("DEROVA", ""),
+                             ["https://www.debinnenvaart.nl/schip_detail/derova/"])
+
+    def test_derova_image_proxy_keeps_credit_and_original_link(self):
+        from urllib.parse import quote
+        cdn = ("https://de-binnenvaart.b-cdn.net/2024/12/"
+               "derova-06105821-mts-papendrecht-04-05-2025--aris-van-dijk.jpg")
+        proxy = "https://debinnenvaart.nl/wp-content/uploads/image.php?url=" + quote(cdn, safe="")
+        page_url = "https://www.debinnenvaart.nl/schip_detail/derova/"
+        detail = ('<h1>DEROVA</h1><p>EU Nummer 06105821</p><p>Scheepstype Motortankschip</p>'
+                  f'<img src="{proxy}" alt="DEROVA in Papendrecht">'
+                  '<p>Foto: Aris van Dijk - Derova - Papendrecht - 04-05-2025</p>')
+        result = photo._parse_detail(detail, "DEROVA", "", page_url, "205580990", "", 123)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["source"], "De Binnenvaart")
+        self.assertEqual(result["artist"], "Aris van Dijk")
+        self.assertEqual(result["image_url"], cdn)
+        self.assertEqual(result["page_url"], page_url)
+
+    def test_slug_probe_does_not_override_identity_check(self):
+        with patch.object(photo, "_index", return_value=[]), \
+             patch.object(photo, "_fetch", return_value=DETAIL):
+            self.assertIsNone(photo.lookup("205580990", "DEROVA"))
+
+    def test_ambiguous_ship_name_disables_slug_guess(self):
+        with patch.object(photo, "_index", return_value=[
+            ("Derova", "06105821", "https://www.debinnenvaart.nl/schip_detail/derova/"),
+            ("Derova", "06105999", "https://www.debinnenvaart.nl/schip_detail/derova-old/"),
+        ]):
+            self.assertEqual(photo._candidates("DEROVA", ""), [])
 
     def test_empty_candidate_falls_back(self):
         with patch.object(photo, "_candidates", return_value=[]):

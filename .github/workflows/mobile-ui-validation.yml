@@ -27,3 +27,5 @@ jobs:
           node-version: '22'
       - name: Verify Web UI, photo credits and updater allowlist
         run: python3 scripts/validate_mobile_ui.py
+      - name: Validate credited De Binnenvaart photo fallback
+        run: python3 scripts/validate_debinnenvaart_photo.py

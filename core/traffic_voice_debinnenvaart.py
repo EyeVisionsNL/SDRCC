@@ -125,15 +125,29 @@ def _candidates(name: str, eni: str) -> list[str]:
     unique = list(dict.fromkeys(url for _, url in names))
     if len(unique) == 1:
         return unique
-    if unique or not eni:
+    if unique:
         return []
     # A vessel may be renamed while retaining its ENI. The same first-letter
     # register may contain its previous name; use a single exact ENI match only.
-    by_eni = list(dict.fromkeys(
-        url for _, record_eni, url in rows
-        if record_eni and _eni(record_eni) == _eni(eni)
-    ))
-    return by_eni if len(by_eni) == 1 else []
+    if eni:
+        by_eni = list(dict.fromkeys(
+            url for _, record_eni, url in rows
+            if record_eni and _eni(record_eni) == _eni(eni)
+        ))
+        if len(by_eni) == 1:
+            return by_eni
+        if len(by_eni) > 1:
+            return []
+
+    # The A-Z index can omit existing first-party ship profiles (e.g. DEROVA).
+    # Try a single name-based profile URL, but only return an image when its
+    # exact page heading/ENI and individually credited photo are verified.
+    slug = re.sub(r"[^a-z0-9]+", "-", unicodedata.normalize(
+        "NFKD", name).encode("ascii", "ignore").decode().lower()).strip("-")
+    if len(slug) < 3 or len(slug) > 90:
+        return []
+    fallback = _profile_url(BASE + "/schip_detail/" + slug + "/")
+    return [fallback] if fallback else []
 
 
 def _safe_image(url: str) -> str:
@@ -150,7 +164,9 @@ def _safe_image(url: str) -> str:
         inner = parse_qs(parsed.query).get("url", [""])[0]
         inside = urlparse(inner)
         if inside.scheme == "https" and inside.hostname == "de-binnenvaart.b-cdn.net" and inside.path.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-            return url
+            # The site sometimes returns 404 via its image.php wrapper.
+            # Its validated underlying first-party CDN photo is the same image.
+            return inner
     return ""
 
 
