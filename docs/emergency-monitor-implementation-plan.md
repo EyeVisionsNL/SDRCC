@@ -12,11 +12,15 @@ Build a read-only emergency awareness service in SDRCC that combines:
 - KNRM rescue vessel detections from local AIS.
 - Waterpolitie vessel detections from local AIS when identifiable.
 - Existing local P2000 events from an already running Home Assistant RTL-SDR add-on.
-- Home Assistant alerts through MQTT.
+- Optional Home Assistant alerts through MQTT. **Home Assistant is not required for ADS-B/AIS local monitoring.**
 
 Default **20 km** horizontal ground-distance radius around the station's configured Home Position (Vlaardingen in the current station configuration). Radius is for **live aircraft/vessel position events**, NOT a blanket P2000 capcode filter. A P2000 dispatch can have no valid coordinates, and a dispatch is not proof that an aircraft or vessel has started a mission.
 
 The user's P2000 lightkrant must keep working unchanged. No second P2000 receiver, RTL decoder or competing RTL-SDR allocation. Existing Home Assistant P2000 sensors and TTS replacements are not modified.
+
+**Opt-in requirement:** the Emergency Monitor is **OFF by default** and is configured exclusively under **System → Advanced Maintenance → Emergency Monitor** (the existing closed-by-default maintenance disclosure). An independent **Home Assistant / MQTT notifications** toggle is also **OFF by default**. The five detection-category preferences (Lifeliner, politie, KNRM, waterpolitie, P2000) do not override the master switch.
+
+When the master switch is OFF: the monitor worker is not started, there is no background ADS-B/AIS polling, no MQTT connection/subscription/publishing, and no alert generation. Normal readsb/AIS-catcher operation, existing P2000 lightkrant, Home Assistant and receiver services remain completely unchanged. Turning the switch ON enables local ADS-B/AIS monitoring and SDRCC event history even **without** Home Assistant. The **P2000 source** requires an MQTT broker carrying the existing P2000 messages and must be separately connectable/disableable; without it, show P2000 **NOT CONFIGURED**, not a fake zero count.
 
 ## 2. Existing SDRCC architecture verified on develop
 
@@ -24,7 +28,7 @@ The user's P2000 lightkrant must keep working unchanged. No second P2000 receive
 - **core/receiver_monitor.py**: read-only receiver observation. Aircraft JSON candidates: /run/readsb/aircraft.json, /var/run/readsb/aircraft.json, /run/dump1090-fa/aircraft.json. Freshness check for aircraft runtime file: <= 5 seconds. Ships via local http://127.0.0.1:8119/ships.json (fallback localhost), shared 1-second cache. Includes existing data freshness/validation conventions.
 - **core/plugin_registry.py**: ADS-B is readsb.service, AIS is ais-catcher.service. This feature is a consumer, not a receiver-owning plugin, and must not reserve devices or change assignments.
 - **core/event_bus.py**: persistent operator events with category/level/title/detail and a 100-entry bounded state file. Reuse for local timeline/status; a separate persisted alert-deduplication state is required for restart-safe cooldowns.
-- **dashboard/app.py** and **dashboard/templates/index.html**: Flask backend and tab-based UI. Add a narrow, explicitly allowlisted config/status/test API and a new Emergency Monitor tab with UI CSS/JS matching the existing theme.
+- **dashboard/app.py** and **dashboard/templates/index.html**: Flask backend and System page; the real **Advanced Maintenance** section is an existing `<details class="card system-maintenance-card-v0540f">` wrapper with internal `system-maintenance-group-v0540f` sections. Place Emergency Monitor **inside that existing disclosure**, not as a new navigation tab. Add narrow, allowlisted config/status/test APIs and scoped CSS/JS consistent with the existing UI.
 - **systemd/sdrcc.service.in** and **install.sh / update manager**: identify how an optional independent monitor worker should start/stop and survive updates; do not introduce a persistent thread in each Flask request/worker.
 
 Existing code and services must remain usable if Emergency Monitor is disabled.
@@ -61,7 +65,7 @@ Attributes include **time received**, **capcodes**, **priority**, **region**, **
 
 | New / changed path | Responsibility |
 | --- | --- |
-| config/emergency_monitor.yaml | Non-secret defaults, disabled until configured; 20 km and category toggles |
+| config/emergency_monitor.yaml | Non-secret defaults: `enabled: false`, `radius_km: 20`, five category preferences, separate `p2000_mqtt_input.enabled: false`, and `home_assistant_notifications.enabled: false` |
 | core/emergency_monitor.py | Coordinator: normalize inputs, classify, calculate distances, derive event types |
 | core/emergency_monitor_adsb.py | Read-only parsing of readsb aircraft.json, source/position freshness and verified allowlist |
 | core/emergency_monitor_ais.py | Read-only parsing of AIS ships.json and verified MMSI allowlist |
@@ -69,7 +73,7 @@ Attributes include **time received**, **capcodes**, **priority**, **region**, **
 | core/emergency_monitor_mqtt.py | Bounded outbound MQTT queue, reconnect/backoff, status/LWT, event publishing |
 | core/emergency_monitor_state.py | Atomic and bounded restart-safe per-identity deduplication |
 | dashboard/app.py | Narrow read-only status/events endpoint, validated settings/test endpoint |
-| dashboard/templates/index.html | Emergency Monitor tab; optional placement in System navigation |
+| dashboard/templates/index.html | One opt-in Emergency Monitor group **inside System → Advanced Maintenance**; no new top-level tab |
 | dashboard/static/js/emergency_monitor.js | Status, events, settings/test action |
 | dashboard/static/css/emergency_monitor.css | Existing SDRCC theme, no unrelated green palette or style rewrite |
 | systemd/sdrcc-emergency-monitor.service.in | Single service worker as a candidate; audit installer/update lifecycle before enabling |
@@ -91,9 +95,14 @@ Prefer sharing proven read/validation helpers with **core/receiver_monitor.py** 
 
 When a decoder/source is stopped or unavailable, display **SOURCE UNAVAILABLE** / **POSITION UNKNOWN**, never 'no emergency activity'.
 
-## 6. MQTT design and Home Assistant interoperability
+## 6. Optional MQTT design and Home Assistant interoperability
 
-Use the **same broker** already used for P2000, with a different SDRCC MQTT client ID and **different outbound topics**. Proposed names:
+MQTT must be **optional** and never a prerequisite to run the ADS-B/AIS part of Emergency Monitor. With the master switch ON and HA notifications OFF, SDRCC stores and displays local detections only. Input and output are controlled independently:
+- **P2000 MQTT input (OFF by default):** subscribe only if the user supplies/enables broker connection details. It can be used for an existing local P2000 source without requiring Home Assistant notifications.
+- **Home Assistant notifications (OFF by default):** publish only if explicitly enabled and broker connection succeeds. If disabled, do not publish discovery or alerts; hide/disable the HA test button.
+- When **both** MQTT input and HA output are OFF, **do not open an MQTT connection**. When the entire Emergency Monitor is OFF, its worker is stopped; none of these connectors run.
+
+When opted in, reuse the **same broker** already used for P2000, with a different SDRCC MQTT client ID and **different outbound topics**. Proposed names:
 - **sdrcc/emergency/events** — JSON event, QoS 1, **retain=false**
 - **sdrcc/emergency/status** — online/offline/health, QoS 1, retained availability/LWT
 - **sdrcc/emergency/summary** — optional latest status with expiry semantics, not used to trigger new push notifications
@@ -122,17 +131,34 @@ Do not put broker credentials, API keys, full P2000 personal addresses, or unfil
 
 Home Assistant can create a notification automation from **sdrcc/emergency/events** and test with a synthetic test event (with clearly marked test=true), then from real local sources. Keep existing P2000 sensor notification automations as-is unless explicitly migrating them; protect against overlapping alerts.
 
-## 7. Proposed UI: Emergency Monitor
+## 7. Proposed UI: System → Advanced Maintenance → Emergency Monitor
 
-A dedicated collapsible or independent navigation tab matching current dark blue/teal SDRCC styling:
-- Cards for Lifeliners, Police helicopters, KNRM, Waterpolitie and P2000.
-- Default switches enabled for those five categories; optional per-source enable/status visibility.
-- Radius slider set to **20 km**, displayed separately from P2000 event filters.
-- MQTT connection status and a clearly labelled **Send test to Home Assistant** button.
-- Source freshness/availability, last detection time, last MQTT acknowledgment and latest 20 events (read-only).
-- Reasonable event detail fields: source, ID/callsign or vessel name/MMSI, age, distance, no auto map centering.
-- Allow user to see _P2000 dispatch_ versus _nearby target detected_ as distinct types.
-- Mobile/Android feature parity only after backend contract is stable; no regression to existing app.
+The Emergency Monitor **is not a separate SDRCC tab**. Add one `system-maintenance-group-v0540f` section inside the **existing closed-by-default System → Advanced Maintenance** panel, matching the current SDRCC theme:
+- Top **Enable Emergency Monitor** master switch defaults OFF. Show **DISABLED** prominently, not a false *all clear*.
+- Only when enabled, reveal the nested options: the five requested categories (Lifeliner, politiehelikopter, KNRM, waterpolitie, P2000), ADS-B/AIS source status, local recent events, and the distance slider **20 km**.
+- Separate **Use existing P2000 MQTT source** toggle defaults OFF; provide broker configuration only when needed. Disabling it has no effect on the existing P2000 addon or the lightkrant.
+- Separate **Send notifications to Home Assistant via MQTT** toggle defaults OFF; show broker connection state and **Send test to Home Assistant** only when this option is enabled.
+- Home Assistant credentials are optional; a user without HA or a broker can still enable local **ADS-B/AIS detection**. Avoid showing an MQTT configuration error as a failure of local monitoring.
+- Show source freshness/availability, last detection time, and latest 20 events. Display _P2000 dispatch_ versus _nearby target detected_ separately. Never auto-center the map.
+- No new top-level navigation button and no unrelated mobile/Android changes in the first iteration.
+
+Proposed initial configuration (non-secret values only):
+
+~~~yaml
+emergency_monitor:
+  enabled: false
+  radius_km: 20
+  categories:
+    lifeliner: true
+    police_helicopter: true
+    knrm: true
+    waterpolitie: true
+    p2000: true
+  p2000_mqtt_input:
+    enabled: false
+  home_assistant_notifications:
+    enabled: false
+~~~
 
 ## 8. Safe staged development on develop
 
@@ -140,13 +166,18 @@ A dedicated collapsible or independent navigation tab matching current dark blue
 2. **Offline normalization:** implement ADS-B and AIS readers/classifiers/geometry, deterministic tests, test allowlists; read-only, initially disabled and no MQTT.
 3. **P2000 read-only input:** subscribe to verified 2003/2005 (optional 2002/2004), verify pairing of state/attributes and de-duplication; do not change user's lightkrant/add-on.
 4. **Outbound MQTT and HA:** isolated event namespace, reconnect/LWT and QoS; manual test event; then a real target, with no retained push event.
-5. **UI/configuration:** add feature toggles/20 km, connection health, last events and safe test action; style-consistent.
+5. **UI/configuration:** add an opt-in group only inside existing **System → Advanced Maintenance**; master enabled OFF by default, nested 20 km/categories, independently disabled P2000 MQTT input and HA notification output; display local events without broker and expose test action only when HA output is enabled.
 6. **Installer/update/rollback:** service lifecycle, requirements, version/manifest workflow, receiver handover regression and documentation only on develop.
 7. **Live acceptance:** real observed ADS-B/AIS/P2000 inputs when available, HA MQTT broker and phone notifications; update main only after explicit approval, never as part of these stages.
 
 ## 9. Acceptance checklist
 
 - [ ] Existing P2000 RTL-SDR add-on, MQTT sensors, text replacements and lightkrant unchanged.
+- [ ] Emergency Monitor appears inside existing **System → Advanced Maintenance**, not in main navigation.
+- [ ] Emergency Monitor master toggle is **OFF by default**; disabled means no monitor worker, polling, MQTT session or alerts.
+- [ ] Without Home Assistant/MQTT, enabling the monitor still provides local ADS-B/AIS monitoring and event history.
+- [ ] P2000 MQTT input and Home Assistant MQTT notifications are **separate opt-in toggles**; each defaults OFF.
+- [ ] Disabling HA notifications prevents outgoing HA event/discovery messages, and hides its test button; it does not disable local ADS-B/AIS monitoring.
 - [ ] Existing ADS-B, AIS, ATIS, Marine Traffic, satellites, receiver handover, Android app and Update Manager still work.
 - [ ] Radius defaults to 20 km and follows updated station Home Position.
 - [ ] Lifeliners/police only when recognized by verified identities with fresh ADS-B positions.
