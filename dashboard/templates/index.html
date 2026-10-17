@@ -37,7 +37,7 @@
     <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.66.1">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
     <link rel="stylesheet" href="/static/css/dashboard_polish.css?v=0.65.8">
-    <link rel="stylesheet" href="/static/css/emergency_monitor.css?v=0.67.6">
+    <link rel="stylesheet" href="/static/css/emergency_monitor.css?v=0.67.7">
 </head>
 <body>
 <div
@@ -363,6 +363,10 @@
                                 </div>
                                 <label for="em-radius">Aircraft/vessel detection radius: <strong id="em-radius-text">20 km</strong></label>
                                 <input id="em-radius" type="range" min="1" max="100" step="1" value="20">
+                                <label class="em-toggle em-motion-toggle" for="em-motion-only">
+                                    <input id="em-motion-only" type="checkbox">
+                                    <span><strong>Only alert when moving</strong><small>Suppress stationary vessels and parked helicopters. AIS ≥ 2 knots; ADS-B ≥ 30 knots. Unknown speed does not generate an alert when enabled.</small></span>
+                                </label>
                                 <p class="em-note">The radius applies to live ADS-B and AIS positions. Callsign LIFELN1–9 can identify Lifeliners; police aircraft and rescue/police vessels require verified hex/MMSI identities.</p>
                                 <div class="em-identity">
                                     <label>Lifeliner ICAO hex codes (optional)<textarea id="em-hex-lifeliner" placeholder="Six hex characters, separated by commas"></textarea></label>
@@ -1607,7 +1611,7 @@
 <script src="/static/dashboard.js?v=0.65.9"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
-<script src="/static/js/emergency_monitor.js?v=0.67.6"></script>
+<script src="/static/js/emergency_monitor.js?v=0.67.7"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
 <script src="/static/js/mission_recordings.js?v=0.63.5"></script>
 <script src="/static/js/radio.js?v=0.63.11"></script>
