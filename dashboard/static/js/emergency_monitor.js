@@ -1,7 +1,7 @@
 (() => {
     "use strict";
     const $ = id => document.getElementById(id);
-    const categories = ["lifeliner", "police_helicopter", "knrm", "waterpolitie", "p2000"];
+    const categories = ["lifeliner", "police_helicopter", "knrm", "waterpolitie"];
     let busy = false;
     let loaded = false;
     const setMessage = (message, kind = "") => {
@@ -14,9 +14,8 @@
 
     function visibility() {
         const enabled = $("em-enabled").checked;
-        const mqtt = $("em-p2000-input").checked || $("em-ha").checked;
         $("em-suboptions").hidden = !enabled;
-        $("em-mqtt-config").hidden = !enabled || !mqtt;
+        $("em-mqtt-config").hidden = !enabled || !$("em-ha").checked;
         $("em-test").hidden = !enabled || !$("em-ha").checked;
         $("em-state").textContent = enabled ? "ENABLED" : "DISABLED";
         $("em-radius-text").textContent = $("em-radius").value + " km";
@@ -28,7 +27,6 @@
         for (const category of categories) {
             $("em-cat-" + category).checked = Boolean(settings.categories?.[category]);
         }
-        $("em-p2000-input").checked = settings.p2000_input;
         $("em-ha").checked = settings.ha_notifications;
         $("em-host").value = settings.mqtt_host || "";
         $("em-port").value = settings.mqtt_port || 1883;
@@ -50,7 +48,6 @@
             enabled: $("em-enabled").checked,
             radius_km: Number($("em-radius").value),
             categories: Object.fromEntries(categories.map(c => [c, $("em-cat-" + c).checked])),
-            p2000_input: $("em-p2000-input").checked,
             ha_notifications: $("em-ha").checked,
             mqtt_host: $("em-host").value.trim(),
             mqtt_port: Number($("em-port").value),
@@ -76,7 +73,7 @@
         const runtime = snapshot.runtime || {};
         $("em-sources").textContent =
             "ADS-B: " + (runtime.adsb || "OFF") + "  ·  AIS: " + (runtime.ais || "OFF") +
-            "  ·  P2000: " + (runtime.p2000 || "OFF") + "  ·  MQTT: " + (runtime.mqtt || "OFF");
+            "  ·  MQTT: " + (runtime.mqtt || "OFF");
         const list = $("em-events");
         list.replaceChildren();
         for (const event of (snapshot.events || []).slice(0, 20)) {
@@ -154,7 +151,7 @@
         if (!$("em-monitor")) return;
         $("em-form").addEventListener("submit", save);
         $("em-test").addEventListener("click", test);
-        for (const id of ["em-enabled", "em-p2000-input", "em-ha", "em-radius"]) {
+        for (const id of ["em-enabled", "em-ha", "em-radius"]) {
             $(id).addEventListener("change", visibility);
             $(id).addEventListener("input", visibility);
         }
