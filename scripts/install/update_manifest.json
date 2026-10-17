@@ -156,7 +156,8 @@
     "23253fe5b17b8aa01f85c8d432f76d2a58eda90b6b4974ae3c89011dadd925bf",
     "36675d976c0ddd0c4c38d1208a8e3e3bec71588f94b08dab952ced303fc78a5b",
     "247d2eda6520a8ad2edd458b2c28149154460a2238439798dbc4b3a473dd4f18",
-    "c2a92bd27b31ff8046c0caaaf07ec0d49d4324a2f77673a56c625cfb42daa5a7"
+    "c2a92bd27b31ff8046c0caaaf07ec0d49d4324a2f77673a56c625cfb42daa5a7",
+    "aacc02636a0a7f154bf22d16510c66716e6e6d2d5498e12c1a538521e99303b7"
   ],
   "core/device_manager.py": [
     "dd5d589b6d7660623df7f5adf3324716b43a1e67d31ef3ea8f43688d42b72797",
@@ -247,7 +248,8 @@
     "9af4c8658205e117e875833d0082fea46bc723e2a22a689fe2fed106369c6021",
     "ac316c6566b134cea86aa535500c052599a7a695236a7b7d343aac62c24dd4e8",
     "4b6f16dd7e56aa2cd8dbdce422fb174abab12ea27a3639e7145434c0e5573bce",
-    "b24a6bf3cdcaebb00237fa9f1a1901cf55946913fb6e5f88edd692737358757a"
+    "b24a6bf3cdcaebb00237fa9f1a1901cf55946913fb6e5f88edd692737358757a",
+    "c3ba40236ca75e04cac74ee26d1fd5ab0aa4dd5b56e9a9680387750d526cf8f4"
   ],
   "dashboard/templates/index.html": [
     "514d43bd6ef77b0d20823e4915e83af1abb4ea7cea0805d96ce19811f24d6d66",
@@ -347,7 +349,8 @@
     "354b53ed4c5945d1b23d76199cc459999bac782738b18f6f12225d264bba5831",
     "676026fae741e44a62eaa9da9d72ce59600ebd1cc52b8a94ba311757264b6138",
     "702b04c2601077dfbe54cc8a340482806518298c516c7d74c713f7250997fb2a",
-    "cd5d454c41f886d9ea73a5a97a1c1299bd31f188595d7ccd0fae8bbe0cad8d55"
+    "cd5d454c41f886d9ea73a5a97a1c1299bd31f188595d7ccd0fae8bbe0cad8d55",
+    "1190e226ce181109bf4d882ebb0419aa5e27d34516cb47e8c76276f053729dd5"
   ],
   "dashboard/static/dashboard.js": [
     "d265546d4f7d51b2aa1314d6a4e3fe4244977f24b42f14106f53357c8789daf9",
@@ -844,7 +847,8 @@
   ],
   "requirements.txt": [
     "3d36fba5c050b882ee51c5789c16132d86017277e8fc065a42990d609cc03256",
-    "02a24eb585b3f1d8b99dc7b4d9cddf8c49782b7fcfd5f84d73e8eebd6a2c8329"
+    "02a24eb585b3f1d8b99dc7b4d9cddf8c49782b7fcfd5f84d73e8eebd6a2c8329",
+    "d4fb004456e9496ae78cba9cdba4dbb0b54fb481a84425894da00c2e671661c1"
   ],
   "scripts/install/prepare_iss_sstv_decoder.sh": [
     "3eb4b42425bd4471c14a798b6bfd4679ec3bd49acdfeed7f2ed1ec92267e2b50"
@@ -1125,5 +1129,20 @@
   ],
   "scripts/validate_ariss_sstv_announcements.py": [
     "68b61059b547ff9cf67a73d8e7b0534fc1a1ecfa2909e7ed2ae79beb033d9bec"
+  ],
+  "core/emergency_monitor.py": [
+    "cdc29e2d29fe95ab027732edc0f255900010d3f4ce607e16e90ae5d2963d1b86"
+  ],
+  "dashboard/static/js/emergency_monitor.js": [
+    "26597a3e78d645cf887d02e261aa419194dfbd9a4328e70b9b094d231d357ff0"
+  ],
+  "dashboard/static/css/emergency_monitor.css": [
+    "46be18ea000410667817e1826a204abb84039d1e7e103b40f7a4445ac3e0a763"
+  ],
+  "scripts/validate_emergency_monitor_v0675.py": [
+    "bb7c4030e33b105124ccb588ff98784c63a59962691a4197b09e2e566141103a"
+  ],
+  "docs/emergency-monitor-implementation-plan.md": [
+    "3ed81e844178b9d9c497ddcffd29d0e082454afc98a7c0e8009b3e62154cdc65"
   ]
 }
