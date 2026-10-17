@@ -47,6 +47,20 @@ def check():
     assert "p2000_input" not in monitor._DEFAULT
     assert "p2000" not in monitor._DEFAULT["categories"]
     assert "mqtt_password" not in monitor.public_settings()
+    # Simulate settings left by the withdrawn beta, without writing local files.
+    original_reader = monitor._read_json
+    try:
+        def legacy_reader(path):
+            if path == monitor.SETTINGS_FILE:
+                return {"enabled": True, "p2000_input": True,
+                        "categories": {"p2000": True, "lifeliner": True}}
+            return original_reader(path)
+        monitor._read_json = legacy_reader
+        migrated = monitor.settings()
+        assert "p2000_input" not in migrated
+        assert "p2000" not in migrated["categories"]
+    finally:
+        monitor._read_json = original_reader
 
     html = (ROOT / "dashboard/templates/index.html").read_text(encoding="utf-8")
     begin = html.index('<details class="card system-maintenance-card-v0540f"')
@@ -66,6 +80,7 @@ def check():
     assert 'client.subscribe(' not in backend
     assert "homeassistant/sensor/p2000_rtlsdr" not in backend
     assert 'sdrcc/emergency/events' in backend
+    assert 'event_bus.purge_legacy_emergency_p2000_events()' in backend
     print("PASS: v0.67.6 Emergency Monitor — HA owns P2000, SDRCC reads ADS-B/AIS only")
 
 
