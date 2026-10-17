@@ -251,6 +251,8 @@ function finishMarineDrag(event){
 function startMarineDrag(event,id){
   if(!marineLayoutEditing||(event.pointerType==="mouse"&&event.button!==0)||marineDrag)return;
   event.preventDefault();
+  // Keep pointer events in this document while crossing the embedded AIS map.
+  try{event.currentTarget.setPointerCapture(event.pointerId)}catch(_){}
   marineDrag={id,pointerId:event.pointerId,startY:event.clientY,destination:null,before:true};
   marinePanelElements[id].classList.add("mobile-dragging");
   document.addEventListener("pointermove",marinePointerMove,{passive:false});
