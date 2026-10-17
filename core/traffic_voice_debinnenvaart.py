@@ -113,6 +113,24 @@ def _index(letter: str) -> list[tuple[str, str, str]]:
         return rows
 
 
+# Explicit, independently checked identities for numeric first-party profiles.
+# These are only candidates: a live heading, matching EU/ENI and individually
+# credited vessel photo must be verified before anything is displayed.
+_VERIFIED_NUMERIC_PROFILES = {
+    "244660735": ("KOSTRA 3", "02335966", "14304"),
+}
+
+
+def _verified_numeric_profile(mmsi: str, name: str, eni: str) -> tuple[str, str] | None:
+    row = _VERIFIED_NUMERIC_PROFILES.get(mmsi)
+    if not row or _norm(name) != _norm(row[0]):
+        return None
+    if eni and _eni(eni) != _eni(row[1]):
+        return None
+    url = _profile_url(BASE + "/schip_detail/" + row[2] + "/")
+    return (url, row[1]) if url else None
+
+
 def _candidates(name: str, eni: str) -> list[str]:
     value = _norm(name)
     if not value or not value[0].isalpha():
@@ -283,10 +301,15 @@ def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
     if not re.fullmatch(r"\d{9}", str(mmsi or "")) or not shipname:
         return None
     now = time.time() if now is None else now
-    for page_url in _candidates(shipname, eni):
+    numeric_profile = _verified_numeric_profile(mmsi, shipname, eni)
+    if numeric_profile:
+        urls, check_eni = [numeric_profile[0]], numeric_profile[1]
+    else:
+        urls, check_eni = _candidates(shipname, eni), eni
+    for page_url in urls:
         try:
             result = _parse_detail(_fetch(page_url, MAX_DETAIL), shipname,
-                                   eni, page_url, mmsi, imo, now)
+                                   check_eni, page_url, mmsi, imo, now)
             if result:
                 return result
         except (OSError, ValueError, TimeoutError):

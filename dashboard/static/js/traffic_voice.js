@@ -60,6 +60,7 @@
     const vesselPhotoStorageKey = "sdrcc.trafficVoice.vesselPhotos";
     let vesselPhotosEnabled = false;
     let vesselPhotoMmsi = "";
+    let vesselPhotoKey = "";
     let vesselPhotoRequest = 0;
     let vesselPhotoRetryAfter = 0;
 
@@ -225,11 +226,18 @@
     function clearVesselPhoto() {
         vesselPhotoRequest += 1;
         vesselPhotoMmsi = "";
+        vesselPhotoKey = "";
         vesselPhotoRetryAfter = 0;
         const card = byId("traffic-voice-vessel-photo-card");
         const image = byId("traffic-voice-vessel-photo");
         if (card) card.hidden = true;
-        if (image) image.removeAttribute("src");
+        if (image) {
+            image.onload = null;
+            image.onerror = null;
+            image.style.display = "none";
+            image.alt = "";
+            image.removeAttribute("src");
+        }
         byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
         byId("traffic-voice-vessel-photo-credit")?.classList.remove("is-attributed");
     }
@@ -268,18 +276,27 @@
             clearVesselPhoto();
             return;
         }
-        // A failed photo lookup must not prevent another attempt forever for
-        // a vessel that keeps transmitting ATIS. Retry after the cache TTL.
-        if (mmsi === vesselPhotoMmsi && Date.now() < vesselPhotoRetryAfter) return;
+        // Retry after a miss, or immediately when new AIS name/IMO/ENI data
+        // makes the vessel identity more precise.
+        const shipname = String(match.shipname || match.callsign || "").trim();
+        const imo = String(match.imo || "").trim();
+        const eni = String(match.eni || "").trim();
+        const identityKey = [mmsi, shipname.toUpperCase(), imo, eni].join("|");
+        if (identityKey === vesselPhotoKey && Date.now() < vesselPhotoRetryAfter) return;
         vesselPhotoMmsi = mmsi;
+        vesselPhotoKey = identityKey;
         vesselPhotoRetryAfter = Number.POSITIVE_INFINITY;
         const requestId = ++vesselPhotoRequest;
-        const shipname = String(match.shipname || match.callsign || "");
-        const imo = String(match.imo || "");
         const card = byId("traffic-voice-vessel-photo-card");
         const image = byId("traffic-voice-vessel-photo");
         if (card) card.hidden = false;
-        if (image) image.removeAttribute("src");
+        if (image) {
+            image.onload = null;
+            image.onerror = null;
+            image.style.display = "none";
+            image.alt = "";
+            image.removeAttribute("src");
+        }
         byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
         byId("traffic-voice-vessel-photo-credit")?.classList.remove("is-attributed");
         text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
@@ -289,7 +306,7 @@
                 "/api/traffic-voice/vessel-photo?mmsi=" + encodeURIComponent(mmsi)
                 + "&shipname=" + encodeURIComponent(shipname)
                 + "&imo=" + encodeURIComponent(imo)
-                + "&eni=" + encodeURIComponent(match.eni || ""),
+                + "&eni=" + encodeURIComponent(eni),
                 {cache: "no-store"},
             );
             const result = await response.json();
@@ -297,6 +314,8 @@
             if (!card || !image) return;
             if (!response.ok || !result.ok || !result.image_url) {
                 vesselPhotoRetryAfter = Date.now() + 30 * 60 * 1000;
+                image.style.display = "none";
+                image.alt = "";
                 image.removeAttribute("src");
                 byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
                 text("traffic-voice-vessel-photo-credit",
@@ -305,19 +324,26 @@
                         : "No vessel photo found.");
                 return;
             }
+            image.onload = () => {
+                if (requestId === vesselPhotoRequest && vesselPhotosEnabled) {
+                    image.style.display = "";
+                }
+            };
             image.onerror = () => {
                 if (requestId !== vesselPhotoRequest) return;
+                image.style.display = "none";
+                image.alt = "";
                 image.removeAttribute("src");
                 vesselPhotoRetryAfter = Date.now() + 30 * 60 * 1000;
                 text("traffic-voice-vessel-photo-credit",
                     "Photo could not be loaded. Open the original source link if available.");
             };
+            image.alt = shipname ? "Photo of " + shipname : "Photo of matched vessel";
             image.src = result.image_url;
             image.style.objectFit = result.source === "De Binnenvaart" ? "contain" : "";
             if (result.page_url && /^(?:https:\/\/(?:(?:www\.)?binnenvaartspotter|(?:www\.)?debinnenvaart)\.nl\/|https:\/\/(?:markprummel\.nl|(?:www\.)?shipspotting\.com|commons\.wikimedia\.org)\/)/.test(result.page_url)) {
                 byId("traffic-voice-vessel-photo-link")?.setAttribute("href", result.page_url);
             }
-            image.alt = shipname ? "Photo of " + shipname : "Photo of matched vessel";
             text("traffic-voice-vessel-photo-name", shipname || ("MMSI " + mmsi));
             const credit = byId("traffic-voice-vessel-photo-credit");
             if (credit) {
@@ -337,7 +363,11 @@
             if (requestId === vesselPhotoRequest) {
                 vesselPhotoRetryAfter = Date.now() + 30 * 60 * 1000;
                 if (card) card.hidden = false;
-                if (image) image.removeAttribute("src");
+                if (image) {
+                    image.style.display = "none";
+                    image.alt = "";
+                    image.removeAttribute("src");
+                }
                 byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
                 text("traffic-voice-vessel-photo-credit", "Photo lookup failed.");
             }

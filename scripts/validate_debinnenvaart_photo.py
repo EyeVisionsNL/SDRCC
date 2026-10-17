@@ -152,6 +152,47 @@ class DeBinnenvaartTests(unittest.TestCase):
         ]):
             self.assertEqual(photo._candidates("DEROVA", ""), [])
 
+    def test_kostra3_vetted_numeric_profile_identity(self):
+        expected = ("https://www.debinnenvaart.nl/schip_detail/14304/", "02335966")
+        self.assertEqual(photo._verified_numeric_profile("244660735", "KOSTRA 3", ""), expected)
+        self.assertEqual(photo._verified_numeric_profile("244660735", "KOSTRA 3", "2335966"), expected)
+        self.assertIsNone(photo._verified_numeric_profile("244660736", "KOSTRA 3", ""))
+        self.assertIsNone(photo._verified_numeric_profile("244660735", "KOSTRA 2", ""))
+        self.assertIsNone(photo._verified_numeric_profile("244660735", "KOSTRA 3", "02335815"))
+
+    def test_kostra3_photo_and_photographer_without_client_eni(self):
+        url = "https://www.debinnenvaart.nl/schip_detail/14304/"
+        img = "https://de-binnenvaart.b-cdn.net/f5EMLFT68bPS5JPG.jpg"
+        detail = ('<h1>KOSTRA 3</h1><p>EU Nummer 02335966</p>'
+                  '<p>Scheepstype Kraan & overslagschip</p>'
+                  f'<img src="{img}" alt="KOSTRA 3 at Vlaardingen">'
+                  '<p>Foto: Kor Heidinga - Kostra 3 - Vlaardingen - 18-03-2017</p>')
+        with patch.object(photo, "_index", side_effect=AssertionError("Old index bypass required")), \
+             patch.object(photo, "_fetch", return_value=detail) as request:
+            result = photo.lookup("244660735", "KOSTRA 3")
+        self.assertIsNotNone(result)
+        self.assertEqual(result["artist"], "Kor Heidinga")
+        self.assertEqual(result["page_url"], url)
+        self.assertEqual(result["image_url"], img)
+        self.assertEqual(result["eni"], "02335966")
+        request.assert_called_once_with(url, photo.MAX_DETAIL)
+
+    def test_kostra3_rejects_wrong_eni_in_live_profile(self):
+        doc = ('<h1>KOSTRA 3</h1><p>EU Nummer 02335815</p>'
+               '<p>Scheepstype Kraan & overslagschip</p>'
+               '<img src="https://de-binnenvaart.b-cdn.net/kostra-3.jpg" alt="KOSTRA 3">'
+               '<p>Foto: Kor Heidinga - Kostra 3</p>')
+        with patch.object(photo, "_index", return_value=[]), \
+             patch.object(photo, "_fetch", return_value=doc):
+            self.assertIsNone(photo.lookup("244660735", "KOSTRA 3"))
+
+    def test_desktop_does_not_show_old_photo_alt_during_failed_lookup(self):
+        script = (MODULE.parents[1] / "dashboard/static/js/traffic_voice.js").read_text("utf-8")
+        self.assertIn('image.style.display = "none"', script)
+        self.assertIn('image.alt = ""', script)
+        self.assertIn('image.onload = () => {', script)
+        self.assertIn('const identityKey = [mmsi, shipname.toUpperCase(), imo, eni].join("|")', script)
+
     def test_empty_candidate_falls_back(self):
         with patch.object(photo, "_candidates", return_value=[]):
             self.assertIsNone(photo.lookup("244123456", "Provider"))
