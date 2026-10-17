@@ -207,4 +207,17 @@ if __name__ == "__main__":
             print("SHIP SEARCH name="+name+" total="+str(found.get("totaal"))+" rows="+str([{k:row.get(k) for k in ("id","naam","laatste_naam","eu_nummer_eerste","eu_nummer_laatste","thumb")} for row in (found.get("data") or [])[:8]]),flush=True)
     except Exception as exc:
         print("SHIP JSON ERROR "+type(exc).__name__+": "+str(exc)[:160],flush=True)
+    from core.traffic_voice_debinnenvaart_api import lookup as live_photo_lookup
+    for mmsi, name, eni in (
+        ("244740814", "INVOTIS VII", "02334352"),
+        ("244660735", "KOSTRA 3", "02335966"),
+        ("244029535", "GROENENDAAL", "02339837"),
+        ("205580990", "DEROVA", "06105821"),
+    ):
+        result = live_photo_lookup(mmsi, name, eni=eni)
+        print("LIVE ADAPTER ship="+name+" mmsi="+mmsi+
+              " found="+str(bool(result))+
+              " artist="+str((result or {}).get("artist"))+
+              " source="+str((result or {}).get("source"))+
+              " page="+str((result or {}).get("page_url")), flush=True)
     print("Diagnostic complete: read-only public data; no image copies.", flush=True)
