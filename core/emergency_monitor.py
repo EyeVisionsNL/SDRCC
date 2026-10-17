@@ -1,4 +1,4 @@
-"""Optional read-only SDRCC Emergency Monitor (v0.67.7).
+"""Optional read-only SDRCC Emergency Monitor (v0.67.8).
 
 Consumes local readsb/AIS-catcher observations without touching receiver ownership.
 Only outgoing Home Assistant MQTT notifications are opt-in. P2000 remains entirely in Home Assistant.
@@ -29,6 +29,7 @@ _runtime: dict[str, Any] = {"mqtt": "OFF", "adsb": "OFF", "ais": "OFF", "last_er
 _recent: dict[str, float] = {}
 _presence: dict[str, int] = {}
 _announced: set[str] = set()
+_map_recent: dict[str, dict[str, Any]] = {}  # Five-minute moving AIS highlights; RAM only.
 _mqtt_client: Any = None
 _mqtt_ha_active = False
 _DEFAULT = {
@@ -375,6 +376,70 @@ def _poll_positions(data: dict) -> None:
                       data, ground_speed_knots=speed_knots("ais", item))
 
 
+def map_highlights() -> dict:
+    """Read-only moving KNRM/waterpolitie targets for the AIS-Catcher map plugin.
+
+    A target is added only after a fresh, validated AIS observation reporting at
+    least two knots, within the user's detection radius. Last moving position
+    remains visible for at most 300 seconds after it stops reporting movement.
+    Never changes receivers, AISCatcher map view or P2000 ownership.
+    """
+    now = time.monotonic()
+    data = settings()
+    with _lock:
+        if not data["enabled"]:
+            _map_recent.clear()
+            return {"ok": True, "vessels": [], "linger_seconds": 300}
+        try:
+            home = station_config.get_home_position()
+            latitude = float(home["latitude"])
+            longitude = float(home["longitude"])
+            payload, _ = receiver_monitor._read_ais_ships()
+            ships = receiver_monitor._extract_list(payload, ("ships", "vessels", "targets", "data"))
+            for item in ships:
+                category = classify_vessel(item, data)
+                if category not in ("knrm", "waterpolitie") or not data["categories"].get(category):
+                    continue
+                age = receiver_monitor._first_number(item, ("last_signal", "last_signal_seconds", "age"))
+                if age is None or not 0 <= age <= 120:
+                    continue
+                validated = item.get("validated")
+                if validated is not None and str(validated).lower() not in ("1", "true"):
+                    continue
+                lat = receiver_monitor._first_number(item, ("lat", "latitude"))
+                lon = receiver_monitor._first_number(item, ("lon", "longitude"))
+                if lat is None or lon is None or not -90 <= lat <= 90 or not -180 <= lon <= 180:
+                    continue
+                if distance_km(latitude, longitude, lat, lon) > float(data["radius_km"]):
+                    continue
+                if not moving_enough("ais", speed_knots("ais", item)):
+                    continue
+                mmsi = str(item["mmsi"]).replace(".0", "")
+                _map_recent[mmsi] = {
+                    "mmsi": mmsi, "category": category,
+                    "latitude": lat, "longitude": lon,
+                    "speed_knots": round(speed_knots("ais", item), 1),
+                    "last_moving": now,
+                }
+            result = []
+            for mmsi, item in list(_map_recent.items()):
+                if (now - item["last_moving"] > 300 or
+                        not data["categories"].get(item["category"]) or
+                        mmsi not in data["vessel_mmsi"][item["category"]]):
+                    _map_recent.pop(mmsi, None)
+                    continue
+                result.append({
+                    "mmsi": mmsi, "category": item["category"],
+                    "latitude": item["latitude"], "longitude": item["longitude"],
+                    "speed_knots": item["speed_knots"],
+                    "remaining_seconds": max(0, int(300 - (now - item["last_moving"]))),
+                })
+            return {"ok": True, "vessels": result[:80], "linger_seconds": 300}
+        except Exception:
+            # This optional overlay must never affect main Emergency Monitor.
+            return {"ok": True, "vessels": [], "linger_seconds": 300}
+
+
 def _start_mqtt(data: dict) -> None:
     global _mqtt_client, _mqtt_ha_active
     if not data["ha_notifications"]:
@@ -440,6 +505,8 @@ def _close_mqtt() -> None:
 def _loop(cancel: threading.Event) -> None:
     _presence.clear()
     _announced.clear()
+    with _lock:
+        _map_recent.clear()
     try:
         _purge_legacy_p2000_history()
         state = _load_history()
