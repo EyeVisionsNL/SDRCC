@@ -61,6 +61,7 @@
     let vesselPhotosEnabled = false;
     let vesselPhotoMmsi = "";
     let vesselPhotoRequest = 0;
+    let vesselPhotoRetryAfter = 0;
 
     function byId(id) {
         return document.getElementById(id);
@@ -224,6 +225,7 @@
     function clearVesselPhoto() {
         vesselPhotoRequest += 1;
         vesselPhotoMmsi = "";
+        vesselPhotoRetryAfter = 0;
         const card = byId("traffic-voice-vessel-photo-card");
         const image = byId("traffic-voice-vessel-photo");
         if (card) card.hidden = true;
@@ -266,8 +268,11 @@
             clearVesselPhoto();
             return;
         }
-        if (mmsi === vesselPhotoMmsi) return;
+        // A failed photo lookup must not prevent another attempt forever for
+        // a vessel that keeps transmitting ATIS. Retry after the cache TTL.
+        if (mmsi === vesselPhotoMmsi && Date.now() < vesselPhotoRetryAfter) return;
         vesselPhotoMmsi = mmsi;
+        vesselPhotoRetryAfter = Number.POSITIVE_INFINITY;
         const requestId = ++vesselPhotoRequest;
         const shipname = String(match.shipname || match.callsign || "");
         const imo = String(match.imo || "");
@@ -291,6 +296,7 @@
             if (requestId !== vesselPhotoRequest || !vesselPhotosEnabled) return;
             if (!card || !image) return;
             if (!response.ok || !result.ok || !result.image_url) {
+                vesselPhotoRetryAfter = Date.now() + 30 * 60 * 1000;
                 image.removeAttribute("src");
                 byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
                 text("traffic-voice-vessel-photo-credit",
@@ -299,6 +305,13 @@
                         : "No vessel photo found.");
                 return;
             }
+            image.onerror = () => {
+                if (requestId !== vesselPhotoRequest) return;
+                image.removeAttribute("src");
+                vesselPhotoRetryAfter = Date.now() + 30 * 60 * 1000;
+                text("traffic-voice-vessel-photo-credit",
+                    "Photo could not be loaded. Open the original source link if available.");
+            };
             image.src = result.image_url;
             image.style.objectFit = result.source === "De Binnenvaart" ? "contain" : "";
             if (result.page_url && /^(?:https:\/\/(?:(?:www\.)?binnenvaartspotter|(?:www\.)?debinnenvaart)\.nl\/|https:\/\/(?:markprummel\.nl|(?:www\.)?shipspotting\.com|commons\.wikimedia\.org)\/)/.test(result.page_url)) {
@@ -322,6 +335,7 @@
             }
         } catch (_) {
             if (requestId === vesselPhotoRequest) {
+                vesselPhotoRetryAfter = Date.now() + 30 * 60 * 1000;
                 if (card) card.hidden = false;
                 if (image) image.removeAttribute("src");
                 byId("traffic-voice-vessel-photo-link")?.removeAttribute("href");
