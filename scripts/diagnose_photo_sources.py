@@ -152,4 +152,41 @@ if __name__ == "__main__":
                 print("    "+re.sub(r"\\s+"," ",js[max(at-130,0):at+180])[:310],flush=True)
     except Exception as e:
         print("SPA JS ERROR "+type(e).__name__+": "+str(e)[:160],flush=True)
+    # Verify the public data interface referenced by the SPA itself.
+    try:
+        import json
+        from urllib.request import Request, urlopen
+        from urllib.parse import urlencode
+        roots = [
+            "https://debinnenvaart.nl/api/schepen/14304",
+            "https://debinnenvaart.nl/api/schepen?" + urlencode({"zoek":"INVOTIS VII","limit":4}),
+            "https://debinnenvaart.nl/api/schepen?" + urlencode({"q":"INVOTIS VII","limit":4}),
+            "https://debinnenvaart.nl/api/schepen?" + urlencode({"naam":"INVOTIS VII","limit":4}),
+        ]
+        for url in roots:
+            started=time.monotonic()
+            try:
+                with urlopen(Request(url,headers={"User-Agent":"SDRCC-photo-metadata-diagnostic/1.0","Accept":"application/json"}),timeout=8) as response:
+                    status=response.status
+                    raw=response.read(850000)
+                obj=json.loads(raw)
+                print("NEW API "+label(url)+" status="+str(status)+" bytes="+str(len(raw))+" secs="+str(round(time.monotonic()-started,2)),flush=True)
+                if isinstance(obj,dict):
+                    print("  keys="+str(list(obj.keys())[:25]),flush=True)
+                    for key in ("data","schepen","resultaten","items"):
+                        if isinstance(obj.get(key),list):
+                            print("  "+key+" count="+str(len(obj[key]))+" first_rows="+str([{k:v for k,v in row.items() if k in ("id","naam","laatste_naam","eni","eu_nummer","imo","thumb","thumb_url")} for row in obj[key][:4] if isinstance(row,dict)]),flush=True)
+                    if "/14304" in url:
+                        print("  vessel fields="+str([(k,type(v).__name__,len(v) if isinstance(v,(list,dict)) else str(v)[:90]) for k,v in obj.items()][:55]),flush=True)
+                else:
+                    print("  response_type="+type(obj).__name__,flush=True)
+            except Exception as exc:
+                print("NEW API ERROR "+label(url)+" "+type(exc).__name__+": "+str(exc)[:130],flush=True)
+        for key in ("A.schepen(", "schepen({", "schepen(new", "zoekterm", "zoektekst", "zoek:", "zoek="):
+            places=[m.start() for m in re.finditer(re.escape(key),js,re.I)][:5]
+            print("  JS CALL "+key+" count="+str(len(places)),flush=True)
+            for at in places[:2]:
+                print("    "+js[max(0,at-150):at+260][:410],flush=True)
+    except Exception as exc:
+        print("NEW API DIAG ERROR "+type(exc).__name__+": "+str(exc)[:130],flush=True)
     print("Diagnostic complete: read-only public data; no image copies.", flush=True)
