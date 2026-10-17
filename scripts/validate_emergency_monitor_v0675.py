@@ -203,9 +203,14 @@ def check():
     assert 'SDRCC Emergency Vessels' in ais_plugin
     assert 'target.category === "knrm" ? "255,255,255" : "36,153,255"' in ais_plugin
     assert "sdrcc:emergency-highlight:sync" in ais_plugin
+    assert 'if (window.parent === window)' in ais_plugin
+    assert 'fetch(trustedOrigin + "/api/emergency-monitor/map-highlights"' in ais_plugin
+    assert 'window.parent !== window)' not in ais_plugin
     assert "sdrcc:emergency-highlight:sync" in desktop
     assert "sdrcc:emergency-highlight:sync" in mobile
     assert '"/api/emergency-monitor/map-highlights"' in backend_app
+    assert 'Access-Control-Allow-Origin' in backend_app
+    assert 'request.host.rsplit' in backend_app
     assert "def map_highlights()" in backend
 
     assert 'event_bus.purge_legacy_emergency_p2000_events()' in backend
