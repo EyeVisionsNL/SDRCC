@@ -1,4 +1,4 @@
-"""Optional read-only SDRCC Emergency Monitor (v0.67.5).
+"""Optional read-only SDRCC Emergency Monitor (v0.67.7).
 
 Consumes local readsb/AIS-catcher observations without touching receiver ownership.
 Only outgoing Home Assistant MQTT notifications are opt-in. P2000 remains entirely in Home Assistant.
@@ -28,11 +28,13 @@ _stop: threading.Event | None = None
 _runtime: dict[str, Any] = {"mqtt": "OFF", "adsb": "OFF", "ais": "OFF", "last_error": ""}
 _recent: dict[str, float] = {}
 _presence: dict[str, int] = {}
+_announced: set[str] = set()
 _mqtt_client: Any = None
 _mqtt_ha_active = False
 _DEFAULT = {
     "enabled": False,
     "radius_km": 20,
+    "motion_only": False,
     "categories": {"lifeliner": True, "police_helicopter": True, "knrm": True,
                    "waterpolitie": True},
     "ha_notifications": False,
@@ -115,7 +117,7 @@ def validate(payload: Any) -> dict:
         raise ValueError("Settings must be a JSON object.")
     previous = settings()
     data = deepcopy(previous)
-    for field in ("enabled", "ha_notifications", "mqtt_tls"):
+    for field in ("enabled", "motion_only", "ha_notifications", "mqtt_tls"):
         if field in payload:
             if not isinstance(payload[field], bool):
                 raise ValueError(field + " must be a boolean.")
@@ -259,18 +261,55 @@ def _store_event(event: dict, *, send_mqtt: bool = True) -> None:
                 _runtime["last_error"] = "MQTT publish failed: " + str(error)[:160]
 
 
-def _target_event(source: str, category: str, identity: str, label: str, distance: float, data: dict) -> None:
+def speed_knots(source: str, item: dict) -> float | None:
+    """Use reported ground speed, not small position changes.
+
+    readsb aircraft.json uses 'gs' in knots. AIS-catcher ships.json uses
+    'speed'/'sog' in knots. AIS 102.3 means unknown ground speed.
+    """
+    keys = ("gs",) if source == "adsb" else ("speed", "sog")
+    speed = receiver_monitor._first_number(item, keys)
+    if speed is None or not math.isfinite(speed) or speed < 0:
+        return None
+    if source == "ais" and speed >= 102.3:
+        return None
+    return speed
+
+
+def moving_enough(source: str, speed: float | None) -> bool:
+    """Require reported movement when motion-only is selected."""
+    return speed is not None and math.isfinite(speed) and speed >= (30.0 if source == "adsb" else 2.0)
+
+
+def _target_event(
+    source: str,
+    category: str,
+    identity: str,
+    label: str,
+    distance: float,
+    data: dict,
+    *,
+    ground_speed_knots: float | None = None,
+) -> None:
     key = source + ":" + identity
     now = time.time()
     if distance > float(data["radius_km"]) + 2:
         _presence.pop(key, None)
+        _announced.discard(key)
         return
     if distance > float(data["radius_km"]):
         return
+    if data.get("motion_only", False) and not moving_enough(source, ground_speed_knots):
+        # Silent for moored vessels, parked aircraft and unknown ground speed.
+        # Require two new qualifying samples if the target starts moving.
+        _presence.pop(key, None)
+        return
     _presence[key] = min(_presence.get(key, 0) + 1, 3)
-    if _presence[key] < 2 or now - _recent.get(key, 0) < 1800:
+    # One alert per in-range session, plus a restart-safe cooldown.
+    if _presence[key] < 2 or key in _announced or now - _recent.get(key, 0) < 1800:
         return
     _recent[key] = now
+    _announced.add(key)
     event = {
         "id": hashlib.sha256((key + ":" + str(now)).encode()).hexdigest()[:16],
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -280,6 +319,8 @@ def _target_event(source: str, category: str, identity: str, label: str, distanc
         "identity": identity, "label": label,
         "distance_km": round(distance, 1), "radius_km": data["radius_km"],
     }
+    if ground_speed_knots is not None:
+        event["speed_knots"] = round(ground_speed_knots, 1)
     _store_event(event)
 
 
@@ -308,7 +349,8 @@ def _poll_positions(data: dict) -> None:
                 continue
             identity = str(item["hex"]).strip().upper()
             flight = str(item.get("flight") or identity).strip()
-            _target_event("adsb", category, identity, flight, distance_km(home_lat, home_lon, lat, lon), data)
+            _target_event("adsb", category, identity, flight, distance_km(home_lat, home_lon, lat, lon),
+                          data, ground_speed_knots=speed_knots("adsb", item))
 
     ships, _ = receiver_monitor._read_ais_ships()
     with _lock:
@@ -329,7 +371,8 @@ def _poll_positions(data: dict) -> None:
             continue
         mmsi = str(item.get("mmsi")).replace(".0", "")
         label = str(item.get("shipname") or item.get("name") or mmsi).strip()[:80]
-        _target_event("ais", category, mmsi, label, distance_km(home_lat, home_lon, lat, lon), data)
+        _target_event("ais", category, mmsi, label, distance_km(home_lat, home_lon, lat, lon),
+                      data, ground_speed_knots=speed_knots("ais", item))
 
 
 def _start_mqtt(data: dict) -> None:
@@ -396,6 +439,7 @@ def _close_mqtt() -> None:
 
 def _loop(cancel: threading.Event) -> None:
     _presence.clear()
+    _announced.clear()
     try:
         _purge_legacy_p2000_history()
         state = _load_history()
