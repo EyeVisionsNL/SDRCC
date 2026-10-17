@@ -440,7 +440,12 @@ def _loop(cancel: threading.Event) -> None:
         _recent.update({str(k): float(v) for k, v in state["last_sent"].items()
                         if isinstance(v, (int, float)) and now - v < 86400})
         data = settings()
-        _start_mqtt(data)
+        try:
+            _start_mqtt(data)
+        except Exception as error:
+            with _lock:
+                _runtime["mqtt"] = "ERROR"
+                _runtime["last_error"] = "Optional MQTT failed: " + str(error)[:140]
         # Warm up to avoid firing for all aircraft already in range during startup.
         cancel.wait(60)
         reconnect_after = time.monotonic() + 30
