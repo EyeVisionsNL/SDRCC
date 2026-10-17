@@ -1,4 +1,4 @@
-// {"author":"EyeVisionsNL","version":5,"description":"SDRCC Mobile ATIS vessel highlight bridge v1"}
+// {"author":"EyeVisionsNL","version":5,"description":"SDRCC ATIS and emergency vessel highlighting bridge v2"}
 /*
  * SDRCC-ATIS-MOBILE-BRIDGE
  *
@@ -23,6 +23,14 @@ if (typeof AISCatcher !== "undefined" &&
     var feature = null;
 
     AISCatcher.addOverlayLayer(layerName, layer);
+
+    // Separate, read-only overlay for moving emergency vessels. This does not
+    // replace AIS-Catcher's native ship markers or sector colours.
+    var emergencySource = new ol.source.Vector();
+    var emergencyLayer = new ol.layer.Vector({source: emergencySource, zIndex: 2450});
+    var emergencyTargets = {};
+    var emergencyTimer = null;
+    AISCatcher.addOverlayLayer("SDRCC Emergency Vessels", emergencyLayer);
 
     function validCoords(lat, lon) {
       return typeof lat === "number" && Number.isFinite(lat) &&
@@ -121,6 +129,97 @@ if (typeof AISCatcher !== "undefined" &&
       reply("shown", {mmsi: mmsi, event_id: eventId});
     }
 
+    function endEmergency() {
+      emergencyTargets = {};
+      emergencySource.clear();
+      if (emergencyTimer !== null) {
+        window.clearInterval(emergencyTimer);
+        emergencyTimer = null;
+      }
+      emergencyLayer.setVisible(false);
+    }
+
+    function emergencyTick() {
+      var keys = Object.keys(emergencyTargets);
+      var now = Date.now();
+      keys.forEach(function (mmsi) {
+        var target = emergencyTargets[mmsi];
+        if (!target || target.expires <= now) {
+          if (target) emergencySource.removeFeature(target.feature);
+          delete emergencyTargets[mmsi];
+          return;
+        }
+        var coords = coordinatesFor(mmsi, target.latitude, target.longitude);
+        if (validCoords(coords[1], coords[0])) {
+          target.feature.getGeometry().setCoordinates(ol.proj.fromLonLat(coords));
+        }
+        // KNRM uses white, not orange. Existing Rijnmond VTS sectors
+        // already use orange and purple; water police gets electric blue.
+        var rgb = target.category === "knrm" ? "255,255,255" : "36,153,255";
+        var pulse = (Math.sin((now / 1450) * 2 * Math.PI) + 1) / 2;
+        target.feature.setStyle(new ol.style.Style({
+          image: new ol.style.Circle({
+            radius: 11 + pulse * 7,
+            stroke: new ol.style.Stroke({
+              color: "rgba(" + rgb + "," + (0.95 - pulse * 0.35).toFixed(3) + ")",
+              width: 3.2
+            }),
+            fill: new ol.style.Fill({
+              color: "rgba(" + rgb + ",0.09)"
+            })
+          })
+        }));
+      });
+      if (!Object.keys(emergencyTargets).length) {
+        endEmergency();
+      } else if (!emergencyLayer.getVisible()) {
+        emergencyLayer.setVisible(true);
+      }
+    }
+
+    function emergencySync(message) {
+      if (!Array.isArray(message.vessels)) return;
+      var present = {};
+      var now = Date.now();
+      message.vessels.slice(0, 80).forEach(function (item) {
+        var mmsi = String(item.mmsi || "");
+        var category = String(item.category || "");
+        var lat = Number(item.latitude), lon = Number(item.longitude);
+        var left = Number(item.remaining_seconds);
+        if (!/^\\d{9}$/.test(mmsi) || !["knrm", "waterpolitie"].includes(category) ||
+            item.latitude == null || item.longitude == null ||
+            !validCoords(lat, lon) || !Number.isFinite(left) || left <= 0 || left > 300) {
+          return;
+        }
+        present[mmsi] = true;
+        var existing = emergencyTargets[mmsi];
+        if (!existing) {
+          var point = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+          });
+          point.set("sdrcc_emergency_mmsi", mmsi);
+          emergencySource.addFeature(point);
+          existing = {feature: point};
+          emergencyTargets[mmsi] = existing;
+        }
+        existing.category = category;
+        existing.latitude = lat;
+        existing.longitude = lon;
+        existing.expires = now + left * 1000;
+      });
+      Object.keys(emergencyTargets).forEach(function (mmsi) {
+        if (!present[mmsi]) {
+          emergencySource.removeFeature(emergencyTargets[mmsi].feature);
+          delete emergencyTargets[mmsi];
+        }
+      });
+      if (Object.keys(emergencyTargets).length && emergencyTimer === null) {
+        emergencyLayer.setVisible(true);
+        emergencyTimer = window.setInterval(emergencyTick, 250);
+      }
+      emergencyTick();
+    }
+
     window.addEventListener("message", function (event) {
       if (event.source !== window.parent || event.origin !== trustedOrigin) return;
       var data = event.data;
@@ -129,6 +228,8 @@ if (typeof AISCatcher !== "undefined" &&
         reply("ready");
       } else if (data.type === "sdrcc:atis-highlight:show") {
         highlight(data);
+      } else if (data.type === "sdrcc:emergency-highlight:sync") {
+        emergencySync(data);
       }
     });
 
