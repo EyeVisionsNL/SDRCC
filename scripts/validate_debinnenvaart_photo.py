@@ -104,6 +104,21 @@ class DeBinnenvaartTests(unittest.TestCase):
         doc = doc.replace("Provider at Werkendam", "Historic vessel").replace("Foto:", "Credits:")
         self.assertIsNone(photo._parse_detail(doc, "Provider", "02338736", URL, "244123456", "", 10))
 
+    def test_android_and_mobile_use_the_same_photo_finder(self):
+        root = MODULE.parents[1]
+        mobile = (root / "dashboard/static/mobile/index.html").read_text(encoding="utf-8")
+        regular = (root / "dashboard/static/js/traffic_voice.js").read_text(encoding="utf-8")
+        android = (root / "android/app/src/main/java/nl/eyevisions/sdrcc/mobile/StationAddress.java").read_text(encoding="utf-8")
+        for client in (mobile, regular):
+            self.assertIn("/api/traffic-voice/vessel-photo?mmsi=", client)
+        self.assertIn('m.shipname||m.callsign||""', mobile)
+        self.assertIn("const key=[id,name.toUpperCase(),imo,eni].join", mobile)
+        self.assertIn("lastPhotoRetryAfter=Date.now()+30*60*1000", mobile)
+        self.assertIn("readMobileJson(url,90000)", mobile)
+        self.assertIn('const isDeBinnenvaart=source==="De Binnenvaart"', mobile)
+        self.assertIn("renderPhotoCredit(target,d)", mobile)
+        self.assertIn('"/static/mobile/index.html"', android)
+
     def test_empty_candidate_falls_back(self):
         with patch.object(photo, "_candidates", return_value=[]):
             self.assertIsNone(photo.lookup("244123456", "Provider"))
