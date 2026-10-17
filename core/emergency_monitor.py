@@ -440,6 +440,9 @@ def sync_worker() -> None:
     global _worker, _stop
     with _lock:
         _purge_legacy_p2000_history()
+        # Previous beta versions also copied P2000 into the general Event Bus.
+        # Purge only those old copies; never change Home Assistant or other events.
+        event_bus.purge_legacy_emergency_p2000_events()
         if _stop is not None:
             _stop.set()
         previous = _worker
