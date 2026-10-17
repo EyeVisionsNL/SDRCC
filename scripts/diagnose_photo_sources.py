@@ -189,4 +189,22 @@ if __name__ == "__main__":
                 print("    "+js[max(0,at-150):at+260][:410],flush=True)
     except Exception as exc:
         print("NEW API DIAG ERROR "+type(exc).__name__+": "+str(exc)[:130],flush=True)
+    try:
+        import json
+        from urllib.request import Request, urlopen
+        from urllib.parse import urlencode
+        for ship_id in ("15560", "14304"):
+            url = "https://debinnenvaart.nl/api/schepen/" + ship_id
+            with urlopen(Request(url,headers={"User-Agent":"SDRCC-photo-metadata-diagnostic/1.0","Accept":"application/json"}),timeout=8) as response:
+                data=json.load(response)
+            print("SHIP JSON id="+ship_id+" name="+str(data.get("naam"))+" latest="+str(data.get("laatste_naam"))+" eni_first="+str(data.get("eu_nummer_eerste"))+" eni_last="+str(data.get("eu_nummer_laatste"))+" photo_count="+str(len(data.get("fotos") or [])),flush=True)
+            for photo in (data.get("fotos") or [])[:3]:
+                print("  photo fields="+str([(k, v if not isinstance(v,str) else v[:250]) for k,v in photo.items()]) if isinstance(photo,dict) else "  photo type="+type(photo).__name__,flush=True)
+        for name in ("GROENENDAAL", "DEROVA", "KOSTRA 3"):
+            url = "https://debinnenvaart.nl/api/schepen?" + urlencode({"q":name,"per_page":10})
+            with urlopen(Request(url,headers={"User-Agent":"SDRCC-photo-metadata-diagnostic/1.0","Accept":"application/json"}),timeout=8) as response:
+                found=json.load(response)
+            print("SHIP SEARCH name="+name+" total="+str(found.get("totaal"))+" rows="+str([{k:row.get(k) for k in ("id","naam","laatste_naam","eu_nummer_eerste","eu_nummer_laatste","thumb")} for row in (found.get("data") or [])[:8]]),flush=True)
+    except Exception as exc:
+        print("SHIP JSON ERROR "+type(exc).__name__+": "+str(exc)[:160],flush=True)
     print("Diagnostic complete: read-only public data; no image copies.", flush=True)
