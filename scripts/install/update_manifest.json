@@ -1131,7 +1131,8 @@
     "68b61059b547ff9cf67a73d8e7b0534fc1a1ecfa2909e7ed2ae79beb033d9bec"
   ],
   "core/emergency_monitor.py": [
-    "cdc29e2d29fe95ab027732edc0f255900010d3f4ce607e16e90ae5d2963d1b86"
+    "cdc29e2d29fe95ab027732edc0f255900010d3f4ce607e16e90ae5d2963d1b86",
+    "2fdf9303a569da0affbf5a46712b00a22049388b3455cd0e9f1a96dacae5b0d2"
   ],
   "dashboard/static/js/emergency_monitor.js": [
     "26597a3e78d645cf887d02e261aa419194dfbd9a4328e70b9b094d231d357ff0"
