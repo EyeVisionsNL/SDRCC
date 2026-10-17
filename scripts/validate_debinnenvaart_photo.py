@@ -69,6 +69,41 @@ class DeBinnenvaartTests(unittest.TestCase):
         attr = {"srcset": IMG + " 1200w, https://de-binnenvaart.b-cdn.net/2019/12/provider-300x200.jpg 300w", "src": IMG}
         self.assertIn("300x200", photo._image_from_attrs(attr))
 
+    def test_renamed_ship_same_initial_eni_match(self):
+        # The public index may still list the hull under its former name.
+        old = "https://www.debinnenvaart.nl/schip_detail/former/"
+        with patch.object(photo, "_index", return_value=[
+            ("Poseidon", "02338736", old),
+            ("Provider II", "02391234", URL),
+        ]):
+            self.assertEqual(photo._candidates("Provider", "02338736"), [old])
+
+    def test_different_name_needs_exact_eni(self):
+        doc = DETAIL.replace("<h1>PROVIDER</h1>", "<h1>POSEIDON</h1>")
+        valid = photo._parse_detail(doc, "Provider", "02338736", URL, "244123456", "", 10)
+        self.assertEqual(valid["artist"], "Aris van Dijk")
+        self.assertIsNone(photo._parse_detail(doc, "Provider", "", URL, "244123456", "", 10))
+        self.assertIsNone(photo._parse_detail(doc, "Provider", "02390909", URL, "244123456", "", 10))
+
+    def test_unlabeled_gallery_photo_with_exact_eni_and_credit(self):
+        doc = DETAIL.replace(IMG, "https://de-binnenvaart.b-cdn.net/2019/12/photo-98632.webp")
+        doc = doc.replace("Provider at Werkendam", "Historic vessel")
+        doc = doc.replace(" - Provider - Werkendam - 2020", " - historic image")
+        found = photo._parse_detail(doc, "Provider", "02338736", URL, "244123456", "", 10)
+        self.assertEqual(found["artist"], "Aris van Dijk")
+        self.assertTrue(found["image_url"].endswith("photo-98632.webp"))
+        self.assertIsNone(photo._parse_detail(doc, "Provider", "", URL, "244123456", "", 10))
+
+    def test_relative_first_party_image_is_safe(self):
+        path = "/image.php?url=https%3A%2F%2Fde-binnenvaart.b-cdn.net%2Fphoto.jpg"
+        self.assertTrue(photo._image_from_attrs({"src": path}).startswith("https://www.debinnenvaart.nl/image.php"))
+        self.assertEqual(photo._image_from_attrs({"src": "//untrusted.example/ship.jpg"}), "")
+
+    def test_uncredited_generic_photo_rejected_even_with_exact_eni(self):
+        doc = DETAIL.replace(IMG, "https://de-binnenvaart.b-cdn.net/2019/12/photo-42.jpg")
+        doc = doc.replace("Provider at Werkendam", "Historic vessel").replace("Foto:", "Credits:")
+        self.assertIsNone(photo._parse_detail(doc, "Provider", "02338736", URL, "244123456", "", 10))
+
     def test_empty_candidate_falls_back(self):
         with patch.object(photo, "_candidates", return_value=[]):
             self.assertIsNone(photo.lookup("244123456", "Provider"))
