@@ -23,9 +23,9 @@ from core.traffic_voice_shipspotting import lookup as _shipspotting_lookup
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 12
+PHOTO_POLICY_VERSION = 13
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
-NEGATIVE_CACHE_SECONDS = 6 * 3600
+NEGATIVE_CACHE_SECONDS = 30 * 60
 _lock = threading.RLock()
 _cache: dict[str, dict] | None = None
 
@@ -477,6 +477,7 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
             result["error"] = error
 
     # Priority 5 (last resort): De Binnenvaart, after Commons had no verified photo.
+    # Credits and the original page URL are mandatory in this source's own parser.
     if not result.get("ok"):
         binnenvaart_result = _binnenvaart_lookup(mmsi, shipname, imo, eni, now)
         if binnenvaart_result:
