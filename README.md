@@ -162,7 +162,7 @@ Thank you to the photographers and websites that make the optional vessel-photo 
 | [Wikimedia Commons](https://commons.wikimedia.org/) | Vessel photographs with the individual photographer and license shown alongside the image |
 | Various vessel photographers | Photographs from various photographers, with the photographer’s name and a clickable link to the original photograph. Existing watermarks remain intact. |
 
-Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs. Rensen-Driessen's logo is a display overlay in the SDRCC photo card; the remote original is unchanged. The Google Images fallback remains a search link only.
+Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs. Rensen-Driessen's approved green logo is embedded in the served JPEG when Pillow is available, so saving the displayed image retains the logo. Older installs without Pillow use a visible logo overlay until the imaging dependency is installed. The remote original is unchanged. The Google Images fallback remains a search link only.
 
 A special thank you to **Mbruins** for the many tests, careful feedback and help improving SDRCC. Real-world testing makes a difference. ❤️
 
