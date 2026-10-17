@@ -1,6 +1,6 @@
 # SDRCC Emergency Monitor — implementation and acceptance
 
-**Status:** Beta **v0.67.7**, on `develop` only. No merge to `main`.  
+**Status:** Beta **v0.67.8**, on `develop` only. No merge to `main`.  
 **Location:** Inside **System → Advanced Maintenance** (the existing, closed-by-default panel).  
 **Station radius:** Default **20 km** around the canonical SDRCC Home Position.
 
@@ -37,6 +37,11 @@
 - Fresh position requirement, basic enter/exit hysteresis, cooldown and bounded persistence; do not infer an incident or active mission from mere presence.
 - Local recent-detection history (no Home Assistant required).
 - The Emergency Monitor group spans the **entire Advanced Maintenance width** (`grid-column: 1 / -1`) while the other maintenance controls retain their existing layout; identification inputs use a responsive full-width grid.
+- **AIS map overlay beta v0.67.8:** verified configured KNRM and waterpolitie MMSIs are ringed when their current AIS **SOG is ≥2 knots**, position fresh (≤120 seconds), target within Emergency Monitor radius and master/category enabled. Both rings pulse without recentering or modifying native AIS ship symbols.
+- **Colours:** waterpolitie electric blue (`#2499ff`), KNRM white (`#ffffff`). Orange and purple are already used in the existing Rijkswaterstaat VTS sector overlay, and are deliberately **not** reused.
+- The plugin updates target coordinates from AIS-Catcher's local shipsDB every 250ms and pulses until **five minutes after the last valid moving observation**; the SDRCC parent sends read-only synchronized positions every 15 seconds. AIS reception and sector plugin continue unchanged if Emergency Monitor is disabled.
+- **Deployment requirement:** the AIS viewer on port 8119 must run the updated `dashboard/static/mobile/atis-highlight.pjs` plugin, enabled via the AIS-Catcher plugin selector. This is a separate runtime outside the main SDRCC dashboard; upgrading SDRCC alone does not guarantee its already-installed plugin has been refreshed. Works in SDRCC desktop and mobile embedded AIS views. The stand-alone 8119 map has no SDRCC parent bridge and is **not** covered by this first beta.
+
 - Optional **Send SDRCC alerts to Home Assistant via MQTT** switch: **OFF by default**. Only when enabled is a broker connection made.
 - User-provided broker host, port, login and optional TLS. Password is saved in a protected local file, not Git. The test button publishes a clearly marked synthetic event.
 
@@ -68,6 +73,9 @@ This dependency was already installed by the tester as version **2.1.0**.
 - [ ] With **Only alert when moving** ON: moored vessels/parked aircraft are ignored; AIS >= 2 knots / ADS-B >= 30 knots qualify; unknown speed is silent; switch OFF restores presence-based alerts.
 - [ ] Full-width layout in the Advanced Maintenance two-column grid, including mobile responsive behavior.
 - [ ] One event per continuously in-range session, without repeated alerts each 30 minutes.
+- [ ] Moving KNRM gets a white pulsing circle; moving waterpolitie gets electric blue; map view remains fixed when a circle appears.
+- [ ] Five-minute ring expiry follows last moving AIS observation; no ring for speed below 2 knots, missing/invalid AIS, or a disabled category.
+- [ ] Existing ATIS and VTS overlays work unchanged; update the AIS-Catcher-side SDRCC plugin to enable the new rings.
 - [ ] Existing HA P2000 lights/sign, capcode sensors and notifications operate as before.
 - [ ] With MQTT disabled, local ADS-B/AIS detections still work.
 - [ ] With MQTT enabled, synthetic test events and actual valid detections reach Home Assistant on `sdrcc/emergency/events`.
