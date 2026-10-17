@@ -5151,6 +5151,14 @@ def api_emergency_monitor_map_highlights():
     """Moving KNRM and waterpolitie overlay; no control over AIS-Catcher."""
     result = jsonify(emergency_monitor.map_highlights())
     result.headers["Cache-Control"] = "no-store"
+    # Only the AIS-Catcher map on the same station's port 8119 may fetch
+    # this read-only overlay from a stand-alone viewer. Never allow generic
+    # third-party origins to read the monitor's configured identities.
+    origin = request.headers.get("Origin", "")
+    expected = f"{request.scheme}://{request.host.rsplit(':', 1)[0]}:8119"
+    if origin == expected:
+        result.headers["Access-Control-Allow-Origin"] = origin
+        result.headers["Vary"] = "Origin"
     return result
 
 
