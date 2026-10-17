@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline regression tests for SDRCC Emergency Monitor v0.67.6.
+"""Offline regression tests for SDRCC Emergency Monitor v0.67.7.
 
 Read-only: never starts a receiver, opens MQTT or modifies local config.
 """
@@ -42,6 +42,10 @@ def check():
     for invalid in (0, 101, float("inf"), "20"):
         must_reject({"radius_km": invalid})
     must_reject({"categories": {"p2000": True}})
+    must_reject({"motion_only": "yes"})
+    must_reject({"motion_only": 1})
+    assert monitor.validate({"motion_only": True})["motion_only"] is True
+    assert monitor._DEFAULT["motion_only"] is False
     assert monitor._DEFAULT["enabled"] is False
     assert monitor._DEFAULT["ha_notifications"] is False
     assert "p2000_input" not in monitor._DEFAULT
@@ -62,6 +66,68 @@ def check():
     finally:
         monitor._read_json = original_reader
 
+
+    # Motion-only filtering must never claim that an unknown or stationary
+    # target is moving, and no repeated alerts for the same in-range target.
+    assert monitor.speed_knots("adsb", {"gs": 35}) == 35
+    assert monitor.speed_knots("adsb", {"gs": None}) is None
+    assert monitor.speed_knots("ais", {"speed": 2.3}) == 2.3
+    assert monitor.speed_knots("ais", {"sog": 2.3}) == 2.3
+    assert monitor.speed_knots("ais", {"sog": 102.3}) is None
+    assert monitor.speed_knots("ais", {"sog": -1}) is None
+    assert monitor.moving_enough("ais", 2.0)
+    assert not monitor.moving_enough("ais", 1.9)
+    assert monitor.moving_enough("adsb", 30.0)
+    assert not monitor.moving_enough("adsb", 29.9)
+    assert not monitor.moving_enough("ais", None)
+    assert not monitor.moving_enough("adsb", None)
+    captured = []
+    old_writer = monitor._store_event
+    old_presence = dict(monitor._presence)
+    old_announced = set(monitor._announced)
+    old_recent = dict(monitor._recent)
+    try:
+        monitor._store_event = captured.append
+        monitor._presence.clear()
+        monitor._announced.clear()
+        monitor._recent.clear()
+        motion_config = monitor.validate({"motion_only": True, "radius_km": 20})
+        for speed in (None, 0.0, 1.8, None):
+            monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                                  ground_speed_knots=speed)
+        assert not captured, "Stationary/unknown speed created a false alarm"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=2.0)
+        assert not captured, "First qualifying sample cannot alert"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=2.5)
+        assert len(captured) == 1 and captured[0]["speed_knots"] == 2.5
+        for _ in range(15):
+            monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                                  ground_speed_knots=4.0)
+        assert len(captured) == 1, "One in-range session must alert only once"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 23, motion_config,
+                              ground_speed_knots=4.0)
+        assert "ais:244123456" not in monitor._announced
+        # With the switch off, stationary reports still work (old behavior).
+        monitor._presence.clear()
+        monitor._announced.clear()
+        monitor._recent.clear()
+        normal = monitor.validate({"motion_only": False, "radius_km": 20})
+        monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
+                              ground_speed_knots=0.0)
+        monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
+                              ground_speed_knots=0.0)
+        assert len(captured) == 2
+    finally:
+        monitor._store_event = old_writer
+        monitor._presence.clear()
+        monitor._presence.update(old_presence)
+        monitor._announced.clear()
+        monitor._announced.update(old_announced)
+        monitor._recent.clear()
+        monitor._recent.update(old_recent)
+
     html = (ROOT / "dashboard/templates/index.html").read_text(encoding="utf-8")
     begin = html.index('<details class="card system-maintenance-card-v0540f"')
     panel = html.index('id="em-monitor"')
@@ -69,19 +135,26 @@ def check():
     assert begin < panel < end, "Emergency Monitor must be INSIDE Advanced Maintenance"
     assert '<button class="tab-button" data-tab="em-monitor">' not in html
     assert "em-cat-p2000" not in html and "em-p2000-input" not in html
-    assert "static/js/emergency_monitor.js?v=0.67.6" in html
-    assert "static/css/emergency_monitor.css?v=0.67.6" in html
+    assert "static/js/emergency_monitor.js?v=0.67.7" in html
+    assert "static/css/emergency_monitor.css?v=0.67.7" in html
+    assert 'id="em-motion-only"' in html
 
     js = (ROOT / "dashboard/static/js/emergency_monitor.js").read_text(encoding="utf-8")
     assert "em-p2000-input" not in js and "em-cat-p2000" not in js
+    assert 'motion_only: $("em-motion-only").checked' in js
     assert '["lifeliner", "police_helicopter", "knrm", "waterpolitie"]' in js
     backend = (ROOT / "core/emergency_monitor.py").read_text(encoding="utf-8")
     assert "p2000_input" not in backend
     assert 'client.subscribe(' not in backend
     assert "homeassistant/sensor/p2000_rtlsdr" not in backend
     assert 'sdrcc/emergency/events' in backend
+    assert 'ground_speed_knots=speed_knots("adsb", item)' in backend
+    assert 'ground_speed_knots=speed_knots("ais", item)' in backend
+    css = (ROOT / "dashboard/static/css/emergency_monitor.css").read_text(encoding="utf-8")
+    assert "#tab-system .system-maintenance-body-v0540f > #em-monitor" in css
+    assert "grid-column: 1 / -1" in css
     assert 'event_bus.purge_legacy_emergency_p2000_events()' in backend
-    print("PASS: v0.67.6 Emergency Monitor — HA owns P2000, SDRCC reads ADS-B/AIS only")
+    print("PASS: v0.67.7 Emergency Monitor — motion-only filtering, full-width layout and no P2000")
 
 
 if __name__ == "__main__":
