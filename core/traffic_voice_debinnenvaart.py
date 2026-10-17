@@ -131,6 +131,44 @@ def _verified_numeric_profile(mmsi: str, name: str, eni: str) -> tuple[str, str]
     return (url, row[1]) if url else None
 
 
+# Independent MMSI/ENI confirmation for vessels with known same-name history.
+# Other ships still use automatic name+current-name or AIS-provided ENI checks.
+_VERIFIED_MMSI_ENI = {
+    "244029535": ("GROENENDAAL", "02339837"),
+}
+
+
+def _effective_eni(mmsi: str, name: str, supplied_eni: str) -> str | None:
+    known = _VERIFIED_MMSI_ENI.get(mmsi)
+    if not known or _norm(known[0]) != _norm(name):
+        return supplied_eni
+    if supplied_eni and _eni(supplied_eni) != _eni(known[1]):
+        return None
+    return known[1]
+
+
+def _name_slug_profile(name: str) -> str:
+    """Try a single first-party name slug; page validation is mandatory."""
+    slug = re.sub(r"[^a-z0-9]+", "-", unicodedata.normalize(
+        "NFKD", name).encode("ascii", "ignore").decode().lower()).strip("-")
+    if len(slug) < 3 or len(slug) > 90:
+        return ""
+    return _profile_url(BASE + "/schip_detail/" + slug + "/")
+
+
+def _current_ship_name(parts: list[str]) -> str:
+    """Read latest registered ship name, never the historical built-as name."""
+    for i, raw in enumerate(parts):
+        label = " ".join(raw.split())
+        if _norm(label) == "laatstenaam":
+            return parts[i + 1].strip() if i + 1 < len(parts) else ""
+        if label.lower().startswith("laatste naam "):
+            # The label and value can also be in the same HTML text node.
+            value = label[len("laatste naam "):].split(" Scheepstype", 1)[0]
+            return value.strip()
+    return ""
+
+
 def _candidates(name: str, eni: str) -> list[str]:
     value = _norm(name)
     if not value or not value[0].isalpha():
@@ -165,11 +203,7 @@ def _candidates(name: str, eni: str) -> list[str]:
     # The A-Z index can omit existing first-party ship profiles (e.g. DEROVA).
     # Try a single name-based profile URL, but only return an image when its
     # exact page heading/ENI and individually credited photo are verified.
-    slug = re.sub(r"[^a-z0-9]+", "-", unicodedata.normalize(
-        "NFKD", name).encode("ascii", "ignore").decode().lower()).strip("-")
-    if len(slug) < 3 or len(slug) > 90:
-        return []
-    fallback = _profile_url(BASE + "/schip_detail/" + slug + "/")
+    fallback = _name_slug_profile(name)
     return [fallback] if fallback else []
 
 
@@ -256,7 +290,7 @@ class _ShipDetail(HTMLParser):
 
 
 def _parse_detail(doc: str, name: str, eni: str, page_url: str, mmsi: str,
-                  imo: str, now: float) -> dict | None:
+                  imo: str, now: float, *, require_current_name: bool = False) -> dict | None:
     page = _ShipDetail()
     page.feed(doc)
     matching_name = _norm(name) in {_norm(title) for title in page.headings}
@@ -268,11 +302,17 @@ def _parse_detail(doc: str, name: str, eni: str, page_url: str, mmsi: str,
     confirmed_eni = False
     if eni:
         known = {_eni(n) for n in ENI_TAG.findall(body)}
-        if known and _eni(eni) not in known:
+        # Explicit or independently verified ENI must actually be found on
+        # the page. Never accept a same-name profile with missing identifiers.
+        if _eni(eni) not in known:
             return None
-        confirmed_eni = _eni(eni) in known
+        confirmed_eni = True
     if not matching_name and not confirmed_eni:
         return None
+    if require_current_name and not confirmed_eni:
+        # Historic same-name profiles must never be used as current AIS ships.
+        if _norm(_current_ship_name(page.text)) != _norm(name):
+            return None
     # Require a photographer credit for the individual photo. Some genuine
     # gallery thumbnails use opaque filenames and captions naming an older
     # vessel identity. Accept them only on a profile with a confirmed ENI.
@@ -301,17 +341,45 @@ def lookup(mmsi: str, shipname: str, imo: str = "", eni: str = "",
     if not re.fullmatch(r"\d{9}", str(mmsi or "")) or not shipname:
         return None
     now = time.time() if now is None else now
-    numeric_profile = _verified_numeric_profile(mmsi, shipname, eni)
+    check_eni = _effective_eni(mmsi, shipname, eni)
+    if check_eni is None:
+        return None  # AIS ENI conflicts with an independently verified MMSI.
+    numeric_profile = _verified_numeric_profile(mmsi, shipname, check_eni)
     if numeric_profile:
-        urls, check_eni = [numeric_profile[0]], numeric_profile[1]
+        # Explicitly verified numeric profiles bypass the stale name index.
+        candidates = [(numeric_profile[0], numeric_profile[1], False)]
     else:
-        urls, check_eni = _candidates(shipname, eni), eni
-    for page_url in urls:
+        # Probe the direct first-party profile before the alphabetical index.
+        # This works even when that index is offline or contains older ships
+        # with the same name. Without ENI, demand an exact *current* name.
+        direct = _name_slug_profile(shipname)
+        candidates = [(direct, check_eni, not bool(check_eni))] if direct else []
+    visited: set[str] = set()
+    for page_url, expected_eni, require_current in candidates:
+        if not page_url:
+            continue
+        visited.add(page_url)
         try:
-            result = _parse_detail(_fetch(page_url, MAX_DETAIL), shipname,
-                                   check_eni, page_url, mmsi, imo, now)
-            if result:
-                return result
+            found = _parse_detail(_fetch(page_url, MAX_DETAIL), shipname,
+                                  expected_eni, page_url, mmsi, imo, now,
+                                  require_current_name=require_current)
+            if found:
+                return found
+        except (OSError, ValueError, TimeoutError):
+            continue
+    if numeric_profile:
+        return None
+    # Alphabetical/numeric profile fallback: use only unambiguous identity
+    # matches. This never replaces the direct profile's exact-name check.
+    for page_url in _candidates(shipname, check_eni):
+        if page_url in visited:
+            continue
+        try:
+            found = _parse_detail(_fetch(page_url, MAX_DETAIL), shipname,
+                                  check_eni, page_url, mmsi, imo, now,
+                                  require_current_name=not bool(check_eni))
+            if found:
+                return found
         except (OSError, ValueError, TimeoutError):
             continue
     return None

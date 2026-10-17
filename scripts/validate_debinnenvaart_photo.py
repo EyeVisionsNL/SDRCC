@@ -193,6 +193,59 @@ class DeBinnenvaartTests(unittest.TestCase):
         self.assertIn('image.onload = () => {', script)
         self.assertIn('const identityKey = [mmsi, shipname.toUpperCase(), imo, eni].join("|")', script)
 
+    def test_groenendaal_same_name_history_uses_verified_eni(self):
+        self.assertEqual(photo._effective_eni("244029535", "GROENENDAAL", ""), "02339837")
+        self.assertIsNone(photo._effective_eni("244029535", "GROENENDAAL", "02332234"))
+        self.assertEqual(photo._effective_eni("244029535", "OTHER VESSEL", ""), "")
+
+    def test_groenendaal_current_profile_without_alphabet_index(self):
+        url = "https://www.debinnenvaart.nl/schip_detail/groenendaal/"
+        doc = ('<h1>GROENENDAAL</h1><p>EU Nummer 02339837</p>'
+               '<p>Laatste naam</p><p>Groenendaal</p><p>Scheepstype Motortankschip</p>'
+               '<img src="https://de-binnenvaart.b-cdn.net/groenendaal.jpg" alt="Groenendaal">'
+               '<p>Foto: Leo Schuitemaker - Groenendaal - Rotterdam - 2024</p>')
+        with patch.object(photo, "_index", side_effect=AssertionError("Index should not be needed")), \
+             patch.object(photo, "_fetch", return_value=doc) as fetch:
+            result = photo.lookup("244029535", "GROENENDAAL")
+        self.assertEqual(result["artist"], "Leo Schuitemaker")
+        self.assertEqual(result["eni"], "02339837")
+        self.assertEqual(result["page_url"], url)
+        fetch.assert_called_once_with(url, photo.MAX_DETAIL)
+
+    def test_groenendaal_rejects_old_ship_with_different_eni(self):
+        doc = ('<h1>GROENENDAAL</h1><p>EU Nummer 02332234</p>'
+               '<p>Laatste naam</p><p>Carinalexander</p><p>Scheepstype Motortankschip</p>'
+               '<img src="https://de-binnenvaart.b-cdn.net/old.jpg" alt="Groenendaal">'
+               '<p>Foto: Aris van Dijk - Old Groenendaal</p>')
+        with patch.object(photo, "_index", return_value=[]), \
+             patch.object(photo, "_fetch", return_value=doc):
+            self.assertIsNone(photo.lookup("244029535", "GROENENDAAL"))
+
+    def test_generic_slug_requires_latest_name_when_eni_missing(self):
+        url = "https://www.debinnenvaart.nl/schip_detail/waterland/"
+        current = ('<h1>WATERLAND</h1><p>EU Nummer 02345678</p>'
+                   '<p>Laatste naam</p><p>Waterland</p><p>Scheepstype Motortankschip</p>'
+                   '<img src="https://de-binnenvaart.b-cdn.net/waterland.jpg" alt="Waterland">'
+                   '<p>Foto: Anna Fotograaf - Waterland</p>')
+        historic = current.replace('<p>Waterland</p><p>Scheepstype',
+                                   '<p>Othername</p><p>Scheepstype')
+        with patch.object(photo, "_index", side_effect=AssertionError("Do not need index")), \
+             patch.object(photo, "_fetch", return_value=current):
+            result = photo.lookup("244123456", "WATERLAND")
+        self.assertEqual(result["page_url"], url)
+        with patch.object(photo, "_index", return_value=[]), \
+             patch.object(photo, "_fetch", return_value=historic):
+            self.assertIsNone(photo.lookup("244123456", "WATERLAND"))
+
+    def test_direct_slug_with_eni_requires_eni_on_profile(self):
+        doc = ('<h1>WATERLAND</h1><p>Laatste naam</p><p>Waterland</p>'
+               '<p>Scheepstype Motortankschip</p>'
+               '<img src="https://de-binnenvaart.b-cdn.net/waterland.jpg" alt="Waterland">'
+               '<p>Foto: Anna Fotograaf - Waterland</p>')
+        with patch.object(photo, "_index", return_value=[]), \
+             patch.object(photo, "_fetch", return_value=doc):
+            self.assertIsNone(photo.lookup("244123456", "WATERLAND", eni="02345678"))
+
     def test_empty_candidate_falls_back(self):
         with patch.object(photo, "_candidates", return_value=[]):
             self.assertIsNone(photo.lookup("244123456", "Provider"))
