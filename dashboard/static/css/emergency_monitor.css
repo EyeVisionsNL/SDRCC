@@ -1,0 +1,32 @@
+/* Scoped to the existing System > Advanced Maintenance disclosure. */
+.em-monitor { display: grid; gap: 16px; }
+.em-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.em-header h3 { margin: 0 0 5px; }
+.em-header p { margin: 0; }
+.em-status { font-size: .78rem; font-weight: 700; padding: 5px 9px; border: 1px solid var(--border-color, #57718a); border-radius: 999px; color: var(--text-muted, #9ab6c9); }
+.em-toggle { display: inline-flex; gap: 10px; align-items: center; cursor: pointer; line-height: 1.45; }
+.em-toggle input { accent-color: #42a3df; width: 18px; height: 18px; }
+.em-suboptions { display: grid; gap: 14px; }
+.em-suboptions[hidden], .em-config[hidden] { display: none !important; }
+.em-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 16px; }
+.em-group { border-top: 1px solid rgba(126,161,191,.3); padding-top: 14px; display: grid; gap: 10px; }
+.em-group h4 { margin: 0; font-size: 1rem; }
+.em-group p { margin: 0; }
+.em-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.em-fields label, .em-identity label { display: grid; gap: 5px; font-size: .86rem; }
+.em-fields input, .em-identity textarea {
+  width: 100%; box-sizing: border-box; min-width: 0; padding: 9px 10px;
+  border: 1px solid rgba(126,161,191,.5); border-radius: 7px;
+  color: inherit; background: rgba(8,24,41,.45); font: inherit;
+}
+.em-identity textarea { min-height: 64px; resize: vertical; }
+.em-identity { display: grid; grid-template-columns: repeat(auto-fit,minmax(235px,1fr)); gap: 10px; }
+.em-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+.em-result { margin: 0; min-height: 1.4em; font-size: .88rem; }
+.em-result.error { color: #f5ab9c; }
+.em-result.ok { color: #8fd4f1; }
+.em-sources { display: flex; gap: 8px 16px; flex-wrap: wrap; font-size: .85rem; }
+.em-events { display: grid; gap: 5px; padding: 0; margin: 0; max-height: 230px; overflow: auto; list-style: none; }
+.em-events li { padding: 7px 10px; border: 1px solid rgba(126,161,191,.23); border-radius: 6px; }
+.em-events small { display: block; opacity: .8; }
+.em-note { font-size: .85rem; opacity: .83; }
