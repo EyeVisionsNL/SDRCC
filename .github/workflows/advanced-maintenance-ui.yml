@@ -32,6 +32,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_advanced_maintenance_layout.py' -v
       - name: Check radius-save and worker-status regression
         run: python -m unittest discover -s tests -p 'test_emergency_monitor_settings_status.py' -v
+      - name: Check Emergency Monitor AIS and ADS-B alert lifecycle
+        run: python scripts/validate_emergency_monitor_v0675.py
       - name: Check signed update manifest
         run: |
           python - <<'PY'
