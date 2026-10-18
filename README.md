@@ -26,6 +26,21 @@ No cloud platform required. Just radios, antennas, Linux... and probably a few m
 
 SDRCC is designed around multiple RTL-SDR receivers, but the logical SDR slots are not tied forever to one physical dongle. Receivers can be replaced or rebound from the dashboard while Receiver Manager handles reservations, temporary handovers and restoration of the previous service.
 
+## 🚢 Already have AIS? Give that spare SDR something to do!
+
+You may already have **AIS-catcher** running happily, with a second RTL-SDR sitting in a drawer. Or perhaps you're interested in ships and marine radio, but not in aircraft tracking, satellite missions or running a complete SDR control center.
+
+That's exactly where **[AIS-ATIS Bridge](https://github.com/EyeVisionsNL/AIS-ATIS-Bridge)** comes in. It's a separate, lighter-weight marine-focused project that works alongside an existing AIS-catcher installation — **no full SDRCC installation needed**.
+
+- **Keep AIS-catcher as it is.** Its current RTL-SDR continues receiving AIS.
+- **Use a second RTL-SDR for marine VHF.** Listen to or scan selected channels and decode validated ATIS identities.
+- **Find the possible speaker.** The Bridge compares ATIS with current AIS vessel data, with live browser audio, Smart Gain and replay of up to four recent transmissions.
+- **Keep things simple.** No ADS-B, satellite scheduling or the larger SDRCC mission system to set up. A Raspberry Pi running a supported 64-bit Linux system is an option.
+
+**Choose SDRCC** if you want radio, ships, aircraft and satellites in one station. **Choose AIS-ATIS Bridge** if your AIS station already works and you mainly want to know *which ship is talking on the marine radio*. 🚢🎙️
+
+➡️ **[Explore AIS-ATIS Bridge — features and installation](https://github.com/EyeVisionsNL/AIS-ATIS-Bridge)**
+
 ## 🌍 One screen, several worlds
 
 **✈️ Aircraft · 🚢 Ships · 🛰️ Satellites · 📻 Radio**
