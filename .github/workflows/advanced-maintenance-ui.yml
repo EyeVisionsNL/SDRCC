@@ -1,0 +1,46 @@
+name: Advanced Maintenance UI validation
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'dashboard/templates/index.html'
+      - 'dashboard/static/js/emergency_monitor.js'
+      - 'dashboard/static/css/emergency_monitor.css'
+      - 'tests/test_advanced_maintenance_layout.py'
+      - 'scripts/install/update_manifest.json'
+      - 'VERSION'
+      - '.github/workflows/advanced-maintenance-ui.yml'
+  workflow_dispatch:
+
+jobs:
+  maintenance-layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check Emergency Monitor JavaScript syntax
+        run: node --check dashboard/static/js/emergency_monitor.js
+      - name: Check maintenance disclosure and status-card structure
+        run: python -m unittest discover -s tests -p 'test_advanced_maintenance_layout.py' -v
+      - name: Check signed update manifest
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          entries = json.loads(Path("scripts/install/update_manifest.json").read_text())
+          failures = []
+          for filename, allowed in entries.items():
+              if filename == "scripts/install/update_manifest.json":
+                  continue
+              path = Path(filename)
+              if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() not in allowed:
+                  failures.append(filename)
+          if failures:
+              raise SystemExit("Unapproved update files: " + ", ".join(failures))
+          print(f"PASS: {len(entries) - 1} approved files")
+          PY
