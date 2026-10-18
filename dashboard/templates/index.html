@@ -361,13 +361,20 @@
                                     <label class="em-toggle"><input id="em-cat-knrm" type="checkbox" checked> 🚤 KNRM vessels</label>
                                     <label class="em-toggle"><input id="em-cat-waterpolitie" type="checkbox" checked> 🚤 Water police</label>
                                 </div>
-                                <label for="em-radius">Aircraft/vessel detection radius: <strong id="em-radius-text">20 km</strong></label>
+                                <label for="em-radius">General detection radius (fallback): <strong id="em-radius-text">20 km</strong></label>
                                 <input id="em-radius" type="range" min="1" max="100" step="1" value="20">
+                                <p class="em-note">Optional detection radius per category (1–100 km). Leave a field empty to use the general radius. The limits apply to detections, Home Assistant alerts and AIS highlights.</p>
+                                <div class="em-category-radii">
+                                    <label for="em-range-lifeliner">🚁 Lifeliners (km)<input id="em-range-lifeliner" type="number" min="1" max="100" step="1" placeholder="General radius"></label>
+                                    <label for="em-range-police_helicopter">🚁 Police helicopters (km)<input id="em-range-police_helicopter" type="number" min="1" max="100" step="1" placeholder="General radius"></label>
+                                    <label for="em-range-knrm">🚤 KNRM vessels (km)<input id="em-range-knrm" type="number" min="1" max="100" step="1" placeholder="General radius"></label>
+                                    <label for="em-range-waterpolitie">🚤 Water police (km)<input id="em-range-waterpolitie" type="number" min="1" max="100" step="1" placeholder="General radius"></label>
+                                </div>
                                 <label class="em-toggle em-motion-toggle" for="em-motion-only">
                                     <input id="em-motion-only" type="checkbox">
                                     <span><strong>Only alert when moving</strong><small>Suppress stationary vessels and parked helicopters. AIS ≥ 2 knots; ADS-B ≥ 30 knots. Unknown speed does not generate an alert when enabled.</small></span>
                                 </label>
-                                <p class="em-note">The radius applies to live ADS-B and AIS positions. Callsign LIFELN1–9 can identify Lifeliners; police aircraft and rescue/police vessels require verified hex/MMSI identities.</p>
+                                <p class="em-note">Each category radius applies to live ADS-B/AIS positions. Callsign LIFELN1–9 can identify Lifeliners; police aircraft and rescue/police vessels require verified hex/MMSI identities.</p>
                                 <div class="em-identity">
                                     <label>Lifeliner ICAO hex codes (optional)<textarea id="em-hex-lifeliner" placeholder="Six hex characters, separated by commas"></textarea></label>
                                     <label>Police helicopter ICAO hex codes<textarea id="em-hex-police_helicopter" placeholder="Six hex characters, separated by commas"></textarea></label>
@@ -385,7 +392,7 @@
                                     <label>MQTT password<input id="em-password" type="password" autocomplete="new-password" placeholder="Optional; leave blank to keep"></label>
                                     <label class="em-toggle"><input id="em-tls" type="checkbox"> Enable TLS</label>
                                 </div>
-                                <p class="em-note">Home Assistant is optional. Moving KNRM/water police vessels (≥ 2 kn) and Lifeliners/police helicopters (≥ 30 kn) are reported again every 5 minutes while positions are fresh and inside the detection radius. Each target has its own reminder timer. Other Home Assistant integrations remain unchanged.</p>
+                                <p class="em-note">Home Assistant is optional. Moving KNRM/water police vessels (≥ 2 kn) and Lifeliners/police helicopters (≥ 30 kn) are reported again every 5 minutes while positions are fresh and inside the configured category radius. Each target has its own reminder timer. Other Home Assistant integrations remain unchanged.</p>
                             </div>
                         </div>
                         <div class="em-group">
