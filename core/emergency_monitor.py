@@ -37,6 +37,9 @@ _mqtt_ha_active = False
 _DEFAULT = {
     "enabled": False,
     "radius_km": 20,
+    # Optional category-specific distance (km); None preserves general range.
+    "category_radius_km": {"lifeliner": None, "police_helicopter": None,
+                           "knrm": None, "waterpolitie": None},
     "motion_only": False,
     "categories": {"lifeliner": True, "police_helicopter": True, "knrm": True,
                    "waterpolitie": True},
@@ -78,7 +81,7 @@ def settings() -> dict:
     data = deepcopy(_DEFAULT)
     stored = _read_json(SETTINGS_FILE)
     for key in data:
-        if key in ("categories", "aircraft_hex", "vessel_mmsi"):
+        if key in ("categories", "aircraft_hex", "vessel_mmsi", "category_radius_km"):
             if isinstance(stored.get(key), dict):
                 for name, value in stored[key].items():
                     if name in data[key]:
@@ -130,6 +133,18 @@ def validate(payload: Any) -> dict:
         if isinstance(radius, bool) or not isinstance(radius, (int, float)) or not math.isfinite(radius) or not 1 <= radius <= 100:
             raise ValueError("Detection radius must be between 1 and 100 km.")
         data["radius_km"] = int(radius)
+    if "category_radius_km" in payload:
+        values = payload["category_radius_km"]
+        if not isinstance(values, dict) or set(values) - set(_DEFAULT["categories"]):
+            raise ValueError("Unknown category detection radius.")
+        for category, radius in values.items():
+            if radius is None:
+                data["category_radius_km"][category] = None
+            elif (isinstance(radius, bool) or not isinstance(radius, int)
+                  or not 1 <= radius <= 100):
+                raise ValueError("Category detection radius must be a whole number from 1 to 100 km.")
+            else:
+                data["category_radius_km"][category] = radius
     if "categories" in payload:
         value = payload["categories"]
         if not isinstance(value, dict) or set(value) - set(_DEFAULT["categories"]):
@@ -292,6 +307,15 @@ def moving_enough(source: str, speed: float | None) -> bool:
     return speed is not None and math.isfinite(speed) and speed >= (30.0 if source == "adsb" else 2.0)
 
 
+def radius_for_category(data: dict, category: str) -> int:
+    """Return the category range, inheriting the general setting when blank."""
+    overrides = data.get("category_radius_km")
+    radius = overrides.get(category) if isinstance(overrides, dict) else None
+    if isinstance(radius, int) and not isinstance(radius, bool) and 1 <= radius <= 100:
+        return radius
+    return int(data["radius_km"])
+
+
 def _target_event(
     source: str,
     category: str,
@@ -304,11 +328,12 @@ def _target_event(
 ) -> None:
     key = source + ":" + identity
     now = time.time()
-    if distance > float(data["radius_km"]) + 2:
+    radius = radius_for_category(data, category)
+    if distance > radius + 2:
         _presence.pop(key, None)
         _announced.discard(key)
         return
-    if distance > float(data["radius_km"]):
+    if distance > radius:
         return
     if data.get("motion_only", False) and not moving_enough(source, ground_speed_knots):
         # Silent for moored vessels, parked aircraft and unknown ground speed.
@@ -335,9 +360,9 @@ def _target_event(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "source": source, "category": category, "kind": "nearby_detected",
         "title": category.replace("_", " ").title() + " nearby",
-        "detail": label + " detected within " + str(data["radius_km"]) + " km.",
+        "detail": label + " detected within " + str(radius) + " km.",
         "identity": identity, "label": label,
-        "distance_km": round(distance, 1), "radius_km": data["radius_km"],
+        "distance_km": round(distance, 1), "radius_km": radius,
     }
     if ground_speed_knots is not None:
         event["speed_knots"] = round(ground_speed_knots, 1)
@@ -402,7 +427,7 @@ def map_highlights() -> dict:
     """Read-only moving KNRM/waterpolitie targets for the AIS-Catcher map plugin.
 
     A target is added only after a fresh, validated AIS observation reporting at
-    least two knots, within the user's detection radius. Last moving position
+    least two knots, within the category's detection radius. Last moving position
     remains visible for at most 300 seconds after it stops reporting movement.
     Never changes receivers, AISCatcher map view or P2000 ownership.
     """
@@ -432,7 +457,7 @@ def map_highlights() -> dict:
                 lon = receiver_monitor._first_number(item, ("lon", "longitude"))
                 if lat is None or lon is None or not -90 <= lat <= 90 or not -180 <= lon <= 180:
                     continue
-                if distance_km(latitude, longitude, lat, lon) > float(data["radius_km"]):
+                if distance_km(latitude, longitude, lat, lon) > radius_for_category(data, category):
                     continue
                 if not moving_enough("ais", speed_knots("ais", item)):
                     continue
@@ -447,6 +472,8 @@ def map_highlights() -> dict:
             for mmsi, item in list(_map_recent.items()):
                 if (now - item["last_moving"] > 300 or
                         not data["categories"].get(item["category"]) or
+                        distance_km(latitude, longitude, item["latitude"], item["longitude"])
+                        > radius_for_category(data, item["category"]) or
                         mmsi not in data["vessel_mmsi"][item["category"]]):
                     _map_recent.pop(mmsi, None)
                     continue
