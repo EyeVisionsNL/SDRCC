@@ -18,6 +18,7 @@
         $("em-mqtt-config").hidden = !enabled || !$("em-ha").checked;
         $("em-test").hidden = !enabled || !$("em-ha").checked;
         $("em-state").textContent = enabled ? "ENABLED" : "DISABLED";
+        $("em-state").dataset.state = enabled ? "enabled" : "disabled";
         $("em-radius-text").textContent = $("em-radius").value + " km";
     }
 
@@ -67,15 +68,29 @@
         };
     }
 
+    // Preserve backend status values; color reflects the actual state,
+    // never the mere presence of a source in the response.
+    function renderSourceStatus(source, raw) {
+        const text = String(raw || "UNKNOWN").trim().toUpperCase();
+        const pill = document.querySelector('#em-sources [data-source="' + source + '"]');
+        const value = $("em-source-" + source);
+        if (!pill || !value) return;
+        value.textContent = text;
+        pill.dataset.state = ["LIVE", "CONNECTED", "RUNNING", "ACTIVE", "ENABLED", "OK"].includes(text)
+            ? "ok" : ["ERROR", "FAILED", "DISCONNECTED", "UNAVAILABLE"].includes(text)
+                ? "error" : ["STARTING", "CONNECTING", "DEGRADED", "WARNING"].includes(text)
+                    ? "warning" : "inactive";
+    }
+
     function render(snapshot) {
         if (!busy && !loaded) {
             fill(snapshot.settings);
             loaded = true;
         }
         const runtime = snapshot.runtime || {};
-        $("em-sources").textContent =
-            "ADS-B: " + (runtime.adsb || "OFF") + "  ·  AIS: " + (runtime.ais || "OFF") +
-            "  ·  MQTT: " + (runtime.mqtt || "OFF");
+        renderSourceStatus("adsb", runtime.adsb);
+        renderSourceStatus("ais", runtime.ais);
+        renderSourceStatus("mqtt", runtime.mqtt);
         const list = $("em-events");
         list.replaceChildren();
         for (const event of (snapshot.events || []).slice(0, 20)) {
@@ -158,13 +173,18 @@
             $(id).addEventListener("change", visibility);
             $(id).addEventListener("input", visibility);
         }
-        const panel = $("em-monitor").closest("details");
-        panel?.addEventListener("toggle", () => {
-            if (panel.open) refresh();
+        const panel = $("em-monitor"); // Own nested disclosure
+        const maintenance = panel.parentElement?.closest("details");
+        const visible = () => Boolean(panel.open && maintenance?.open);
+        panel.addEventListener("toggle", () => {
+            if (visible()) refresh();
+        });
+        maintenance?.addEventListener("toggle", () => {
+            if (visible()) refresh();
         });
         refresh();
         window.setInterval(() => {
-            if (panel?.open) refresh();
+            if (visible()) refresh();
         }, 15000);
     }
     if (document.readyState === "loading") {
