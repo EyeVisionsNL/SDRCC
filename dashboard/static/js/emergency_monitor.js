@@ -20,11 +20,17 @@
         $("em-state").textContent = enabled ? "ENABLED" : "DISABLED";
         $("em-state").dataset.state = enabled ? "enabled" : "disabled";
         $("em-radius-text").textContent = $("em-radius").value + " km";
+        for (const category of categories) {
+            $("em-range-" + category).placeholder = $("em-radius").value + " km (general)";
+        }
     }
 
     function fill(settings) {
         $("em-enabled").checked = settings.enabled;
         $("em-radius").value = settings.radius_km;
+        for (const category of categories) {
+            $("em-range-" + category).value = settings.category_radius_km?.[category] ?? "";
+        }
         $("em-motion-only").checked = Boolean(settings.motion_only);
         for (const category of categories) {
             $("em-cat-" + category).checked = Boolean(settings.categories?.[category]);
@@ -49,6 +55,10 @@
         return {
             enabled: $("em-enabled").checked,
             radius_km: Number($("em-radius").value),
+            category_radius_km: Object.fromEntries(categories.map(category => {
+                const raw = $("em-range-" + category).value.trim();
+                return [category, raw === "" ? null : Number(raw)];
+            })),
             motion_only: $("em-motion-only").checked,
             categories: Object.fromEntries(categories.map(c => [c, $("em-cat-" + c).checked])),
             ha_notifications: $("em-ha").checked,
