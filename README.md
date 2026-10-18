@@ -485,13 +485,15 @@ Technical architecture and internal validation notes remain on the `develop` bra
 
 ## 🧪 Still evolving
 
-The current SDRCC release is **v0.67.0** and the signed Android app is **v2.0.0**.
+The current SDRCC stable release is **v0.67.18** and the signed Android app is **v2.0.0**.
 
 Recent development changes include:
 
 - Improved marine ATIS decoding with tone filtering, bounded soft correction, international identity handling and shared decoder logic with AIS-ATIS-Bridge.
 - Smart Gain, a selectable Marine channel filter, recent-transmission replay/save and updated Excel channel lists with marine data channels excluded from voice scanning.
 - Optional matched-vessel photographs with individual photographer attribution, original source links and verified permissions or compatible licenses.
+- Emergency Monitor detects eligible rescue/police aircraft and KNRM/water-police vessels with configurable alerts, while Advanced Maintenance has a collapsible SDRCC-themed control panel.
+- Rensen-Driessen vessel photos appear with the company's approved logo, photographer/source credit and the original ship-page link.
 - More reliable managed updates and receiver handovers, with station settings preserved.
 - New compact panoramic banners for the dashboard tabs, with the animated radar centered. Traffic Voice shows a ship and aircraft while stopped, then the corresponding scene during Marine or Airband reception. Radio Receiver has its own antenna-mast background.
 
