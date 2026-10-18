@@ -387,15 +387,15 @@
                                 </div>
                                 <p class="em-note">Home Assistant is optional. This monitor publishes only its own ADS-B/AIS nearby detections; unrelated Home Assistant integrations remain unchanged.</p>
                             </div>
-                            <div class="em-group">
-                                <h4>Live status and latest detections</h4>
-                                <div id="em-sources" class="em-sources" role="status" aria-label="Emergency Monitor source status">
-                                    <span class="em-source-state" data-source="adsb" data-state="unknown"><span class="em-source-label">✈ ADS-B</span><strong id="em-source-adsb">CHECKING</strong></span>
-                                    <span class="em-source-state" data-source="ais" data-state="unknown"><span class="em-source-label">🚢 AIS</span><strong id="em-source-ais">CHECKING</strong></span>
-                                    <span class="em-source-state" data-source="mqtt" data-state="unknown"><span class="em-source-label">📡 MQTT</span><strong id="em-source-mqtt">CHECKING</strong></span>
-                                </div>
-                                <ul id="em-events" class="em-events" aria-live="polite"><li>No Emergency Monitor detections recorded yet.</li></ul>
+                        </div>
+                        <div class="em-group">
+                            <h4>Live status and latest detections</h4>
+                            <div id="em-sources" class="em-sources" role="status" aria-label="Emergency Monitor source status">
+                                <span class="em-source-state" data-source="adsb" data-state="unknown"><span class="em-source-label">✈ ADS-B</span><strong id="em-source-adsb">CHECKING</strong></span>
+                                <span class="em-source-state" data-source="ais" data-state="unknown"><span class="em-source-label">🚢 AIS</span><strong id="em-source-ais">CHECKING</strong></span>
+                                <span class="em-source-state" data-source="mqtt" data-state="unknown"><span class="em-source-label">📡 MQTT</span><strong id="em-source-mqtt">CHECKING</strong></span>
                             </div>
+                            <ul id="em-events" class="em-events" aria-live="polite"><li>No Emergency Monitor detections recorded yet.</li></ul>
                         </div>
                         <div class="em-buttons">
                             <button id="em-save" class="control-button" type="submit">Save Emergency Monitor</button>
