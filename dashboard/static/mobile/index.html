@@ -1107,7 +1107,7 @@ function renderPhotoCredit(target,photo){
     }else credit.textContent=label;
     // De Binnenvaart permits the photographer's name and original source link,
     // not an additional visible "De Binnenvaart" source label.
-    if(source&&!isDeBinnenvaart){
+    if(source&&!isDeBinnenvaart&&source!=="Rensen-Driessen"){
       const by=document.createElement("span");by.className="photo-source";
       by.textContent=" · "+source;credit.append(by);
     }
