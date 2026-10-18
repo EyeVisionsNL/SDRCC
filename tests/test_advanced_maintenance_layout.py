@@ -72,6 +72,16 @@ class AdvancedMaintenanceLayout(unittest.TestCase):
                      "ais-autostart-result", "mission-sounds-enabled"):
             self.assertIn(name, self.tags.elements)
 
+    def test_category_radius_inputs_for_all_aircraft_and_vessel_categories(self):
+        for name in ("lifeliner", "police_helicopter", "knrm", "waterpolitie"):
+            tag, attrs = self.tags.elements["em-range-" + name]
+            self.assertEqual(tag, "input")
+            self.assertEqual(attrs.get("type"), "number")
+            self.assertEqual(attrs.get("min"), "1")
+            self.assertEqual(attrs.get("max"), "100")
+        self.assertIn("category_radius_km: Object.fromEntries", self.js)
+        self.assertIn(".em-category-radii", self.css)
+
     def test_distinct_maintenance_identity_colors(self):
         for color in ("#38bdf8", "#a78bfa", "#f59e0b"):
             self.assertIn(color, self.css)
