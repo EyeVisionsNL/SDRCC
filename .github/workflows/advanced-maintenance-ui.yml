@@ -10,6 +10,7 @@ on:
       - 'dashboard/static/css/emergency_monitor.css'
       - 'tests/test_advanced_maintenance_layout.py'
       - 'tests/test_emergency_monitor_settings_status.py'
+      - 'scripts/validate_emergency_monitor_v0675.py'
       - 'scripts/install/update_manifest.json'
       - 'VERSION'
       - '.github/workflows/advanced-maintenance-ui.yml'
