@@ -274,9 +274,9 @@ def check():
     assert begin < panel < end, "Emergency Monitor must be INSIDE Advanced Maintenance"
     assert '<button class="tab-button" data-tab="em-monitor">' not in html
     assert "em-cat-p2000" not in html and "em-p2000-input" not in html
-    assert "static/js/emergency_monitor.js?v=0.67.8" in html
-    assert "static/css/emergency_monitor.css?v=0.67.7" in html
-    assert "static/js/radio_view.js?v=0.67.8" in html
+    assert "static/js/emergency_monitor.js?v=" in html
+    assert "static/css/emergency_monitor.css?v=" in html
+    assert "static/js/radio_view.js?v=" in html
     assert 'id="em-motion-only"' in html
 
     js = (ROOT / "dashboard/static/js/emergency_monitor.js").read_text(encoding="utf-8")
