@@ -4,10 +4,12 @@ on:
   push:
     branches: [develop]
     paths:
+      - 'core/emergency_monitor.py'
       - 'dashboard/templates/index.html'
       - 'dashboard/static/js/emergency_monitor.js'
       - 'dashboard/static/css/emergency_monitor.css'
       - 'tests/test_advanced_maintenance_layout.py'
+      - 'tests/test_emergency_monitor_settings_status.py'
       - 'scripts/install/update_manifest.json'
       - 'VERSION'
       - '.github/workflows/advanced-maintenance-ui.yml'
@@ -22,10 +24,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check PyYAML
       - name: Check Emergency Monitor JavaScript syntax
         run: node --check dashboard/static/js/emergency_monitor.js
       - name: Check maintenance disclosure and status-card structure
         run: python -m unittest discover -s tests -p 'test_advanced_maintenance_layout.py' -v
+      - name: Check radius-save and worker-status regression
+        run: python -m unittest discover -s tests -p 'test_emergency_monitor_settings_status.py' -v
       - name: Check signed update manifest
         run: |
           python - <<'PY'
