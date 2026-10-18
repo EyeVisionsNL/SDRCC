@@ -67,9 +67,9 @@ def check():
         monitor._read_json = original_reader
 
 
-    # Motion-only filtering must never claim that an unknown or stationary
-    # target is moving. Moving AIS vessels repeat every five minutes only
-    # while still in range; aircraft retain one alert per in-range session.
+    # Motion-only filtering never claims that an unknown or stationary target
+    # is moving. Moving AIS and ADS-B targets repeat every five minutes only
+    # while fresh and within the configured detection range.
     assert monitor.speed_knots("adsb", {"gs": 35}) == 35
     assert monitor.speed_knots("adsb", {"gs": None}) is None
     assert monitor.speed_knots("ais", {"speed": 2.3}) == 2.3
@@ -156,15 +156,66 @@ def check():
         monitor._target_event("ais", "waterpolitie", "244987654", "Harbour police", 5, normal,
                               ground_speed_knots=2.2)
         assert len(captured) == 2 and captured[-1].get("repeat") is True
-        # ADS-B must remain one event per in-range session even after 30 minutes.
-        for _ in range(2):
-            monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
-                                  ground_speed_knots=0.0)
-        assert len(captured) == 3 and not captured[-1].get("repeat")
-        monitor._recent["adsb:ABC123"] -= 1801
-        monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
-                              ground_speed_knots=40.0)
-        assert len(captured) == 3, "Aircraft unexpectedly repeated"
+        # ADS-B: both Lifeliners and police helicopters use five-minute reminders.
+        for category, hex_id in (("lifeliner", "ABC123"), ("police_helicopter", "DEF456")):
+            monitor._presence.clear()
+            monitor._announced.clear()
+            monitor._recent.clear()
+            captured.clear()
+            key = "adsb:" + hex_id
+
+            def aircraft(speed, distance=5):
+                monitor._target_event("adsb", category, hex_id, category, distance, normal,
+                                      ground_speed_knots=speed)
+
+            # Existing initial detection works even when motion_only is off.
+            aircraft(0.0)
+            aircraft(0.0)
+            assert len(captured) == 1 and not captured[0].get("repeat"), category
+            assert captured[0]["kind"] == "nearby_detected"
+            monitor._recent[key] -= monitor.ADSB_REPEAT_SECONDS - 1
+            aircraft(50.0)
+            assert len(captured) == 1, "Early aircraft reminder: " + category
+            monitor._recent[key] -= 2
+            aircraft(29.9)
+            aircraft(None)
+            assert len(captured) == 1, "Stationary/unknown aircraft repeated: " + category
+            aircraft(30.0)
+            assert len(captured) == 2 and captured[-1].get("repeat") is True, category
+            assert captured[-1]["kind"] == captured[0]["kind"], "MQTT event kind changed"
+
+            monitor._recent[key] -= monitor.ADSB_REPEAT_SECONDS + 1
+            aircraft(60.0, distance=21)
+            assert len(captured) == 2, "Out-of-range aircraft repeated: " + category
+            aircraft(60.0, distance=23)
+            assert key not in monitor._announced, "Departed aircraft session not reset"
+
+            # motion_only must still suppress first alerts when aircraft are parked.
+            monitor._presence.clear()
+            monitor._announced.clear()
+            monitor._recent.clear()
+            captured.clear()
+
+            def moving_aircraft(speed):
+                monitor._target_event("adsb", category, hex_id, category, 5, motion_config,
+                                      ground_speed_knots=speed)
+
+            moving_aircraft(0.0)
+            moving_aircraft(None)
+            moving_aircraft(29.9)
+            assert not captured, "Parked aircraft alerted with motion_only on"
+            moving_aircraft(30.0)
+            assert not captured, "First moving sample cannot alert"
+            moving_aircraft(35.0)
+            assert len(captured) == 1 and not captured[-1].get("repeat"), category
+            monitor._recent[key] -= monitor.ADSB_REPEAT_SECONDS + 1
+            moving_aircraft(0.0)
+            moving_aircraft(None)
+            assert len(captured) == 1, "Stopped aircraft reminder occurred"
+            moving_aircraft(40.0)
+            assert len(captured) == 1, "Requires two new moving samples"
+            moving_aircraft(40.0)
+            assert len(captured) == 2 and captured[-1].get("repeat") is True
     finally:
         monitor._store_event = old_writer
         monitor._presence.clear()
@@ -260,7 +311,7 @@ def check():
     assert "def map_highlights()" in backend
 
     assert 'event_bus.purge_legacy_emergency_p2000_events()' in backend
-    print("PASS: Emergency Monitor — moving AIS reminders every five minutes, motion filters, unchanged aircraft alerts and no P2000")
+    print("PASS: Emergency Monitor — five-minute moving AIS and ADS-B reminders, motion/radius filters and no P2000")
 
 
 if __name__ == "__main__":
