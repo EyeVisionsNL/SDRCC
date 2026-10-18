@@ -29,7 +29,8 @@ _runtime: dict[str, Any] = {"mqtt": "OFF", "adsb": "OFF", "ais": "OFF", "last_er
 _recent: dict[str, float] = {}
 _presence: dict[str, int] = {}
 _announced: set[str] = set()
-AIS_REPEAT_SECONDS = 5 * 60  # Repeat moving, freshly observed AIS vessels once per MMSI.
+AIS_REPEAT_SECONDS = 5 * 60  # Per MMSI: repeat moving, freshly observed vessels.
+ADSB_REPEAT_SECONDS = 5 * 60  # Per ICAO hex: repeat moving, freshly observed aircraft.
 _map_recent: dict[str, dict[str, Any]] = {}  # Five-minute moving AIS highlights; RAM only.
 _mqtt_client: Any = None
 _mqtt_ha_active = False
@@ -315,20 +316,16 @@ def _target_event(
         _presence.pop(key, None)
         return
     _presence[key] = min(_presence.get(key, 0) + 1, 3)
-    # Aircraft: one alert per in-range session, with the existing 30-minute
-    # restart-safe cooldown. AIS: repeat only for moving vessels, no more often
-    # than every five minutes per MMSI; require the normal fresh position poll.
+    # Both sources: first alert after two eligible samples, then at most one
+    # reminder per five minutes per target identity. Reminders require reported
+    # movement (AIS >= 2 kn, ADS-B >= 30 kn), even if motion_only is disabled.
+    # Position freshness and the radius are checked on each source poll.
     if _presence[key] < 2:
         return
     repeat = key in _announced
-    if source == "ais":
-        if repeat and not moving_enough("ais", ground_speed_knots):
-            return
-        cooldown = AIS_REPEAT_SECONDS
-    else:
-        if repeat:
-            return
-        cooldown = 1800
+    if repeat and not moving_enough(source, ground_speed_knots):
+        return
+    cooldown = ADSB_REPEAT_SECONDS if source == "adsb" else AIS_REPEAT_SECONDS
     if now - _recent.get(key, 0) < cooldown:
         return
     _recent[key] = now
