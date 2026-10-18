@@ -29,6 +29,7 @@ _runtime: dict[str, Any] = {"mqtt": "OFF", "adsb": "OFF", "ais": "OFF", "last_er
 _recent: dict[str, float] = {}
 _presence: dict[str, int] = {}
 _announced: set[str] = set()
+AIS_REPEAT_SECONDS = 5 * 60  # Repeat moving, freshly observed AIS vessels once per MMSI.
 _map_recent: dict[str, dict[str, Any]] = {}  # Five-minute moving AIS highlights; RAM only.
 _mqtt_client: Any = None
 _mqtt_ha_active = False
@@ -314,8 +315,21 @@ def _target_event(
         _presence.pop(key, None)
         return
     _presence[key] = min(_presence.get(key, 0) + 1, 3)
-    # One alert per in-range session, plus a restart-safe cooldown.
-    if _presence[key] < 2 or key in _announced or now - _recent.get(key, 0) < 1800:
+    # Aircraft: one alert per in-range session, with the existing 30-minute
+    # restart-safe cooldown. AIS: repeat only for moving vessels, no more often
+    # than every five minutes per MMSI; require the normal fresh position poll.
+    if _presence[key] < 2:
+        return
+    repeat = key in _announced
+    if source == "ais":
+        if repeat and not moving_enough("ais", ground_speed_knots):
+            return
+        cooldown = AIS_REPEAT_SECONDS
+    else:
+        if repeat:
+            return
+        cooldown = 1800
+    if now - _recent.get(key, 0) < cooldown:
         return
     _recent[key] = now
     _announced.add(key)
@@ -330,6 +344,9 @@ def _target_event(
     }
     if ground_speed_knots is not None:
         event["speed_knots"] = round(ground_speed_knots, 1)
+    if repeat:
+        # Keep "kind" unchanged for existing HA automations.
+        event["repeat"] = True
     _store_event(event)
 
 
