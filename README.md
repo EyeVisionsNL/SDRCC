@@ -485,7 +485,7 @@ Technical architecture and internal validation notes remain on the `develop` bra
 
 ## 🧪 Still evolving
 
-The current SDRCC stable release is **v0.67.18** and the signed Android app is **v2.0.0**.
+The current SDRCC stable release is **v0.67.19** and the signed Android app is **v2.0.0**.
 
 Recent development changes include:
 
