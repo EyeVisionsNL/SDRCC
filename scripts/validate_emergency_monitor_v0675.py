@@ -30,6 +30,17 @@ def check():
     cfg = monitor.validate({"enabled": True, "radius_km": 20})
     assert cfg["enabled"] is True
     assert cfg["radius_km"] == 20
+    assert all(radius is None for radius in cfg["category_radius_km"].values())
+    assert monitor.radius_for_category(cfg, "lifeliner") == 20
+    custom = monitor.validate({"radius_km": 30, "category_radius_km": {
+        "lifeliner": 10, "police_helicopter": 20, "knrm": 15, "waterpolitie": 25
+    }})
+    assert [monitor.radius_for_category(custom, name) for name in
+            ("lifeliner", "police_helicopter", "knrm", "waterpolitie")] == [10, 20, 15, 25]
+    unset = monitor.validate({"category_radius_km": {"lifeliner": None}})
+    assert monitor.radius_for_category(unset, "lifeliner") == unset["radius_km"]
+    legacy = {"radius_km": 35}
+    assert monitor.radius_for_category(legacy, "knrm") == 35
     assert set(cfg["categories"]) == {"lifeliner", "police_helicopter", "knrm", "waterpolitie"}
     assert monitor.classify_aircraft({"hex": "ABC123", "flight": "LIFELN2"}, cfg) == "lifeliner"
     assert monitor.classify_aircraft({"hex": "ABC123", "flight": "UNKNOWN"}, cfg) is None
@@ -44,6 +55,10 @@ def check():
     must_reject({"categories": {"p2000": True}})
     must_reject({"motion_only": "yes"})
     must_reject({"motion_only": 1})
+    for bad in (0, 101, 1.5, -1, True, "10", float("inf")):
+        must_reject({"category_radius_km": {"lifeliner": bad}})
+    must_reject({"category_radius_km": {"unknown": 20}})
+    must_reject({"category_radius_km": []})
     assert monitor.validate({"motion_only": True})["motion_only"] is True
     assert monitor._DEFAULT["motion_only"] is False
     assert monitor._DEFAULT["enabled"] is False
@@ -216,6 +231,40 @@ def check():
             assert len(captured) == 1, "Requires two new moving samples"
             moving_aircraft(40.0)
             assert len(captured) == 2 and captured[-1].get("repeat") is True
+
+        # All four category ranges affect first alert, MQTT radius and reminders.
+        category_limits = {
+            "lifeliner": ("adsb", "ABC123", 10, 40.0),
+            "police_helicopter": ("adsb", "DEF456", 20, 40.0),
+            "knrm": ("ais", "244123456", 15, 4.0),
+            "waterpolitie": ("ais", "244987654", 25, 4.0),
+        }
+        for name, (source, identity, limit, speed) in category_limits.items():
+            monitor._presence.clear()
+            monitor._announced.clear()
+            monitor._recent.clear()
+            captured.clear()
+            settings = monitor.validate({"radius_km": 50, "category_radius_km": {
+                category: values[2] for category, values in category_limits.items()
+            }})
+            for _ in range(2):
+                monitor._target_event(source, name, identity, name, limit + 0.1,
+                                      settings, ground_speed_knots=speed)
+            assert captured == [], "Outside individual category radius: " + name
+            for _ in range(2):
+                monitor._target_event(source, name, identity, name, limit - 0.1,
+                                      settings, ground_speed_knots=speed)
+            assert len(captured) == 1, "First category-specific detection: " + name
+            assert captured[0]["radius_km"] == limit, name
+            assert "within " + str(limit) + " km" in captured[0]["detail"], name
+            key = source + ":" + identity
+            monitor._recent[key] -= 301
+            monitor._target_event(source, name, identity, name, limit + 0.1,
+                                  settings, ground_speed_knots=speed)
+            assert len(captured) == 1, "Out-of-range category reminder: " + name
+            monitor._target_event(source, name, identity, name, limit - 0.1,
+                                  settings, ground_speed_knots=speed)
+            assert len(captured) == 2 and captured[-1].get("repeat") is True, name
     finally:
         monitor._store_event = old_writer
         monitor._presence.clear()
@@ -258,6 +307,15 @@ def check():
         assert len(monitor.map_highlights()["vessels"]) == 1, "Five-minute linger missing"
         monitor._map_recent["244123456"]["last_moving"] -= 301
         assert monitor.map_highlights()["vessels"] == [], "Expired ring still present"
+        moving_far = {**moving, "lon": 4.39}  # Several km from station.
+        cfg["category_radius_km"]["knrm"] = 2
+        ais_reader._read_ais_ships = lambda: ({"ships": [moving_far]}, "test")
+        assert monitor.map_highlights()["vessels"] == [], "Map ignored narrow category radius"
+        cfg["category_radius_km"]["knrm"] = 5
+        assert len(monitor.map_highlights()["vessels"]) == 1, "Map ignored wider category radius"
+        cfg["category_radius_km"]["knrm"] = 2
+        ais_reader._read_ais_ships = lambda: ({"ships": []}, "test")
+        assert monitor.map_highlights()["vessels"] == [], "Reduced category radius left stale ring"
         cfg["enabled"] = False
         assert monitor.map_highlights()["vessels"] == [], "Disabled monitor drew an AIS ring"
     finally:
@@ -278,11 +336,14 @@ def check():
     assert "static/css/emergency_monitor.css?v=" in html
     assert "static/js/radio_view.js?v=" in html
     assert 'id="em-motion-only"' in html
+    for category in ("lifeliner", "police_helicopter", "knrm", "waterpolitie"):
+        assert 'id="em-range-' + category + '"' in html
 
     js = (ROOT / "dashboard/static/js/emergency_monitor.js").read_text(encoding="utf-8")
     assert "em-p2000-input" not in js and "em-cat-p2000" not in js
     assert 'motion_only: $("em-motion-only").checked' in js
     assert '["lifeliner", "police_helicopter", "knrm", "waterpolitie"]' in js
+    assert "category_radius_km: Object.fromEntries" in js
     backend = (ROOT / "core/emergency_monitor.py").read_text(encoding="utf-8")
     assert "p2000_input" not in backend
     assert 'client.subscribe(' not in backend
@@ -311,7 +372,7 @@ def check():
     assert "def map_highlights()" in backend
 
     assert 'event_bus.purge_legacy_emergency_p2000_events()' in backend
-    print("PASS: Emergency Monitor — five-minute moving AIS and ADS-B reminders, motion/radius filters and no P2000")
+    print("PASS: Emergency Monitor — category ranges, moving AIS/ADS-B reminders, radius-limited map and no P2000")
 
 
 if __name__ == "__main__":
