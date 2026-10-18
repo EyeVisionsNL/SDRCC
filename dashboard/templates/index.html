@@ -37,7 +37,7 @@
     <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.67.14-rensen1">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
     <link rel="stylesheet" href="/static/css/dashboard_polish.css?v=0.65.8">
-    <link rel="stylesheet" href="/static/css/emergency_monitor.css?v=0.67.7">
+    <link rel="stylesheet" href="/static/css/emergency_monitor.css?v=0.67.18">
 </head>
 <body>
 <div
@@ -336,20 +336,20 @@
             <summary class="system-maintenance-summary-v0540f">
                 <span class="system-maintenance-copy-v0540f">
                     <strong>🛠 Advanced Maintenance</strong>
-                    <small>Temporary service controls, simulation, recovery and notification settings</small>
+                    <small>Service controls, recovery, Emergency Monitor and notification settings</small>
                 </span>
                 <span class="system-maintenance-badge-v0540f">CLOSED BY DEFAULT</span>
             </summary>
             <div class="system-maintenance-body-v0540f">
 
-                <section class="system-maintenance-group-v0540f em-monitor" id="em-monitor" aria-labelledby="em-monitor-title">
-                    <div class="em-header">
+                <details class="system-maintenance-group-v0540f em-monitor em-monitor-disclosure" id="em-monitor" aria-labelledby="em-monitor-title">
+                    <summary class="em-header em-summary">
                         <div>
                             <h3 id="em-monitor-title">🚁 Emergency Monitor</h3>
                             <p class="muted">Read-only detection of nearby rescue and police aircraft/vessels. Optional Home Assistant MQTT alerts; no extra SDR receiver.</p>
                         </div>
-                        <span class="em-status" id="em-state">DISABLED</span>
-                    </div>
+                        <span class="em-status" id="em-state" data-state="disabled">DISABLED</span>
+                    </summary>
                     <form id="em-form" class="em-monitor">
                         <label class="em-toggle"><input id="em-enabled" type="checkbox"><strong>Enable Emergency Monitor</strong></label>
                         <div id="em-suboptions" class="em-suboptions" hidden>
@@ -389,7 +389,11 @@
                             </div>
                             <div class="em-group">
                                 <h4>Live status and latest detections</h4>
-                                <p id="em-sources" class="em-sources" role="status">Sources not yet checked.</p>
+                                <div id="em-sources" class="em-sources" role="status" aria-label="Emergency Monitor source status">
+                                    <span class="em-source-state" data-source="adsb" data-state="unknown"><span class="em-source-label">✈ ADS-B</span><strong id="em-source-adsb">CHECKING</strong></span>
+                                    <span class="em-source-state" data-source="ais" data-state="unknown"><span class="em-source-label">🚢 AIS</span><strong id="em-source-ais">CHECKING</strong></span>
+                                    <span class="em-source-state" data-source="mqtt" data-state="unknown"><span class="em-source-label">📡 MQTT</span><strong id="em-source-mqtt">CHECKING</strong></span>
+                                </div>
                                 <ul id="em-events" class="em-events" aria-live="polite"><li>No Emergency Monitor detections recorded yet.</li></ul>
                             </div>
                         </div>
@@ -399,7 +403,7 @@
                         </div>
                         <p class="em-result" id="em-result" role="status">Emergency Monitor is opt-in and disabled by default.</p>
                     </form>
-                </section>
+                </details>
                 <section class="system-maintenance-group-v0540f system-maintenance-service-v0540q home-position-maintenance" aria-labelledby="home-position-title">
                     <div class="home-position-maintenance-heading">
                         <div class="home-position-maintenance-copy">
@@ -475,17 +479,6 @@
                         <button type="button" class="control-button" data-open-port="8118" title="Open the AIS-Catcher Control configuration interface">⚙ Open AIS Control</button>
                     </div>
                     <p class="control-result" id="ais-autostart-result">No AIS autostart action started.</p>
-                </section>
-                <section class="system-maintenance-group-v0540f" data-control-scope="sdrcc-autostart" aria-labelledby="sdrcc-autostart-title">
-                    <div class="system-maintenance-heading-v0540f">
-                        <div>
-                            <h3 id="sdrcc-autostart-title"><span class="sdrcc-inline-icon" aria-hidden="true">🧪</span>SDRCC test mode</h3>
-                            <p class="muted">Disable dashboard autostart for reboot testing. The current dashboard keeps running. Restore with <code>sudo systemctl enable --now sdrcc.service</code>.</p>
-                        </div>
-                        <span class="system-maintenance-warning-v0540f">REBOOT IMPACT</span>
-                    </div>
-                    <button type="button" class="control-button" data-action="disable_sdrcc_autostart">Disable SDRCC autostart</button>
-                    <p class="control-result" id="sdrcc-autostart-result">No SDRCC autostart action started.</p>
                 </section>
                 <section class="system-maintenance-group-v0540f mission-sounds-panel" aria-labelledby="mission-sounds-title">
                     <div class="mission-sounds-heading">
@@ -1611,7 +1604,7 @@
 <script src="/static/dashboard.js?v=0.65.9"></script>
 <script src="/static/js/receiver_inventory.js?v=0.56.0q-r3"></script>
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
-<script src="/static/js/emergency_monitor.js?v=0.67.8"></script>
+<script src="/static/js/emergency_monitor.js?v=0.67.18"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
 <script src="/static/js/mission_recordings.js?v=0.63.5"></script>
 <script src="/static/js/radio.js?v=0.63.11"></script>
