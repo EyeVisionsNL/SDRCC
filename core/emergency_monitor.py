@@ -172,10 +172,18 @@ def validate(payload: Any) -> dict:
 
 
 def save(payload: Any) -> dict:
+    previous = settings()
     data = validate(payload)
     with _lock:
         _atomic(SETTINGS_FILE, data, private=True)
-    sync_worker()
+    # Radius, speed and identity changes are applied by the next poll. Do not
+    # restart a live worker or erase its ADS-B/AIS statuses for ordinary saves.
+    # Only an enable/disable transition or MQTT connection change needs a restart.
+    mqtt_fields = ("ha_notifications", "mqtt_host", "mqtt_port", "mqtt_user",
+                   "mqtt_password", "mqtt_tls")
+    restart = (previous["enabled"] != data["enabled"] or
+               any(previous[key] != data[key] for key in mqtt_fields))
+    sync_worker(restart=restart)
     return public_settings()
 
 
@@ -525,6 +533,9 @@ def _loop(cancel: threading.Event) -> None:
         cancel.wait(60)
         reconnect_after = time.monotonic() + 30
         while not cancel.is_set():
+            # Read settings on every poll so a radius/category/identity save is
+            # effective without interrupting the live receiver observations.
+            data = settings()
             if data["ha_notifications"] and _mqtt_client is None and time.monotonic() >= reconnect_after:
                 try:
                     _start_mqtt(data)
@@ -547,13 +558,16 @@ def _loop(cancel: threading.Event) -> None:
             _runtime["mqtt"] = "OFF"
 
 
-def sync_worker() -> None:
+def sync_worker(*, restart: bool = True) -> None:
     global _worker, _stop
     with _lock:
         _purge_legacy_p2000_history()
         # Previous beta versions also copied P2000 into the general Event Bus.
         # Purge only those old copies; never change Home Assistant or other events.
         event_bus.purge_legacy_emergency_p2000_events()
+        # Keep source status and MQTT connection stable on non-connection edits.
+        if not restart and settings()["enabled"] and _worker is not None and _worker.is_alive():
+            return
         if _stop is not None:
             _stop.set()
         previous = _worker
@@ -566,6 +580,10 @@ def sync_worker() -> None:
         if not settings()["enabled"]:
             _runtime.update({"adsb": "OFF", "ais": "OFF", "mqtt": "OFF"})
             return
+        # The worker warms up alert detection for 60 seconds. During this
+        # interval 'CHECKING' is accurate; 'OFF' would falsely imply that
+        # readsb and AIS-Catcher had stopped.
+        _runtime.update({"adsb": "CHECKING", "ais": "CHECKING"})
         _stop = threading.Event()
         _worker = threading.Thread(target=_loop, args=(_stop,), daemon=True, name="sdrcc-emergency")
         _worker.start()
