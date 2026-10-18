@@ -68,7 +68,8 @@ def check():
 
 
     # Motion-only filtering must never claim that an unknown or stationary
-    # target is moving, and no repeated alerts for the same in-range target.
+    # target is moving. Moving AIS vessels repeat every five minutes only
+    # while still in range; aircraft retain one alert per in-range session.
     assert monitor.speed_knots("adsb", {"gs": 35}) == 35
     assert monitor.speed_knots("adsb", {"gs": None}) is None
     assert monitor.speed_knots("ais", {"speed": 2.3}) == 2.3
@@ -102,23 +103,68 @@ def check():
         monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
                               ground_speed_knots=2.5)
         assert len(captured) == 1 and captured[0]["speed_knots"] == 2.5
+        assert captured[0]["kind"] == "nearby_detected" and not captured[0].get("repeat")
         for _ in range(15):
             monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
                                   ground_speed_knots=4.0)
-        assert len(captured) == 1, "One in-range session must alert only once"
-        monitor._target_event("ais", "knrm", "244123456", "Test", 23, motion_config,
+        assert len(captured) == 1, "AIS must not repeat before five minutes"
+        key = "ais:244123456"
+        monitor._recent[key] -= monitor.AIS_REPEAT_SECONDS - 1
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
                               ground_speed_knots=4.0)
-        assert "ais:244123456" not in monitor._announced
-        # With the switch off, stationary reports still work (old behavior).
+        assert len(captured) == 1, "AIS reminder was sent a second early"
+        monitor._recent[key] -= 2
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=4.0)
+        assert len(captured) == 2 and captured[-1].get("repeat") is True
+        assert captured[-1]["kind"] == captured[0]["kind"], "Existing MQTT automation kind changed"
+        # Stopped / unknown speed must not repeat, even after cooldown.
+        monitor._recent[key] -= monitor.AIS_REPEAT_SECONDS + 1
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=0.0)
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=None)
+        assert len(captured) == 2, "Stationary vessel repeated"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=4.0)
+        assert len(captured) == 2, "After stopping, require two moving samples"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=4.0)
+        assert len(captured) == 3 and captured[-1].get("repeat") is True
+        monitor._recent[key] -= monitor.AIS_REPEAT_SECONDS + 1
+        monitor._target_event("ais", "knrm", "244123456", "Test", 21, motion_config,
+                              ground_speed_knots=5.0)
+        assert len(captured) == 3, "Out-of-range vessel repeated"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 23, motion_config,
+                              ground_speed_knots=5.0)
+        assert key not in monitor._announced
+        # Without motion-only, initial stationary detections are still allowed,
+        # but reminders are only for moving AIS vessels.
         monitor._presence.clear()
         monitor._announced.clear()
         monitor._recent.clear()
+        captured.clear()
         normal = monitor.validate({"motion_only": False, "radius_km": 20})
-        monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
+        for _ in range(2):
+            monitor._target_event("ais", "waterpolitie", "244987654", "Harbour police", 5, normal,
+                                  ground_speed_knots=0.0)
+        assert len(captured) == 1 and not captured[-1].get("repeat")
+        monitor._recent["ais:244987654"] -= monitor.AIS_REPEAT_SECONDS + 1
+        monitor._target_event("ais", "waterpolitie", "244987654", "Harbour police", 5, normal,
                               ground_speed_knots=0.0)
+        assert len(captured) == 1, "Stationary AIS re-notified with motion-only disabled"
+        monitor._target_event("ais", "waterpolitie", "244987654", "Harbour police", 5, normal,
+                              ground_speed_knots=2.2)
+        assert len(captured) == 2 and captured[-1].get("repeat") is True
+        # ADS-B must remain one event per in-range session even after 30 minutes.
+        for _ in range(2):
+            monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
+                                  ground_speed_knots=0.0)
+        assert len(captured) == 3 and not captured[-1].get("repeat")
+        monitor._recent["adsb:ABC123"] -= 1801
         monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
-                              ground_speed_knots=0.0)
-        assert len(captured) == 2
+                              ground_speed_knots=40.0)
+        assert len(captured) == 3, "Aircraft unexpectedly repeated"
     finally:
         monitor._store_event = old_writer
         monitor._presence.clear()
@@ -214,7 +260,7 @@ def check():
     assert "def map_highlights()" in backend
 
     assert 'event_bus.purge_legacy_emergency_p2000_events()' in backend
-    print("PASS: v0.67.8 Emergency Monitor — moving AIS overlays, motion filters and no P2000")
+    print("PASS: Emergency Monitor — moving AIS reminders every five minutes, motion filters, unchanged aircraft alerts and no P2000")
 
 
 if __name__ == "__main__":
