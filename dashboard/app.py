@@ -48,6 +48,7 @@ from core import receiver_runtime as receiver_runtime_core
 from core import receiver_inventory as receiver_inventory_core
 from core import receiver_contexts as receiver_contexts_core
 from core import receiver_monitor
+from core import emergency_monitor
 from core import state
 from core import tle
 from core import system_stats
@@ -67,6 +68,7 @@ from core import traffic_voice as traffic_voice_core
 from core import traffic_voice_audio
 from core import traffic_voice_controller
 from core import traffic_voice_vessel_photo
+from core import traffic_voice_rensendriessen_image
 from core import hf_monitor as hf_monitor_core
 from core import hf_monitor_backend
 from core import hf_monitor_controller
@@ -3071,17 +3073,38 @@ def api_traffic_voice_recording_save(recording_id):
 
 @app.route("/api/traffic-voice/vessel-photo", methods=["GET"])
 def api_traffic_voice_vessel_photo():
-    """On-demand vessel photo lookup; never called by SDRCC while UI switch is off."""
+    """Only the enabled browser requests credited photos; Rensen JPEGs are branded."""
     try:
-        result = traffic_voice_vessel_photo.lookup(
-            request.args.get("mmsi", ""),
-            request.args.get("shipname", ""),
-            request.args.get("imo", ""),
-            request.args.get("eni", ""),
-        )
+        values = tuple(request.args.get(key, "") for key in ("mmsi", "shipname", "imo", "eni"))
+        result = traffic_voice_vessel_photo.lookup(*values)
+        if result.get("ok") and result.get("source") == "Rensen-Driessen":
+            from importlib.util import find_spec
+            if find_spec("PIL") is not None:
+                from urllib.parse import urlencode
+                result["source_image_url"] = result["image_url"]
+                result["image_url"] = "/api/traffic-voice/vessel-photo/branded?" + urlencode(
+                    dict(zip(("mmsi", "shipname", "imo", "eni"), values))
+                )
+                result["logo_embedded"] = True
+                result["logo_overlay"] = False
         return jsonify(result), 200
     except ValueError as error:
         return jsonify({"ok": False, "status": "invalid", "message": str(error)}), 400
+
+
+@app.route("/api/traffic-voice/vessel-photo/branded", methods=["GET"])
+def api_traffic_voice_rensen_driessen_photo():
+    """Return the branded JPEG; never serve the unstamped Rensen original."""
+    try:
+        values = tuple(request.args.get(key, "") for key in ("mmsi", "shipname", "imo", "eni"))
+        result = traffic_voice_vessel_photo.lookup(*values)
+        if not result.get("ok") or result.get("source") != "Rensen-Driessen":
+            abort(404)
+        image_bytes = traffic_voice_rensendriessen_image.render(result["image_url"])
+        return send_file(BytesIO(image_bytes), mimetype="image/jpeg",
+                         download_name="Rensen-Driessen-vessel.jpg", max_age=900)
+    except (OSError, ValueError):
+        abort(502)
 
 
 @app.route("/api/plugin-runtime", methods=["GET"])
@@ -5127,6 +5150,48 @@ def api_receiver_bindings():
         return jsonify({'ok': False, 'message': str(error)}), 409
 
 
+
+@app.route("/api/emergency-monitor", methods=["GET", "POST"])
+def api_emergency_monitor():
+    """Opt-in observer; never changes any receiver service or P2000 add-on."""
+    if request.method == "GET":
+        return jsonify(emergency_monitor.snapshot())
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "message": "Expected a settings object."}), 400
+    try:
+        new_settings = emergency_monitor.save(payload)
+        return jsonify({"ok": True, "settings": new_settings, "message": "Emergency Monitor settings saved."})
+    except (ValueError, TypeError) as error:
+        return jsonify({"ok": False, "message": str(error)}), 400
+    except OSError:
+        return jsonify({"ok": False, "message": "Cannot save Emergency Monitor settings."}), 500
+
+
+@app.route("/api/emergency-monitor/map-highlights", methods=["GET"])
+def api_emergency_monitor_map_highlights():
+    """Moving KNRM and waterpolitie overlay; no control over AIS-Catcher."""
+    result = jsonify(emergency_monitor.map_highlights())
+    result.headers["Cache-Control"] = "no-store"
+    # Only the AIS-Catcher map on the same station's port 8119 may fetch
+    # this read-only overlay from a stand-alone viewer. Never allow generic
+    # third-party origins to read the monitor's configured identities.
+    origin = request.headers.get("Origin", "")
+    expected = f"{request.scheme}://{request.host.rsplit(':', 1)[0]}:8119"
+    if origin == expected:
+        result.headers["Access-Control-Allow-Origin"] = origin
+        result.headers["Vary"] = "Origin"
+    return result
+
+
+@app.route("/api/emergency-monitor/test", methods=["POST"])
+def api_emergency_monitor_test():
+    try:
+        return jsonify(emergency_monitor.test_ha())
+    except ValueError as error:
+        return jsonify({"ok": False, "message": str(error)}), 409
+
+
 def run():
     recover_stale_hf_monitor()
     recover_stale_iss_voice_observer()
@@ -5138,6 +5203,7 @@ def run():
     threading.Thread(target=update_manager.check_remote_version, name="update-check", daemon=True).start()
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
+    emergency_monitor.sync_worker()
     app.run(
         host="0.0.0.0",
         port=8080,

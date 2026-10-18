@@ -1042,3 +1042,24 @@
         color-mix(in srgb, var(--corner-accent) 16%, transparent) 99%, transparent 100%);
     pointer-events: none;
 }
+
+
+/* Rensen-Driessen's own green mark in a small photo-corner white badge.
+   Official identity image by QUEM; photo itself and existing marks unchanged. */
+.traffic-voice-vessel-photo-link.rensen-logo {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+}
+.traffic-voice-vessel-photo-link.rensen-logo::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    right: 5px;
+    bottom: 5px;
+    width: clamp(38px, 22%, 58px);
+    height: 33px;
+    border-radius: 4px;
+    background: #fff url("https://quem.nl/wp-content/uploads/2021/12/RensenDriessen-Logo-1.jpg") center / 175% auto no-repeat;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .35);
+}

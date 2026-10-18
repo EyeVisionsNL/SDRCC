@@ -19,13 +19,14 @@ from urllib.request import Request, urlopen
 from core.traffic_voice_debinnenvaart import lookup as _binnenvaart_lookup
 from core.traffic_voice_binnenvaartspotter import lookup as _spotter_lookup
 from core.traffic_voice_shipspotting import lookup as _shipspotting_lookup
+from core.traffic_voice_rensendriessen import lookup as _rensen_lookup
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CACHE_FILE = PROJECT_ROOT / "data" / "cache" / "traffic_voice_vessel_photos.json"
 CACHE_SECONDS = 7 * 24 * 3600
-PHOTO_POLICY_VERSION = 12
+PHOTO_POLICY_VERSION = 18
 REJECT_TERMS = re.compile(r"\b(painting|artwork|illustration|drawing|sketch|model ship|scale model|watercolour|watercolor|oil on canvas|postcard|painting of)\b", re.I)
-NEGATIVE_CACHE_SECONDS = 6 * 3600
+NEGATIVE_CACHE_SECONDS = 30 * 60
 _lock = threading.RLock()
 _cache: dict[str, dict] | None = None
 
@@ -416,7 +417,19 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
                 pass
         return {**spotter_result, "cached": False}
 
-    # Priority 3: Shipspotting.com. Only verified, credited thumbnails;
+    # Priority 3: Rensen-Driessen, whose permission requires a visible logo.
+    rensen_result = _rensen_lookup(mmsi, shipname, imo, eni, now)
+    if rensen_result:
+        with _lock:
+            cache = _load()
+            cache[key] = rensen_result
+            try:
+                _save(cache)
+            except OSError:
+                pass
+        return {**rensen_result, "cached": False}
+
+    # Priority 4: Shipspotting.com. Only verified, credited thumbnails;
     # inaccessible or ambiguous pages safely fall through to the next source.
     shipspotting_result = _shipspotting_lookup(mmsi, shipname, imo, eni, now)
     if shipspotting_result:
@@ -429,7 +442,7 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
                 pass
         return {**shipspotting_result, "cached": False}
 
-    # Priority 4: Wikimedia Commons. Ordered fallbacks: exact identifiers first,
+    # Priority 5: Wikimedia Commons. Ordered fallbacks: exact identifiers first,
     # then vessel name. Each query
     # is small and sequential; once a trustworthy candidate is found we stop.
     queries: list[str] = []
@@ -476,7 +489,8 @@ def lookup(mmsi: str, shipname: str = "", imo: str = "", eni: str = "") -> dict:
         if error and best is None:
             result["error"] = error
 
-    # Priority 5 (last resort): De Binnenvaart, after Commons had no verified photo.
+    # Priority 6 (last resort): De Binnenvaart, after Commons had no verified photo.
+    # Credits and the original page URL are mandatory in this source's own parser.
     if not result.get("ok"):
         binnenvaart_result = _binnenvaart_lookup(mmsi, shipname, imo, eni, now)
         if binnenvaart_result:

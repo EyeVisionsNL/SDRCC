@@ -156,13 +156,13 @@ Thank you to the photographers and websites that make the optional vessel-photo 
 
 | Website | Photo credit and use in SDRCC |
 |---|---|
-| [Binnenvaartspotter.nl](https://www.binnenvaartspotter.nl/) | Peter's vessel photographs, displayed as thumbnails with permission and a link to the original page |
 | [Mark Prummel](https://markprummel.nl/) | Photographs by Mark & Chris Prummel, with source credit and a link to the original ship page |
-| [Shipspotting.com](https://www.shipspotting.com/photos) | Attributed thumbnails only, with vessel identity verification and a direct link to the original photo; subject to Shipspotting's third-party conditions |
+| [Binnenvaartspotter.nl](https://www.binnenvaartspotter.nl/) | Peter's vessel photographs, displayed as thumbnails with permission and a link to the original page |
+| [Rensen-Driessen](https://www.rensendriessen.com/building/our-ships/) | Vessel photos used with Wim Driessen's permission; a small Rensen-Driessen logo is displayed on every thumbnail alongside a link to its original ship page |
 | [Wikimedia Commons](https://commons.wikimedia.org/) | Vessel photographs with the individual photographer and license shown alongside the image |
 | Various vessel photographers | Photographs from various photographers, with the photographer’s name and a clickable link to the original photograph. Existing watermarks remain intact. |
 
-Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs.
+Photographs remain credited to their respective owners. Source links and existing watermarks are retained; permission for SDRCC thumbnails does not grant unrestricted reuse of the photographs. Rensen-Driessen's approved green logo is embedded in the served JPEG when Pillow is available, so saving the displayed image retains the logo. Older installs without Pillow use a visible logo overlay until the imaging dependency is installed. The remote original is unchanged. The Google Images fallback remains a search link only.
 
 A special thank you to **Mbruins** for the many tests, careful feedback and help improving SDRCC. Real-world testing makes a difference. ❤️
 
@@ -485,13 +485,15 @@ Technical architecture and internal validation notes remain on the `develop` bra
 
 ## 🧪 Still evolving
 
-The current SDRCC release is **v0.67.0** and the signed Android app is **v2.0.0**.
+The current SDRCC stable release is **v0.67.19** and the signed Android app is **v2.0.0**.
 
 Recent development changes include:
 
 - Improved marine ATIS decoding with tone filtering, bounded soft correction, international identity handling and shared decoder logic with AIS-ATIS-Bridge.
 - Smart Gain, a selectable Marine channel filter, recent-transmission replay/save and updated Excel channel lists with marine data channels excluded from voice scanning.
 - Optional matched-vessel photographs with individual photographer attribution, original source links and verified permissions or compatible licenses.
+- Emergency Monitor detects eligible rescue/police aircraft and KNRM/water-police vessels with configurable alerts, while Advanced Maintenance has a collapsible SDRCC-themed control panel.
+- Rensen-Driessen vessel photos appear with the company's approved logo, photographer/source credit and the original ship-page link.
 - More reliable managed updates and receiver handovers, with station settings preserved.
 - New compact panoramic banners for the dashboard tabs, with the animated radar centered. Traffic Voice shows a ship and aircraft while stopped, then the corresponding scene during Marine or Airband reception. Radio Receiver has its own antenna-mast background.
 

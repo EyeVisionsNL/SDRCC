@@ -40,8 +40,10 @@ def validate() -> None:
     require("renderPhotoCredit(target,d)" in script and
             'const isDeBinnenvaart=source==="De Binnenvaart"' in script,
             "Mobile photographer credit correction missing")
-    require('if(!/^\\d{9}$/.test(id)||id===lastPhotoMmsi)return;' in script,
-            "Vessel MMSI validation must remain a digit regex")
+    require('if(!/^\\d{9}$/.test(id))return;' in script and
+            'const key=[id,name.toUpperCase(),imo,eni].join("|")' in script and
+            'lastPhotoRetryAfter=Date.now()+30*60*1000' in script,
+            "Vessel MMSI must stay a nine-digit regex and photo retries must respect updated identity")
     for marker in (
         'id="aismap"', 'id="adsbmap"', 'id="liveaudio"', 'id="replay"',
         'id="mission-auto-on"', 'id="mission-auto-off"',
@@ -225,7 +227,7 @@ console.log("PASS: mobile photographer credits and links");
 const vm = require("node:vm");
 const assert = require("node:assert/strict");
 const source = process.argv[1];
-let clock = 100000, timer, onMessage, managedSource, managedLayer, panned = 0, replies = [];
+let clock = 100000, timer, onMessage, managedSource, managedLayer, emergencySource, emergencyLayer, panned = 0, replies = [];
 const parent = {postMessage: (msg) => replies.push(msg)};
 const win = {
   parent, location: null,
@@ -236,12 +238,13 @@ const win = {
 };
 const ol = {
   source: {Vector: class {
-    constructor(){ this.items=[]; managedSource=this; }
+    constructor(){ this.items=[]; }
     addFeature(feature){ this.items.push(feature) }
     clear(){ this.items=[] }
+    removeFeature(feature){ this.items=this.items.filter(item=>item!==feature) }
   }},
   layer: {Vector: class {
-    constructor(options){this.visible=true;managedLayer=this}
+    constructor(options){this.visible=true;this.source=options.source}
     setVisible(v){this.visible=v}
     getVisible(){return this.visible}
     setOpacity(v){this.opacity=v}
@@ -260,7 +263,10 @@ const ol = {
   style: {Circle: class {}, Stroke: class {}, Fill: class {}, Style: class {}}
 };
 const context = {
-  AISCatcher: {PLUGIN_API_VERSION: 5, addOverlayLayer(){}, shipsDB: {}},
+  AISCatcher: {PLUGIN_API_VERSION: 5, addOverlayLayer(name, layer){
+    if(name==="SDRCC ATIS Mobile"){managedLayer=layer;managedSource=layer.source}
+    if(name==="SDRCC Emergency Vessels"){emergencyLayer=layer;emergencySource=layer.source}
+  }, shipsDB: {}},
   ol, window: win,
   location: {protocol:"http:", hostname:"mini-pc"},
   Date: {now:()=>clock},
@@ -268,6 +274,7 @@ const context = {
 };
 vm.runInNewContext(source, context);
 assert.ok(onMessage);
+assert.ok(managedSource && emergencySource,"Both isolated AIS map layers must be registered");
 function send(event, id, mmsi){
   onMessage({source:parent,origin:"http://mini-pc:8080",
     data:{type:"sdrcc:atis-highlight:show",version:1,event_id:id,
@@ -287,7 +294,21 @@ assert.equal(managedSource.items.length,0,"replacement must expire at 30s");
 assert.equal(managedLayer.visible,false);
 assert.equal(panned,0);
 assert.equal(replies.filter(x=>x.type==="sdrcc:atis-highlight:shown").length,2);
-console.log("PASS: AIS-Catcher ring expiry and replacement (30 seconds)");
+onMessage({source:parent,origin:"http://mini-pc:8080",data:{
+  type:"sdrcc:emergency-highlight:sync",version:1,vessels:[
+    {mmsi:"246333000",category:"knrm",latitude:51.91,longitude:4.35,remaining_seconds:300},
+    {mmsi:"notmmsi",category:"knrm",latitude:51.91,longitude:4.35,remaining_seconds:300}
+  ]
+}});
+assert.equal(emergencySource.items.length,1,"Only nine-digit AIS emergency MMSIs may be highlighted");
+assert.equal(managedSource.items.length,0,"Emergency must not overwrite the ATIS overlay");
+assert.equal(emergencyLayer.visible,true);
+onMessage({source:parent,origin:"http://mini-pc:8080",data:{
+  type:"sdrcc:emergency-highlight:sync",version:1,vessels:[]
+}});
+assert.equal(emergencySource.items.length,0,"Empty emergency sync must clear old vessel rings");
+assert.equal(emergencyLayer.visible,false);
+console.log("PASS: AIS-Catcher ATIS ring (30s) and independent emergency vessel overlay");
 """
     subprocess.run(
         ["node", "-e", bridge_test,

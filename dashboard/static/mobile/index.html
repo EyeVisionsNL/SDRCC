@@ -670,6 +670,34 @@ window.addEventListener("message",event=>{
   }
 });
 
+// SDRCC Emergency Vessels uses the existing AIS-Catcher overlay bridge.
+// Never replaces the built-in ship/ATIS icons or pans the map.
+let emergencyRingBusy=false;
+async function syncEmergencyAisRings(){
+  const origin=aisHighlightOrigin();
+  if(!origin||!highlightFrame.contentWindow||emergencyRingBusy)return;
+  emergencyRingBusy=true;
+  try{
+    const response=await fetch("/api/emergency-monitor/map-highlights",{cache:"no-store"});
+    if(!response.ok)return;
+    const snapshot=await response.json();
+    if(snapshot.ok!==true||!Array.isArray(snapshot.vessels))return;
+    highlightFrame.contentWindow.postMessage({
+      type:"sdrcc:emergency-highlight:sync",version:1,vessels:snapshot.vessels
+    },origin);
+  }catch(_){
+    // No impact on maps, P2000, existing ATIS highlights or marine audio.
+  }finally{
+    emergencyRingBusy=false;
+  }
+}
+highlightFrame.addEventListener("load",()=>{
+  window.setTimeout(syncEmergencyAisRings,1200);
+});
+window.setInterval(()=>{
+  if(!document.hidden)syncEmergencyAisRings();
+},15000);
+
 // Only affirmative server results can hide a feature; failures are fail-open.
 const MOBILE_TABS=["marine","adsb","sat","missions","system"];
 const LAST_MOBILE_TAB_KEY="sdrcc-mobile-selected-tab";
@@ -786,7 +814,7 @@ async function refreshMobileCapabilities(){
 }
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let lastMatch="",lastPhotoMmsi="",currentSnapshot=null,playingRecordingId="",resumeLiveAfterReplay=false;
+let lastMatch="",lastPhotoMmsi="",lastPhotoKey="",lastPhotoRetryAfter=0,currentSnapshot=null,playingRecordingId="",resumeLiveAfterReplay=false;
 let atisCardPulseTimer=null;
 const liveAudio=$("liveaudio"),replayAudio=$("replay"),savedRecordings=new Set();
 let streamUrl="",voiceActive=false,audioAttempt=0;
@@ -1096,24 +1124,48 @@ function renderPhotoCredit(target,photo){
 }
 async function showPhoto(m){
   const id=String(m.mmsi||"");
-  if(!/^\d{9}$/.test(id)||id===lastPhotoMmsi)return;
+  if(!/^\d{9}$/.test(id))return;
+  // Match the regular SDRCC photo request, including callsign fallback.
+  // Retry promptly when AIS later supplies a more useful name, IMO or ENI
+  // instead of suppressing all new photo requests for the same MMSI.
+  const name=String(m.shipname||m.callsign||"").trim();
+  const imo=String(m.imo||"").trim();
+  const eni=String(m.eni||"").trim();
+  const key=[id,name.toUpperCase(),imo,eni].join("|");
+  if(key===lastPhotoKey&&Date.now()<lastPhotoRetryAfter)return;
   lastPhotoMmsi=id;
+  lastPhotoKey=key;
+  lastPhotoRetryAfter=Number.POSITIVE_INFINITY;
   const target=$("photo");target.textContent="Looking up vessel photo…";
   try{
     const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(id)
-      +"&shipname="+encodeURIComponent(m.shipname||"")
-      +"&imo="+encodeURIComponent(m.imo||"")
-      +"&eni="+encodeURIComponent(m.eni||"");
-    const d=await readMobileJson(url,20000);
-    if(lastPhotoMmsi!==id)return;
+      +"&shipname="+encodeURIComponent(name)
+      +"&imo="+encodeURIComponent(imo)
+      +"&eni="+encodeURIComponent(eni);
+    const d=await readMobileJson(url,90000); // Last-resort photo sources can take longer than the normal 20s budget.
+    if(lastPhotoKey!==key)return;
     target.replaceChildren();
-    if(!d.ok||!d.image_url){target.textContent="No photo available";return}
+    if(!d.ok||!d.image_url){
+      lastPhotoRetryAfter=Date.now()+30*60*1000;
+      target.textContent="No photo available";return
+    }
     const img=document.createElement("img");
     img.className="photo";img.referrerPolicy="no-referrer";
+    img.onerror=()=>{
+      if(lastPhotoKey!==key)return;
+      lastPhotoRetryAfter=Date.now()+30*60*1000;
+      img.remove();
+      const note=document.createElement("p");
+      note.textContent="Photo could not be loaded; original photo link remains available.";
+      target.prepend(note);
+    };
     img.src=d.image_url;img.alt="Vessel photo";
     target.append(img);
     renderPhotoCredit(target,d);
-  }catch(_){if(lastPhotoMmsi===id)target.textContent="Photo unavailable"}
+  }catch(_){if(lastPhotoKey===key){
+    lastPhotoRetryAfter=Date.now()+30*60*1000;
+    target.textContent="Photo unavailable"
+  }}
 }
 let mobileTrafficFetchBusy=false;
 async function refresh(){
@@ -1127,7 +1179,7 @@ async function refresh(){
       void $("matchpanel").offsetWidth;
       $("matchpanel").classList.add("pulse");
       atisCardPulseTimer=setTimeout(()=>{$("matchpanel").classList.remove("pulse");atisCardPulseTimer=null},30000);
-    }}else{lastMatch="";lastPhotoMmsi="";$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Waiting for a validated ATIS/AIS match";}}catch(e){
+    }}else{lastMatch="";lastPhotoMmsi="";lastPhotoKey="";lastPhotoRetryAfter=0;$("photo").replaceChildren();$("match").textContent=data.possible_speaker||"Waiting for a validated ATIS/AIS match";}}catch(e){
     // A Traffic Voice error alone does not mean the complete dashboard is down.
     // Preserve the latest ATIS match/photo across temporary network failures.
   }finally{mobileTrafficFetchBusy=false}

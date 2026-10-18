@@ -405,10 +405,43 @@
         if (button) button.click();
     }
 
+    function initializeEmergencyAisRings() {
+        const frame = byId("radio-view-ais-frame");
+        if (!frame) return;
+        const expectedOrigin = new URL(buildViewerUrls().ais).origin;
+        let busy = false;
+        async function syncEmergencyRings() {
+            if (busy || !frame.contentWindow || !frame.src) return;
+            try {
+                if (new URL(frame.src, document.baseURI).origin !== expectedOrigin) return;
+                busy = true;
+                const response = await fetch("/api/emergency-monitor/map-highlights", {cache: "no-store"});
+                if (!response.ok) return;
+                const result = await response.json();
+                if (result.ok !== true || !Array.isArray(result.vessels)) return;
+                frame.contentWindow.postMessage({
+                    type: "sdrcc:emergency-highlight:sync", version: 1,
+                    vessels: result.vessels
+                }, expectedOrigin);
+            } catch (_error) {
+                // AIS map and normal Radio View remain available without this overlay.
+            } finally {
+                busy = false;
+            }
+        }
+        frame.addEventListener("load", () => {
+            window.setTimeout(syncEmergencyRings, 1200);
+        });
+        window.setInterval(() => {
+            if (!document.hidden) syncEmergencyRings();
+        }, 15000);
+    }
+
     function initialize() {
         const urls = buildViewerUrls();
         configureViewer("adsb", urls.adsb);
         configureViewer("ais", urls.ais);
+        initializeEmergencyAisRings();
         document.addEventListener("click", openInternalTab);
         document.querySelectorAll(".radio-view-satellite-selector [data-satellite-key]").forEach((button) => {
             button.addEventListener("click", () => selectSatellite(button.dataset.satelliteKey));
