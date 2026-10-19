@@ -82,6 +82,28 @@ class AdvancedMaintenanceLayout(unittest.TestCase):
         self.assertIn("category_radius_km: Object.fromEntries", self.js)
         self.assertIn(".em-category-radii", self.css)
 
+    def test_audio_ui_sounds_panel_is_full_width_and_compact(self):
+        self.assertIn('id="mission-sounds-title"', self.html)
+        self.assertIn("Audio &amp; UI sounds", self.html)
+        self.assertIn('mission-sounds-options', self.html)
+        self.assertIn("mission_sounds.css?v=0.67.24", self.html)
+        for name in ("mission-sounds-enabled", "mission-sounds-volume",
+                     "mission-tab-sounds-enabled", "mission-control-sounds-enabled",
+                     "mission-interface-clicks-enabled", "mission-startup-sound-enabled",
+                     "mission-sounds-test", "mission-tab-sounds-test",
+                     "mission-control-sounds-test-start", "mission-control-sounds-test-stop",
+                     "mission-interface-clicks-test", "mission-startup-sound-test"):
+            self.assertIn(name, self.tags.elements)
+
+        sound_css = (ROOT / "dashboard/static/css/mission_sounds.css").read_text(encoding="utf-8")
+        self.assertIn("#tab-system .system-maintenance-body-v0540f > .mission-sounds-panel {", sound_css)
+        self.assertIn("grid-column: 1 / -1;", sound_css)
+        self.assertIn(".mission-sounds-options {", sound_css)
+        self.assertIn(".mission-sounds-test-actions {", sound_css)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", sound_css)
+        self.assertIn("@media (max-width: 700px)", sound_css)
+        self.assertIn("grid-template-columns: 1fr;", sound_css)
+
     def test_distinct_maintenance_identity_colors(self):
         for color in ("#38bdf8", "#a78bfa", "#f59e0b"):
             self.assertIn(color, self.css)
