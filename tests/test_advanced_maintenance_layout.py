@@ -66,6 +66,7 @@ class AdvancedMaintenanceLayout(unittest.TestCase):
         self.assertIn("emergency_monitor.css?v=0.67.25", self.html)
         self.assertIn(".em-ha-disclosure[open] > .em-ha-summary::after", self.css)
         self.assertIn(".em-ha-summary:focus-visible", self.css)
+        self.assertIn(".em-ha-disclosure:not([open]) > .em-ha-content", self.css)
         self.assertIn("em-ha-disclosure", self.html)
 
     def test_unused_autostart_test_card_is_absent(self):
