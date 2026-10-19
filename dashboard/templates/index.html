@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="/static/css/radio.css?v=0.54.0h-r2">
     <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.54.0g">
     <link rel="stylesheet" href="/static/css/history.css?v=0.56.0x-r9">
-    <link rel="stylesheet" href="/static/css/mission_sounds.css?v=0.67.24">
+    <link rel="stylesheet" href="/static/css/mission_sounds.css?v=0.68.0">
     <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.65.1">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
@@ -491,15 +491,18 @@
                     </div>
                     <p class="control-result" id="ais-autostart-result">No AIS autostart action started.</p>
                 </section>
-                <section class="system-maintenance-group-v0540f mission-sounds-panel" aria-labelledby="mission-sounds-title">
-                    <div class="mission-sounds-heading">
-                        <div>
-                            <h3 id="mission-sounds-title"><span class="sdrcc-inline-icon" aria-hidden="true">🔊</span>Audio &amp; UI sounds</h3>
-                            <p class="muted">Sound effects for missions, navigation and dashboard controls.</p>
+                <details class="system-maintenance-group-v0540f mission-sounds-panel" id="mission-sounds-panel" aria-labelledby="mission-sounds-title">
+                    <summary class="mission-sounds-summary">
+                        <div class="mission-sounds-heading">
+                            <div>
+                                <h3 id="mission-sounds-title"><span class="sdrcc-inline-icon" aria-hidden="true">🔊</span>Audio &amp; UI sounds</h3>
+                                <p class="muted">Sound effects for missions, navigation and dashboard controls.</p>
+                            </div>
                         </div>
-                        <label class="mission-sounds-toggle"><input id="mission-sounds-enabled" type="checkbox"><span>Sound enabled</span></label>
-                    </div>
-                    <label class="mission-sounds-volume" for="mission-sounds-volume"><span>Volume</span><input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35"><strong id="mission-sounds-volume-value">35%</strong></label>
+                    </summary>
+                    <div class="mission-sounds-content">
+                        <label class="mission-sounds-toggle mission-sounds-master-toggle"><input id="mission-sounds-enabled" type="checkbox"><span>Sound enabled</span></label>
+                        <label class="mission-sounds-volume" for="mission-sounds-volume"><span>Volume</span><input id="mission-sounds-volume" type="range" min="0" max="100" step="1" value="35"><strong id="mission-sounds-volume-value">35%</strong></label>
                     <div class="mission-sounds-options">
                         <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-tab-sounds-enabled" type="checkbox"><span>Light whoosh when switching tabs</span></label>
                         <label class="mission-sounds-toggle mission-sounds-tab-toggle"><input id="mission-control-sounds-enabled" type="checkbox"><span>Soft Start / Stop button sounds</span></label>
@@ -515,8 +518,9 @@
                         <button class="control-button" id="mission-interface-clicks-test" type="button">☝ Test control click</button>
                         <button class="control-button" id="mission-startup-sound-test" type="button">🛸 Test Space Startup</button>
                     </div>
-                    <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
-                </section>
+                        <p class="mission-sounds-status" id="mission-sounds-status">Click once in the dashboard to enable audio.</p>
+                    </div>
+                </details>
             </div>
         </details>
     </div>
