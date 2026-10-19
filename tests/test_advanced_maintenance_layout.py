@@ -105,7 +105,7 @@ class AdvancedMaintenanceLayout(unittest.TestCase):
         self.assertIn('id="mission-sounds-title"', self.html)
         self.assertIn("Audio &amp; UI sounds", self.html)
         self.assertIn('mission-sounds-options', self.html)
-        self.assertIn("mission_sounds.css?v=0.67.24", self.html)
+        self.assertIn("mission_sounds.css?v=0.68.0", self.html)
         for name in ("mission-sounds-enabled", "mission-sounds-volume",
                      "mission-tab-sounds-enabled", "mission-control-sounds-enabled",
                      "mission-interface-clicks-enabled", "mission-startup-sound-enabled",
@@ -122,6 +122,28 @@ class AdvancedMaintenanceLayout(unittest.TestCase):
         self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", sound_css)
         self.assertIn("@media (max-width: 700px)", sound_css)
         self.assertIn("grid-template-columns: 1fr;", sound_css)
+
+    def test_audio_ui_sounds_is_collapsible_and_controls_remain_functional(self):
+        tag, attrs = self.tags.elements["mission-sounds-panel"]
+        self.assertEqual(tag, "details")
+        self.assertNotIn("open", attrs)
+        self.assertIn(("details", None), self.tags.element_parent["mission-sounds-panel"])
+        self.assertIn('<summary class="mission-sounds-summary">', self.html)
+        for name in ("mission-sounds-enabled", "mission-sounds-volume",
+                     "mission-tab-sounds-enabled", "mission-control-sounds-enabled",
+                     "mission-interface-clicks-enabled", "mission-startup-sound-enabled",
+                     "mission-sounds-test", "mission-tab-sounds-test",
+                     "mission-control-sounds-test-start", "mission-control-sounds-test-stop",
+                     "mission-interface-clicks-test", "mission-startup-sound-test",
+                     "mission-sounds-status"):
+            self.assertIn(("details", "mission-sounds-panel"), self.tags.element_parent[name])
+        sound_css = (ROOT / "dashboard/static/css/mission_sounds.css").read_text(encoding="utf-8")
+        self.assertIn(".mission-sounds-panel:not([open]) > .mission-sounds-content", sound_css)
+        self.assertIn(".mission-sounds-panel[open] > .mission-sounds-summary::after", sound_css)
+        self.assertIn(".mission-sounds-summary:focus-visible", sound_css)
+        self.assertIn("grid-column: 1 / -1;", sound_css)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", sound_css)
+        self.assertIn("@media (max-width: 700px)", sound_css)
 
     def test_distinct_maintenance_identity_colors(self):
         for color in ("#38bdf8", "#a78bfa", "#f59e0b"):
