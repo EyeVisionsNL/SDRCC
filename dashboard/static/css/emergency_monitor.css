@@ -238,3 +238,41 @@
   #tab-system .em-summary { flex-wrap: wrap; }
   #tab-system .em-summary::after { margin-left: auto; }
 }
+
+/* v0.67.25 — nested Home Assistant disclosure, closed by default. */
+#tab-system #em-monitor .em-ha-disclosure {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  min-width: 0;
+}
+#tab-system #em-monitor .em-ha-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+#tab-system #em-monitor .em-ha-summary::-webkit-details-marker { display: none; }
+#tab-system #em-monitor .em-ha-summary::after {
+  content: "▸";
+  color: #7dd3fc;
+  transition: transform .2s ease;
+  flex: 0 0 auto;
+}
+#tab-system #em-monitor .em-ha-disclosure[open] > .em-ha-summary::after {
+  transform: rotate(90deg);
+}
+#tab-system #em-monitor .em-ha-summary:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: -2px;
+}
+#tab-system #em-monitor .em-ha-summary h4 { margin: 0; }
+#tab-system #em-monitor .em-ha-content {
+  display: grid;
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+#tab-system #em-monitor .em-ha-actions .control-button { width: auto; max-width: 100%; }
