@@ -56,3 +56,65 @@
     padding: 12px;
   }
 }
+
+/* v0.68.0 — full-width Audio & UI sounds disclosure; hidden settings stay active. */
+#tab-system .system-maintenance-body-v0540f > .mission-sounds-panel {
+  display: block;
+  grid-column: 1 / -1;
+  padding: 0;
+  overflow: hidden;
+}
+#tab-system .mission-sounds-panel > .mission-sounds-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+#tab-system .mission-sounds-panel > .mission-sounds-summary::-webkit-details-marker {
+  display: none;
+}
+#tab-system .mission-sounds-panel > .mission-sounds-summary::after {
+  content: "▸";
+  color: #c4b5fd;
+  font-size: 1rem;
+  flex: 0 0 auto;
+  transition: transform .2s ease;
+}
+#tab-system .mission-sounds-panel[open] > .mission-sounds-summary::after {
+  transform: rotate(90deg);
+}
+#tab-system .mission-sounds-panel[open] > .mission-sounds-summary {
+  border-bottom: 1px solid rgba(167,139,250,.22);
+}
+#tab-system .mission-sounds-panel > .mission-sounds-summary:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: -2px;
+}
+#tab-system .mission-sounds-panel > .mission-sounds-content {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+/* Do not allow the author-level grid declaration to defeat <details> hiding. */
+#tab-system .mission-sounds-panel:not([open]) > .mission-sounds-content {
+  display: none;
+}
+#tab-system .mission-sounds-panel .mission-sounds-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#tab-system .mission-sounds-panel .mission-sounds-master-toggle {
+  width: fit-content;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  #tab-system .mission-sounds-panel > .mission-sounds-summary {
+    padding: 12px;
+  }
+  #tab-system .mission-sounds-panel > .mission-sounds-content {
+    padding: 12px;
+  }
+}
