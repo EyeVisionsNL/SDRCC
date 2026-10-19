@@ -30,6 +30,17 @@ def check():
     cfg = monitor.validate({"enabled": True, "radius_km": 20})
     assert cfg["enabled"] is True
     assert cfg["radius_km"] == 20
+    assert all(radius is None for radius in cfg["category_radius_km"].values())
+    assert monitor.radius_for_category(cfg, "lifeliner") == 20
+    custom = monitor.validate({"radius_km": 30, "category_radius_km": {
+        "lifeliner": 10, "police_helicopter": 20, "knrm": 15, "waterpolitie": 25
+    }})
+    assert [monitor.radius_for_category(custom, name) for name in
+            ("lifeliner", "police_helicopter", "knrm", "waterpolitie")] == [10, 20, 15, 25]
+    unset = monitor.validate({"category_radius_km": {"lifeliner": None}})
+    assert monitor.radius_for_category(unset, "lifeliner") == unset["radius_km"]
+    legacy = {"radius_km": 35}
+    assert monitor.radius_for_category(legacy, "knrm") == 35
     assert set(cfg["categories"]) == {"lifeliner", "police_helicopter", "knrm", "waterpolitie"}
     assert monitor.classify_aircraft({"hex": "ABC123", "flight": "LIFELN2"}, cfg) == "lifeliner"
     assert monitor.classify_aircraft({"hex": "ABC123", "flight": "UNKNOWN"}, cfg) is None
@@ -44,6 +55,10 @@ def check():
     must_reject({"categories": {"p2000": True}})
     must_reject({"motion_only": "yes"})
     must_reject({"motion_only": 1})
+    for bad in (0, 101, 1.5, -1, True, "10", float("inf")):
+        must_reject({"category_radius_km": {"lifeliner": bad}})
+    must_reject({"category_radius_km": {"unknown": 20}})
+    must_reject({"category_radius_km": []})
     assert monitor.validate({"motion_only": True})["motion_only"] is True
     assert monitor._DEFAULT["motion_only"] is False
     assert monitor._DEFAULT["enabled"] is False
@@ -67,8 +82,9 @@ def check():
         monitor._read_json = original_reader
 
 
-    # Motion-only filtering must never claim that an unknown or stationary
-    # target is moving, and no repeated alerts for the same in-range target.
+    # Motion-only filtering never claims that an unknown or stationary target
+    # is moving. Moving AIS and ADS-B targets repeat every five minutes only
+    # while fresh and within the configured detection range.
     assert monitor.speed_knots("adsb", {"gs": 35}) == 35
     assert monitor.speed_knots("adsb", {"gs": None}) is None
     assert monitor.speed_knots("ais", {"speed": 2.3}) == 2.3
@@ -102,23 +118,153 @@ def check():
         monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
                               ground_speed_knots=2.5)
         assert len(captured) == 1 and captured[0]["speed_knots"] == 2.5
+        assert captured[0]["kind"] == "nearby_detected" and not captured[0].get("repeat")
         for _ in range(15):
             monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
                                   ground_speed_knots=4.0)
-        assert len(captured) == 1, "One in-range session must alert only once"
-        monitor._target_event("ais", "knrm", "244123456", "Test", 23, motion_config,
+        assert len(captured) == 1, "AIS must not repeat before five minutes"
+        key = "ais:244123456"
+        monitor._recent[key] -= monitor.AIS_REPEAT_SECONDS - 1
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
                               ground_speed_knots=4.0)
-        assert "ais:244123456" not in monitor._announced
-        # With the switch off, stationary reports still work (old behavior).
+        assert len(captured) == 1, "AIS reminder was sent a second early"
+        monitor._recent[key] -= 2
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=4.0)
+        assert len(captured) == 2 and captured[-1].get("repeat") is True
+        assert captured[-1]["kind"] == captured[0]["kind"], "Existing MQTT automation kind changed"
+        # Stopped / unknown speed must not repeat, even after cooldown.
+        monitor._recent[key] -= monitor.AIS_REPEAT_SECONDS + 1
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=0.0)
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=None)
+        assert len(captured) == 2, "Stationary vessel repeated"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=4.0)
+        assert len(captured) == 2, "After stopping, require two moving samples"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 7, motion_config,
+                              ground_speed_knots=4.0)
+        assert len(captured) == 3 and captured[-1].get("repeat") is True
+        monitor._recent[key] -= monitor.AIS_REPEAT_SECONDS + 1
+        monitor._target_event("ais", "knrm", "244123456", "Test", 21, motion_config,
+                              ground_speed_knots=5.0)
+        assert len(captured) == 3, "Out-of-range vessel repeated"
+        monitor._target_event("ais", "knrm", "244123456", "Test", 23, motion_config,
+                              ground_speed_knots=5.0)
+        assert key not in monitor._announced
+        # Without motion-only, initial stationary detections are still allowed,
+        # but reminders are only for moving AIS vessels.
         monitor._presence.clear()
         monitor._announced.clear()
         monitor._recent.clear()
+        captured.clear()
         normal = monitor.validate({"motion_only": False, "radius_km": 20})
-        monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
+        for _ in range(2):
+            monitor._target_event("ais", "waterpolitie", "244987654", "Harbour police", 5, normal,
+                                  ground_speed_knots=0.0)
+        assert len(captured) == 1 and not captured[-1].get("repeat")
+        monitor._recent["ais:244987654"] -= monitor.AIS_REPEAT_SECONDS + 1
+        monitor._target_event("ais", "waterpolitie", "244987654", "Harbour police", 5, normal,
                               ground_speed_knots=0.0)
-        monitor._target_event("adsb", "lifeliner", "ABC123", "Lifeliner", 5, normal,
-                              ground_speed_knots=0.0)
-        assert len(captured) == 2
+        assert len(captured) == 1, "Stationary AIS re-notified with motion-only disabled"
+        monitor._target_event("ais", "waterpolitie", "244987654", "Harbour police", 5, normal,
+                              ground_speed_knots=2.2)
+        assert len(captured) == 2 and captured[-1].get("repeat") is True
+        # ADS-B: both Lifeliners and police helicopters use five-minute reminders.
+        for category, hex_id in (("lifeliner", "ABC123"), ("police_helicopter", "DEF456")):
+            monitor._presence.clear()
+            monitor._announced.clear()
+            monitor._recent.clear()
+            captured.clear()
+            key = "adsb:" + hex_id
+
+            def aircraft(speed, distance=5):
+                monitor._target_event("adsb", category, hex_id, category, distance, normal,
+                                      ground_speed_knots=speed)
+
+            # Existing initial detection works even when motion_only is off.
+            aircraft(0.0)
+            aircraft(0.0)
+            assert len(captured) == 1 and not captured[0].get("repeat"), category
+            assert captured[0]["kind"] == "nearby_detected"
+            monitor._recent[key] -= monitor.ADSB_REPEAT_SECONDS - 1
+            aircraft(50.0)
+            assert len(captured) == 1, "Early aircraft reminder: " + category
+            monitor._recent[key] -= 2
+            aircraft(29.9)
+            aircraft(None)
+            assert len(captured) == 1, "Stationary/unknown aircraft repeated: " + category
+            aircraft(30.0)
+            assert len(captured) == 2 and captured[-1].get("repeat") is True, category
+            assert captured[-1]["kind"] == captured[0]["kind"], "MQTT event kind changed"
+
+            monitor._recent[key] -= monitor.ADSB_REPEAT_SECONDS + 1
+            aircraft(60.0, distance=21)
+            assert len(captured) == 2, "Out-of-range aircraft repeated: " + category
+            aircraft(60.0, distance=23)
+            assert key not in monitor._announced, "Departed aircraft session not reset"
+
+            # motion_only must still suppress first alerts when aircraft are parked.
+            monitor._presence.clear()
+            monitor._announced.clear()
+            monitor._recent.clear()
+            captured.clear()
+
+            def moving_aircraft(speed):
+                monitor._target_event("adsb", category, hex_id, category, 5, motion_config,
+                                      ground_speed_knots=speed)
+
+            moving_aircraft(0.0)
+            moving_aircraft(None)
+            moving_aircraft(29.9)
+            assert not captured, "Parked aircraft alerted with motion_only on"
+            moving_aircraft(30.0)
+            assert not captured, "First moving sample cannot alert"
+            moving_aircraft(35.0)
+            assert len(captured) == 1 and not captured[-1].get("repeat"), category
+            monitor._recent[key] -= monitor.ADSB_REPEAT_SECONDS + 1
+            moving_aircraft(0.0)
+            moving_aircraft(None)
+            assert len(captured) == 1, "Stopped aircraft reminder occurred"
+            moving_aircraft(40.0)
+            assert len(captured) == 1, "Requires two new moving samples"
+            moving_aircraft(40.0)
+            assert len(captured) == 2 and captured[-1].get("repeat") is True
+
+        # All four category ranges affect first alert, MQTT radius and reminders.
+        category_limits = {
+            "lifeliner": ("adsb", "ABC123", 10, 40.0),
+            "police_helicopter": ("adsb", "DEF456", 20, 40.0),
+            "knrm": ("ais", "244123456", 15, 4.0),
+            "waterpolitie": ("ais", "244987654", 25, 4.0),
+        }
+        for name, (source, identity, limit, speed) in category_limits.items():
+            monitor._presence.clear()
+            monitor._announced.clear()
+            monitor._recent.clear()
+            captured.clear()
+            settings = monitor.validate({"radius_km": 50, "category_radius_km": {
+                category: values[2] for category, values in category_limits.items()
+            }})
+            for _ in range(2):
+                monitor._target_event(source, name, identity, name, limit + 0.1,
+                                      settings, ground_speed_knots=speed)
+            assert captured == [], "Outside individual category radius: " + name
+            for _ in range(2):
+                monitor._target_event(source, name, identity, name, limit - 0.1,
+                                      settings, ground_speed_knots=speed)
+            assert len(captured) == 1, "First category-specific detection: " + name
+            assert captured[0]["radius_km"] == limit, name
+            assert "within " + str(limit) + " km" in captured[0]["detail"], name
+            key = source + ":" + identity
+            monitor._recent[key] -= 301
+            monitor._target_event(source, name, identity, name, limit + 0.1,
+                                  settings, ground_speed_knots=speed)
+            assert len(captured) == 1, "Out-of-range category reminder: " + name
+            monitor._target_event(source, name, identity, name, limit - 0.1,
+                                  settings, ground_speed_knots=speed)
+            assert len(captured) == 2 and captured[-1].get("repeat") is True, name
     finally:
         monitor._store_event = old_writer
         monitor._presence.clear()
@@ -161,6 +307,15 @@ def check():
         assert len(monitor.map_highlights()["vessels"]) == 1, "Five-minute linger missing"
         monitor._map_recent["244123456"]["last_moving"] -= 301
         assert monitor.map_highlights()["vessels"] == [], "Expired ring still present"
+        moving_far = {**moving, "lon": 4.39}  # Several km from station.
+        cfg["category_radius_km"]["knrm"] = 2
+        ais_reader._read_ais_ships = lambda: ({"ships": [moving_far]}, "test")
+        assert monitor.map_highlights()["vessels"] == [], "Map ignored narrow category radius"
+        cfg["category_radius_km"]["knrm"] = 5
+        assert len(monitor.map_highlights()["vessels"]) == 1, "Map ignored wider category radius"
+        cfg["category_radius_km"]["knrm"] = 2
+        ais_reader._read_ais_ships = lambda: ({"ships": []}, "test")
+        assert monitor.map_highlights()["vessels"] == [], "Reduced category radius left stale ring"
         cfg["enabled"] = False
         assert monitor.map_highlights()["vessels"] == [], "Disabled monitor drew an AIS ring"
     finally:
@@ -177,15 +332,18 @@ def check():
     assert begin < panel < end, "Emergency Monitor must be INSIDE Advanced Maintenance"
     assert '<button class="tab-button" data-tab="em-monitor">' not in html
     assert "em-cat-p2000" not in html and "em-p2000-input" not in html
-    assert "static/js/emergency_monitor.js?v=0.67.8" in html
-    assert "static/css/emergency_monitor.css?v=0.67.7" in html
-    assert "static/js/radio_view.js?v=0.67.8" in html
+    assert "static/js/emergency_monitor.js?v=" in html
+    assert "static/css/emergency_monitor.css?v=" in html
+    assert "static/js/radio_view.js?v=" in html
     assert 'id="em-motion-only"' in html
+    for category in ("lifeliner", "police_helicopter", "knrm", "waterpolitie"):
+        assert 'id="em-range-' + category + '"' in html
 
     js = (ROOT / "dashboard/static/js/emergency_monitor.js").read_text(encoding="utf-8")
     assert "em-p2000-input" not in js and "em-cat-p2000" not in js
     assert 'motion_only: $("em-motion-only").checked' in js
     assert '["lifeliner", "police_helicopter", "knrm", "waterpolitie"]' in js
+    assert "category_radius_km: Object.fromEntries" in js
     backend = (ROOT / "core/emergency_monitor.py").read_text(encoding="utf-8")
     assert "p2000_input" not in backend
     assert 'client.subscribe(' not in backend
@@ -214,7 +372,7 @@ def check():
     assert "def map_highlights()" in backend
 
     assert 'event_bus.purge_legacy_emergency_p2000_events()' in backend
-    print("PASS: v0.67.8 Emergency Monitor — moving AIS overlays, motion filters and no P2000")
+    print("PASS: Emergency Monitor — category ranges, moving AIS/ADS-B reminders, radius-limited map and no P2000")
 
 
 if __name__ == "__main__":

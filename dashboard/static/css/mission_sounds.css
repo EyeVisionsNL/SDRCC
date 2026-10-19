@@ -6,3 +6,115 @@
 .mission-sounds-tab-toggle { align-self: flex-start; }
 .mission-sounds-test-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .mission-sounds-test-actions .control-button { flex: 0 1 auto; }
+
+/* v0.67.24 — full-width, compact Audio & UI sounds panel in System maintenance. */
+#tab-system .system-maintenance-body-v0540f > .mission-sounds-panel {
+  grid-column: 1 / -1;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  gap: 10px;
+}
+#tab-system .mission-sounds-panel .mission-sounds-heading {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+#tab-system .mission-sounds-panel .mission-sounds-heading > div { min-width: 0; }
+#tab-system .mission-sounds-panel .mission-sounds-volume {
+  margin: 0;
+  gap: 12px;
+}
+#tab-system .mission-sounds-panel .mission-sounds-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+  row-gap: 9px;
+}
+#tab-system .mission-sounds-panel .mission-sounds-options .mission-sounds-tab-toggle {
+  min-width: 0;
+  align-self: center;
+}
+#tab-system .mission-sounds-panel .mission-sounds-test-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  width: 100%;
+}
+#tab-system .mission-sounds-panel .mission-sounds-test-actions .control-button {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  text-align: left;
+}
+@media (max-width: 700px) {
+  #tab-system .mission-sounds-panel .mission-sounds-options,
+  #tab-system .mission-sounds-panel .mission-sounds-test-actions {
+    grid-template-columns: 1fr;
+  }
+  #tab-system .system-maintenance-body-v0540f > .mission-sounds-panel {
+    padding: 12px;
+  }
+}
+
+/* v0.68.0 — full-width Audio & UI sounds disclosure; hidden settings stay active. */
+#tab-system .system-maintenance-body-v0540f > .mission-sounds-panel {
+  display: block;
+  grid-column: 1 / -1;
+  padding: 0;
+  overflow: hidden;
+}
+#tab-system .mission-sounds-panel > .mission-sounds-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+#tab-system .mission-sounds-panel > .mission-sounds-summary::-webkit-details-marker {
+  display: none;
+}
+#tab-system .mission-sounds-panel > .mission-sounds-summary::after {
+  content: "▸";
+  color: #c4b5fd;
+  font-size: 1rem;
+  flex: 0 0 auto;
+  transition: transform .2s ease;
+}
+#tab-system .mission-sounds-panel[open] > .mission-sounds-summary::after {
+  transform: rotate(90deg);
+}
+#tab-system .mission-sounds-panel[open] > .mission-sounds-summary {
+  border-bottom: 1px solid rgba(167,139,250,.22);
+}
+#tab-system .mission-sounds-panel > .mission-sounds-summary:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: -2px;
+}
+#tab-system .mission-sounds-panel > .mission-sounds-content {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+/* Do not allow the author-level grid declaration to defeat <details> hiding. */
+#tab-system .mission-sounds-panel:not([open]) > .mission-sounds-content {
+  display: none;
+}
+#tab-system .mission-sounds-panel .mission-sounds-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#tab-system .mission-sounds-panel .mission-sounds-master-toggle {
+  width: fit-content;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  #tab-system .mission-sounds-panel > .mission-sounds-summary {
+    padding: 12px;
+  }
+  #tab-system .mission-sounds-panel > .mission-sounds-content {
+    padding: 12px;
+  }
+}

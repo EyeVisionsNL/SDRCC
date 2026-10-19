@@ -34,6 +34,19 @@ class EmergencyMonitorStatusTests(unittest.TestCase):
         self.assertEqual(result["radius_km"], 50)
         sync.assert_called_once_with(restart=False)
 
+    def test_category_radius_save_does_not_restart_monitor(self):
+        edited = deepcopy(self.old)
+        edited["category_radius_km"]["lifeliner"] = 10
+        edited["category_radius_km"]["knrm"] = 15
+        with patch.object(em, "settings", return_value=self.old), \
+             patch.object(em, "validate", return_value=edited), \
+             patch.object(em, "_atomic"), \
+             patch.object(em, "sync_worker") as sync, \
+             patch.object(em, "public_settings", return_value=edited):
+            result = em.save({"category_radius_km": {"lifeliner": 10, "knrm": 15}})
+        self.assertEqual(result["category_radius_km"]["lifeliner"], 10)
+        sync.assert_called_once_with(restart=False)
+
     def test_mqtt_change_still_restarts_connection(self):
         edited = deepcopy(self.old)
         edited["mqtt_host"] = "192.0.2.10"

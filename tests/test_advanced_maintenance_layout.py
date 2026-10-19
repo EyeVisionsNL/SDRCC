@@ -50,6 +50,25 @@ class AdvancedMaintenanceLayout(unittest.TestCase):
         self.assertIn("em-summary", self.html)
         self.assertIn('id="em-state"', self.html)
 
+    def test_optional_home_assistant_settings_are_collapsible(self):
+        tag, attrs = self.tags.elements["em-ha-disclosure"]
+        self.assertEqual(tag, "details")
+        self.assertNotIn("open", attrs)
+        self.assertIn(("details", "em-monitor"), self.tags.element_parent["em-ha-disclosure"])
+        self.assertIn(("form", "em-form"), self.tags.element_parent["em-ha-disclosure"])
+        self.assertIn('<summary class="em-ha-summary"><h4>Optional Home Assistant notifications</h4></summary>', self.html)
+        for element_id in ("em-ha", "em-mqtt-config", "em-host", "em-port",
+                           "em-user", "em-password", "em-tls", "em-test"):
+            self.assertIn(("details", "em-ha-disclosure"), self.tags.element_parent[element_id])
+        self.assertNotIn(("details", "em-ha-disclosure"), self.tags.element_parent["em-save"])
+        self.assertIn('id="em-test" class="control-button" type="button" hidden', self.html)
+        self.assertIn('id="em-mqtt-config" hidden', self.html)
+        self.assertIn("emergency_monitor.css?v=0.67.25", self.html)
+        self.assertIn(".em-ha-disclosure[open] > .em-ha-summary::after", self.css)
+        self.assertIn(".em-ha-summary:focus-visible", self.css)
+        self.assertIn(".em-ha-disclosure:not([open]) > .em-ha-content", self.css)
+        self.assertIn("em-ha-disclosure", self.html)
+
     def test_unused_autostart_test_card_is_absent(self):
         self.assertNotIn('data-action="disable_sdrcc_autostart"', self.html)
         self.assertNotIn('id="sdrcc-autostart-result"', self.html)
@@ -71,6 +90,60 @@ class AdvancedMaintenanceLayout(unittest.TestCase):
                      "home-position-form", "sdrcc-update-install",
                      "ais-autostart-result", "mission-sounds-enabled"):
             self.assertIn(name, self.tags.elements)
+
+    def test_category_radius_inputs_for_all_aircraft_and_vessel_categories(self):
+        for name in ("lifeliner", "police_helicopter", "knrm", "waterpolitie"):
+            tag, attrs = self.tags.elements["em-range-" + name]
+            self.assertEqual(tag, "input")
+            self.assertEqual(attrs.get("type"), "number")
+            self.assertEqual(attrs.get("min"), "1")
+            self.assertEqual(attrs.get("max"), "100")
+        self.assertIn("category_radius_km: Object.fromEntries", self.js)
+        self.assertIn(".em-category-radii", self.css)
+
+    def test_audio_ui_sounds_panel_is_full_width_and_compact(self):
+        self.assertIn('id="mission-sounds-title"', self.html)
+        self.assertIn("Audio &amp; UI sounds", self.html)
+        self.assertIn('mission-sounds-options', self.html)
+        self.assertIn("mission_sounds.css?v=0.68.0", self.html)
+        for name in ("mission-sounds-enabled", "mission-sounds-volume",
+                     "mission-tab-sounds-enabled", "mission-control-sounds-enabled",
+                     "mission-interface-clicks-enabled", "mission-startup-sound-enabled",
+                     "mission-sounds-test", "mission-tab-sounds-test",
+                     "mission-control-sounds-test-start", "mission-control-sounds-test-stop",
+                     "mission-interface-clicks-test", "mission-startup-sound-test"):
+            self.assertIn(name, self.tags.elements)
+
+        sound_css = (ROOT / "dashboard/static/css/mission_sounds.css").read_text(encoding="utf-8")
+        self.assertIn("#tab-system .system-maintenance-body-v0540f > .mission-sounds-panel {", sound_css)
+        self.assertIn("grid-column: 1 / -1;", sound_css)
+        self.assertIn(".mission-sounds-options {", sound_css)
+        self.assertIn(".mission-sounds-test-actions {", sound_css)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", sound_css)
+        self.assertIn("@media (max-width: 700px)", sound_css)
+        self.assertIn("grid-template-columns: 1fr;", sound_css)
+
+    def test_audio_ui_sounds_is_collapsible_and_controls_remain_functional(self):
+        tag, attrs = self.tags.elements["mission-sounds-panel"]
+        self.assertEqual(tag, "details")
+        self.assertNotIn("open", attrs)
+        self.assertIn(("details", None), self.tags.element_parent["mission-sounds-panel"])
+        self.assertIn('<summary class="mission-sounds-summary">', self.html)
+        for name in ("mission-sounds-enabled", "mission-sounds-volume",
+                     "mission-tab-sounds-enabled", "mission-control-sounds-enabled",
+                     "mission-interface-clicks-enabled", "mission-startup-sound-enabled",
+                     "mission-sounds-test", "mission-tab-sounds-test",
+                     "mission-control-sounds-test-start", "mission-control-sounds-test-stop",
+                     "mission-interface-clicks-test", "mission-startup-sound-test",
+                     "mission-sounds-status"):
+            self.assertIn(("details", "mission-sounds-panel"), self.tags.element_parent[name])
+        sound_css = (ROOT / "dashboard/static/css/mission_sounds.css").read_text(encoding="utf-8")
+        self.assertIn(".mission-sounds-panel:not([open]) > .mission-sounds-content", sound_css)
+        self.assertIn(".mission-sounds-panel[open] > .mission-sounds-summary::after", sound_css)
+        self.assertIn(".mission-sounds-summary:focus-visible", sound_css)
+        self.assertIn("grid-column: 1 / -1;", sound_css)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", sound_css)
+        self.assertIn("@media (max-width: 700px)", sound_css)
 
     def test_distinct_maintenance_identity_colors(self):
         for color in ("#38bdf8", "#a78bfa", "#f59e0b"):
