@@ -533,6 +533,6 @@ Development happens on the `develop` branch first. Changes are reviewed and vali
 
 ## License and attribution
 
-Copyright (C) 2026 EyeVisionsNL. The original SDRCC software source code is licensed under GNU GPL-3.0-only. See [LICENSE](LICENSE).
+Copyright (C) 2026 EyeVisionsNL. The SDRCC logo, project branding, and original project-created graphics are EyeVisionsNL assets. The original SDRCC software source code is licensed under GNU GPL-3.0-only; see [LICENSE](LICENSE).
 
-Photographs and other third-party materials retain their own rights and terms. Preserve photographer credits and source links. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Vessel photographs, third-party software, and external data remain subject to their respective terms. Preserve photographer credits and source links. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
