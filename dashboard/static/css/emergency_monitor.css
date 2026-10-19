@@ -275,4 +275,8 @@
   gap: 12px;
   padding: 0 14px 14px;
 }
+/* Explicitly hide contents even when an author-level grid rule overrides the UA. */
+#tab-system #em-monitor .em-ha-disclosure:not([open]) > .em-ha-content {
+  display: none;
+}
 #tab-system #em-monitor .em-ha-actions .control-button { width: auto; max-width: 100%; }
