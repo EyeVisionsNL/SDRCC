@@ -50,6 +50,24 @@ class AdvancedMaintenanceLayout(unittest.TestCase):
         self.assertIn("em-summary", self.html)
         self.assertIn('id="em-state"', self.html)
 
+    def test_optional_home_assistant_settings_are_collapsible(self):
+        tag, attrs = self.tags.elements["em-ha-disclosure"]
+        self.assertEqual(tag, "details")
+        self.assertNotIn("open", attrs)
+        self.assertIn(("details", "em-monitor"), self.tags.element_parent["em-ha-disclosure"])
+        self.assertIn(("form", "em-form"), self.tags.element_parent["em-ha-disclosure"])
+        self.assertIn('<summary class="em-ha-summary"><h4>Optional Home Assistant notifications</h4></summary>', self.html)
+        for element_id in ("em-ha", "em-mqtt-config", "em-host", "em-port",
+                           "em-user", "em-password", "em-tls", "em-test"):
+            self.assertIn(("details", "em-ha-disclosure"), self.tags.element_parent[element_id])
+        self.assertNotIn(("details", "em-ha-disclosure"), self.tags.element_parent["em-save"])
+        self.assertIn('id="em-test" class="control-button" type="button" hidden', self.html)
+        self.assertIn('id="em-mqtt-config" hidden', self.html)
+        self.assertIn("emergency_monitor.css?v=0.67.25", self.html)
+        self.assertIn(".em-ha-disclosure[open] > .em-ha-summary::after", self.css)
+        self.assertIn(".em-ha-summary:focus-visible", self.css)
+        self.assertIn("em-ha-disclosure", self.html)
+
     def test_unused_autostart_test_card_is_absent(self):
         self.assertNotIn('data-action="disable_sdrcc_autostart"', self.html)
         self.assertNotIn('id="sdrcc-autostart-result"', self.html)
