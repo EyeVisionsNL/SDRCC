@@ -530,3 +530,9 @@ Development happens on the `develop` branch first. Changes are reviewed and vali
   <strong>SDRCC — SDR Control Center</strong><br>
   Radio · AIS · ATIS · ADS-B · Satellites
 </p>
+
+## License and attribution
+
+Copyright (C) 2026 EyeVisionsNL. The original SDRCC software source code is licensed under GNU GPL-3.0-only. See [LICENSE](LICENSE).
+
+Photographs and other third-party materials retain their own rights and terms. Preserve photographer credits and source links. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
