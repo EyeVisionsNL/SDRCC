@@ -14,10 +14,15 @@
 
     function renderPosition(position) {
         if (!position) return;
-        byId("home-position-location").value = position.location || "Home";
-        byId("home-position-latitude").value = Number(position.latitude).toFixed(6);
-        byId("home-position-longitude").value = Number(position.longitude).toFixed(6);
-        byId("home-position-altitude").value = Number(position.altitude_m || 0).toFixed(1);
+        byId("home-position-station-name").value = position.name || "SDRCC";
+        byId("home-position-location").value = position.configured === false ? "" : (position.location || "Home");
+        byId("home-position-latitude").value = position.configured === false ? "" : Number(position.latitude).toFixed(6);
+        byId("home-position-longitude").value = position.configured === false ? "" : Number(position.longitude).toFixed(6);
+        byId("home-position-altitude").value = position.configured === false ? "0" : Number(position.altitude_m || 0).toFixed(1);
+        if (position.configured === false) {
+            setMessage("Home Position not configured. Enter your station location, coordinates and altitude, then Save.", "error");
+            return;
+        }
         setMessage(
             `Configured: ${position.location || "Home"} · ` +
             `${Number(position.latitude).toFixed(6)}, ${Number(position.longitude).toFixed(6)} · ` +
@@ -41,6 +46,7 @@
 
     function readForm() {
         return {
+            name: byId("home-position-station-name").value.trim() || "SDRCC",
             location: byId("home-position-location").value.trim() || "Home",
             latitude: Number(byId("home-position-latitude").value),
             longitude: Number(byId("home-position-longitude").value),

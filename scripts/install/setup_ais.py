@@ -181,6 +181,43 @@ def listener():
     return f'http://{local}:{port}/'
 
 
+def open_local_wizard(url):
+    """Best-effort browser launch as the original login user, never as root."""
+    login = os.environ.get('SUDO_USER', '')
+    if not login or login == 'root' or os.environ.get('SSH_CONNECTION') or os.environ.get('SSH_TTY'):
+        print('AIS wizard: open the address above in your browser (remote/server session).', flush=True)
+        return False
+    if not (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')):
+        print('AIS wizard: open the address above in your browser.', flush=True)
+        return False
+    if not shutil.which('xdg-open') or not shutil.which('runuser'):
+        print('AIS wizard: open the address above in your browser.', flush=True)
+        return False
+    try:
+        account = pwd.getpwnam(login)
+        env = dict(os.environ)
+        env['HOME'], env['USER'], env['LOGNAME'] = account.pw_dir, login, login
+        runtime = f'/run/user/{account.pw_uid}'
+        if Path(runtime).is_dir():
+            env['XDG_RUNTIME_DIR'] = runtime
+            if (Path(runtime) / 'bus').exists():
+                env['DBUS_SESSION_BUS_ADDRESS'] = f'unix:path={runtime}/bus'
+        else:
+            env.pop('XDG_RUNTIME_DIR', None)
+        subprocess.Popen(
+            ['runuser', '-u', login, '--', 'xdg-open', url],
+            env=env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        print(f'Opening the AIS-catcher wizard in the desktop browser: {url}', flush=True)
+        print('If it does not open, use the printed URL.', flush=True)
+        return True
+    except (OSError, KeyError, ValueError) as error:
+        print(f'Browser launch unavailable ({error}). Open {url} manually.', flush=True)
+        return False
+
+
 def wait_for_http(url):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     for _ in range(30):
@@ -226,6 +263,7 @@ def setup(non_interactive=False):
             run('systemctl', 'start', 'ais-catcher.service')
             url = listener()
             wait_for_http(url)
+            open_local_wizard(url)
             print('Complete the AIS-catcher wizard: choose one RTL-SDR, your password and desired outputs.\n'
                   'Use Save & Close. If necessary reopen Setup Wizard in the System panel.\n'
                   'Return here after saving. A skipped wizard or UNBOUND input is not completion.', flush=True)
