@@ -10,8 +10,8 @@ android {
         applicationId 'nl.eyevisions.sdrcc.mobile'
         minSdk 26
         targetSdk 34
-        versionCode 8
-        versionName '2.0.1'
+        versionCode 9
+        versionName '2.0.2'
     }
 
     compileOptions {
@@ -24,7 +24,7 @@ android {
             debuggable true
         }
         release {
-            // A release APK needs a private signing key; the public beta is debug only.
+            // The signed release workflow uses the protected Android key.
             minifyEnabled false
         }
     }
