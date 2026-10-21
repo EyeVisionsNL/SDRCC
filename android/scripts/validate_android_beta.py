@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -124,7 +125,6 @@ def validate() -> None:
         require(feed["version_name"] == "" and url == "",
                 "Unpublished Android app feed must have no download")
     else:
-        import re
         require(re.fullmatch(
             rf"https://github[.]com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v{code}/SDRCC-Mobile[.]apk",
             url) is not None and bool(feed["version_name"]),
@@ -141,12 +141,16 @@ def validate() -> None:
             'SDRCC Android  ·  BETA' not in java,
             "Stale hard-coded beta label found")
     gradle = (project / "build.gradle").read_text(encoding="utf-8")
-    require("versionName '2.0.0'" in gradle and
-            "versionCode 7" in gradle,
-            "Missing Android 2.0.0 version bump")
+    code_match = re.search(r"(?m)^\s*versionCode\s+(\d+)\s*$", gradle)
+    name_match = re.search(r"(?m)^\s*versionName\s+'([^']+)'\s*$", gradle)
+    requested_code = (ANDROID / "release-request.txt").read_text(
+        encoding="utf-8").strip()
+    require(code_match is not None and name_match is not None and
+            requested_code == code_match.group(1),
+            "Android release request must match Gradle versionCode")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")
-    require((REPO / "VERSION").read_text().strip() == "0.67.0",
+    require((REPO / "VERSION").read_text().strip() == "0.68.0",
             "SDRCC server VERSION was unexpectedly changed")
     print("PASS: SDRCC Android integration and address editing regression checks")
     print("Original logo, HTTP maps, JNI-free WebView, native dialogs and"

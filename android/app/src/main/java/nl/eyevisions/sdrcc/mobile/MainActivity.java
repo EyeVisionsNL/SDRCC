@@ -75,6 +75,7 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private View loadingCover;
     private TextView loadingText;
+    private TextView loadingIndicator;
     private Button retryButton;
     private Button changeHostButton;
     private Runnable loadTimeout;
@@ -364,19 +365,52 @@ public final class MainActivity extends Activity {
         LinearLayout overlay = new LinearLayout(this);
         overlay.setOrientation(LinearLayout.VERTICAL);
         overlay.setGravity(Gravity.CENTER);
-        overlay.setPadding(dp(28), dp(24), dp(28), dp(24));
+        overlay.setPadding(dp(24), dp(18), dp(24), dp(18));
         overlay.setBackgroundColor(BG);
 
         ImageView bigLogo = new ImageView(this);
         bigLogo.setImageResource(R.drawable.sdrcc_logo);
-        overlay.addView(bigLogo, new LinearLayout.LayoutParams(dp(90), dp(90)));
-        TextView brand = text("SDRCC MOBILE", 19, ACCENT);
-        brand.setPadding(0, dp(12), 0, dp(6));
+        bigLogo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        bigLogo.setContentDescription("SDRCC Mobile");
+        bigLogo.setPadding(dp(8), dp(8), dp(8), dp(8));
+        bigLogo.setBackground(surface(0xFF10232D, 0xFF28665E, 18));
+        overlay.addView(bigLogo, new LinearLayout.LayoutParams(dp(122), dp(122)));
+        TextView brand = text("SDRCC MOBILE", 21, ACCENT);
+        brand.setTypeface(null, android.graphics.Typeface.BOLD);
+        brand.setLetterSpacing(.09f);
+        brand.setPadding(0, dp(12), 0, dp(2));
         overlay.addView(brand);
-        overlay.addView(new RadarView(this), new LinearLayout.LayoutParams(dp(140), dp(140)));
+        TextView stationCaption = text("VERBINDEN MET JE SDRCC-STATION", 10, MUTED);
+        stationCaption.setLetterSpacing(.08f);
+        stationCaption.setPadding(0, 0, 0, dp(3));
+        overlay.addView(stationCaption);
+        overlay.addView(new RadarView(this), new LinearLayout.LayoutParams(dp(202), dp(202)));
+
+        LinearLayout statusPanel = new LinearLayout(this);
+        statusPanel.setOrientation(LinearLayout.HORIZONTAL);
+        statusPanel.setGravity(Gravity.CENTER_VERTICAL);
+        statusPanel.setPadding(dp(14), dp(11), dp(14), dp(11));
+        statusPanel.setBackground(surface(0xCC10232D, 0xFF244C4D, 14));
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        statusParams.topMargin = dp(8);
+        overlay.addView(statusPanel, statusParams);
+
+        loadingIndicator = text("●", 10, ACCENT);
+        loadingIndicator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams indicatorParams = new LinearLayout.LayoutParams(
+                dp(18), ViewGroup.LayoutParams.WRAP_CONTENT);
+        indicatorParams.rightMargin = dp(8);
+        statusPanel.addView(loadingIndicator, indicatorParams);
         loadingText = text("Verbinden met " + currentHost + "…", 14, MUTED);
-        loadingText.setPadding(0, dp(12), 0, dp(12));
-        overlay.addView(loadingText);
+        loadingText.setGravity(Gravity.CENTER);
+        statusPanel.addView(loadingText, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView networkHint = text("Wifi of privé-VPN  ·  poort " + currentPort,
+                12, MUTED);
+        networkHint.setPadding(0, dp(8), 0, dp(2));
+        overlay.addView(networkHint);
 
         retryButton = button("↻ Opnieuw proberen");
         retryButton.setVisibility(View.GONE);
@@ -389,12 +423,21 @@ public final class MainActivity extends Activity {
         // Do not hide this button while the native radar connection screen is open.
         changeHostButton.setVisibility(View.VISIBLE);
         LinearLayout.LayoutParams changeParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
-        changeParams.topMargin = dp(10);
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(54));
+        changeParams.topMargin = dp(8);
         overlay.addView(changeHostButton, changeParams);
+        changeHostButton.setTextSize(16);
+        changeHostButton.setBackground(surface(0xFF173C41, 0xFF54A28D, 12));
 
-        loadingCover = overlay;
-        browserContainer.addView(overlay, new FrameLayout.LayoutParams(
+        ScrollView overlayScroll = new ScrollView(this);
+        overlayScroll.setFillViewport(true);
+        overlayScroll.setVerticalScrollBarEnabled(false);
+        overlayScroll.setBackgroundColor(BG);
+        overlayScroll.addView(overlay, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        loadingCover = overlayScroll;
+        browserContainer.addView(overlayScroll, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(outer);
 
@@ -415,6 +458,9 @@ public final class MainActivity extends Activity {
         loadingCover.setVisibility(View.VISIBLE);
         retryButton.setVisibility(View.GONE);
         changeHostButton.setVisibility(View.VISIBLE);
+        if (loadingIndicator != null) {
+            loadingIndicator.setTextColor(ACCENT);
+        }
         loadingText.setText("Verbinden met " + currentHost + "…");
         clearConnectionTimeout();
         loadTimeout = () -> {
@@ -446,6 +492,9 @@ public final class MainActivity extends Activity {
         loadingCover.setVisibility(View.VISIBLE);
         connectionErrorDetails = text;
         loadingText.setText(text);
+        if (loadingIndicator != null) {
+            loadingIndicator.setTextColor(0xFFF4ACA2);
+        }
         retryButton.setVisibility(View.VISIBLE);
         changeHostButton.setVisibility(View.VISIBLE);
     }
