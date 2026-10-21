@@ -280,43 +280,30 @@ for svc in readsb.service ais-catcher.service ais-catcher-control.service sdrcc-
   sudo systemctl disable "$svc" >/dev/null 2>&1 || true
 done
 
-say "Station configuration (independent of receiver presence)"
-if ((NON_INTERACTIVE)); then
-  : "${SDRCC_LOCATION:?Set SDRCC_LOCATION}"
-  : "${SDRCC_LATITUDE:?Set SDRCC_LATITUDE}"
-  : "${SDRCC_LONGITUDE:?Set SDRCC_LONGITUDE}"
-  STATION_NAME="${SDRCC_STATION_NAME:-SDRCC}"
-  LOCATION="$SDRCC_LOCATION"; LATITUDE="$SDRCC_LATITUDE"; LONGITUDE="$SDRCC_LONGITUDE"
-  ALTITUDE="${SDRCC_ALTITUDE_M:-0}"
-else
-  echo "The following five values configure this ground station."
-  echo "Latitude, longitude and altitude are used for satellite pass planning, Radio View and Doppler correction."
-  echo "Use decimal degrees with a dot, for example 51.908401 and 4.351168."
-  while true; do
-    read -r -p "1/5 Station name (saved identifier) [SDRCC]: " STATION_NAME
-    STATION_NAME="${STATION_NAME:-SDRCC}"
-    read -r -p "2/5 Location or city (shown in Home Position): " LOCATION
-    read -r -p "3/5 Latitude (-90 to 90, decimal degrees): " LATITUDE
-    read -r -p "4/5 Longitude (-180 to 180, decimal degrees): " LONGITUDE
-    read -r -p "5/5 Altitude above sea level in metres [0]: " ALTITUDE
-    ALTITUDE="${ALTITUDE:-0}"
-    echo
-    echo "Station settings to save:"
-    echo "  Name      : $STATION_NAME"
-    echo "  Location  : $LOCATION"
-    echo "  Latitude  : $LATITUDE"
-    echo "  Longitude : $LONGITUDE"
-    echo "  Altitude  : $ALTITUDE m ASL"
-    read -r -p "Save these station settings? [Y/n] " CONFIRM_STATION
-    [[ ! "$CONFIRM_STATION" =~ ^[Nn]$ ]] && break
-    echo "Re-enter the station settings."
-  done
-fi
+say "Station setup"
+# Fresh installs do not treat the repository's sample coordinates as real.
+# Advanced unattended installs may explicitly provide all coordinates.
+STATION_NAME="${SDRCC_STATION_NAME:-SDRCC}"
+POSITION_VARS_SET=0
+for key in SDRCC_LOCATION SDRCC_LATITUDE SDRCC_LONGITUDE SDRCC_ALTITUDE_M; do
+  [[ -z "${!key:-}" ]] || POSITION_VARS_SET=1
+done
 say "Initialise external service configs"
 sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/initialize_external.py"
-"$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
-  --station-name "$STATION_NAME" --location "$LOCATION" \
-  --latitude "$LATITUDE" --longitude "$LONGITUDE" --altitude-m "$ALTITUDE" --apply
+if ((POSITION_VARS_SET)); then
+  : "${SDRCC_LOCATION:?Set SDRCC_LOCATION when providing explicit coordinates}"
+  : "${SDRCC_LATITUDE:?Set SDRCC_LATITUDE when providing explicit coordinates}"
+  : "${SDRCC_LONGITUDE:?Set SDRCC_LONGITUDE when providing explicit coordinates}"
+  "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
+    --station-name "$STATION_NAME" --location "$SDRCC_LOCATION" \
+    --latitude "$SDRCC_LATITUDE" --longitude "$SDRCC_LONGITUDE" \
+    --altitude-m "${SDRCC_ALTITUDE_M:-0}" --apply
+else
+  "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
+    --station-name "$STATION_NAME" --defer --apply
+  echo "HOME POSITION NOT SET: open SDRCC -> System -> Advanced Maintenance -> Home Position."
+  echo "Satellite passes, scheduler AUTO and station-relative positioning wait until a real location is saved."
+fi
 
 say "Detect receivers"
 "$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" || true

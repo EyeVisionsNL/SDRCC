@@ -341,18 +341,26 @@ def normalize_home_position(payload):
     }
 
 
+def home_position_configured():
+    """Legacy installations without this marker remain configured."""
+    station = (load_station() or {}).get("station", {})
+    return isinstance(station, dict) and station.get("position_configured", True) is not False
+
+
 def get_home_position():
-    """Return the station location used by planning, Radio View and Doppler."""
+    """Return configured status and the current location for Maintenance."""
     data = load_station() or {}
     station = data.get("station", {})
     if not isinstance(station, dict):
         raise ValueError("station must be a YAML mapping")
-    return normalize_home_position({
+    position = normalize_home_position({
         "location": station.get("location") or "Home",
         "latitude": station.get("latitude"),
         "longitude": station.get("longitude"),
         "altitude_m": station.get("altitude_m", 0.0),
     })
+    return {**position, "name": str(station.get("name") or "SDRCC"),
+            "configured": home_position_configured()}
 
 
 def _sync_readsb_home_position(position):
@@ -392,10 +400,15 @@ def set_home_position(payload):
     if not isinstance(station, dict):
         raise ValueError("station must be a YAML mapping")
 
+    name = str(payload.get("name", station.get("name") or "SDRCC")).strip()
+    if not name or len(name) > 80:
+        raise ValueError("Station name must be between 1 and 80 characters")
+    station["name"] = name
     station["location"] = position["location"]
     station["latitude"] = position["latitude"]
     station["longitude"] = position["longitude"]
     station["altitude_m"] = position["altitude_m"]
+    station["position_configured"] = True
 
     save_station(data)
     try:
@@ -404,7 +417,7 @@ def set_home_position(payload):
         save_station(previous)
         raise
 
-    return position
+    return {**position, "name": name, "configured": True}
 
 
 def save_station(data):
