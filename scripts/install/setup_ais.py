@@ -187,7 +187,9 @@ def open_local_wizard(url):
     if not login or login == 'root' or os.environ.get('SSH_CONNECTION') or os.environ.get('SSH_TTY'):
         print('AIS wizard: open the address above in your browser (remote/server session).', flush=True)
         return False
-    if not (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')):
+    display = os.environ.get('SDRCC_SETUP_DISPLAY') or os.environ.get('DISPLAY')
+    wayland = os.environ.get('SDRCC_SETUP_WAYLAND') or os.environ.get('WAYLAND_DISPLAY')
+    if not (display or wayland):
         print('AIS wizard: open the address above in your browser.', flush=True)
         return False
     if not shutil.which('xdg-open') or not shutil.which('runuser'):
@@ -197,6 +199,13 @@ def open_local_wizard(url):
         account = pwd.getpwnam(login)
         env = dict(os.environ)
         env['HOME'], env['USER'], env['LOGNAME'] = account.pw_dir, login, login
+        if display:
+            env['DISPLAY'] = display
+        if wayland:
+            env['WAYLAND_DISPLAY'] = wayland
+        xauth = os.environ.get('SDRCC_SETUP_XAUTHORITY') or os.environ.get('XAUTHORITY')
+        if xauth:
+            env['XAUTHORITY'] = xauth
         runtime = f'/run/user/{account.pw_uid}'
         if Path(runtime).is_dir():
             env['XDG_RUNTIME_DIR'] = runtime

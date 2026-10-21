@@ -107,6 +107,22 @@ def main():
                 "no browser opened as root or without desktop")
     require("open_local_wizard(url)" in (ROOT / "scripts/install/setup_ais.py").read_text(),
             "upstream AIS-catcher wizard auto-open path present")
+    with mock.patch.dict("os.environ", {
+        "SUDO_USER": "tester", "SDRCC_SETUP_DISPLAY": ":0",
+        "SDRCC_SETUP_XAUTHORITY": "/home/tester/.Xauthority",
+    }, clear=True):
+        with mock.patch.object(ais.shutil, "which", return_value="/usr/bin/xdg-open"), \
+             mock.patch.object(ais.pwd, "getpwnam", return_value=SimpleNamespace(
+                 pw_dir="/home/tester", pw_uid=1000)), \
+             mock.patch.object(ais.subprocess, "Popen") as opened:
+            require(ais.open_local_wizard("http://127.0.0.1:8118/") is True,
+                    "desktop wizard attempts to open as the normal user")
+            command = opened.call_args.args[0]
+            environment = opened.call_args.kwargs["env"]
+            require(command[:4] == ["runuser", "-u", "tester", "--"] and
+                    environment["DISPLAY"] == ":0" and
+                    environment["XAUTHORITY"] == "/home/tester/.Xauthority",
+                    "display and Xauthority survive sudo without opening as root")
 
     manifest = json.loads((ROOT / "scripts/install/update_manifest.json").read_text())
     require("install.sh" in manifest and "core/config.py" in manifest,

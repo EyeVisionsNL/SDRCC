@@ -45,6 +45,14 @@ show_rtlsdr_choices(){
   echo "Choose the intended RTL-SDR serial in the AIS-catcher wizard below."
 }
 need_sudo(){ sudo -v; }
+run_ais_wizard(){
+  # Pass only desktop display hints across sudo; launch the local browser as
+  # the normal login user from setup_ais.py. Headless mode prints the URL.
+  sudo env SDRCC_SETUP_DISPLAY="${DISPLAY:-}" \
+    SDRCC_SETUP_WAYLAND="${WAYLAND_DISPLAY:-}" \
+    SDRCC_SETUP_XAUTHORITY="${XAUTHORITY:-}" \
+    "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" "$@"
+}
 receipt_set(){ printf '%s=%s\n' "$1" "$2" | sudo tee -a "$INSTALL_RECEIPT" >/dev/null; }
 receipt_value(){
   [[ -r "$INSTALL_RECEIPT" ]] || return 0
@@ -66,7 +74,7 @@ if ((AIS_SETUP_ONLY)); then
   [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" ]] || { echo "FAIL: install SDRCC before resuming AIS setup."; exit 2; }
   need_sudo
   show_rtlsdr_choices
-  sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py"
+  run_ais_wizard
   sudo systemctl enable --now sdrcc.service
   HTTP=000
   for attempt in {1..60}; do
@@ -325,7 +333,7 @@ say "Final AIS-catcher setup"
 show_rtlsdr_choices
 ais_setup_args=()
 ((NON_INTERACTIVE)) && ais_setup_args+=(--non-interactive)
-sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" "${ais_setup_args[@]}"
+run_ais_wizard "${ais_setup_args[@]}"
 
 # setup_ais.py temporarily stops SDRCC while the AIS configuration page owns
 # the receiver. It restores SDRCC afterwards when it was already running.
