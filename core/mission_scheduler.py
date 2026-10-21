@@ -8,7 +8,7 @@ import json
 
 from core import event_bus
 from core import mission_planner
-from core.config import get_scheduler_config
+from core.config import get_scheduler_config, home_position_configured
 
 
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
@@ -253,6 +253,8 @@ class MissionScheduler:
             raise ValueError(
                 f"Onbekende scheduler-modus: {mode}"
             )
+        if mode == "AUTO" and not home_position_configured():
+            raise ValueError("Set Home Position in Advanced Maintenance before enabling AUTO.")
 
         with self._lock:
             state = _load_state()

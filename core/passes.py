@@ -11,13 +11,15 @@ from zoneinfo import ZoneInfo
 from skyfield.api import EarthSatellite, load, wgs84
 
 from core import tle, weather_planning
-from core.config import get_enabled_satellites, load_station
+from core.config import get_enabled_satellites, load_station, home_position_configured
 
 TLE_FILE = Path(__file__).resolve().parent.parent / "data" / "tle" / "weather.tle"
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 
 
 def _load_station_location():
+    if not home_position_configured():
+        raise ValueError("Home Position not configured. Set it in Advanced Maintenance.")
     cfg = load_station()
     station = cfg.get("station", {})
     return wgs84.latlon(
@@ -131,6 +133,8 @@ def predict_satellite_passes(
 
 
 def get_passes(hours_ahead: int = 48) -> list[dict[str, Any]]:
+    if not home_position_configured():
+        return []
     station_location = _load_station_location()
     enabled = get_enabled_satellites()
     try:

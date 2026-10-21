@@ -12,6 +12,7 @@ from skyfield.api import load
 
 from core import passes as pass_prediction
 from core import tle, weather_planning
+from core.config import home_position_configured
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_FILE = ROOT / "config" / "iss_voice.yaml"
@@ -73,6 +74,8 @@ def get_status() -> dict[str, Any]:
 
 
 def get_passes(hours_ahead: int = 48) -> list[dict[str, Any]]:
+    if not home_position_configured():
+        return []
     config = _read_config()
     if not bool(config.get("enabled", False)) or not bool(config.get("planner_enabled", False)):
         return []
