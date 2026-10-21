@@ -1,40 +1,21 @@
-# 🔌 Your first reception
+# 🔌 First steps
 
-## 1. Check System
+## 1. Assign receivers
 
-Open **System** and check service status and detected receiver hardware. A configured slot is a logical role; it does not mean a particular USB socket.
+Under **System → Receiver hardware + bindings**, assign detected device serial numbers to **SDR1 / SDR2**, or select **None** for unused slots. USB indexes can change; serial numbers identify the SDR.
 
-## 2. Bind the receivers
+![Receiver bindings](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/system-services.webp)
 
-Under **System → Receiver hardware + bindings**, assign the detected receiver serials to **SDR1 / SDR2**. Use **None** for an unused slot. Check the physical serial before assigning a receiver: USB indexes can change after reconnecting or restarting.
+## 2. Check their jobs
 
-![Services and receiver bindings](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/images/system-services.webp)
+Open **Radio Control**. Verify which receiver is assigned to AIS, ADS-B or temporary listening. Receiver Manager manages handovers between services.
 
-## 3. Check the role assignments
+![Radio Control](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/radio-control.webp)
 
-Open **Radio Control** to inspect receiver assignments and RF settings. Decide which receiver should provide AIS, ADS-B or a temporary listening task. A receiver already doing another job may need to be handed over by Receiver Manager.
+## 3. Test reception
 
-![Radio Control](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/images/radio-control.webp)
+Start **one service** and confirm its status. For voice, click the audio control and check browser permission, tab volume and speakers. Add the next task after the first works.
 
-## 4. Test one task first
+**Explore:** [[Marine and ATIS]] · [[Radio and aircraft]] · [[Satellite missions]] · [[Android companion]]
 
-Start the reception service you want to test and confirm its status. For Marine listening, continue with [[Marine and ATIS]]. For aircraft or general listening, use [[Radio and aircraft]]. Once one task works, add the next service and check that its receiver is available.
-
-## 5. Allow browser audio
-
-Start listening using the page's audio controls. If the browser blocks playback, allow audio for the SDRCC site and check the tab and system volume. A running receiver and audible browser playback are separate checks.
-
-## Know where to look
-
-| Page | Purpose |
-| --- | --- |
-| System | Health, hardware, bindings and maintenance |
-| Radio Control | Assignments, receiver status and RF settings |
-| Radio View | Aircraft, vessels and satellite overview |
-| Traffic Voice | Marine or Airband listening and correlations |
-| Radio Receiver | Direct tuning, spectrum and waterfall |
-| Mission Planner / Control | Pass planning and scheduled reception |
-| Mission Operations / History / Analytics | Results and reception quality |
-| Logs | Details when a task does not work as expected |
-
-[[Home]] · [[Updates and troubleshooting]]
+For missing signals, see [[Updates and troubleshooting]].

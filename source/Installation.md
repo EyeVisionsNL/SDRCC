@@ -1,15 +1,10 @@
 # 🔧 Install SDRCC
 
-## Before you start
+**Requirements:** Ubuntu Linux x86-64, internet access and suitable RTL-SDR hardware. A Raspberry Pi is not the reference platform for full SDRCC.
 
-Use an **Ubuntu Linux x86-64 computer** with an internet connection for installation. Ubuntu Desktop is the main development and test environment; Ubuntu Server can also be used with a remote browser. The full SDRCC workload is intended for an x86-64 PC. Raspberry Pi is not the reference platform for this project.
+## 1. Install
 
-Connect suitable RTL-SDR receivers and antennas for the signals you want to receive. Hardware bindings can also be configured after installation.
-
-## 1. Open Terminal
-
-For a fresh installation, run:
-
+Open a terminal as your normal Ubuntu user:
 
 ```bash
 sudo apt-get update
@@ -19,32 +14,18 @@ cd ~/SDRCC
 ./install.sh
 ```
 
-Run **./install.sh as your normal Ubuntu user**. The installer requests elevated privileges when needed.
+Do **not** use `sudo ./install.sh`: the installer asks for permissions when needed.
 
-## 2. Complete the installer
+## 2. Configure
 
-Enter the station name, location, latitude, longitude and altitude when asked. Use your own station values: satellite pass calculations depend on them. Follow the AIS-catcher setup prompts, or defer receiver configuration until the hardware is connected.
+Enter your station name, coordinates and altitude. Follow the AIS-catcher prompts. Receivers can be connected and assigned later.
 
 ## 3. Open the dashboard
 
-On the SDRCC computer, open **http://localhost:8080**. From another computer on the same trusted network, replace localhost with the SDRCC computer's IP address, for example **http://192.168.1.50:8080**. This address is an example.
+Visit `http://localhost:8080` on the SDRCC computer, or use its IP address on your trusted network. Open **System**.
 
-Open **System** and continue with [[First steps]].
+![SDRCC System dashboard](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/system.webp)
 
-![System dashboard](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/images/system.webp)
+**AIS setup later?** Stop active missions and Radio Receiver, then run `~/SDRCC/install.sh --ais-setup`. For existing stations, update with **System → Advanced Maintenance**.
 
-## Set up AIS later
-
-Stop active missions and Radio Receiver sessions, then run:
-
-
-```bash
-cd ~/SDRCC
-./install.sh --ais-setup
-```
-
-## Already installed?
-
-Use **System → Advanced Maintenance** for managed updates. See [[Updates and troubleshooting]].
-
-[[Home]] · Next: [[First steps]]
+Next: [[First steps]].
