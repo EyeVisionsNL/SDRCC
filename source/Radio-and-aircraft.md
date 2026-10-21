@@ -1,26 +1,21 @@
-# 📻 Radio and aircraft
+# 📻 Radio & aircraft
 
-## Radio Receiver: tune directly
+## Tune a receiver
 
-1. Open **Radio Receiver** and check that a receiver can be allocated.
-2. Select a preset or enter the wanted frequency.
-3. Select the appropriate demodulation mode. SDRCC supports **LSB, USB, CW, AM, NFM, FM and WFM**.
-4. Start reception and enable audio playback.
-5. Use the spectrum/waterfall and click-to-tune controls to inspect the signal. Adjust tuning steps, gain and RF-power squelch as needed.
-6. Stop the Radio Receiver when finished so Receiver Manager can release it and restore its previous role.
+Open **Radio Receiver**, select an available SDR, then choose a preset or frequency. Supported modes: **LSB, USB, CW, AM, NFM, FM and WFM**.
 
-![Radio Receiver](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/images/radio-receiver.webp)
+Start listening in the browser. Use the spectrum and waterfall to tune, and adjust gain and squelch. **Stop the receiver** when finished so Receiver Manager can restore its previous task.
 
-## Airband Voice and ADS-B
+![Radio Receiver](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/radio-receiver.webp)
 
-Open **Traffic Voice** and select **Airband Voice + ADS-B** for aviation listening. Choose the channels to scan or listen on a fixed channel. Airband audio preferences are separate from Marine settings.
+## Airband and ADS-B
 
-ADS-B provides aircraft data; Airband Voice provides radio audio. Check both reception paths independently when one works and the other does not. Use **Radio View** for the combined overview and the aircraft map for aircraft details.
+Open **Traffic Voice → Airband Voice + ADS-B**. Choose one channel or scan several frequencies.
 
-![Airband Traffic Voice](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/images/traffic-airband.webp)
+**Airband Voice is radio audio. ADS-B is aircraft tracking.** Check both reception paths independently if something is missing.
 
-## If a receiver is busy
+![Airband Traffic Voice](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/traffic-airband.webp)
 
-Check **Radio Control**, Traffic Voice, Radio Receiver and active missions. Receiver Manager coordinates access to a physical dongle: multiple logical roles do not create extra receivers. Stop the task you no longer need through its normal controls, then retry.
+**Receiver busy?** Inspect Radio Control, active voice sessions and Mission Control. Release the conflicting task with its normal controls.
 
-[[Home]] · [[First steps]] · [[Updates and troubleshooting]]
+See [[Updates and troubleshooting]].

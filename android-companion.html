@@ -1,65 +1,16 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Connect your phone and take the view from your station with you. SDRCC documentation and practical guides."><meta name="theme-color" content="#0f172a"><title>Android app · SDRCC Guide</title><link rel="icon" href="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/sdrcc.png"><link rel="stylesheet" href="style.css?v=20261017c"><script src="app.js?v=20261017c" defer></script></head><body><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="index.html"><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/sdrcc.png" alt=""> <span>SDRCC<small>THE FIELD GUIDE</small></span></a><div class="top-links"><a href="https://github.com/EyeVisionsNL/SDRCC">GitHub ↗</a><a href="android-companion.html">Android app</a><span class="pill">● &nbsp; LISTEN · DECODE · EXPLORE</span><button class="menu" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">☰</button></div></header><div class="layout"><aside class="sidebar" id="sidebar"><div class="eyebrow">STATION HANDBOOK</div><div class="search"><label for="search" class="eyebrow">Find a guide</label><input id="search" type="search" placeholder="Search AIS, Android, updates…" autocomplete="off"><div class="search-results" aria-live="polite"></div></div><nav aria-label="Guides"><a href="index.html"><span>00</span> &nbsp; Start here</a><a href="installation.html"><span>01</span> &nbsp; Installation</a><a href="first-steps.html"><span>02</span> &nbsp; First steps</a><a href="marine-and-atis.html"><span>03</span> &nbsp; Marine &amp; ATIS</a><a href="radio-and-aircraft.html"><span>04</span> &nbsp; Radio &amp; aircraft</a><a href="satellite-missions.html"><span>05</span> &nbsp; Satellite missions</a><a href="android-companion.html" aria-current="page"><span>06</span> &nbsp; Android app</a><a href="updates-and-troubleshooting.html"><span>07</span> &nbsp; Updates &amp; help</a></nav><div class="side-note">Radio · AIS · ATIS · ADS-B<br>Satellites · Android<br><br>Made for curious listeners.<br><a href="https://github.com/EyeVisionsNL/SDRCC/discussions">Questions & ideas ↗</a><br><a href="https://github.com/EyeVisionsNL/SDRCC/wiki">Original GitHub Wiki ↗</a></div></aside><main class="content" id="main"><div class="crumb">SDRCC / Documentation / Android app</div><section class="hero"><div class="hero-media"><img class="hero-image" src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/banners/marine-panorama.webp" alt="SDRCC marine panorama"><div class="radar" aria-hidden="true"><div class="sweep"></div><i></i><i></i><i></i></div></div><div class="hero-copy"><div class="eyebrow">THE SDRCC GUIDE / ANDROID APP</div><h1>Your station. In your pocket.</h1><p>Connect your phone and take the view from your station with you.</p></div></section><div class="article-wrap"><article class="article"><p>SDRCC Mobile connects to the SDRCC computer already running your receivers. The computer stays switched on; the phone provides remote viewing, listening and selected controls.</p>
-<h2 id="1-install-the-official-app">1. Install the official app</h2>
-<ol>
-<li>Use <strong>Android 8.0 or later</strong>.</li>
-<li>Download the <a href="https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v7/SDRCC-Mobile.apk">official signed SDRCC Mobile v2.0.0 APK</a>.</li>
-<li>Open the download. Allow installation from your browser if Android asks, then tap <strong>Install</strong>.</li>
-<li>Open SDRCC Mobile. Enter your SDRCC computer's address, such as <strong>192.168.1.50:8080</strong> (example), and tap <strong>Verbinden met SDRCC</strong>.</li>
-</ol>
-<p>Use the same trusted Wi-Fi network as the computer, or a private Tailscale connection. To correct a saved address, choose <strong>IP-adres wijzigen</strong>, then <strong>Adres bewerken</strong> or <strong>Wissen</strong>.</p>
-<p><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-startup.webp" alt="Station connection screen" width="260"></p>
-<h2 id="2-enable-the-ais-map-plugins">2. Enable the AIS map plugins</h2>
-<ol>
-<li>Open <strong>Marine</strong>.</li>
-<li>Start Marine Voice and/or AIS as needed; they have independent controls.</li>
-<li>Open the AIS map's <strong>plugin selector</strong>.</li>
-<li>Enable <strong>VTS sector</strong> and <strong>SDRCC ATIS</strong>, where installed.</li>
-<li>A validated ATIS/AIS match highlights the vessel. Tap it for details: the map does not automatically move or re-center.</li>
-</ol>
-<p><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-marine-control.webp" alt="Marine controls" width="240"> <img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-ais-map.webp" alt="AIS map and VTS sectors" width="240"> <img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-atis-photo.webp" alt="ATIS match and vessel photograph" width="240"></p>
-<h2 id="3-check-map-connections">3. Check map connections</h2>
-<p>Open <strong>System → Settings → Map Connections</strong>. If all services run on the same computer with standard ports, use:</p>
-<table>
-<thead>
-<tr>
-<th>Connection</th>
-<th>Example</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>SDRCC</td>
-<td>http://192.168.1.50:8080</td>
-</tr>
-<tr>
-<td>AIS-Catcher Map URL</td>
-<td>http://192.168.1.50:8119/</td>
-</tr>
-<tr>
-<td>ADS-B Map URL</td>
-<td>http://192.168.1.50/tar1090/</td>
-</tr>
-</tbody>
-</table>
-<p>Replace the example IP with your own computer's reachable address. If a map runs on a different computer, use that computer's address. Choose <strong>Save Map Addresses</strong>.</p>
-<h2 id="4-connect-away-from-home">4. Connect away from home</h2>
-<p>Connect the SDRCC computer and Android phone to the same private Tailscale network. In SDRCC Mobile, use the <strong>computer's Tailscale IP</strong>, not the phone's IP. Change map addresses to reachable Tailscale addresses too if required.</p>
-<p>Keep Tailscale connected on both devices. Test using mobile data with Wi-Fi switched off. The <a href="https://github.com/EyeVisionsNL/SDRCC/blob/main/android/README.md">detailed Android and Tailscale guide</a> contains the full setup steps. No public router port forwarding is needed for this setup.</p>
-<h2 id="5-replay-recordings-and-use-the-other-tabs">5. Replay recordings and use the other tabs</h2>
-<p>Replay or save recent Marine recordings while live reception continues. The aircraft tab provides ADS-B controls and the aircraft map. Satellite pages show positions, upcoming missions and received images, with selected mission controls. System shows service status and usage.</p>
-<p><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-recordings.webp" alt="Marine recordings" width="240"> <img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-settings.webp" alt="Mobile settings" width="240"></p>
-<h2 id="6-update-the-android-app">6. Update the Android app</h2>
-<p>Tap <strong>↓</strong> in the top toolbar, or <strong>App-update controleren</strong> on the connection screen. If a newer signed version is available, choose <strong>APK openen</strong>, download it and select <strong>Update / Bijwerken</strong>. Install over the existing signed app to retain settings.</p>
-<p>Use official signed release APKs. Historical debug builds can have incompatible signing keys.</p>
-<p><strong>The Android button updates only the phone app.</strong> Update the SDRCC computer through <strong>System → Advanced Maintenance</strong> in the desktop dashboard. Receiver bindings, full mission planning and detailed history/analytics also remain in the desktop interface.</p>
-<p><a href="index.html">Home</a> · <a href="updates-and-troubleshooting.html">Updates and troubleshooting</a></p></article><aside class="toc" aria-label="On this page"><strong>ON THIS PAGE</strong><div class="toc">
-<ul>
-<li><a href="#1-install-the-official-app">1. Install the official app</a></li>
-<li><a href="#2-enable-the-ais-map-plugins">2. Enable the AIS map plugins</a></li>
-<li><a href="#3-check-map-connections">3. Check map connections</a></li>
-<li><a href="#4-connect-away-from-home">4. Connect away from home</a></li>
-<li><a href="#5-replay-recordings-and-use-the-other-tabs">5. Replay recordings and use the other tabs</a></li>
-<li><a href="#6-update-the-android-app">6. Update the Android app</a></li>
-</ul>
-</div>
-</aside></div><div class="pager"><a href="satellite-missions.html">← Satellite missions</a><a href="updates-and-troubleshooting.html">Updates &amp; help →</a></div><footer class="footer"><span>SDRCC — SDR Control Center · Listen. Decode. Analyze. Share.</span><span>Guide: SDRCC 0.67.0 / Android 2.0.0</span></footer></main></div><dialog aria-label="Enlarged screenshot"><button aria-label="Close screenshot">×</button><img alt=""></dialog></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Connect your phone and take the view from your station with you. SDRCC documentation and practical guides."><meta name="theme-color" content="#0f172a"><title>Android app · SDRCC Guide</title><link rel="icon" href="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/sdrcc.png"><link rel="stylesheet" href="style.css?v=20261021d"><script src="app.js?v=20261017c" defer></script></head><body><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="index.html"><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/sdrcc.png" alt=""> <span>SDRCC<small>THE FIELD GUIDE</small></span></a><div class="top-links"><a href="https://github.com/EyeVisionsNL/SDRCC">GitHub ↗</a><a href="android-companion.html">Android app</a><span class="pill">● &nbsp; LISTEN · DECODE · EXPLORE</span><button class="menu" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">☰</button></div></header><div class="layout"><aside class="sidebar" id="sidebar"><div class="eyebrow">STATION HANDBOOK</div><div class="search"><label for="search" class="eyebrow">Find a guide</label><input id="search" type="search" placeholder="Search AIS, Android, updates…" autocomplete="off"><div class="search-results" aria-live="polite"></div></div><nav aria-label="Guides"><a href="index.html"><span>00</span> &nbsp; Start here</a><a href="installation.html"><span>01</span> &nbsp; Installation</a><a href="first-steps.html"><span>02</span> &nbsp; First steps</a><a href="marine-and-atis.html"><span>03</span> &nbsp; Marine &amp; ATIS</a><a href="radio-and-aircraft.html"><span>04</span> &nbsp; Radio &amp; aircraft</a><a href="satellite-missions.html"><span>05</span> &nbsp; Satellite missions</a><a href="android-companion.html" aria-current="page"><span>06</span> &nbsp; Android app</a><a href="updates-and-troubleshooting.html"><span>07</span> &nbsp; Updates &amp; help</a></nav><div class="side-note">Radio · AIS · ATIS · ADS-B<br>Satellites · Android<br><br>Made for curious listeners.<br><a href="https://github.com/EyeVisionsNL/SDRCC/discussions">Questions & ideas ↗</a><br><a href="https://github.com/EyeVisionsNL/SDRCC/wiki">Original GitHub Wiki ↗</a></div></aside><main class="content" id="main"><div class="crumb">SDRCC / Documentation / Android app</div><section class="hero"><div class="hero-media"><img class="hero-image" src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/dashboard/static/assets/banners/marine-panorama.webp" alt="SDRCC marine panorama"><div class="radar" aria-hidden="true"><div class="sweep"></div><i></i><i></i><i></i></div></div><div class="hero-copy"><div class="eyebrow">THE SDRCC GUIDE / ANDROID APP</div><h1>Your station. In your pocket.</h1><p>Connect your phone and take the view from your station with you.</p></div></section><div class="article-wrap"><article class="article"><p>Your SDRCC computer runs the receivers; Android connects to it for maps, audio and selected controls.</p>
+<h2 id="1-install-and-connect">1. Install and connect</h2>
+<p>Download the <a href="https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v7/SDRCC-Mobile.apk">official signed SDRCC Mobile APK</a> on Android 8 or newer. Install it and enter your SDRCC computer's address, e.g. <code>192.168.1.50:8080</code> (example).</p>
+<p><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-startup.webp" alt="Connection screen"></p>
+<h2 id="2-turn-on-map-plugins">2. Turn on map plugins</h2>
+<p>Open <strong>Marine</strong> and the AIS map's plugin selector. Enable <strong>VTS sector</strong> and <strong>SDRCC ATIS</strong> where installed.</p>
+<p>A matched vessel <strong>highlights without moving the map</strong>. Tap the ship for details.</p>
+<p><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-marine-control.webp" alt="Marine controls" width="240"> <img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-ais-map.webp" alt="AIS map with sectors" width="240"> <img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-atis-photo.webp" alt="ATIS match and vessel photograph" width="240"></p>
+<h2 id="3-check-map-addresses">3. Check map addresses</h2>
+<p>Go to <strong>System → Settings → Map Connections</strong>. Enter reachable addresses for SDRCC, AIS-catcher and ADS-B. Use your own station IP instead of the example above.</p>
+<p>Away from home? Connect phone and SDRCC computer to the same private <strong>Tailscale</strong> network. Use the <strong>computer's Tailscale IP</strong> for the station and maps. <a href="https://github.com/EyeVisionsNL/SDRCC/blob/main/android/README.md">Full Android guide</a>.</p>
+<h2 id="4-audio-and-updates">4. Audio and updates</h2>
+<p>Listen and replay Marine recordings, use the ADS-B map and view available satellite controls.</p>
+<p>Tap <strong>↓</strong> or <strong>App-update controleren</strong> to download and install a signed Android update over the existing app.</p>
+<p><strong>The Android button updates only the app.</strong> Update the SDRCC computer under <strong>System → Advanced Maintenance</strong>.</p>
+<p><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-recordings.webp" alt="Recent recordings" width="240"> <img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/android-settings.webp" alt="Settings" width="240"></p></article><aside class="toc" aria-label="On this page"><strong>ON THIS PAGE</strong><div class="toc-links"><a href="#1-install-and-connect">1. Install and connect</a><a href="#2-turn-on-map-plugins">2. Turn on map plugins</a><a href="#3-check-map-addresses">3. Check map addresses</a><a href="#4-audio-and-updates">4. Audio and updates</a></div></aside></div><div class="pager"><a href="satellite-missions.html">← Satellite missions</a><a href="updates-and-troubleshooting.html">Updates &amp; help →</a></div><footer class="footer"><span>SDRCC — SDR Control Center · Listen. Decode. Analyze. Share.</span><span>SDRCC user guide</span></footer></main></div><dialog aria-label="Enlarged screenshot"><button aria-label="Close screenshot">×</button><img alt=""></dialog></body></html>

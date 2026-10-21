@@ -1,35 +1,25 @@
-# 🛰️ Plan a pass. Find the result.
+# 🛰️ Satellite missions
 
-## 1. Check the station
+## 1. Plan a pass
 
-Confirm that your station location and receiver bindings are correct. Connect an antenna suitable for the satellite signal. A predicted pass alone does not guarantee reception: the satellite must be transmitting the wanted mode and your station must be able to receive it.
+Check your station coordinates, antenna and available receiver. In **Mission Planner**, choose the satellite and review the predicted pass and reception settings.
 
-## 2. Open Mission Planner
+![Mission Planner](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/mission-planner.webp)
 
-Review upcoming passes and the reception rules for the satellite you want to receive. Check timing, receiver availability and the configured reception settings before scheduling.
+For special ISS events, check the **latest official announcement**. Dates, frequencies and modes can change.
 
-![Mission Planner](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/images/mission-planner.webp)
+## 2. Watch reception
 
-For an announced event such as ISS SSTV, check the current event announcement and its frequency, mode and active dates. Event times can change; an old announcement is not evidence that a transmission is currently active.
+**Mission Control** shows the upcoming missions and receiver reservations. SDRCC hands over the required SDR at mission time and releases it afterward.
 
-## 3. Watch Mission Control
+![Mission Control](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/mission-control.webp)
 
-Use **Mission Control** to inspect the upcoming queue, assigned receiver and scheduler state. At reception time SDRCC reserves the required receiver and handles conflicting receiver services. After the pass, it releases the receiver and can restore its earlier context.
+## 3. View results
 
-![Mission Control](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/images/mission-control.webp)
+**Mission Operations** shows received products, **Mission History** earlier passes and **Mission Analytics** reception quality.
 
-## 4. Open the received products
+![Mission results](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/mission-result.webp)
 
-Use **Mission Operations** to view the products associated with a mission. **Mission History** keeps previous results; **Mission Analytics** provides reception information such as Peak SNR and receiver performance.
+SDRCC supports METEOR-M2 3 / M2 4 LRPT through SatDump and ISS Voice reception planning. A planned pass does not guarantee reception.
 
-![Mission results](https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/images/mission-result.webp)
-
-Automated METEOR-M2 3 / METEOR-M2 4 LRPT reception uses SatDump. ISS Voice provides pass planning and reception. Check the available mission type and configuration on your installed version.
-
-## When a pass produces no usable result
-
-Check the mission status and logs first. Compare the planned and actual reception window, receiver assignment, antenna, gain, satellite activity and available reception-quality information. A completed recording can still contain a weak or absent signal.
-
-On Android you can view upcoming missions and selected scheduling controls. Create and configure missions in the main desktop dashboard.
-
-[[Home]] · [[Updates and troubleshooting]]
+**No result?** Check mission logs, antenna, gain, receiver assignment and actual satellite activity. Android offers mission viewing and selected controls; configure missions on desktop.
