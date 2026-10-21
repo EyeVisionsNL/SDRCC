@@ -33,3 +33,32 @@
 .card::after{display:none}
 .card-body{position:relative;flex:1}
 .card-body::after{content:"";position:absolute;right:0;top:0;width:46px;height:30px;background:radial-gradient(circle 33px at 33px -3px,color-mix(in srgb,var(--card-accent) 14%,transparent) 99%,transparent 100%);pointer-events:none}
+
+/* Compact SDRCC field guide, consistent with AIS-ATIS Bridge. */
+.brand img{width:60px;height:60px;object-fit:contain}
+.brand{font-size:20px}
+.hero-image{max-height:230px;width:100%;height:auto;object-fit:contain}
+.hero-copy{padding:24px 30px}
+.hero h1{font-size:clamp(27px,3vw,39px);line-height:1.16;margin:8px 0}
+.hero p{line-height:1.55}
+.section-head h2{font-size:21px}
+.card img{height:89px;min-height:89px;object-fit:contain;object-position:center}
+.card-body{display:flex;flex-direction:column;flex:1}
+.card-body h3{line-height:1.35}
+.card-body p{line-height:1.5}
+.card .arrow{margin-top:auto;padding-top:14px}
+.welcome{margin:18px 0 24px;line-height:1.55;border-radius:0 9px 9px 0}
+.bridge-callout{margin:30px 0 16px;padding:25px 27px;border:1px solid #596293;border-left:4px solid #a78bfa;border-radius:12px;background:linear-gradient(115deg,#1b2741,#0d182d)}
+.bridge-callout h2{margin:8px 0;font-size:23px;color:#e0e7ff}
+.bridge-callout p{max-width:710px;color:#bdcadd;margin:0 0 16px;line-height:1.65}
+.quick-path{font-size:14px;line-height:1.6;color:#a9bad0}
+.article-wrap{gap:27px}
+.article h2{margin:27px 0 11px;font-size:22px}
+.article p,.article li{line-height:1.65}
+.article p{margin:12px 0}
+.article li{margin:5px 0}
+.article img{max-width:100%;height:auto;max-height:540px;object-fit:contain;margin:16px auto}
+.article .screenshot-link.phone{display:inline-block;width:240px;max-width:calc(33.33% - 18px);margin:10px 7px}
+.article .screenshot-link.phone img[width]{width:100%;max-width:100%;margin:0}
+.toc-links{display:grid;gap:9px}
+@media(max-width:760px){.brand img{width:45px;height:45px}.hero-image{max-height:160px}.hero-copy{padding:20px 22px}.card img{height:82px;min-height:82px}.bridge-callout{padding:18px}.article .screenshot-link.phone{max-width:calc(50% - 18px)}}
