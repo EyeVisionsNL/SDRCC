@@ -26,6 +26,8 @@ on:
       - 'scripts/validate_map_lab_symbols.cjs'
       - 'scripts/validate_installer_step1.py'
       - 'scripts/install/update_manifest.json'
+      - 'scripts/install/check_update.py'
+      - 'scripts/validate_update_manifest_scope.py'
       - 'dashboard/static/js/update_manager.js'
       - 'scripts/validate_update_channel_failure.cjs'
       - 'VERSION'
@@ -64,6 +66,8 @@ jobs:
         run: node scripts/validate_map_lab_symbols.cjs
       - name: Validate Home Position browser script
         run: node --check dashboard/static/js/home_position.js
+      - name: Verify CI-only files never enter SDRCC update manifest
+        run: python scripts/validate_update_manifest_scope.py
       - name: Verify source hashes in update manifest
         run: |
           python - <<'PY'
