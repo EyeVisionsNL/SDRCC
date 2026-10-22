@@ -21,7 +21,10 @@ import time
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-ROOT = Path(__file__).resolve().parents[2]
+# The installed GUI lives in scripts/install/, but --preview is also
+# distributed as a standalone file in /tmp. Resolve safely in both cases.
+SCRIPT_FILE = Path(__file__).resolve()
+ROOT = SCRIPT_FILE.parents[2] if len(SCRIPT_FILE.parents) >= 3 else SCRIPT_FILE.parent
 PROMPT = "Enter = check saved configuration; d = defer AIS setup:"
 MARKERS = {
     "==> Preflight": ("Checking the system", 5),
@@ -390,6 +393,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if os.geteuid() == 0:
         print("Run the installer as your normal Ubuntu account, not root.", file=sys.stderr)
+        return 2
+    if not args.preview and not (ROOT / "install.sh").is_file():
+        print("Full installation requires the SDRCC repository. Use --preview "
+              "for the standalone GUI demonstration.", file=sys.stderr)
         return 2
     if not args.preview and (ROOT / "venv/bin/python").exists() and (ROOT / "VERSION").exists():
         print("SDRCC is already installed. Use System → Advanced Maintenance for updates.", file=sys.stderr)
