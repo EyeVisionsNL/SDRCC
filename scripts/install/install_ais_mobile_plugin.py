@@ -49,6 +49,14 @@ def examine_target(target: Path, data: bytes) -> bool:
 
 def install(source: Path = DEFAULT_SOURCE, target: Path = DEFAULT_TARGET) -> str:
     data = validated_source(source)
+    # Some clean upstream AIS installs do not create the optional plugins/
+    # subdirectory. Create only that exact location and only beneath an
+    # already-existing, non-symlinked AIS-catcher configuration directory.
+    if (target == DEFAULT_TARGET and not target.parent.exists()):
+        config_dir = target.parent.parent
+        if not config_dir.is_dir() or config_dir.is_symlink():
+            raise RuntimeError(f"AIS-catcher configuration directory missing or unsafe: {config_dir}")
+        target.parent.mkdir(mode=0o755)
     if examine_target(target, data):
         return f"PASS: SDRCC AIS map plugin already installed: {target}"
     # Atomic replacement; do not disturb unrelated plugins or alter AIS services.
