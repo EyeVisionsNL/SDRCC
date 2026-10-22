@@ -31,6 +31,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
 .row{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:10px 0}
 .row label{display:flex;align-items:center;gap:8px;cursor:pointer}
 .row input{accent-color:#39bfea;width:18px;height:18px}
+.row .muted{font-size:.72rem;text-align:right;max-width:106px}
 .count{color:#e3f5ff;font-variant-numeric:tabular-nums;font-weight:700}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
 .dot.ais{background:#34d5e5}.dot.adsb{background:#ffbd73}
@@ -69,7 +70,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     </div>
     <div id="map" aria-label="Map of ships and aircraft"></div>
     <div id="map-error" role="alert"></div>
-    <div class="map-caption">Zoomed out: small AIS-catcher-style class-coloured arrows or dots, without names. Mid-zoom: labels in vessel class colours. Harbour zoom (14+): dark, true-scale hulls or compact fallback symbols. The 3D view adds illustrative depth where AIS dimensions are available; actual ship height is not known.</div>
+    <div class="map-caption">Zoomed out: class-coloured AIS arrows or dots. Closer in: readable coloured name labels without heavy black frames. Harbour zoom (14+): dark true-scale vessel hulls. In 3D, hull height remains illustrative. Optional local Rijnmond VTS sectors and your configured station are shown as separate layers.</div>
   </section>
   <aside class="side">
     <section class="panel">
@@ -77,6 +78,8 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
       <div class="row"><label><input id="layer-ais" type="checkbox" checked><span><i class="dot ais"></i> AIS vessels</span></label><span id="count-ais" class="count">—</span></div>
       <div class="row"><label><input id="layer-adsb" type="checkbox" checked><span><i class="dot adsb"></i> ADS-B aircraft</span></label><span id="count-adsb" class="count">—</span></div>
       <div class="row"><label><input id="show-names" type="checkbox" checked> Show vessel / aircraft names</label></div>
+      <div class="row"><label><input id="layer-station" type="checkbox" checked> <span style="color:#fbbf56">◎</span> My SDRCC station</label><span id="station-status" class="muted">Loading…</span></div>
+      <div class="row"><label><input id="layer-vts" type="checkbox" checked> Rijnmond VTS sectors</label><span id="vts-status" class="muted">Loading…</span></div>
       <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
       <p id="feed-detail" class="muted">Loading source and visible-position counts…</p>
       <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. <i class="dot adsb"></i> Aircraft.</p>
@@ -85,11 +88,11 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     <section class="panel">
       <h2>Preview scope</h2>
       <p class="muted">Live positions from your existing AIS-Catcher and readsb services. The viewer never starts, stops or binds an SDR.</p>
-      <p class="muted">No simulated targets are shown when a live source is unavailable.</p>
+      <p class="muted">No simulated targets are shown when a live source is unavailable. The station marker comes from SDRCC Home Position. VTS polygons come from the locally installed AIS-Catcher Rijnmond sector plugin (Rijkswaterstaat), without another receiver or data download.</p>
     </section>
     <section class="panel footer-note">
       <h2>2D/3D roadmap</h2>
-      <p class="muted">Completed in beta: live positions, 2D/3D buildings, AIS class-coloured symbols and name labels, plus true-scale hulls at close zoom. Now in beta: coloured nameplates, detailed click cards, optional aircraft photos and 3D hull depth. Next: tracks, Rijnmond sector overlay and detailed 3D models.</p>
+      <p class="muted">Live AIS/ADS-B, class-coloured symbols, unobtrusive name labels, measured-size vessel hulls, optional 3D depth, detailed click cards, station marker and Rijnmond VTS sector layer. Next: trails and more detailed 3D models.</p>
     </section>
   </aside>
 </div>
