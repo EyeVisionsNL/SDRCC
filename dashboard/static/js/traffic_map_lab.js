@@ -9,21 +9,32 @@
     };
     let maplibregl;
     try {
+        // MapLibre 6 uses named ESM exports and no longer exposes supported().
         maplibregl = await import("https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs");
-        if (!maplibregl.supported()) throw new Error("WebGL is not available in this browser.");
+        if (typeof maplibregl.Map !== "function") {
+            throw new Error("MapLibre's Map export is missing.");
+        }
     } catch (error) {
-        setError("The map library could not load: " + error.message
-            + ". Internet access and WebGL are required. Your normal SDRCC maps remain available.");
+        setError("The MapLibre library could not load: " + error.message
+            + ". Check the CDN connection; your existing SDRCC maps are unaffected.");
         return;
     }
 
     const empty = {type: "FeatureCollection", features: []};
-    const map = new maplibregl.Map({
-        container: "map",
-        style: "https://tiles.openfreemap.org/styles/liberty",
-        center: [4.35, 51.91], zoom: 11, pitch: 0,
-        canvasContextAttributes: {antialias: true},
-    });
+    let map;
+    try {
+        // MapLibre 6 reports WebGL/GPU initialization failures here.
+        map = new maplibregl.Map({
+            container: "map",
+            style: "https://tiles.openfreemap.org/styles/liberty",
+            center: [4.35, 51.91], zoom: 11, pitch: 0,
+            canvasContextAttributes: {antialias: true},
+        });
+    } catch (error) {
+        setError("Map initialization failed: " + error.message
+            + ". Check WebGL support; your existing SDRCC maps are unaffected.");
+        return;
+    }
     map.addControl(new maplibregl.NavigationControl({showCompass: true}), "top-right");
     map.addControl(new maplibregl.ScaleControl({maxWidth: 130}), "bottom-left");
     let loaded = false;
