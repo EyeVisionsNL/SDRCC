@@ -538,7 +538,7 @@
                     : "sdrcc-plane",
                 "icon-text-fit": kind === "ais" ? "both" : "none",
                 "icon-text-fit-padding": [3, 7, 3, 7],
-                "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 12],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 16, 12.5],
                 "text-offset": [0, 0],
                 "text-anchor": "center",
                 "text-optional": false,
@@ -547,14 +547,19 @@
             },
             paint: {
                 "icon-opacity": kind === "ais" ? 1 : 0,
-                "text-color": "#ffffff",
-                "text-halo-color": "#102436",
-                "text-halo-width": kind === "ais" ? 0.6 : 1.4,
+                "text-color": kind === "ais"
+                    ? ["match", ["get", "shipclass"],
+                        0, "#072331", 1, "#072331", 2, "#0c281c",
+                        7, "#17232b", 8, "#17232b", 9, "#17232b", 10, "#17232b",
+                        12, "#17232b", "#ffffff"]
+                    : "#ffffff",
+                "text-halo-color": kind === "ais" ? "rgba(10,21,30,0.12)" : "#102436",
+                "text-halo-width": kind === "ais" ? 0.4 : 1.4,
             },
         });
         const interactive = kind === "ais"
-            ? [source + "-icons", source + "-fallback-icons"]
-            : [source + "-icons"];
+            ? [source + "-icons", source + "-fallback-icons", source + "-labels"]
+            : [source + "-icons", source + "-labels"];
         for (const id of interactive) {
             map.on("click", id, event => {
                 const feature = event.features && event.features[0];
