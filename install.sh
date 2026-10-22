@@ -349,6 +349,6 @@ echo "Dashboard API after AIS setup: HTTP $HTTP"
 echo
 echo "SDRCC clean-machine provisioning stage complete in $PROJECT_ROOT"
 if ! sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" --check; then
-  echo "AIS setup deferred. Resume with: $PROJECT_ROOT/install.sh --ais-setup"
+  echo "AIS setup deferred. Resume with: bash $PROJECT_ROOT/install.sh --ais-setup"
 fi
 echo "SDRCC starts automatically at boot. Receiver services are started on demand by SDRCC."
