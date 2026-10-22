@@ -135,7 +135,9 @@ const api = async (path, data) => {
 const by = id => document.getElementById(id);
 let lastLogs = "";
 let finished = false;
+let closing = false;
 async function refresh() {
+ if (closing) return;
  try {
   const s = await api("/api/status");
   if (!s.started) return;
@@ -187,7 +189,7 @@ by("defer").onclick = async () => {
  catch (error) { alert(error.message); }
 };
 by("finish").onclick = async () => {
- try { await api("/api/close", {}); by("stage").textContent = "You can close this tab."; }
+ try { await api("/api/close", {}); closing = true; by("stage").textContent = "Installer closed. You can close this tab."; }
  catch (error) { alert(error.message); }
 };
 setInterval(refresh, 750);
