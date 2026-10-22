@@ -478,17 +478,21 @@
                 "fill-extrusion-vertical-gradient": true,
             },
         });
-        map.on("click", "sdrcc-ais-hull-fill", event => {
-            const feature=event.features && event.features[0];
-            if (!feature) return;
-            const ring=feature.geometry && feature.geometry.coordinates?.[0];
-            const center=ring && ring[0];
-            if (!center) return;
-            new maplibregl.Popup({offset:12, maxWidth:"300px"})
-                .setLngLat(center).setDOMContent(popup(feature)).addTo(map);
-        });
-        map.on("mouseenter", "sdrcc-ais-hull-fill", () => {map.getCanvas().style.cursor="pointer";});
-        map.on("mouseleave", "sdrcc-ais-hull-fill", () => {map.getCanvas().style.cursor="";});
+        for (const id of ["sdrcc-ais-hull-fill", "sdrcc-ais-hull-3d"]) {
+            map.on("click", id, event => {
+                const feature = event.features && event.features[0];
+                if (!feature) return;
+                const ring = feature.geometry && feature.geometry.coordinates?.[0];
+                if (!ring?.length) return;
+                const center = ring.reduce(
+                    (sum, point) => [sum[0] + point[0] / ring.length,
+                        sum[1] + point[1] / ring.length], [0, 0]);
+                new maplibregl.Popup({offset: 12, maxWidth: "350px"})
+                    .setLngLat(center).setDOMContent(popup(feature)).addTo(map);
+            });
+            map.on("mouseenter", id, () => {map.getCanvas().style.cursor = "pointer";});
+            map.on("mouseleave", id, () => {map.getCanvas().style.cursor = "";});
+        }
     }
     function addPoints(kind) {
         const source = "sdrcc-" + kind;
@@ -532,7 +536,6 @@
                 "icon-image": kind === "ais"
                     ? ["concat", "sdrcc-name-", ["to-string", ["get", "shipclass"]]]
                     : "sdrcc-plane",
-                "icon-opacity": kind === "ais" ? 1 : 0,
                 "icon-text-fit": kind === "ais" ? "both" : "none",
                 "icon-text-fit-padding": [3, 7, 3, 7],
                 "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 12],
@@ -543,6 +546,7 @@
                 "text-ignore-placement": false,
             },
             paint: {
+                "icon-opacity": kind === "ais" ? 1 : 0,
                 "text-color": "#ffffff",
                 "text-halo-color": "#102436",
                 "text-halo-width": kind === "ais" ? 0.6 : 1.4,
