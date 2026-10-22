@@ -20,6 +20,7 @@ on:
       - 'dashboard/app.py'
       - 'core/traffic_map.py'
       - 'scripts/test_traffic_map.py'
+      - 'scripts/validate_map_lab_boot.cjs'
       - 'scripts/validate_installer_step1.py'
       - 'scripts/install/update_manifest.json'
       - 'dashboard/static/js/update_manager.js'
@@ -54,6 +55,8 @@ jobs:
         run: python -m unittest scripts.test_traffic_map
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
+      - name: Check MapLibre 6 map boot and error handling
+        run: node scripts/validate_map_lab_boot.cjs
       - name: Validate Home Position browser script
         run: node --check dashboard/static/js/home_position.js
       - name: Verify source hashes in update manifest
