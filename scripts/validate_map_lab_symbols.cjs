@@ -21,17 +21,22 @@ const node = id => nodes[id] ||= {
     setAttribute() {},
     classList: {add() {}, remove() {}},
 };
-const canvas = () => ({
-    width: 0, height: 0,
-    getContext: () => ({
-        scale() {}, beginPath() {}, moveTo() {}, bezierCurveTo() {},
-        lineTo() {}, quadraticCurveTo() {}, closePath() {},
-        fill() {}, stroke() {}, fillRect() {}, arc() {}, fillText() {},
-        getImageData(x, y, width, height) {
-            return {width, height, data: new Uint8ClampedArray(width * height * 4)};
-        },
-    }),
-});
+const canvas = () => {
+    const rects = [];
+    return {
+        width: 0, height: 0,
+        getContext: () => ({
+            scale() {}, beginPath() {}, moveTo() {}, bezierCurveTo() {},
+            lineTo() {}, quadraticCurveTo() {}, closePath() {},
+            fill() {}, stroke() {}, fillRect(...values) {rects.push(values);},
+            arc() {}, fillText() {},
+            getImageData(x, y, width, height) {
+                return {width, height, data: new Uint8ClampedArray(width * height * 4),
+                    rects: rects.slice()};
+            },
+        }),
+    };
+};
 const document = {
     hidden: false, getElementById: node,
     createElement(tag) {
@@ -75,6 +80,8 @@ class FakeMap {
         assert.equal(image.height, id.startsWith("sdrcc-name-") ? 48 : 96);
         if (id.startsWith("sdrcc-name-")) {
             assert(options.stretchX && options.stretchY, "label plates must support text fitting");
+            assert.deepEqual(image.rects, [[0, 0, 48, 24]],
+                "label must be a single uninterrupted class colour, without black frame");
         }
         this.images[id] = image;
     }
@@ -98,6 +105,7 @@ class FakeMap {
 (async () => {
     const data = {
         ok: true, center: [4.28, 51.93],
+        station: {name:"EyeVisions Home", lon:4.28, lat:51.93, altitude_m:12},
         ais: {available: true, source_count: 3, count: 3, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
@@ -117,6 +125,15 @@ class FakeMap {
                 squawk:"4720", lon:4.5, lat:51.92, course:212, altitude_ft:24000},
         ]},
     };
+    const vts = {
+        ok: true, available: true, count: 1,
+        geojson: {type:"FeatureCollection",features:[{
+            type:"Feature", properties:{
+                name:"Sector Botlek", vhfchannel:"61", color:"#e5007e",
+            }, geometry:{type:"Polygon",coordinates:[[[
+                4.25,51.88],[4.30,51.88],[4.30,51.90],[4.25,51.88]]]},
+        }]},
+    };
     const fakeWindow = {
         __maplibreMock: {Map: FakeMap, Popup: FakePopup, NavigationControl: class {}, ScaleControl: class {}},
         setInterval() {},
@@ -124,7 +141,9 @@ class FakeMap {
     const patched = source.replace(esm, "await Promise.resolve(window.__maplibreMock)");
     vm.runInNewContext(patched, {
         document, window: fakeWindow, setInterval() {},
-        fetch: async url => url.startsWith("/api/map-lab/aircraft-photo/")
+        fetch: async url => url === "/api/map-lab/vts-sectors"
+            ? {ok:true, json:async () => vts}
+            : url.startsWith("/api/map-lab/aircraft-photo/")
             ? {ok:true, json:async () => ({
                 ok:true, image_url:"https://cdn.planespotters.net/mock.jpg",
                 source_url:"https://www.planespotters.net/photo/123",
@@ -228,6 +247,20 @@ class FakeMap {
 
     assert.equal(node("count-ais").textContent, 3);
     assert.equal(node("count-adsb").textContent, 1);
+    assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
+    const home = instance.sources["sdrcc-home"].data.features[0];
+    assert.deepEqual(JSON.parse(JSON.stringify(home.geometry.coordinates)), [4.28,51.93]);
+    assert.equal(home.properties.name, "EyeVisions Home");
+    assert.equal(node("station-status").textContent, "Home Position");
+    assert.equal(node("vts-status").textContent, "1 RWS sectors");
+    assert.equal(instance.sources["sdrcc-vts"].data.features.length, 1);
+    assert.equal(instance.sources["sdrcc-vts"].data.features[0].properties.color, "#e5007e");
+    assert.equal(instance.layers["sdrcc-vts-fill"].type, "fill");
+    assert.equal(instance.layers["sdrcc-vts-line"].type, "line");
+    assert(instance.layers["sdrcc-vts-labels"]);
+    assert(instance.layers["sdrcc-home-name"]);
+    assert(instance.callbacks["click:sdrcc-home-dot"]);
+    assert(instance.callbacks["click:sdrcc-vts-fill"]);
 
     node("show-names").checked = false;
     node("show-names").listeners.change();
@@ -268,6 +301,15 @@ class FakeMap {
     assert(instance.layoutChanges.some(change =>
         change.id === "sdrcc-ais-hull-fill" && change.value === "none"));
 
+    node("layer-vts").checked = false;
+    node("layer-vts").listeners.change();
+    assert(instance.layoutChanges.some(c => c.id==="sdrcc-vts-fill" && c.value==="none"));
+    assert(instance.layoutChanges.some(c => c.id==="sdrcc-vts-line" && c.value==="none"));
+    node("layer-station").checked = false;
+    node("layer-station").listeners.change();
+    assert(instance.layoutChanges.some(c => c.id==="sdrcc-home-name" && c.value==="none"));
+    assert(instance.layoutChanges.some(c => c.id==="sdrcc-home-ring" && c.value==="none"));
+
     node("layer-ais").checked = false;
     node("layer-ais").listeners.change();
     assert(instance.layoutChanges.some(change =>
@@ -283,5 +325,5 @@ class FakeMap {
         "hiding AIS must hide zoomed-in fallback vessels too");
 
     console.log("PASS: 72 AIS/aircraft sprites including 14 nameplates, 140m 3D hull, "
-        + "label clicks, class colours, layer toggles and 3D visibility");
+        + "borderless labels, Home Position, VTS sectors, toggles and 3D visibility");
 })().catch(error => {console.error(error); process.exitCode = 1;});
