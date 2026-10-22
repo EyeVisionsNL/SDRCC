@@ -48,6 +48,7 @@ class TrafficMapTests(unittest.TestCase):
         self.assertFalse(out["adsb"]["available"])
         self.assertEqual(out["ais"]["targets"],[])
         self.assertEqual(out["center"],[4.35,51.91])
+        self.assertIsNone(out["station"])
 
     def test_live_both_and_home_location(self):
         with patch.object(traffic_map.receiver_monitor,"_read_ais_ships",return_value=(
@@ -61,6 +62,25 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(out["ais"]["count"],1)
         self.assertEqual(out["adsb"]["count"],1)
         self.assertEqual(out["center"],[4.28,51.93])
+        self.assertEqual(out["station"]["lon"], 4.28)
+        self.assertEqual(out["station"]["lat"], 51.93)
+        self.assertEqual(out["station"]["name"], "My station")
+
+    def test_home_position_name_and_altitude_are_taken_from_station_config(self):
+        with patch.object(traffic_map.receiver_monitor, "_read_ais_ships",
+                          return_value=(None, None)), \
+             patch.object(traffic_map.receiver_monitor, "_read_json_file",
+                          return_value=(None, None)), \
+             patch.object(traffic_map.receiver_monitor, "_read_json_url",
+                          return_value=(None, None)), \
+             patch.object(traffic_map.config, "get_home_position",
+                          return_value={"configured": True, "latitude": 51.907,
+                                        "longitude": 4.321, "name": "VTS SDR station",
+                                        "altitude_m": 12.5}):
+            result = traffic_map.snapshot()
+        self.assertEqual(result["station"]["name"], "VTS SDR station")
+        self.assertEqual(result["station"]["altitude_m"], 12.5)
+        self.assertEqual(result["center"], [4.321, 51.907])
 
     def test_stale_adsb_file_is_never_plotted(self):
         with patch.object(traffic_map.receiver_monitor,"_read_ais_ships",return_value=(None,None)), \
