@@ -74,7 +74,8 @@
         if (!loaded) return;
         for (const suffix of ["icons", "labels"]) {
             const id = "sdrcc-" + kind + "-" + suffix;
-            if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+            const enabled = visible && (suffix !== "labels" || el("show-names").checked);
+            if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", enabled ? "visible" : "none");
         }
     }
     function setMode(three) {
@@ -349,6 +350,10 @@
     el("mode-3d").addEventListener("click", () => setMode(true));
     el("layer-ais").addEventListener("change", () => setLayerVisibility("ais", el("layer-ais").checked));
     el("layer-adsb").addEventListener("change", () => setLayerVisibility("adsb", el("layer-adsb").checked));
+    el("show-names").addEventListener("change", () => {
+        setLayerVisibility("ais", el("layer-ais").checked);
+        setLayerVisibility("adsb", el("layer-adsb").checked);
+    });
     el("reset-view").addEventListener("click", () => {
         map.easeTo({center: resetCenter, zoom: 11, bearing: mode3d ? -22 : 0, pitch: mode3d ? 62 : 0});
     });
