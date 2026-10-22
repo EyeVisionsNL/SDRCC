@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="same-origin">
+<title>SDRCC · 2D/3D Traffic Map Lab</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
+<style>
+:root{color-scheme:dark;font:15px/1.45 system-ui,Arial,sans-serif;background:#061322;color:#eaf4fd}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#061322}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:17px 25px;background:linear-gradient(110deg,#0d2943,#091827);border-bottom:1px solid #326183}
+header h1{font-size:1.45rem;margin:0;color:#eef8ff}
+header p{margin:4px 0 0;color:#a1c2d9;font-size:.89rem}
+header a{color:#83dafa;text-decoration:none;border:1px solid #356582;border-radius:10px;padding:10px 15px;background:#123049}
+header a:focus-visible,button:focus-visible{outline:2px solid #9eeaff;outline-offset:3px}
+header .eyebrow{color:#73c9ea;font-size:.7rem;letter-spacing:.15em;font-weight:800}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;padding:16px;max-width:1800px;margin:0 auto}
+.viewer{min-width:0;background:#0d2336;border:1px solid #2f5673;border-radius:15px;overflow:hidden}
+.toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px;border-bottom:1px solid #2b536d}
+.toolbar .spacer{flex:1}
+button{cursor:pointer;border:1px solid #45728d;border-radius:9px;background:#163a54;color:#e9f7ff;padding:10px 14px;font:inherit;font-weight:650}
+button:hover{background:#215172}
+button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
+#map{height:min(75vh,880px);min-height:430px;width:100%;background:#0b2033}
+.map-caption{font-size:.81rem;color:#9cbbd1;padding:10px 13px}
+.side{display:flex;flex-direction:column;gap:13px}
+.panel{background:#0d2438;border:1px solid #315978;border-radius:12px;padding:17px}
+.panel h2{font-size:1rem;margin:0 0 13px;color:#e8f6ff}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:10px 0}
+.row label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.row input{accent-color:#39bfea;width:18px;height:18px}
+.count{color:#e3f5ff;font-variant-numeric:tabular-nums;font-weight:700}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.dot.ais{background:#34d5e5}.dot.adsb{background:#ffbd73}
+.muted{color:#a0bfd1;font-size:.85rem}
+#feed-status{font-size:.88rem;min-height:2.5em;color:#b9ddec}
+#map-error{display:none;color:#ffc5af;background:#3b2532;border:1px solid #82505c;border-radius:9px;padding:12px;margin:12px}
+#map-error.visible{display:block}
+.maplibregl-popup-content{background:#0d2a40;color:#eff8ff;border:1px solid #44728c;border-radius:11px;padding:11px 14px;box-shadow:0 7px 25px #0009}
+.maplibregl-popup-close-button{color:#fff;font-size:20px}
+.maplibregl-popup-tip{border-top-color:#0d2a40!important}
+.maplibregl-control-container .maplibregl-ctrl-attrib{color:#263847}
+.popup-title{font-weight:800;margin:0 0 6px;font-size:.97rem}
+.popup-line{font-size:.83rem;margin:2px 0}
+.footer-note{margin-top:auto}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.footer-note{grid-column:1/-1}}
+@media(max-width:550px){header{padding:14px}.layout{padding:8px;gap:8px}.side{display:block}.side .panel{margin-bottom:8px}#map{height:58vh;min-height:330px}header h1{font-size:1.15rem}}
+</style>
+<script type="module" src="{{ url_for('static', filename='js/traffic_map_lab.js') }}?v={{ asset_version }}"></script>
+</head>
+<body>
+<header>
+  <div><span class="eyebrow">SDRCC · EXPERIMENTAL MAP · DEVELOP FIRST</span>
+    <h1>🌐 AIS + ADS-B · 2D / 3D</h1>
+    <p>Rijnmond traffic laboratory · a separate viewer, not a replacement for the existing maps</p>
+  </div>
+  <a href="/#tab-radio-view">← SDRCC Radio View</a>
+</header>
+<div class="layout">
+  <section class="viewer" aria-label="Interactive traffic map">
+    <div class="toolbar" role="group" aria-label="Map controls">
+      <button type="button" id="mode-2d" aria-pressed="true">▣ 2D map</button>
+      <button type="button" id="mode-3d" aria-pressed="false">◩ 3D buildings</button>
+      <span class="spacer"></span>
+      <button type="button" id="reset-view">⌖ Reset view</button>
+      <button type="button" id="refresh-now">↻ Refresh</button>
+    </div>
+    <div id="map" aria-label="Map of ships and aircraft"></div>
+    <div id="map-error" role="alert"></div>
+    <div class="map-caption">3D tilts the map and shows available building heights at closer zoom levels. Aircraft altitude and 3D ship models are later phases. Requires internet access for map tiles.</div>
+  </section>
+  <aside class="side">
+    <section class="panel">
+      <h2>Live traffic layers</h2>
+      <div class="row"><label><input id="layer-ais" type="checkbox" checked><span><i class="dot ais"></i> AIS vessels</span></label><span id="count-ais" class="count">—</span></div>
+      <div class="row"><label><input id="layer-adsb" type="checkbox" checked><span><i class="dot adsb"></i> ADS-B aircraft</span></label><span id="count-adsb" class="count">—</span></div>
+      <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
+      <p class="muted">Click a marker for the identity, heading, speed and (for aircraft) altitude.</p>
+    </section>
+    <section class="panel">
+      <h2>Preview scope</h2>
+      <p class="muted">Live positions from your existing AIS-Catcher and readsb services. The viewer never starts, stops or binds an SDR.</p>
+      <p class="muted">No simulated targets are shown when a live source is unavailable.</p>
+    </section>
+    <section class="panel footer-note">
+      <h2>2D/3D roadmap</h2>
+      <p class="muted">First: live layers and Rijnmond buildings. Next: ship headings, tracks and sector overlay. Later: real 3D vessel/aircraft models and flight altitude.</p>
+    </section>
+  </aside>
+</div>
+</body>
+</html>
