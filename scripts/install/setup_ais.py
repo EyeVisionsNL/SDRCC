@@ -256,7 +256,7 @@ def setup(non_interactive=False):
         quiet_receivers()
         value = read_config()
         if non_interactive and not configured(value):
-            print('DEFERRED: AIS wizard requires a browser. Resume with ./install.sh --ais-setup.')
+            print('DEFERRED: AIS wizard requires a browser. Resume with bash install.sh --ais-setup.')
             return False
         prepare_managed_service()
         if not configured(value):
@@ -279,7 +279,7 @@ def setup(non_interactive=False):
             while True:
                 answer = input('Enter = check saved configuration; d = defer AIS setup: ').strip().lower()
                 if answer == 'd':
-                    print('DEFERRED: AIS is not ready. Resume with ./install.sh --ais-setup.')
+                    print('DEFERRED: AIS is not ready. Resume with bash install.sh --ais-setup.')
                     return False
                 value = read_config()
                 if configured(value):
@@ -320,7 +320,7 @@ def main():
         print('PASS: AIS configured' if ready else 'DEFERRED: AIS setup incomplete')
         return 0 if ready else 2
     if os.geteuid() != 0:
-        parser.error('run through install.sh --ais-setup, or use sudo')
+        parser.error('run through bash install.sh --ais-setup, or use sudo')
     def interrupted(signum, frame):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupted)
@@ -331,7 +331,7 @@ def main():
         print(f'FAIL: {error}')
         return 1
     except KeyboardInterrupt:
-        print('\nAIS setup interrupted. Resume with ./install.sh --ais-setup.')
+        print('\nAIS setup interrupted. Resume with bash install.sh --ais-setup.')
         return 130
 
 
