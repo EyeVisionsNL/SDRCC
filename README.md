@@ -73,7 +73,7 @@ cd ~/SDRCC
 bash install.sh
 ```
 
-**Run `bash install.sh` without `sudo`.** On the **`develop` branch** (installer preview), Ubuntu Desktop opens a local **SDRCC Installer** web window automatically. Choose **Satellites**, **Traffic Voice** and **Radio Receiver**, press **Install SDRCC**, and follow the progress. Ubuntu may request your sudo password **in the terminal**: keep it open. Near the end, the installer opens the AIS-catcher wizard in your browser. Choose your AIS RTL-SDR and **Save & Close**, then return to SDRCC Installer and press **Verify AIS setup**.
+**Run `bash install.sh` without `sudo`.** On the **`develop` branch** (installer preview), Ubuntu Desktop opens a local **SDRCC Installer** web window automatically. Choose **Satellites**, **Traffic Voice** and **Radio Receiver**, press **Install SDRCC**, and follow the progress. Ubuntu may request your sudo password **in the terminal**: keep it open. Near the end, the installer opens the AIS-catcher wizard in your browser. Choose one active AIS RTL-SDR input and **Save & Close**, then return to SDRCC Installer and press **Verify AIS setup**. **An SDR serial number is optional**; assign or change the receiver binding later in SDRCC. Do not use an explicit `UNBOUND` placeholder.
 
 On Ubuntu Server or other headless systems, the original terminal prompts remain available. To use the terminal installer on a desktop, run `bash install.sh --cli`. To resume an incomplete AIS-catcher wizard, run `bash install.sh --ais-setup`.
 
@@ -133,6 +133,6 @@ Special thanks to **Mbruins** for extensive testing and feedback. ❤️
 
 **Original SDRCC software:** GNU GPL-3.0-only — see [LICENSE](LICENSE). © 2026 EyeVisionsNL. The SDRCC logo, project branding and original project graphics are EyeVisionsNL assets. Third-party software, data and photographs have their own rights: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-**Stable:** SDRCC v0.68.0 (`main`) · **Beta:** SDRCC v0.68.1 (`develop`, installer testing) · **Android:** v2.0.0.
+**Stable:** SDRCC v0.68.0 (`main`) · **Beta:** SDRCC v0.68.2 (`develop`, installer testing) · **Android:** v2.0.0.
 
 [💬 Questions and ideas](https://github.com/EyeVisionsNL/SDRCC/discussions) · [🐛 Report an issue](https://github.com/EyeVisionsNL/SDRCC/issues) · [📖 Wiki](https://eyevisionsnl.github.io/SDRCC/)
