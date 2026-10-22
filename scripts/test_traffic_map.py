@@ -143,6 +143,35 @@ class TrafficMapTests(unittest.TestCase):
         self.assertFalse(result["hull_available"])
         self.assertEqual(result["length_m"], 87)
 
+    def test_extended_vessel_details(self):
+        raw = {"ships": [{"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
+                          "shipclass": 6, "shiptype": 80, "imo": 9876543,
+                          "eni": "02345678", "destination": "ROTTERDAM",
+                          "country": "NL", "status": 5, "draught": 7.2,
+                          "to_bow": 70, "to_stern": 15,
+                          "to_port": 6, "to_starboard": 7, "heading": 95}]}
+        ship = traffic_map.vessels(raw)[0]
+        self.assertEqual(ship["destination"], "ROTTERDAM")
+        self.assertEqual(ship["imo"], "9876543")
+        self.assertEqual(ship["eni"], "02345678")
+        self.assertEqual(ship["nav_status"], "5")
+        self.assertEqual(ship["beam_m"], 13)
+        self.assertEqual(ship["draught_m"], 7.2)
+
+    def test_extended_adsb_details(self):
+        raw = {"aircraft": [{"hex": "4ca123", "lat": 51.9, "lon": 4.3,
+                            "seen_pos": 1, "flight": "KLM123",
+                            "r": "PH-BGX", "t": "B738", "ownOp": "KLM",
+                            "desc": "Boeing 737-800", "squawk": "4720",
+                            "baro_rate": -640}]}
+        plane = traffic_map.aircraft(raw)[0]
+        self.assertEqual(plane["registration"], "PH-BGX")
+        self.assertEqual(plane["aircraft_type"], "B738")
+        self.assertEqual(plane["operator"], "KLM")
+        self.assertEqual(plane["description"], "Boeing 737-800")
+        self.assertEqual(plane["squawk"], "4720")
+        self.assertEqual(plane["baro_rate"], -640)
+
     def test_readsb_non_icao_and_last_position(self):
         """Recent position retained by tar1090 should be visible; old positions must not."""
         items = [
