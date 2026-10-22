@@ -49,6 +49,7 @@ from core import receiver_inventory as receiver_inventory_core
 from core import receiver_contexts as receiver_contexts_core
 from core import receiver_monitor
 from core import traffic_map as traffic_map_core
+from core import traffic_map_sectors
 from core import traffic_map_aircraft_photo
 from core import emergency_monitor
 from core import state
@@ -2611,6 +2612,11 @@ def traffic_map_lab():
 def api_traffic_map_lab():
     """Read live positions only; never operate receiver hardware."""
     return jsonify(traffic_map_core.snapshot())
+
+@app.route("/api/map-lab/vts-sectors")
+def api_traffic_map_vts_sectors():
+    """Optional read-only local Rijnmond sector overlay from AIS-Catcher plugin."""
+    return jsonify(traffic_map_sectors.snapshot())
 
 @app.route("/api/map-lab/aircraft-photo/<hex_id>")
 def api_traffic_map_aircraft_photo(hex_id):
