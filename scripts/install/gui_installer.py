@@ -6,6 +6,7 @@ install.sh; this module manages UI, live progress and AIS wizard confirmation.
 """
 from __future__ import annotations
 
+import argparse
 import codecs
 import json
 import os
@@ -16,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -64,6 +66,8 @@ button{border:0;border-radius:10px;background:#37bee6;color:#082337;font-weight:
 button:hover{background:#78ddf7}
 button:disabled{opacity:.45;cursor:not-allowed}
 button.secondary{background:#204762;color:#ecf8ff;border:1px solid #48718b}
+.preview-label{display:inline-block;background:#12334d;color:#7fe0ff;border:1px solid #42afd2;padding:5px 10px;border-radius:8px;font-size:.8rem;font-weight:750;margin-top:8px}
+.preview-panel{background:#172f49;border-color:#3e8aab}
 .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
 .hidden{display:none!important}
 .track{height:12px;border-radius:99px;background:#23435b;overflow:hidden;margin:18px 0 8px}
@@ -78,7 +82,8 @@ footer{margin:17px 0;text-align:center;color:#87a7be;font-size:.84rem}
 </style></head>
 <body><main>
 <header><div class="logo">📡</div><div><h1>SDRCC Installer</h1>
-<div class="subtitle">Listen · Decode · Analyze · Share</div></div></header>
+<div class="subtitle">Listen · Decode · Analyze · Share</div>
+<div class="preview-label hidden" id="modeBadge">PREVIEW MODE · NO CHANGES</div></div></header>
 <section class="panel" id="selection">
 <h2>Choose your SDRCC features</h2>
 <p>Select the functions you want. Home Position and receiver assignments can
@@ -91,7 +96,7 @@ be configured later in SDRCC.</p>
 <label class="choice"><input id="radio_receiver" type="checkbox" checked><span>
 <strong>📻 Radio Receiver</strong><small>Direct tuning, spectrum and waterfall</small></span></label>
 </div>
-<div class="note">The existing AIS-catcher wizard opens automatically near the end
+<div class="note" id="introNote">The existing AIS-catcher wizard opens automatically near the end
 of installation. <strong>Keep this terminal open</strong>: Ubuntu might ask for your
 sudo password there.</div>
 <div class="actions"><button id="start">Install SDRCC</button></div>
@@ -100,12 +105,12 @@ sudo password there.</div>
 <div class="row"><h2>Installation progress</h2><span id="pct">0%</span></div>
 <div class="status" id="stage">Preparing…</div>
 <div class="track"><div class="fill" id="bar"></div></div>
-<p class="hint">Live installer output. Progress is based on installation stages,
+<p class="hint" id="progressHint">Live installer output. Progress is based on installation stages,
 not a precise time estimate.</p>
 <div id="aisPanel" class="note hidden">
-<strong>Finish setup in the AIS-catcher browser tab</strong>.
+<div id="aisExplanation"><strong>Finish setup in the AIS-catcher browser tab</strong>.
 Choose your RTL-SDR, save the configuration with <strong>Save &amp; Close</strong>,
-then return here and click <strong>Verify AIS setup</strong>.
+then return here and click <strong>Verify AIS setup</strong>.</div>
 <div class="actions">
 <button id="verify" disabled>Verify AIS setup</button>
 <button class="secondary" id="defer" disabled>Finish without AIS setup</button>
@@ -120,6 +125,21 @@ then return here and click <strong>Verify AIS setup</strong>.
 <script>
 "use strict";
 const token = __SDRCC_TOKEN__;
+const preview = __SDRCC_PREVIEW__;
+if (preview) {
+ byPreviewSetup();
+}
+function byPreviewSetup() {
+ const el = id => document.getElementById(id);
+ el("modeBadge").classList.remove("hidden");
+ el("start").textContent = "Start preview";
+ el("introNote").textContent = "Safe preview: no software is installed, no services are started or stopped, and no settings are changed. All progress and AIS steps are simulated.";
+ el("introNote").classList.add("preview-panel");
+ el("progressHint").textContent = "Simulation only — this progress is not a real SDRCC installation.";
+ el("aisExplanation").textContent = "Simulation only: this is a preview of the AIS-catcher confirmation step. No actual wizard opens, and no receiver or AIS configuration is changed.";
+ el("verify").textContent = "Simulate AIS confirmed";
+ el("defer").textContent = "Simulate AIS deferred";
+}
 const api = async (path, data) => {
  const opts = {headers: {"X-SDRCC-Token": token}, cache: "no-store"};
  if (data !== undefined) {
@@ -157,9 +177,10 @@ async function refresh() {
   by("aisPanel").classList.toggle("hidden", !s.ais_stage || s.finished);
   by("verify").disabled = !s.awaiting_ais;
   by("defer").disabled = !s.awaiting_ais;
-  by("aisHelp").textContent = s.awaiting_ais ?
-   "After Save & Close, verify here. If the wizard is incomplete, you can try again." :
-   "Preparing the AIS-catcher wizard or checking the saved configuration…";
+  by("aisHelp").textContent = preview ?
+   (s.awaiting_ais ? "Test either button; this will not read or write AIS settings." : "Previewing the AIS step…") :
+   (s.awaiting_ais ? "After Save & Close, verify here. If the wizard is incomplete, you can try again." :
+    "Preparing the AIS-catcher wizard or checking the saved configuration…");
   finished = s.finished;
   by("finish").classList.toggle("hidden", !finished);
  } catch (error) {
@@ -184,7 +205,7 @@ by("verify").onclick = async () => {
  catch (error) { alert(error.message); }
 };
 by("defer").onclick = async () => {
- if (!confirm("Continue without finishing AIS-catcher setup? You can resume it later.")) return;
+ if (!preview && !confirm("Continue without finishing AIS-catcher setup? You can resume it later.")) return;
  try { await api("/api/ais/defer", {}); await refresh(); }
  catch (error) { alert(error.message); }
 };
@@ -199,7 +220,8 @@ refresh();
 
 
 class InstallState:
-    def __init__(self):
+    def __init__(self, preview=False):
+        self.preview = preview
         self.lock = threading.RLock()
         self.started = False
         self.finished = False
@@ -214,6 +236,7 @@ class InstallState:
     def snapshot(self):
         with self.lock:
             return {
+                "preview": self.preview,
                 "started": self.started,
                 "finished": self.finished,
                 "awaiting_ais": self.awaiting_ais,
@@ -245,14 +268,43 @@ class InstallState:
             if self.started:
                 raise ValueError("The installation has already started.")
             self.started = True
-            self.stage = "Starting Bash installer"
+            self.stage = "Starting preview" if self.preview else "Starting Bash installer"
             self.lines.append("Selected options: " + ", ".join(
                 k + "=" + ("yes" if choices[k] else "no")
                 for k in ("satellite", "traffic_voice", "radio_receiver")))
-        thread = threading.Thread(target=self._run, args=(choices,), daemon=True)
+        runner = self._simulate if self.preview else self._run
+        thread = threading.Thread(target=runner, args=(choices,), daemon=True)
         thread.start()
 
+    def _simulate(self, choices):
+        """Purely in-memory preview. No shell, filesystem writes or service changes."""
+        self.add_line("[PREVIEW] Demo only — your SDRCC installation stays untouched.")
+        for marker in (
+            "==> Preflight",
+            "==> Base Ubuntu dependencies",
+            "==> Optional SDRCC features",
+            "==> Install SDRCC source",
+            "==> Python environment",
+            "==> Install systemd units",
+            "==> Station setup",
+            "==> Detect receivers",
+            "==> Start and validate SDRCC",
+            "==> Final AIS-catcher setup",
+        ):
+            with self.lock:
+                if self.finished:
+                    return
+            self.add_line("[PREVIEW] " + marker)
+            time.sleep(0.38)
+        self.add_line("[PREVIEW] AIS wizard would open here during a real installation.")
+        self.add_line("[PREVIEW] Try Simulate AIS confirmed or Simulate AIS deferred.")
+        with self.lock:
+            self.awaiting_ais = True
+            self.stage = "Simulated AIS-catcher confirmation"
+
     def _run(self, choices):
+        if self.preview:
+            raise RuntimeError("Preview mode must never execute the real installer.")
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         for key, value in choices.items():
@@ -312,6 +364,17 @@ class InstallState:
 
     def ais_reply(self, answer):
         with self.lock:
+            if self.preview:
+                if self.finished or not self.awaiting_ais:
+                    raise ValueError("The simulated AIS step is not ready.")
+                self.awaiting_ais = False
+                self.finished = True
+                self.exit_code = 0
+                self.percent = 100
+                self.stage = "Preview complete — nothing was changed"
+                result = "simulated AIS deferred" if answer == "d" else "simulated AIS confirmed"
+                self.lines.append("[PREVIEW] " + result + "; no AIS configuration was inspected or modified.")
+                return
             if self.finished or not self.awaiting_ais or not self.process or not self.process.stdin:
                 raise ValueError("The AIS-catcher wizard is not waiting for confirmation.")
             self.process.stdin.write((answer + "\n").encode("utf-8"))
@@ -320,15 +383,19 @@ class InstallState:
             self.stage = "Verifying AIS-catcher setup" if not answer else "Deferring AIS-catcher setup"
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="SDRCC local installer interface")
+    parser.add_argument("--preview", action="store_true",
+                        help="Safe UI simulation with no installation or configuration changes")
+    args = parser.parse_args(argv)
     if os.geteuid() == 0:
         print("Run the installer as your normal Ubuntu account, not root.", file=sys.stderr)
         return 2
-    if (ROOT / "venv/bin/python").exists() and (ROOT / "VERSION").exists():
+    if not args.preview and (ROOT / "venv/bin/python").exists() and (ROOT / "VERSION").exists():
         print("SDRCC is already installed. Use System → Advanced Maintenance for updates.", file=sys.stderr)
         print("For a new GUI installation use a clean install; the installer never overwrites it.", file=sys.stderr)
         return 2
-    state = InstallState()
+    state = InstallState(preview=args.preview)
     token = secrets.token_urlsafe(32)
     httpd = None
 
@@ -361,7 +428,8 @@ def main():
                 self.send_error(403)
                 return
             if self.path == "/":
-                page = PAGE.replace("__SDRCC_TOKEN__", json.dumps(token)).encode("utf-8")
+                page = (PAGE.replace("__SDRCC_TOKEN__", json.dumps(token))
+                        .replace("__SDRCC_PREVIEW__", "true" if args.preview else "false")).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Cache-Control", "no-store")
@@ -406,8 +474,11 @@ def main():
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     httpd.daemon_threads = True
     url = "http://127.0.0.1:" + str(httpd.server_port) + "/"
-    print("SDRCC graphical installer: " + url, flush=True)
-    print("Keep this terminal open for any Ubuntu sudo password prompts.", flush=True)
+    print(("SDRCC SAFE PREVIEW: " if args.preview else "SDRCC graphical installer: ") + url, flush=True)
+    if args.preview:
+        print("PREVIEW ONLY: no installation, no sudo, no services, no settings changes.", flush=True)
+    else:
+        print("Keep this terminal open for any Ubuntu sudo password prompts.", flush=True)
     if shutil.which("xdg-open"):
         try:
             subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL,
