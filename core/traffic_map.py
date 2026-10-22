@@ -76,8 +76,10 @@ def vessels(payload: Any) -> list[dict]:
         if pos is None:
             continue
         validated = _num(item.get("validated"))
-        if validated is not None and validated != 1:
-            continue
+        # Map display is not an ATIS/alert match: include uncertain positions
+        # but label them clearly, never silently call them validated.
+        validation_state = ("verified" if validated == 1 else
+                            "unverified" if validated is not None else "unknown")
         age = next((v for k in ("last_signal", "last_signal_seconds", "age")
                     if (v := _num(item.get(k))) is not None), None)
         if age is not None and not 0 <= age <= AIS_MAX_AGE:
@@ -89,6 +91,7 @@ def vessels(payload: Any) -> list[dict]:
         selected.append({
             "type": "ais", "id": mmsi, "name": _label(item, ("shipname", "name"), 70) or mmsi,
             "callsign": _label(item, ("callsign",), 24), "lon": pos[0], "lat": pos[1],
+            "validation_state": validation_state,
             "course": _direction(item, ("cog", "course", "heading")),
             "speed_knots": round(speed, 1) if speed is not None else None,
             "age_seconds": round(age, 1) if age is not None else None,
@@ -173,7 +176,9 @@ def snapshot() -> dict:
     return {
         "ok": True, "read_only": True, "center": center,
         "ais": {"available": ais_payload is not None, "count": len(ships),
-                "source_count": len(ais_rows), "targets": ships},
+                "source_count": len(ais_rows),
+                "unverified_count": sum(ship["validation_state"] == "unverified" for ship in ships),
+                "targets": ships},
         "adsb": {"available": adsb_live, "count": len(planes),
                  "source_count": len(adsb_rows), "source": adsb_source if adsb_live else None,
                  "targets": planes},
