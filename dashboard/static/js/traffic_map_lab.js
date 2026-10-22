@@ -53,6 +53,19 @@
     // The reported bow/stern/port/starboard offsets define real hull size.
     // In a harbour we want geographic-scale hulls, not a fixed pixel-length emoji.
     const HULL_MIN_ZOOM = 14;
+    const AIS_NAME_MIN_ZOOM = 12.5;
+    // Mirror AIS-catcher's class palette (shipclass from the AIS JSON).
+    // A matching colour is used for compact arrows/dots, hull edges and names.
+    const AIS_CLASS_COLORS = Object.freeze({
+        0:"#22bdf0", 1:"#22bdf0", 2:"#1fbf5c", 3:"#c04ef0",
+        4:"#2c4fd0", 5:"#6b3d10", 6:"#d93a2b", 7:"#f2c81a",
+        8:"#ff86b4", 9:"#ff9340", 10:"#ff9340",
+        11:"#2c4fd0", 12:"#f2c81a", 13:"#d93a2b",
+    });
+    const aisClass = value => Number.isInteger(value) && value >= 0 && value <= 13 ? value : 1;
+    const classColorExpression = ["match", ["get", "shipclass"],
+        ...Object.entries(AIS_CLASS_COLORS).flatMap(([key, value]) => [Number(key), value]),
+        AIS_CLASS_COLORS[1]];
     function hullGeometry(ship) {
         if (!ship.hull_available || !Number.isFinite(ship.hull_heading)) return null;
         const bow = ship.to_bow, stern = ship.to_stern;
@@ -60,7 +73,7 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
-                || length < 5 || length > 450 || beam < 2 || beam > 90
+                || length < 30 || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -116,8 +129,37 @@
     function iconScale(length) {
         // AIS-catcher-like size bands where actual length is known.
         // If an AIS length isn't reported, keep a normal fallback silhouette.
-        if (!Number.isFinite(length)) return 0.85;
-        return length > 200 ? 1.15 : length >= 100 ? 0.97 : 0.78;
+        if (!Number.isFinite(length)) return 0.75;
+        return length > 200 ? 1.1 : length >= 100 ? 0.9 : 0.75;
+    }
+    function trafficProperties(item) {
+        const isAIS = item.type === "ais";
+        const shipclass = isAIS ? aisClass(item.shipclass) : null;
+        const moving = isAIS && Number.isFinite(item.course)
+            && Number.isFinite(item.speed_knots) && item.speed_knots > 0.5;
+        const unverified = item.validation_state === "unverified";
+        const iconName = isAIS
+            ? "sdrcc-ship-" + shipclass + "-" + (moving ? "moving" : "still")
+                + (unverified ? "-unverified" : "")
+            : "sdrcc-plane" + (Number.isFinite(item.course) ? "" : "-no-course");
+        return {
+            type: item.type,
+            id: String(item.id || ""),
+            name: String(item.name || item.id || ""),
+            callsign: String(item.callsign || ""),
+            icon_name: iconName,
+            is_moving: moving,
+            course: Number.isFinite(item.course) ? item.course : null,
+            course_known: Number.isFinite(item.course),
+            length_m: Number.isFinite(item.length_m) ? item.length_m : null,
+            icon_scale: isAIS ? iconScale(item.length_m) : 1,
+            hull_available: isAIS && hullGeometry(item) !== null,
+            shipclass,
+            speed_knots: item.speed_knots,
+            altitude_ft: item.altitude_ft,
+            age_seconds: item.age_seconds,
+            validation_state: item.validation_state || "unknown",
+        };
     }
     function makeGeoJson(rows) {
         return {
@@ -125,28 +167,13 @@
             features: rows.map(item => ({
                 type: "Feature",
                 geometry: {type: "Point", coordinates: [item.lon, item.lat]},
-                properties: {
-                    type: item.type,
-                    id: String(item.id || ""),
-                    name: String(item.name || item.id || ""),
-                    callsign: String(item.callsign || ""),
-                    course: Number.isFinite(item.course) ? item.course : null,
-                    course_known: Number.isFinite(item.course),
-                    length_m: Number.isFinite(item.length_m) ? item.length_m : null,
-                    icon_scale: item.type === "ais" ? iconScale(item.length_m) : 1,
-                    hull_available: item.type === "ais" && hullGeometry(item) !== null,
-                    shipclass: item.shipclass,
-                    speed_knots: item.speed_knots,
-                    altitude_ft: item.altitude_ft,
-                    age_seconds: item.age_seconds,
-                    validation_state: item.validation_state || "unknown",
-                },
+                properties: trafficProperties(item),
             })),
         };
     }
     function setLayerVisibility(kind, visible) {
         if (!loaded) return;
-        for (const suffix of kind === "ais" ? ["hull-fill", "hull-border", "icons", "labels"] : ["icons", "labels"]) {
+        for (const suffix of kind === "ais" ? ["hull-fill", "hull-border", "icons", "fallback-icons", "labels"] : ["icons", "labels"]) {
             const id = "sdrcc-" + kind + "-" + suffix;
             const enabled = visible && (suffix !== "labels" || el("show-names").checked);
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", enabled ? "visible" : "none");
@@ -195,10 +222,38 @@
         if (props.age_seconds !== null && props.age_seconds !== undefined) line("Last position: " + props.age_seconds + " s ago");
         return box;
     }
-    // Draw local, crisp 2x sprites; MapLibre 6 supports ImageData in addImage.
-    // Sprite noses point north; `icon-rotate` uses course/track in degrees.
-    // No external images, emojis/font dependencies, or a second AIS/ADS-B feed.
-    function sprite(kind, color, unknownCourse = false) {
+    // Compact AIS-catcher-like arrows (under way) or dots (stopped/no course).
+    // Colours are the actual AIS ship classes; no cyan cartoon hull overlays.
+    function spriteShip(color, moving, unverified) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 96;
+        canvas.height = 96;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D context is unavailable");
+        ctx.scale(2, 2);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.shadowColor = "rgba(0, 10, 24, 0.55)";
+        ctx.shadowBlur = 2.2;
+        ctx.fillStyle = color;
+        ctx.strokeStyle = unverified ? "#ffae75" : "#091b2a";
+        ctx.lineWidth = unverified ? 3 : 2;
+        ctx.beginPath();
+        if (moving) {
+            // Heading zero is north; a slender, unambiguous direction arrow.
+            ctx.moveTo(24, 9);
+            ctx.lineTo(32.5, 32);
+            ctx.lineTo(24, 27);
+            ctx.lineTo(15.5, 32);
+        } else {
+            ctx.arc(24, 24, 5.3, 0, Math.PI * 2);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        return ctx.getImageData(0, 0, 96, 96);
+    }
+    function spritePlane(unknownCourse = false) {
         const canvas = document.createElement("canvas");
         canvas.width = 96;
         canvas.height = 96;
@@ -209,65 +264,39 @@
         ctx.lineCap = "round";
         ctx.shadowColor = "rgba(1, 15, 29, 0.8)";
         ctx.shadowBlur = 3;
-        ctx.shadowOffsetY = 1.5;
-        ctx.fillStyle = color;
+        ctx.fillStyle = "#ffbd73";
         ctx.strokeStyle = "#07243a";
         ctx.lineWidth = 2.4;
-
         ctx.beginPath();
-        if (kind === "ais") {
-            // Vessel silhouette: pointed bow, long hull and square stern.
-            ctx.moveTo(24, 5);
-            ctx.bezierCurveTo(29, 10, 33, 16, 33, 24);
-            ctx.lineTo(31, 40);
-            ctx.quadraticCurveTo(24, 43, 17, 40);
-            ctx.lineTo(15, 24);
-            ctx.bezierCurveTo(15, 16, 19, 10, 24, 5);
-        } else {
-            // Distinct top-down aircraft silhouette, not an ambiguous dot.
-            ctx.moveTo(24, 3);
-            ctx.quadraticCurveTo(27.5, 6, 27.5, 11);
-            ctx.lineTo(28.5, 20);
-            ctx.lineTo(42.5, 27);
-            ctx.lineTo(42.5, 31);
-            ctx.lineTo(28, 27);
-            ctx.lineTo(27.5, 35);
-            ctx.lineTo(34, 39);
-            ctx.lineTo(34, 42);
-            ctx.lineTo(24, 39);
-            ctx.lineTo(14, 42);
-            ctx.lineTo(14, 39);
-            ctx.lineTo(20.5, 35);
-            ctx.lineTo(20, 27);
-            ctx.lineTo(5.5, 31);
-            ctx.lineTo(5.5, 27);
-            ctx.lineTo(19.5, 20);
-            ctx.lineTo(20.5, 11);
-            ctx.quadraticCurveTo(20.5, 6, 24, 3);
-        }
+        ctx.moveTo(24, 3);
+        ctx.quadraticCurveTo(27.5, 6, 27.5, 11);
+        ctx.lineTo(28.5, 20);
+        ctx.lineTo(42.5, 27);
+        ctx.lineTo(42.5, 31);
+        ctx.lineTo(28, 27);
+        ctx.lineTo(27.5, 35);
+        ctx.lineTo(34, 39);
+        ctx.lineTo(34, 42);
+        ctx.lineTo(24, 39);
+        ctx.lineTo(14, 42);
+        ctx.lineTo(14, 39);
+        ctx.lineTo(20.5, 35);
+        ctx.lineTo(20, 27);
+        ctx.lineTo(5.5, 31);
+        ctx.lineTo(5.5, 27);
+        ctx.lineTo(19.5, 20);
+        ctx.lineTo(20.5, 11);
+        ctx.quadraticCurveTo(20.5, 6, 24, 3);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         ctx.shadowColor = "transparent";
-
         ctx.strokeStyle = "rgba(255,255,255,0.94)";
         ctx.lineWidth = 1.6;
-        if (kind === "ais") {
-            ctx.beginPath();
-            ctx.moveTo(20, 26);
-            ctx.lineTo(28, 26);
-            ctx.moveTo(21, 33);
-            ctx.lineTo(27, 33);
-            ctx.stroke();
-            ctx.fillStyle = "#e5fbff";
-            ctx.fillRect(20, 19, 8, 4.5);
-        } else {
-            ctx.beginPath();
-            ctx.moveTo(24, 9);
-            ctx.lineTo(24, 31);
-            ctx.stroke();
-        }
-        // A '?' badge prevents pointing-north from implying a known bearing.
+        ctx.beginPath();
+        ctx.moveTo(24, 9);
+        ctx.lineTo(24, 31);
+        ctx.stroke();
         if (unknownCourse) {
             ctx.beginPath();
             ctx.fillStyle = "#132a41";
@@ -285,14 +314,17 @@
         return ctx.getImageData(0, 0, 96, 96);
     }
     function registerSprites() {
-        for (const [name, kind, color] of [
-            ["sdrcc-ship", "ais", "#34d5e5"],
-            ["sdrcc-ship-unverified", "ais", "#ff9f68"],
-            ["sdrcc-plane", "adsb", "#ffbd73"],
-        ]) {
-            map.addImage(name, sprite(kind, color), {pixelRatio: 2});
-            map.addImage(name + "-no-course", sprite(kind, color, true), {pixelRatio: 2});
+        for (const [key, color] of Object.entries(AIS_CLASS_COLORS)) {
+            for (const moving of [true, false]) {
+                for (const unverified of [false, true]) {
+                    const name = "sdrcc-ship-" + key + "-" + (moving ? "moving" : "still")
+                        + (unverified ? "-unverified" : "");
+                    map.addImage(name, spriteShip(color, moving, unverified), {pixelRatio: 2});
+                }
+            }
         }
+        map.addImage("sdrcc-plane", spritePlane(), {pixelRatio: 2});
+        map.addImage("sdrcc-plane-no-course", spritePlane(true), {pixelRatio: 2});
     }
     function addHullLayer() {
         map.addSource("sdrcc-ais-hulls", {type:"geojson", data:empty});
@@ -311,11 +343,9 @@
             id:"sdrcc-ais-hull-border", type:"line", source:"sdrcc-ais-hulls",
             minzoom:HULL_MIN_ZOOM,
             paint:{
-                "line-color":["case",
-                    ["==", ["get", "validation_state"], "unverified"], "#ff9f68",
-                    ["match", ["get", "shipclass"],
-                        2, "#31d176", 6, "#ff7166", 4, "#668aff",
-                        7, "#e8c65c", 8, "#f28db7", "#50c5e7"]],
+                "line-color": ["case",
+                    ["==", ["get", "validation_state"], "unverified"], "#ffae75",
+                    classColorExpression],
                 "line-width":["interpolate", ["linear"], ["zoom"], 14, 1.2, 17, 2],
                 "line-opacity":0.95,
             },
@@ -335,57 +365,70 @@
     function addPoints(kind) {
         const source = "sdrcc-" + kind;
         map.addSource(source, {type: "geojson", data: empty});
-        const baseIcon = kind === "ais"
-            ? ["case", ["==", ["get", "validation_state"], "unverified"],
-                "sdrcc-ship-unverified", "sdrcc-ship"]
-            : "sdrcc-plane";
-        map.addLayer({
+        const iconLayout = {
+            "icon-image": ["get", "icon_name"],
+            "icon-size": ["interpolate", ["linear"], ["zoom"],
+                7, ["*", 0.36, ["get", "icon_scale"]],
+                10, ["*", 0.53, ["get", "icon_scale"]],
+                13, ["*", 0.76, ["get", "icon_scale"]],
+                16, ["*", 0.91, ["get", "icon_scale"]]],
+            "icon-rotate": kind === "ais"
+                ? ["case", ["get", "is_moving"], ["coalesce", ["get", "course"], 0], 0]
+                : ["coalesce", ["get", "course"], 0],
+            "icon-rotation-alignment": "map",
+            "icon-pitch-alignment": "viewport",
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true,
+        };
+        const iconLayer = {
             id: source + "-icons", type: "symbol", source,
-            layout: {
-                "icon-image": ["concat", baseIcon,
-                    ["case", ["==", ["get", "course_known"], true], "", "-no-course"]],
-                "icon-size": ["interpolate", ["linear"], ["zoom"],
-                    7, ["*", 0.36, ["get", "icon_scale"]],
-                    10, ["*", 0.53, ["get", "icon_scale"]],
-                    13, ["*", 0.76, ["get", "icon_scale"]],
-                    16, ["*", 0.91, ["get", "icon_scale"]]],
-                // Course/track is compass degrees clockwise from true north.
-                "icon-rotate": ["coalesce", ["get", "course"], 0],
-                "icon-rotation-alignment": "map",
-                "icon-pitch-alignment": "viewport",
-                "icon-allow-overlap": true,
-                "icon-ignore-placement": true,
-            },
-            paint: {
-                // Switch to real-size black AIS hulls at harbour zoom.
-                "icon-opacity": kind === "ais"
-                    ? ["step", ["zoom"], 1, HULL_MIN_ZOOM,
-                        ["case", ["get", "hull_available"], 0, 1]]
-                    : 1,
-            },
-        });
+            layout: iconLayout,
+        };
+        if (kind === "ais") iconLayer.maxzoom = HULL_MIN_ZOOM;
+        map.addLayer(iconLayer);
+        if (kind === "ais") {
+            // MapLibre's native zoom ranges guarantee no icon/hull overlap:
+            // at harbour zoom only missing/short hulls get a fallback symbol.
+            map.addLayer({
+                id: source + "-fallback-icons", type: "symbol", source,
+                minzoom: HULL_MIN_ZOOM,
+                filter: ["!=", ["get", "hull_available"], true],
+                layout: {...iconLayout},
+            });
+        }
         map.addLayer({
             id: source + "-labels", type: "symbol", source,
-            minzoom: 11,
+            minzoom: kind === "ais" ? AIS_NAME_MIN_ZOOM : 11,
             layout: {
                 "text-field": ["get", "name"],
-                "text-size": 11,
-                "text-offset": [0, 1.2],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 12],
+                "text-offset": [0, 0.95],
                 "text-anchor": "top",
                 "text-optional": true,
+                "text-allow-overlap": false,
+                "text-ignore-placement": false,
             },
-            paint: {"text-color": "#f4faff", "text-halo-color": "#11283b", "text-halo-width": 1.4},
+            paint: {
+                "text-color": kind === "ais" ? classColorExpression : "#f4faff",
+                "text-halo-color": "#102436",
+                "text-halo-width": kind === "ais" ? 2 : 1.4,
+            },
         });
-        map.on("click", source + "-icons", event => {
-            const feature = event.features && event.features[0];
-            if (!feature) return;
-            new maplibregl.Popup({offset: 12, maxWidth: "300px"})
-                .setLngLat(feature.geometry.coordinates)
-                .setDOMContent(popup(feature))
-                .addTo(map);
-        });
-        map.on("mouseenter", source + "-icons", () => {map.getCanvas().style.cursor = "pointer";});
-        map.on("mouseleave", source + "-icons", () => {map.getCanvas().style.cursor = "";});
+        const interactive = kind === "ais"
+            ? [source + "-icons", source + "-fallback-icons"]
+            : [source + "-icons"];
+        for (const id of interactive) {
+            map.on("click", id, event => {
+                const feature = event.features && event.features[0];
+                if (!feature) return;
+                new maplibregl.Popup({offset: 12, maxWidth: "300px"})
+                    .setLngLat(feature.geometry.coordinates)
+                    .setDOMContent(popup(feature))
+                    .addTo(map);
+            });
+            map.on("mouseenter", id, () => {map.getCanvas().style.cursor = "pointer";});
+            map.on("mouseleave", id, () => {map.getCanvas().style.cursor = "";});
+        }
     }
     function addBuildings() {
         try {
