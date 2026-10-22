@@ -5,12 +5,12 @@
 sudo apt-get install -y git
 git clone --depth 1 --branch main https://github.com/EyeVisionsNL/SDRCC.git ~/SDRCC
 cd ~/SDRCC
-./install.sh</code></pre>
-<p>Do <strong>not</strong> use <code>sudo ./install.sh</code>: the installer asks for permissions when needed.</p>
+bash install.sh</code></pre>
+<p>Do <strong>not</strong> use <code>sudo bash install.sh</code>: the installer asks for permissions when needed.</p>
 <h2 id="2-configure">2. Configure</h2>
 <p>Enter your station name, coordinates and altitude. Follow the AIS-catcher prompts. Receivers can be connected and assigned later.</p>
 <h2 id="3-open-the-dashboard">3. Open the dashboard</h2>
 <p>Visit <code>http://localhost:8080</code> on the SDRCC computer, or use its IP address on your trusted network. Open <strong>System</strong>.</p>
 <p><img src="https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/e807e4aa5ca56bb72dc76efbea117077be94ce0a/images/system.webp" alt="SDRCC System dashboard"></p>
-<p><strong>AIS setup later?</strong> Stop active missions and Radio Receiver, then run <code>~/SDRCC/install.sh --ais-setup</code>. For existing stations, update with <strong>System → Advanced Maintenance</strong>.</p>
+<p><strong>AIS setup later?</strong> Stop active missions and Radio Receiver, then run <code>cd ~/SDRCC &amp;&amp; bash install.sh --ais-setup</code>. For existing stations, update with <strong>System → Advanced Maintenance</strong>.</p>
 <p>Next: <a href="first-steps.html">First steps</a>.</p></article><aside class="toc" aria-label="On this page"><strong>ON THIS PAGE</strong><div class="toc-links"><a href="#1-install">1. Install</a><a href="#2-configure">2. Configure</a><a href="#3-open-the-dashboard">3. Open the dashboard</a></div></aside></div><div class="pager"><a href="index.html">← Start here</a><a href="first-steps.html">First steps →</a></div><footer class="footer"><span>SDRCC — SDR Control Center · Listen. Decode. Analyze. Share.</span><span>SDRCC user guide</span></footer></main></div><dialog aria-label="Enlarged screenshot"><button aria-label="Close screenshot">×</button><img alt=""></dialog></body></html>
