@@ -15,6 +15,11 @@ on:
       - 'core/satellite_view.py'
       - 'dashboard/static/js/home_position.js'
       - 'dashboard/templates/index.html'
+      - 'dashboard/templates/traffic_map_lab.html'
+      - 'dashboard/static/js/traffic_map_lab.js'
+      - 'dashboard/app.py'
+      - 'core/traffic_map.py'
+      - 'scripts/test_traffic_map.py'
       - 'scripts/validate_installer_step1.py'
       - 'scripts/install/update_manifest.json'
       - 'dashboard/static/js/update_manager.js'
@@ -45,6 +50,10 @@ jobs:
           python -m unittest discover -s scripts/install -p 'test_gui_installer.py'
       - name: Test update failures when switching beta to stable
         run: node scripts/validate_update_channel_failure.cjs
+      - name: Test read-only AIS/ADS-B map normalization
+        run: python -m unittest scripts.test_traffic_map
+      - name: Validate Map Lab JavaScript
+        run: node --check dashboard/static/js/traffic_map_lab.js
       - name: Validate Home Position browser script
         run: node --check dashboard/static/js/home_position.js
       - name: Verify source hashes in update manifest
