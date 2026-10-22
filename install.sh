@@ -67,6 +67,17 @@ show_rtlsdr_choices(){
   echo "Choose the intended RTL-SDR serial in the AIS-catcher wizard below."
 }
 need_sudo(){ sudo -v; }
+install_ais_map_bridge(){
+  # Dedicated SDRCC AIS-Catcher companion; do not touch the Rijnmond plugin.
+  # Installing the plugin file never starts/stops radio services.
+  say "SDRCC AIS-Catcher map plugin"
+  if ! sudo python3 "$PROJECT_ROOT/scripts/install/install_ais_mobile_plugin.py" --install; then
+    echo "WARNING: SDRCC AIS map plugin was not installed."
+    echo "         Fix plugin folder/permissions and run:"
+    echo "         sudo python3 $PROJECT_ROOT/scripts/install/install_ais_mobile_plugin.py --install"
+    return 1
+  fi
+}
 run_ais_wizard(){
   # Pass only desktop display hints across sudo; launch the local browser as
   # the normal login user from setup_ais.py. Headless mode prints the URL.
@@ -97,6 +108,7 @@ if ((AIS_SETUP_ONLY)); then
   need_sudo
   show_rtlsdr_choices
   run_ais_wizard
+  install_ais_map_bridge || true
   sudo systemctl enable --now sdrcc.service
   HTTP=000
   for attempt in {1..60}; do
@@ -358,6 +370,7 @@ show_rtlsdr_choices
 ais_setup_args=()
 ((NON_INTERACTIVE)) && ais_setup_args+=(--non-interactive)
 run_ais_wizard "${ais_setup_args[@]}"
+install_ais_map_bridge || true
 
 # setup_ais.py temporarily stops SDRCC while the AIS configuration page owns
 # the receiver. It restores SDRCC afterwards when it was already running.
