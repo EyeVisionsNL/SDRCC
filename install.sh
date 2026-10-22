@@ -14,6 +14,9 @@ PROJECT_GROUP="$(id -gn "$INSTALL_USER")"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 CHECK_ONLY=0
 NON_INTERACTIVE=0
+GUI_CHOICES=0
+FORCE_CLI=0
+ORIGINAL_ARG_COUNT=$#
 SKIP_THIRD_PARTY=0
 AIS_SETUP_ONLY=0
 AUDIO_COMPARISON_ONLY=0
@@ -27,6 +30,8 @@ while (($#)); do
   case "$1" in
     --check) CHECK_ONLY=1 ;;
     --non-interactive) NON_INTERACTIVE=1 ;;
+    --gui-choices) GUI_CHOICES=1 ;;
+    --cli) FORCE_CLI=1 ;;
     --skip-third-party) SKIP_THIRD_PARTY=1 ;;
     --ais-setup) AIS_SETUP_ONLY=1 ;;
     --audio-comparison|--audio-processing) AUDIO_COMPARISON_ONLY=1 ;;
@@ -37,6 +42,23 @@ while (($#)); do
 done
 PROJECT_ROOT="$(realpath -m "$PROJECT_ROOT")"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
+
+# A fresh installation on an Ubuntu desktop opens the local GUI. Explicit
+# CLI arguments, existing installations and headless servers retain the old
+# terminal installer. The GUI child uses --gui-choices to avoid recursion.
+if ((ORIGINAL_ARG_COUNT == 0)) && [[ "${SDRCC_INSTALLER_NO_GUI:-0}" != 1 ]] \
+  && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] \
+  && command -v xdg-open >/dev/null 2>&1 \
+  && command -v python3 >/dev/null 2>&1 \
+  && [[ ! -e "$PROJECT_ROOT/venv/bin/python" || ! -f "$PROJECT_ROOT/VERSION" ]]; then
+  exec python3 "$SOURCE_ROOT/scripts/install/gui_installer.py"
+fi
+
+if ((GUI_CHOICES)); then
+  for key in SDRCC_FEATURE_SATELLITE SDRCC_FEATURE_TRAFFIC_VOICE SDRCC_FEATURE_RADIO_RECEIVER; do
+    [[ "${!key:-}" =~ ^[01]$ ]] || { echo "FAIL: invalid GUI selection for $key"; exit 2; }
+  done
+fi
 
 say(){ printf '\n==> %s\n' "$*"; }
 show_rtlsdr_choices(){
@@ -156,10 +178,12 @@ sudo apt-get install -y \
   python3 python3-venv python3-pip git curl ca-certificates rsync \
   build-essential cmake pkg-config rtl-sdr librtlsdr-dev
 
-if ((NON_INTERACTIVE)); then
+if ((NON_INTERACTIVE || GUI_CHOICES)); then
+  say "Optional SDRCC features"
   FEATURE_SATELLITE="${SDRCC_FEATURE_SATELLITE:-1}"
   FEATURE_TRAFFIC_VOICE="${SDRCC_FEATURE_TRAFFIC_VOICE:-1}"
   FEATURE_RADIO_RECEIVER="${SDRCC_FEATURE_RADIO_RECEIVER:-1}"
+  echo "Satellites=$FEATURE_SATELLITE Traffic Voice=$FEATURE_TRAFFIC_VOICE Radio Receiver=$FEATURE_RADIO_RECEIVER"
 else
   say "Optional SDRCC features"
   read -r -p "Install satellite reception (SatDump + Mission tabs)? [Y/n] " ANSWER
