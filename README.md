@@ -107,6 +107,6 @@ Special thanks to **Mbruins** for extensive testing and feedback. ❤️
 
 **Original SDRCC software:** GNU GPL-3.0-only — see [LICENSE](LICENSE). © 2026 EyeVisionsNL. The SDRCC logo, project branding and original project graphics are EyeVisionsNL assets. Third-party software, data and photographs have their own rights: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-**Stable:** SDRCC v0.68.3 · **Android:** v2.0.2 · Development happens on `develop`; stable releases use `main`.
+**Stable:** SDRCC v0.68.4 · **Android:** v2.0.2 · Development happens on `develop`; stable releases use `main`.
 
 [💬 Questions and ideas](https://github.com/EyeVisionsNL/SDRCC/discussions) · [🐛 Report an issue](https://github.com/EyeVisionsNL/SDRCC/issues) · [📖 Wiki](https://eyevisionsnl.github.io/SDRCC/)
