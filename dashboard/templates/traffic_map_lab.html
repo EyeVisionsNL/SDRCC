@@ -69,7 +69,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     </div>
     <div id="map" aria-label="Map of ships and aircraft"></div>
     <div id="map-error" role="alert"></div>
-    <div class="map-caption">Ship and aircraft silhouettes follow their reported course or track. A ? means direction is unknown. The 3D button tilts the map; buildings appear at closer zoom. Actual altitude-based 3D models are a later phase. Internet access is required for map tiles.</div>
+    <div class="map-caption">At harbour zoom (14+), ships with complete AIS dimensions appear as dark, real-scale hull outlines, like AIS-catcher. Smaller icons remain where dimensions or heading are missing. 3D tilts the map; actual 3D vessel models are a later phase.</div>
   </section>
   <aside class="side">
     <section class="panel">
@@ -79,7 +79,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
       <div class="row"><label><input id="show-names" type="checkbox" checked> Show vessel / aircraft names</label></div>
       <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
       <p id="feed-detail" class="muted">Loading source and visible-position counts…</p>
-      <p class="muted"><i class="dot ais"></i> Verified/unknown AIS vessel · <i class="dot" style="background:#ff9f68"></i> Unverified AIS vessel · <i class="dot adsb"></i> Aircraft · ? Unknown course</p>
+      <p class="muted"><i class="dot ais"></i> AIS vessel · <i class="dot" style="background:#ff9f68"></i> Unverified AIS · <i class="dot adsb"></i> Aircraft · ? Unknown course. Dark hulls at zoom 14+ use real reported vessel dimensions; coloured outlines indicate AIS ship class.</p>
       <p class="muted">Click a marker for the identity, heading, speed and (for aircraft) altitude.</p>
     </section>
     <section class="panel">
@@ -89,7 +89,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     </section>
     <section class="panel footer-note">
       <h2>2D/3D roadmap</h2>
-      <p class="muted">Completed in beta: live layers, building view and course-aligned ship/aircraft silhouettes. Next: vessel trails and optional Rijnmond sector overlay. Later: genuine 3D models and aircraft altitude.</p>
+      <p class="muted">Completed in beta: live layers, buildings, real-scale AIS hull contours and course-aligned symbols. Next: vessel trails and optional Rijnmond sector overlay. Later: genuine 3D models and aircraft altitude.</p>
     </section>
   </aside>
 </div>
