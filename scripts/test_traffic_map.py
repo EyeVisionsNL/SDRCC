@@ -100,6 +100,49 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(targets[0]["validation_state"], "unverified")
         self.assertEqual(targets[1]["validation_state"], "verified")
 
+
+    def test_real_ship_offsets_for_hull(self):
+        ship = {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
+                "validated": 1, "heading": 175, "cog": 170,
+                "to_bow": 90, "to_stern": 35,
+                "to_port": 8, "to_starboard": 9, "shipclass": 6,
+                "shiptype": 80, "speed": 0.0}
+        result = traffic_map.vessels({"ships": [ship]})[0]
+        self.assertTrue(result["hull_available"])
+        self.assertEqual(result["hull_heading"], 175)
+        self.assertEqual(result["length_m"], 125)
+        self.assertEqual(result["to_starboard"], 9)
+        self.assertEqual(result["shipclass"], 6)
+        self.assertEqual(result["shiptype"], 80)
+
+    def test_no_dimensions_uses_fallback_symbol(self):
+        ship = {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
+                "length": 90, "heading": 230}
+        result = traffic_map.vessels({"ships": [ship]})[0]
+        self.assertFalse(result["hull_available"])
+        self.assertIsNone(result["to_bow"])
+        self.assertEqual(result["length_m"], 90)
+
+    def test_unknown_heading_needs_moving_course(self):
+        base = {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
+                "to_bow": 45, "to_stern": 5,
+                "to_port": 4, "to_starboard": 4,
+                "heading": 511, "cog": 122}
+        static = traffic_map.vessels({"ships": [{**base, "speed": 0}]})[0]
+        moving = traffic_map.vessels({"ships": [{**base, "speed": 6}]})[0]
+        self.assertFalse(static["hull_available"])
+        self.assertTrue(moving["hull_available"])
+        self.assertEqual(moving["hull_heading"], 122)
+
+    def test_implausible_dimensions_never_make_enormous_hull(self):
+        ship = {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
+                "heading": 90, "length": 87,
+                "to_bow": 650, "to_stern": 10,
+                "to_port": 20, "to_starboard": 20}
+        result = traffic_map.vessels({"ships": [ship]})[0]
+        self.assertFalse(result["hull_available"])
+        self.assertEqual(result["length_m"], 87)
+
     def test_readsb_non_icao_and_last_position(self):
         """Recent position retained by tar1090 should be visible; old positions must not."""
         items = [
