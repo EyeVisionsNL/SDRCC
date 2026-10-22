@@ -21,6 +21,10 @@ for name, allowed in manifest.items():
         or not relative.parts
     ):
         raise SystemExit(f"FAIL: unsafe update manifest path {name!r}")
+    # GitHub Actions workflows belong to source control, not installed SDRCC.
+    # Including them causes harmless older CI files to block real updates.
+    if relative.parts[0] == ".github":
+        raise SystemExit(f"FAIL: CI-only path must not be deployed: {name}")
     if not isinstance(allowed, list) or not all(isinstance(value, str) for value in allowed):
         raise SystemExit(f"FAIL: invalid hash list for {name}")
 
