@@ -48,6 +48,7 @@ from core import receiver_runtime as receiver_runtime_core
 from core import receiver_inventory as receiver_inventory_core
 from core import receiver_contexts as receiver_contexts_core
 from core import receiver_monitor
+from core import traffic_map as traffic_map_core
 from core import emergency_monitor
 from core import state
 from core import tle
@@ -2597,6 +2598,18 @@ def start_mission_autopilot():
 @app.route("/")
 def index():
     return render_template("index.html", features=get_features(), asset_version=update_manager.installed_version())
+
+
+@app.route("/map-lab")
+def traffic_map_lab():
+    """Standalone, read-only ADS-B/AIS 2D/3D preview."""
+    return render_template("traffic_map_lab.html", asset_version=update_manager.installed_version())
+
+
+@app.route("/api/map-lab/traffic")
+def api_traffic_map_lab():
+    """Read live positions only; never operate receiver hardware."""
+    return jsonify(traffic_map_core.snapshot())
 
 
 @app.route("/api/mobile/capabilities")
