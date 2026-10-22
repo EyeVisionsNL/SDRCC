@@ -113,6 +113,12 @@ def vessels(payload: Any) -> list[dict]:
         has_hull = to_bow is not None and hull_heading is not None
         shipclass = _num(item.get("shipclass"))
         shiptype = _num(item.get("shiptype"))
+        beam = to_port + to_starboard if to_port is not None else _num(item.get("width"))
+        if beam is not None and not 0 < beam <= 90:
+            beam = None
+        draught = _num(item.get("draught"))
+        if draught is not None and not 0 <= draught <= 25:
+            draught = None
         selected.append({
             "type": "ais", "id": mmsi, "name": _label(item, ("shipname", "name"), 70) or mmsi,
             "callsign": _label(item, ("callsign",), 24), "lon": pos[0], "lat": pos[1],
@@ -126,6 +132,13 @@ def vessels(payload: Any) -> list[dict]:
             "length_m": round(length, 1) if length is not None else None,
             "shipclass": int(shipclass) if shipclass is not None and 0 <= shipclass <= 13 else None,
             "shiptype": int(shiptype) if shiptype is not None and 0 <= shiptype <= 9999 else None,
+            "imo": _label(item, ("imo",), 15),
+            "eni": _label(item, ("eni",), 15),
+            "destination": _label(item, ("destination",), 90),
+            "country": _label(item, ("country",), 45),
+            "nav_status": _label(item, ("status",), 30),
+            "beam_m": round(beam, 1) if beam is not None else None,
+            "draught_m": round(draught, 1) if draught is not None else None,
             "speed_knots": round(speed, 1) if speed is not None else None,
             "age_seconds": round(age, 1) if age is not None else None,
         })
@@ -165,6 +178,13 @@ def aircraft(payload: Any) -> list[dict]:
             "type": "adsb", "id": ident, "name": _label(item, ("flight",), 20) or ident.upper(),
             "lon": pos[0], "lat": pos[1],
             "course": _direction(item, ("track",)),
+            "registration": _label(item, ("r", "registration"), 20),
+            "aircraft_type": _label(item, ("t", "type"), 20),
+            "description": _label(item, ("desc",), 80),
+            "operator": _label(item, ("ownOp", "operator"), 80),
+            "squawk": _label(item, ("squawk",), 6),
+            "category": _label(item, ("category",), 12),
+            "baro_rate": round(rate) if (rate := _num(item.get("baro_rate"))) is not None and -10000 <= rate <= 10000 else None,
             "speed_knots": round(speed, 1) if speed is not None and 0 <= speed <= 2000 else None,
             "altitude_ft": round(altitude) if altitude is not None and -2000 <= altitude <= 70000 else None,
             "age_seconds": round(age, 1),
