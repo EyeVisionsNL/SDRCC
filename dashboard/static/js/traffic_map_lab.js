@@ -66,6 +66,12 @@
     const classColorExpression = ["match", ["get", "shipclass"],
         ...Object.entries(AIS_CLASS_COLORS).flatMap(([key, value]) => [Number(key), value]),
         AIS_CLASS_COLORS[1]];
+    const AIS_CLASS_NAMES = Object.freeze({
+        0:"Other", 1:"Unknown", 2:"Cargo", 3:"Class B", 4:"Passenger",
+        5:"Special", 6:"Tanker", 7:"High speed", 8:"Fishing",
+        9:"Aircraft", 10:"Helicopter", 11:"Station", 12:"Aid to navigation",
+        13:"Search and rescue",
+    });
     function hullGeometry(ship) {
         if (!ship.hull_available || !Number.isFinite(ship.hull_heading)) return null;
         const bow = ship.to_bow, stern = ship.to_stern;
@@ -118,6 +124,13 @@
                     course_known: Number.isFinite(ship.course),
                     speed_knots: ship.speed_knots,
                     age_seconds: ship.age_seconds,
+                    imo: ship.imo, eni: ship.eni, callsign: ship.callsign,
+                    destination: ship.destination, country: ship.country,
+                    nav_status: ship.nav_status, shiptype: ship.shiptype,
+                    beam_m: ship.beam_m, draught_m: ship.draught_m,
+                    heading: ship.heading,
+                    display_height_m: Math.min(9, Math.max(2.5,
+                        (Number(ship.to_port) + Number(ship.to_starboard)) * 0.38)),
                 },
             });
         }
@@ -146,7 +159,24 @@
             type: item.type,
             id: String(item.id || ""),
             name: String(item.name || item.id || ""),
+            label_name: String(item.name || item.id || "").slice(0, 25),
             callsign: String(item.callsign || ""),
+            registration: item.registration || "",
+            aircraft_type: item.aircraft_type || "",
+            description: item.description || "",
+            operator: item.operator || "",
+            squawk: item.squawk || "",
+            category: item.category || "",
+            baro_rate: item.baro_rate,
+            destination: item.destination || "",
+            country: item.country || "",
+            nav_status: item.nav_status || "",
+            shiptype: item.shiptype,
+            imo: item.imo || "",
+            eni: item.eni || "",
+            beam_m: item.beam_m,
+            draught_m: item.draught_m,
+            heading: item.heading,
             icon_name: iconName,
             is_moving: moving,
             course: Number.isFinite(item.course) ? item.course : null,
@@ -173,9 +203,15 @@
     }
     function setLayerVisibility(kind, visible) {
         if (!loaded) return;
-        for (const suffix of kind === "ais" ? ["hull-fill", "hull-border", "icons", "fallback-icons", "labels"] : ["icons", "labels"]) {
+        for (const suffix of kind === "ais"
+                ? ["hull-fill", "hull-border", "hull-3d", "icons", "fallback-icons", "labels"]
+                : ["icons", "labels"]) {
             const id = "sdrcc-" + kind + "-" + suffix;
-            const enabled = visible && (suffix !== "labels" || el("show-names").checked);
+            const hull2d = suffix === "hull-fill" || suffix === "hull-border";
+            const enabled = visible
+                && (suffix !== "labels" || el("show-names").checked)
+                && (!hull2d || !mode3d)
+                && (suffix !== "hull-3d" || mode3d);
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", enabled ? "visible" : "none");
         }
     }
@@ -192,34 +228,90 @@
         if (map.getLayer("sdrcc-buildings")) {
             map.setLayoutProperty("sdrcc-buildings", "visibility", three ? "visible" : "none");
         }
+        setLayerVisibility("ais", el("layer-ais").checked);
     }
     function popup(feature) {
         const props = feature.properties || {};
         const box = document.createElement("div");
+        box.className = "traffic-detail";
         const title = document.createElement("div");
         title.className = "popup-title";
         title.textContent = (props.type === "ais" ? "🚢 " : "✈ ") + (props.name || props.id);
         box.appendChild(title);
-        const line = text => {
-            const element = document.createElement("div");
-            element.className = "popup-line";
-            element.textContent = text;
-            box.appendChild(element);
+        const add = (label, value, suffix = "") => {
+            if (value === null || value === undefined || value === "") return;
+            const row = document.createElement("div");
+            row.className = "popup-line";
+            const caption = document.createElement("strong");
+            caption.textContent = label + ": ";
+            row.appendChild(caption);
+            const data = document.createElement("span");
+            data.textContent = String(value) + suffix;
+            row.appendChild(data);
+            box.appendChild(row);
         };
-        line((props.type === "ais" ? "MMSI: " : "ICAO: ") + (props.id || "?"));
-        if (props.type === "ais" && props.validation_state === "unverified") {
-            line("Position not verified by AIS-Catcher");
+        if (props.type === "ais") {
+            add("MMSI", props.id);
+            add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
+            add("Ship type", props.shiptype);
+            add("Callsign", props.callsign);
+            add("IMO", props.imo);
+            add("ENI", props.eni);
+            add("Country", props.country);
+            add("Destination", props.destination);
+            add("Navigation status", props.nav_status);
+            add("Length", props.length_m, " m");
+            add("Beam", props.beam_m, " m");
+            add("Draught", props.draught_m, " m");
+            add("Heading", props.heading, "°");
+            if (props.validation_state === "unverified") add("AIS", "Position unverified");
+        } else {
+            add("ICAO24", props.id?.toUpperCase());
+            add("Registration", props.registration);
+            add("Type", props.aircraft_type);
+            add("Aircraft", props.description);
+            add("Operator", props.operator);
+            add("Squawk", props.squawk);
+            add("Category", props.category);
+            add("Vertical rate", props.baro_rate, " ft/min");
+            add("Altitude", props.altitude_ft, " ft");
         }
-        if (props.callsign) line("Callsign: " + props.callsign);
-        if (props.type === "ais" && Number(props.length_m) > 0) {
-            line("Reported length: " + Number(props.length_m).toLocaleString() + " m");
+        add("Course/track", props.course_known ? props.course : "Not reported",
+            props.course_known ? "°" : "");
+        add("Ground speed", props.speed_knots, " kn");
+        add("Last position", props.age_seconds, " s ago");
+        if (props.type === "adsb" && /^[a-f0-9]{6}$/i.test(props.id || "")) {
+            const photo = document.createElement("div");
+            photo.className = "popup-photo";
+            photo.textContent = "Checking for a credited aircraft photo…";
+            box.appendChild(photo);
+            // The server only asks Planespotters for photos when a plane is clicked.
+            void fetch("/api/map-lab/aircraft-photo/" + encodeURIComponent(props.id))
+                .then(response => response.ok ? response.json() : null)
+                .then(result => {
+                    photo.textContent = "";
+                    if (!result || !result.ok || !result.image_url) {
+                        photo.textContent = "No aircraft photo available";
+                        return;
+                    }
+                    const img = document.createElement("img");
+                    img.src = result.image_url;
+                    img.alt = "Aircraft photograph";
+                    img.loading = "lazy";
+                    img.referrerPolicy = "no-referrer";
+                    img.onerror = () => {img.remove(); photo.textContent = "Aircraft photo unavailable";};
+                    photo.appendChild(img);
+                    const credit = document.createElement(result.source_url ? "a" : "div");
+                    credit.textContent = "Photo: " + (result.photographer || result.source);
+                    if (result.source_url) {
+                        credit.href = result.source_url;
+                        credit.target = "_blank";
+                        credit.rel = "noopener noreferrer";
+                    }
+                    photo.appendChild(credit);
+                })
+                .catch(() => {photo.textContent = "Aircraft photo unavailable";});
         }
-        line(props.course_known ? "Reported course/track: " + props.course + "°" : "Course/track not reported (?)");
-        if (props.speed_knots !== null && props.speed_knots !== undefined) line("Speed: " + props.speed_knots + " kn");
-        if (props.type === "adsb" && props.altitude_ft !== null && props.altitude_ft !== undefined) {
-            line("Reported altitude: " + Number(props.altitude_ft).toLocaleString() + " ft");
-        }
-        if (props.age_seconds !== null && props.age_seconds !== undefined) line("Last position: " + props.age_seconds + " s ago");
         return box;
     }
     // Compact AIS-catcher-like arrows (under way) or dots (stopped/no course).
@@ -313,6 +405,20 @@
         }
         return ctx.getImageData(0, 0, 96, 96);
     }
+    function labelPlate(color) {
+        // Compact rectangular AIS-style nameplate; 9-slice allows width to
+        // stretch without making the border as thick as the text.
+        const canvas = document.createElement("canvas");
+        canvas.width = 96; canvas.height = 48;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D context is unavailable");
+        ctx.scale(2, 2);
+        ctx.fillStyle = "rgba(5,18,31,0.85)";
+        ctx.fillRect(0, 0, 48, 24);
+        ctx.fillStyle = color;
+        ctx.fillRect(2, 2, 44, 20);
+        return ctx.getImageData(0, 0, 96, 48);
+    }
     function registerSprites() {
         for (const [key, color] of Object.entries(AIS_CLASS_COLORS)) {
             for (const moving of [true, false]) {
@@ -322,6 +428,13 @@
                     map.addImage(name, spriteShip(color, moving, unverified), {pixelRatio: 2});
                 }
             }
+        }
+        for (const [key, color] of Object.entries(AIS_CLASS_COLORS)) {
+            map.addImage("sdrcc-name-" + key, labelPlate(color), {
+                pixelRatio: 2,
+                stretchX: [[18, 78]], stretchY: [[16, 32]],
+                content: [12, 8, 84, 40],
+            });
         }
         map.addImage("sdrcc-plane", spritePlane(), {pixelRatio: 2});
         map.addImage("sdrcc-plane-no-course", spritePlane(true), {pixelRatio: 2});
@@ -348,6 +461,21 @@
                     classColorExpression],
                 "line-width":["interpolate", ["linear"], ["zoom"], 14, 1.2, 17, 2],
                 "line-opacity":0.95,
+            },
+        });
+        map.addLayer({
+            id: "sdrcc-ais-hull-3d", type: "fill-extrusion",
+            source: "sdrcc-ais-hulls", minzoom: HULL_MIN_ZOOM,
+            layout: {visibility: "none"},
+            paint: {
+                "fill-extrusion-color": ["case",
+                    ["==", ["get", "validation_state"], "unverified"], "#57352c",
+                    "#1b3243"],
+                // Illustrative depth only: actual ship height is not present in AIS.
+                "fill-extrusion-height": ["get", "display_height_m"],
+                "fill-extrusion-base": 0,
+                "fill-extrusion-opacity": 0.96,
+                "fill-extrusion-vertical-gradient": true,
             },
         });
         map.on("click", "sdrcc-ais-hull-fill", event => {
@@ -400,18 +528,24 @@
             id: source + "-labels", type: "symbol", source,
             minzoom: kind === "ais" ? AIS_NAME_MIN_ZOOM : 11,
             layout: {
-                "text-field": ["get", "name"],
+                "text-field": kind === "ais" ? ["get", "label_name"] : ["get", "name"],
+                "icon-image": kind === "ais"
+                    ? ["concat", "sdrcc-name-", ["to-string", ["get", "shipclass"]]]
+                    : "sdrcc-plane",
+                "icon-opacity": kind === "ais" ? 1 : 0,
+                "icon-text-fit": kind === "ais" ? "both" : "none",
+                "icon-text-fit-padding": [3, 7, 3, 7],
                 "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 12],
-                "text-offset": [0, 0.95],
-                "text-anchor": "top",
-                "text-optional": true,
+                "text-offset": [0, 0],
+                "text-anchor": "center",
+                "text-optional": false,
                 "text-allow-overlap": false,
                 "text-ignore-placement": false,
             },
             paint: {
-                "text-color": kind === "ais" ? classColorExpression : "#f4faff",
+                "text-color": "#ffffff",
                 "text-halo-color": "#102436",
-                "text-halo-width": kind === "ais" ? 2 : 1.4,
+                "text-halo-width": kind === "ais" ? 0.6 : 1.4,
             },
         });
         const interactive = kind === "ais"
