@@ -10,6 +10,7 @@ import importlib.util
 import io
 from pathlib import Path
 import sys
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -81,6 +82,38 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(state.finished)
         self.assertEqual(state.exit_code, 0)
         self.assertEqual(state.percent, 100)
+
+    def test_preview_never_invokes_installer(self):
+        state = gui.InstallState(preview=True)
+        choices = {"satellite": True, "traffic_voice": False, "radio_receiver": True}
+        with patch.object(gui.subprocess, "Popen", side_effect=AssertionError("must not execute")), \
+             patch.object(gui.time, "sleep", return_value=None):
+            state.start(choices)
+            # Let the simulator thread finish its short in-memory stage sequence.
+            for _ in range(10000):
+                if state.snapshot()["awaiting_ais"]:
+                    break
+                threading.Event().wait(0.001)
+            else:
+                self.fail("Preview never reached AIS simulation")
+        snapshot = state.snapshot()
+        self.assertTrue(snapshot["preview"])
+        self.assertTrue(snapshot["ais_stage"])
+        self.assertFalse(snapshot["finished"])
+        self.assertEqual(snapshot["percent"], 94)
+        state.ais_reply("")
+        self.assertTrue(state.snapshot()["finished"])
+        self.assertEqual(state.snapshot()["percent"], 100)
+        self.assertIn("nothing was changed", state.snapshot()["stage"])
+
+    def test_preview_defer_does_not_write_to_subprocess(self):
+        state = gui.InstallState(preview=True)
+        state.awaiting_ais = True
+        with patch.object(gui.subprocess, "Popen", side_effect=AssertionError("must not execute")):
+            state.ais_reply("d")
+        self.assertTrue(state.finished)
+        self.assertIn("simulated AIS deferred", state.lines[-1])
+        self.assertIsNone(state.process)
 
     def test_failed_install_stays_visible(self):
         state = gui.InstallState()
