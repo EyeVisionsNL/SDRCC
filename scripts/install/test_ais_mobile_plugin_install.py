@@ -2,6 +2,9 @@
 """Read-only unit tests for the SDRCC AIS-Catcher map-plugin installer."""
 from __future__ import annotations
 import importlib.util
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -19,6 +22,17 @@ class MapPluginInstallTests(unittest.TestCase):
         folder = root / "AIS-catcher" / "plugins"
         folder.mkdir(parents=True)
         return source, folder / "sdrcc-mobile-atis.pjs"
+
+    def test_standalone_tmp_repair_starts(self):
+        """Regression: downloaded /tmp helper must not crash on Path.parents[2]."""
+        with tempfile.TemporaryDirectory() as root:
+            standalone = Path(root) / "sdrcc-ais-plugin-repair.py"
+            shutil.copyfile(MODULE, standalone)
+            result = subprocess.run(
+                [sys.executable, str(standalone), "--help"],
+                text=True, capture_output=True, timeout=10, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("--source", result.stdout)
 
     def test_initial_install_and_second_install_idempotent(self):
         with tempfile.TemporaryDirectory() as name:
