@@ -9,7 +9,10 @@ from __future__ import annotations
 import importlib.util
 import io
 from pathlib import Path
+import shutil
+import subprocess
 import sys
+import tempfile
 import threading
 import unittest
 from unittest.mock import patch
@@ -32,6 +35,18 @@ class FakeProcess:
 
 
 class InstallerTests(unittest.TestCase):
+    def test_standalone_tmp_preview_entrypoint(self):
+        """Catch path errors when the preview is downloaded outside SDRCC."""
+        with tempfile.TemporaryDirectory() as folder:
+            standalone = Path(folder) / "sdrcc-installer-preview.py"
+            shutil.copyfile(MODULE, standalone)
+            result = subprocess.run(
+                [sys.executable, str(standalone), "--help"],
+                text=True, capture_output=True, timeout=10, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("--preview", result.stdout)
+
     def test_stage_markers(self):
         state = gui.InstallState()
         state.add_line("==> Preflight")
