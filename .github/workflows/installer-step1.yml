@@ -19,6 +19,8 @@ on:
       - 'dashboard/static/js/traffic_map_lab.js'
       - 'dashboard/app.py'
       - 'core/traffic_map.py'
+      - 'core/traffic_map_aircraft_photo.py'
+      - 'scripts/test_traffic_map_aircraft_photo.py'
       - 'scripts/test_traffic_map.py'
       - 'scripts/validate_map_lab_boot.cjs'
       - 'scripts/validate_map_lab_symbols.cjs'
@@ -53,7 +55,7 @@ jobs:
       - name: Test update failures when switching beta to stable
         run: node scripts/validate_update_channel_failure.cjs
       - name: Test read-only AIS/ADS-B map normalization
-        run: python -m unittest scripts.test_traffic_map
+        run: python -m unittest scripts.test_traffic_map scripts.test_traffic_map_aircraft_photo
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
       - name: Check MapLibre 6 map boot and error handling
