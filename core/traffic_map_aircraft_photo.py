@@ -12,7 +12,7 @@ import time
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-_URL = "https://api.planespotters.net/pub/photos/"
+_URL = "https://api.planespotters.net/pub/photos/hex/"
 _CACHE: dict[str, tuple[float, dict]] = {}
 _LOCK = threading.RLock()
 _MAX_CACHE = 512
@@ -28,10 +28,8 @@ def _trusted_url(value: object, image: bool = False) -> str:
             return ""
         if not (host == "planespotters.net" or host.endswith(".planespotters.net")):
             return ""
-        if image and not p.path.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-            # Some photo thumbnails are served through image URLs without extensions.
-            if "/photo/" not in p.path and "/img/" not in p.path:
-                return ""
+        # The image CDN also serves thumbnails from extensionless paths.
+        # Origin validation is the restriction; never accept unknown domains.
         return value
     except ValueError:
         return ""
