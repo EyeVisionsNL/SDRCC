@@ -243,7 +243,8 @@ class FakeMap {
     // Clicking a plane requests the optional photo only at selection time.
     instance.callbacks["click:sdrcc-adsb-icons"]({features:[planes[0]]});
     assert(lastPopup && lastPopup.element, "aircraft popup must open");
-    await new Promise(resolve => setImmediate(resolve));
+    // Flush the small async chain: fetch -> JSON -> render image / attribution.
+    for (let i = 0; i < 8; i++) await Promise.resolve();
     const card = lastPopup.element;
     const detailLines = card.children.map(item => item.children?.map(child => child.textContent).join("") || "");
     assert(detailLines.some(x => x.includes("Registration: PH-BGX")));
