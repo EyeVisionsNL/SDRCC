@@ -406,17 +406,15 @@
         return ctx.getImageData(0, 0, 96, 96);
     }
     function labelPlate(color) {
-        // Compact rectangular AIS-style nameplate; 9-slice allows width to
-        // stretch without making the border as thick as the text.
+        // Borderless class-coloured AIS label: keep the colour, drop the heavy
+        // black frame. Nine-slice still stretches the plate to the text.
         const canvas = document.createElement("canvas");
         canvas.width = 96; canvas.height = 48;
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas 2D context is unavailable");
         ctx.scale(2, 2);
-        ctx.fillStyle = "rgba(5,18,31,0.85)";
-        ctx.fillRect(0, 0, 48, 24);
         ctx.fillStyle = color;
-        ctx.fillRect(2, 2, 44, 20);
+        ctx.fillRect(0, 0, 48, 24);
         return ctx.getImageData(0, 0, 96, 48);
     }
     function registerSprites() {
@@ -573,6 +571,135 @@
             map.on("mouseleave", id, () => {map.getCanvas().style.cursor = "";});
         }
     }
+    function setAuxVisibility(kind, visible) {
+        if (!loaded) return;
+        const layers = kind === "station"
+            ? ["sdrcc-home-ring", "sdrcc-home-dot", "sdrcc-home-name"]
+            : ["sdrcc-vts-fill", "sdrcc-vts-line", "sdrcc-vts-labels"];
+        for (const id of layers) {
+            if (map.getLayer(id)) {
+                map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+            }
+        }
+    }
+    function addSectorLayers() {
+        map.addSource("sdrcc-vts", {type:"geojson", data:empty});
+        map.addLayer({
+            id:"sdrcc-vts-fill", type:"fill", source:"sdrcc-vts",
+            paint: {
+                "fill-color":["get","color"],
+                "fill-opacity":0.15,
+            },
+        });
+        map.addLayer({
+            id:"sdrcc-vts-line", type:"line", source:"sdrcc-vts",
+            paint: {
+                "line-color":["get","color"],
+                "line-width":["interpolate",["linear"],["zoom"], 9,0.65,14,1.5],
+                "line-opacity":0.8,
+            },
+        });
+        map.addLayer({
+            id:"sdrcc-vts-labels", type:"symbol", source:"sdrcc-vts",
+            minzoom:10.5,
+            layout: {
+                "text-field":["concat",["get","name"]," · VHF ",["get","vhfchannel"]],
+                "text-size":11,
+                "text-allow-overlap":false,
+                "text-ignore-placement":false,
+            },
+            paint: {
+                "text-color":"#e3eefd",
+                "text-halo-color":"#102d44",
+                "text-halo-width":1.7,
+            },
+        });
+        map.on("click", "sdrcc-vts-fill", event => {
+            const feature = event.features && event.features[0];
+            if (!feature || !event.lngLat) return;
+            const content = document.createElement("div");
+            content.className = "popup-title";
+            content.textContent = (feature.properties?.name || "VTS sector")
+                + " · VHF " + (feature.properties?.vhfchannel || "?");
+            new maplibregl.Popup({offset:12})
+                .setLngLat(event.lngLat).setDOMContent(content).addTo(map);
+        });
+    }
+    async function loadSectors() {
+        const status = el("vts-status");
+        try {
+            const response = await fetch("/api/map-lab/vts-sectors", {cache:"no-store"});
+            if (!response.ok) throw new Error("HTTP " + response.status);
+            const data = await response.json();
+            const geojson = data?.geojson;
+            if (!data?.available || geojson?.type !== "FeatureCollection"
+                    || !Array.isArray(geojson.features)) {
+                status.textContent = "VTS layer not installed";
+                return;
+            }
+            map.getSource("sdrcc-vts").setData(geojson);
+            status.textContent = geojson.features.length + " RWS sectors";
+        } catch (error) {
+            status.textContent = "VTS sectors unavailable";
+        }
+    }
+    function addStationLayer() {
+        map.addSource("sdrcc-home", {type:"geojson", data:empty});
+        map.addLayer({
+            id:"sdrcc-home-ring", type:"circle", source:"sdrcc-home",
+            paint: {
+                "circle-radius":12, "circle-color":"#0b2a40",
+                "circle-stroke-color":"#fbbf56", "circle-stroke-width":2.5,
+                "circle-opacity":0.88,
+            },
+        });
+        map.addLayer({
+            id:"sdrcc-home-dot", type:"circle", source:"sdrcc-home",
+            paint: {
+                "circle-radius":4.5, "circle-color":"#fbbf56",
+                "circle-stroke-color":"#061729", "circle-stroke-width":1,
+            },
+        });
+        map.addLayer({
+            id:"sdrcc-home-name", type:"symbol", source:"sdrcc-home",
+            layout: {
+                "text-field":["get","name"],
+                "text-anchor":"top", "text-offset":[0,1.5],
+                "text-size":12, "text-allow-overlap":true,
+                "text-ignore-placement":true,
+            },
+            paint: {
+                "text-color":"#ffe0a1",
+                "text-halo-color":"#102739", "text-halo-width":2,
+            },
+        });
+        for (const id of ["sdrcc-home-ring","sdrcc-home-dot","sdrcc-home-name"]) {
+            map.on("click",id,event=>{
+                const feature=event.features && event.features[0];
+                if (!feature) return;
+                const coords=feature.geometry?.coordinates;
+                if (!Array.isArray(coords)) return;
+                const div=document.createElement("div");
+                div.className="popup-title";
+                div.textContent=(feature.properties?.name || "SDRCC station")
+                    + " · Home Position";
+                new maplibregl.Popup({offset:12})
+                    .setLngLat(coords).setDOMContent(div).addTo(map);
+            });
+        }
+    }
+    function refreshStation(station) {
+        const valid=station && Number.isFinite(station.lon)
+            && Number.isFinite(station.lat) && Math.abs(station.lon) <= 180
+            && Math.abs(station.lat) <= 90;
+        el("station-status").textContent=valid ? "Home Position" : "Not configured";
+        map.getSource("sdrcc-home").setData(valid
+            ? {type:"FeatureCollection",features:[{
+                type:"Feature",
+                geometry:{type:"Point", coordinates:[station.lon,station.lat]},
+                properties:{name:String(station.name || "SDRCC station").slice(0,64)},
+            }]} : empty);
+    }
     function addBuildings() {
         try {
             map.addSource("sdrcc-building-tiles", {
@@ -634,6 +761,7 @@
                 map.getSource("sdrcc-ais").setData(makeGeoJson(ships));
                 map.getSource("sdrcc-ais-hulls").setData(hullCollection(ships));
                 map.getSource("sdrcc-adsb").setData(makeGeoJson(planes));
+                refreshStation(data.station);
             }
         } catch (error) {
             el("feed-status").textContent = "Traffic refresh failed: " + error.message;
@@ -644,11 +772,16 @@
 
     map.on("load", () => {
         addBuildings();
+        addSectorLayers();
         registerSprites();
         addHullLayer();
         addPoints("ais");
         addPoints("adsb");
+        addStationLayer();
         loaded = true;
+        setAuxVisibility("station", el("layer-station").checked);
+        setAuxVisibility("vts", el("layer-vts").checked);
+        void loadSectors();
         setLayerVisibility("ais", el("layer-ais").checked);
         setLayerVisibility("adsb", el("layer-adsb").checked);
         setMode(mode3d);
@@ -664,6 +797,10 @@
     el("mode-3d").addEventListener("click", () => setMode(true));
     el("layer-ais").addEventListener("change", () => setLayerVisibility("ais", el("layer-ais").checked));
     el("layer-adsb").addEventListener("change", () => setLayerVisibility("adsb", el("layer-adsb").checked));
+    el("layer-station").addEventListener("change", () =>
+        setAuxVisibility("station", el("layer-station").checked));
+    el("layer-vts").addEventListener("change", () =>
+        setAuxVisibility("vts", el("layer-vts").checked));
     el("show-names").addEventListener("change", () => {
         setLayerVisibility("ais", el("layer-ais").checked);
         setLayerVisibility("adsb", el("layer-adsb").checked);
