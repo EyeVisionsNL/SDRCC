@@ -43,7 +43,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
 .maplibregl-popup-tip{border-top-color:#0d2a40!important}
 .maplibregl-control-container .maplibregl-ctrl-attrib{color:#263847}
 .popup-title{font-weight:800;margin:0 0 6px;font-size:.97rem}
-.popup-line{font-size:.83rem;margin:2px 0}
+.popup-line{font-size:.84rem;margin:4px 0;display:flex;justify-content:space-between;gap:14px;align-items:baseline;border-bottom:1px solid #27445a;padding-bottom:3px}.popup-line strong{font-weight:650;color:#a9cadc;flex-shrink:0}.popup-line span{text-align:right;overflow-wrap:anywhere}.traffic-detail{min-width:210px;max-width:340px;max-height:360px;overflow-y:auto;padding-right:3px}.popup-photo{margin-top:12px;font-size:.8rem;color:#a9cadc}.popup-photo img{display:block;max-width:100%;width:100%;max-height:180px;object-fit:contain;background:#091b2b;border-radius:7px;margin-bottom:6px}.popup-photo a{color:#8bd8f5;display:block}
 .footer-note{margin-top:auto}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.footer-note{grid-column:1/-1}}
 @media(max-width:550px){header{padding:14px}.layout{padding:8px;gap:8px}.side{display:block}.side .panel{margin-bottom:8px}#map{height:58vh;min-height:330px}header h1{font-size:1.15rem}}
@@ -69,7 +69,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     </div>
     <div id="map" aria-label="Map of ships and aircraft"></div>
     <div id="map-error" role="alert"></div>
-    <div class="map-caption">Zoomed out: small AIS-catcher-style class-coloured arrows or dots, without names. Mid-zoom: labels in vessel class colours. Harbour zoom (14+): dark, true-scale hull outlines when dimensions are known; otherwise compact arrows or dots. Never both an icon and a hull for one vessel.</div>
+    <div class="map-caption">Zoomed out: small AIS-catcher-style class-coloured arrows or dots, without names. Mid-zoom: labels in vessel class colours. Harbour zoom (14+): dark, true-scale hulls or compact fallback symbols. The 3D view adds illustrative depth where AIS dimensions are available; actual ship height is not known.</div>
   </section>
   <aside class="side">
     <section class="panel">
@@ -80,7 +80,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
       <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
       <p id="feed-detail" class="muted">Loading source and visible-position counts…</p>
       <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. <i class="dot adsb"></i> Aircraft.</p>
-      <p class="muted">Click a marker for the identity, heading, speed and (for aircraft) altitude.</p>
+      <p class="muted">Click a ship, aircraft or coloured nameplate for detailed AIS/ADS-B data. Aircraft photos, with photographer credit, are requested only when clicked and available.</p>
     </section>
     <section class="panel">
       <h2>Preview scope</h2>
@@ -89,7 +89,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     </section>
     <section class="panel footer-note">
       <h2>2D/3D roadmap</h2>
-      <p class="muted">Completed in beta: live positions, 2D/3D buildings, AIS class-coloured symbols and name labels, plus true-scale hulls at close zoom. Next: tracks and optional Rijnmond sector overlay; later: 3D vessel models and flight altitude.</p>
+      <p class="muted">Completed in beta: live positions, 2D/3D buildings, AIS class-coloured symbols and name labels, plus true-scale hulls at close zoom. Now in beta: coloured nameplates, detailed click cards, optional aircraft photos and 3D hull depth. Next: tracks, Rijnmond sector overlay and detailed 3D models.</p>
     </section>
   </aside>
 </div>
