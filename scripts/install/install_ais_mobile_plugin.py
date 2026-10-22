@@ -14,7 +14,8 @@ import stat
 import sys
 import tempfile
 
-PROJECT = Path(__file__).resolve().parents[2]
+SCRIPT_PATH = Path(__file__).resolve()
+PROJECT = SCRIPT_PATH.parents[2] if len(SCRIPT_PATH.parents) >= 3 else SCRIPT_PATH.parent
 DEFAULT_SOURCE = PROJECT / "dashboard/static/mobile/atis-highlight.pjs"
 DEFAULT_TARGET = Path("/etc/AIS-catcher/plugins/sdrcc-mobile-atis.pjs")
 MARKER = b"SDRCC-ATIS-MOBILE-BRIDGE"
