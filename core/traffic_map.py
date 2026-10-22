@@ -88,11 +88,44 @@ def vessels(payload: Any) -> list[dict]:
         speed = next((v for k in ("speed", "sog") if (v := _num(item.get(k))) is not None), None)
         if speed is not None and not 0 <= speed < 102.3:
             speed = None
+        course = _direction(item, ("cog", "course", "heading"))
+        # AIS-Catcher ships.json includes type and offsets from the antenna.
+        # Render real-size hulls only with all four plausible dimensions.
+        # Unlike a course over ground, true heading can position a moored hull.
+        raw_dims = [_num(item.get(key)) for key in
+                    ("to_bow", "to_stern", "to_port", "to_starboard")]
+        to_bow = to_stern = to_port = to_starboard = None
+        length = _num(item.get("length"))
+        if all(value is not None for value in raw_dims):
+            bow, stern, port, starboard = raw_dims
+            if (bow > 0 and stern >= 0 and port >= 0 and starboard >= 0
+                    and 5 <= bow + stern <= 450
+                    and 2 <= port + starboard <= 90):
+                to_bow, to_stern, to_port, to_starboard = (
+                    bow, stern, port, starboard)
+                length = bow + stern
+        if length is None or not 5 <= length <= 450:
+            length = None
+        heading = _direction(item, ("heading",))
+        # A 511/unknown AIS heading must not be treated as north.
+        hull_heading = heading if heading is not None else (
+            course if speed is not None and speed > 0.5 else None)
+        has_hull = to_bow is not None and hull_heading is not None
+        shipclass = _num(item.get("shipclass"))
+        shiptype = _num(item.get("shiptype"))
         selected.append({
             "type": "ais", "id": mmsi, "name": _label(item, ("shipname", "name"), 70) or mmsi,
             "callsign": _label(item, ("callsign",), 24), "lon": pos[0], "lat": pos[1],
             "validation_state": validation_state,
-            "course": _direction(item, ("cog", "course", "heading")),
+            "course": course,
+            "heading": heading,
+            "hull_heading": hull_heading if has_hull else None,
+            "to_bow": to_bow, "to_stern": to_stern,
+            "to_port": to_port, "to_starboard": to_starboard,
+            "hull_available": has_hull,
+            "length_m": round(length, 1) if length is not None else None,
+            "shipclass": int(shipclass) if shipclass is not None and 0 <= shipclass <= 13 else None,
+            "shiptype": int(shiptype) if shiptype is not None and 0 <= shiptype <= 9999 else None,
             "speed_knots": round(speed, 1) if speed is not None else None,
             "age_seconds": round(age, 1) if age is not None else None,
         })
