@@ -229,15 +229,21 @@ features:
   radio_receiver: $([[ "$FEATURE_RADIO_RECEIVER" == 1 ]] && echo true || echo false)
 EOF
 
-say "Traffic Voice audio libraries"
-if ((FEATURE_TRAFFIC_VOICE)) && ! bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
-  echo "WARNING: noise reduction unavailable; built-in speech filters remain usable."
-fi
-
 say "Python environment"
 if [[ ! -x "$PYTHON" ]]; then python3 -m venv "$PROJECT_ROOT/venv"; fi
 "$PYTHON" -m pip install --upgrade pip
 "$PYTHON" -m pip install -r "$PROJECT_ROOT/requirements.txt"
+
+# The SSTV decoder is installed into SDRCC's venv; audio setup must run
+# AFTER creating that environment. Previously this failed on clean installs.
+if ((FEATURE_TRAFFIC_VOICE || FEATURE_SATELLITE)); then
+  say "Audio processing and ISS SSTV decoder"
+  if ! bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
+    echo "WARNING: Audio processing or ISS SSTV setup is incomplete."
+    echo "         SDRCC can run, but optional audio/SSTV functions are not ready."
+    echo "         Inspect installer output, then use System -> Advanced Maintenance -> Complete audio setup."
+  fi
+fi
 
 say "Groups"
 sudo usermod -a -G plugdev,dialout "$INSTALL_USER"
