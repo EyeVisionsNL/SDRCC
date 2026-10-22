@@ -356,7 +356,6 @@
                 "icon-allow-overlap": true,
                 "icon-ignore-placement": true,
             },
-        });
             paint: {
                 // Switch to real-size black AIS hulls at harbour zoom.
                 "icon-opacity": kind === "ais"
