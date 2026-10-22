@@ -92,6 +92,17 @@ The preview opens a local browser window with the three feature checkboxes and *
 
 Already installed? Use **System → Advanced Maintenance** for updates. [Installation details and troubleshooting →](https://eyevisionsnl.github.io/SDRCC/installation.html)
 
+**AIS map companion after a fresh install:** SDRCC now places its own `sdrcc-mobile-atis.pjs` plugin in AIS-catcher's plugin directory. Enable **SDRCC ATIS and emergency vessel highlighting bridge** in the AIS-catcher plugin selector if necessary and refresh the viewer. The plugin provides the green *Possible Speaker* ring in SDRCC desktop/mobile, plus KNRM and water-police rings. It does not replace the separate VTS Rijnmond sector plugin.
+
+**Repair only the missing AIS plugin (no reinstallation, no restart):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/develop/scripts/install/install_ais_mobile_plugin.py -o /tmp/sdrcc-ais-plugin-repair.py
+sudo python3 /tmp/sdrcc-ais-plugin-repair.py --install --source "$HOME/SDRCC/dashboard/static/mobile/atis-highlight.pjs"
+```
+
+The repair checks its SDRCC source marker and refuses to overwrite non-SDRCC plugins. AIS-catcher may need a viewer refresh or an ordinary stop/start through SDRCC before it appears in the selector.
+
 ## 📱 SDRCC Mobile
 
 The optional **Android companion** connects to your running SDRCC station over trusted Wi-Fi or private Tailscale. Follow AIS and ADS-B, listen to Marine Voice, replay recordings and view satellite information. Full receiver configuration and mission planning remain on the desktop.
