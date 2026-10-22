@@ -79,6 +79,17 @@ On Ubuntu Server or other headless systems, the original terminal prompts remain
 
 To test the development version, replace `--branch main` with `--branch develop` in the clone command. The graphical installer is being tested on `develop` before release.
 
+### 🧪 Preview the installer without changing SDRCC
+
+Already have SDRCC installed? To test **only the installer interface** without updating, stopping, or reinstalling your station, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/develop/scripts/install/gui_installer.py -o /tmp/sdrcc-installer-preview.py
+python3 /tmp/sdrcc-installer-preview.py --preview
+```
+
+The preview opens a local browser window with the three feature checkboxes and **simulated** installation progress and AIS confirmation buttons. All preview steps stay in memory; **no real installation commands or AIS-catcher wizard are executed**. Close the preview with **Close installer**, or use Ctrl+C in the preview terminal. This is not a test of package installation or USB receiver provisioning.
+
 Already installed? Use **System → Advanced Maintenance** for updates. [Installation details and troubleshooting →](https://eyevisionsnl.github.io/SDRCC/installation.html)
 
 ## 📱 SDRCC Mobile
