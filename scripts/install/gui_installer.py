@@ -6,7 +6,7 @@ install.sh; this module manages UI, live progress and AIS wizard confirmation.
 """
 from __future__ import annotations
 
-import html
+import codecs
 import json
 import os
 from pathlib import Path
@@ -265,26 +265,27 @@ class InstallState:
             with self.lock:
                 self.process = process
             partial = ""
+            decoder = codecs.getincrementaldecoder("utf-8")("replace")
             while True:
-                byte = process.stdout.read(1)
-                if not byte:
+                chunk = process.stdout.read(4096)
+                if not chunk:
                     break
-                char = byte.decode("utf-8", errors="replace")
-                if char == "\r":
-                    continue
-                if char == "\n":
-                    self.add_line(partial)
-                    partial = ""
-                else:
-                    partial += char
-                    if partial.endswith(PROMPT):
+                for char in decoder.decode(chunk):
+                    if char == "\r":
+                        continue
+                    if char == "\n":
                         self.add_line(partial)
                         partial = ""
-                        with self.lock:
-                            self.awaiting_ais = True
-                    elif len(partial) > 10000:
-                        self.add_line(partial)
-                        partial = ""
+                    else:
+                        partial += char
+                        if partial.endswith(PROMPT):
+                            self.add_line(partial)
+                            partial = ""
+                            with self.lock:
+                                self.awaiting_ais = True
+                        elif len(partial) > 10000:
+                            self.add_line(partial)
+                            partial = ""
             if partial:
                 self.add_line(partial)
             result = process.wait()
@@ -297,8 +298,13 @@ class InstallState:
             self.exit_code = result
             if result == 0:
                 self.percent = 100
-                self.stage = "Installation completed"
-                self.lines.append("Installation complete. Open http://127.0.0.1:8080/ for SDRCC.")
+                if any("AIS setup deferred." in line or "DEFERRED: AIS is not ready" in line
+                       for line in self.lines):
+                    self.stage = "SDRCC installed · AIS setup deferred"
+                    self.lines.append("Resume AIS later with: bash install.sh --ais-setup")
+                else:
+                    self.stage = "Installation completed"
+                self.lines.append("Open http://127.0.0.1:8080/ for SDRCC.")
             else:
                 self.stage = "Installation failed (exit " + str(result) + ")"
                 self.lines.append("Installation stopped. Check the output above; do not remove files manually.")
@@ -316,6 +322,10 @@ class InstallState:
 def main():
     if os.geteuid() == 0:
         print("Run the installer as your normal Ubuntu account, not root.", file=sys.stderr)
+        return 2
+    if (ROOT / "venv/bin/python").exists() and (ROOT / "VERSION").exists():
+        print("SDRCC is already installed. Use System → Advanced Maintenance for updates.", file=sys.stderr)
+        print("For a new GUI installation use a clean install; the installer never overwrites it.", file=sys.stderr)
         return 2
     state = InstallState()
     token = secrets.token_urlsafe(32)
