@@ -49,6 +49,76 @@
             && Number.isFinite(row.lat) && Math.abs(row.lon) <= 180
             && Math.abs(row.lat) <= 90).slice(0, 2000);
     };
+    // Local tangent plane: metres from the AIS antenna become geographic coordinates.
+    // The reported bow/stern/port/starboard offsets define real hull size.
+    // In a harbour we want geographic-scale hulls, not a fixed pixel-length emoji.
+    const HULL_MIN_ZOOM = 14;
+    function hullGeometry(ship) {
+        if (!ship.hull_available || !Number.isFinite(ship.hull_heading)) return null;
+        const bow = ship.to_bow, stern = ship.to_stern;
+        const port = ship.to_port, starboard = ship.to_starboard;
+        if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
+        const length = bow + stern, beam = port + starboard;
+        if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
+                || length < 5 || length > 450 || beam < 2 || beam > 90
+                || Math.abs(ship.lat) > 85) return null;
+
+        const heading = ship.hull_heading * Math.PI / 180;
+        const cos = Math.cos(heading), sin = Math.sin(heading);
+        const metresPerLon = 111320 * Math.cos(ship.lat * Math.PI / 180);
+        const metresPerLat = 111320;
+        const at = (forward, right) => {
+            const east = forward * sin + right * cos;
+            const north = forward * cos - right * sin;
+            return [ship.lon + east / metresPerLon, ship.lat + north / metresPerLat];
+        };
+        // Squared-off stern; pointed bow. Enough vertices to keep the shape
+        // legible in a tilted MapLibre view and cheap for a thousand ships.
+        const shoulder = bow - 0.3 * length;
+        const midpoint = (starboard - port) / 2;
+        const pts = [
+            at(-stern, -port), at(-stern, starboard),
+            at(shoulder, starboard),
+            at(shoulder + (bow - shoulder) * 0.55, starboard * 0.7 + midpoint * 0.3),
+            at(bow, midpoint),
+            at(shoulder + (bow - shoulder) * 0.55, -port * 0.7 + midpoint * 0.3),
+            at(shoulder, -port),
+        ];
+        pts.push(pts[0]);
+        return {type: "Polygon", coordinates: [pts]};
+    }
+    function hullCollection(ships) {
+        const features = [];
+        for (const ship of ships) {
+            const geometry = hullGeometry(ship);
+            if (!geometry) continue;
+            features.push({
+                type: "Feature",
+                geometry,
+                properties: {
+                    type: "ais", id: String(ship.id || ""),
+                    name: String(ship.name || ship.id || ""),
+                    length_m: ship.length_m,
+                    shipclass: ship.shipclass,
+                    validation_state: ship.validation_state || "unknown",
+                    course: ship.course,
+                    course_known: Number.isFinite(ship.course),
+                    speed_knots: ship.speed_knots,
+                    age_seconds: ship.age_seconds,
+                },
+            });
+        }
+        return {type: "FeatureCollection", features};
+    }
+    function hasHull(ships) {
+        return ships.filter(ship => hullGeometry(ship) !== null).length;
+    }
+    function iconScale(length) {
+        // AIS-catcher-like size bands where actual length is known.
+        // If an AIS length isn't reported, keep a normal fallback silhouette.
+        if (!Number.isFinite(length)) return 0.85;
+        return length > 200 ? 1.15 : length >= 100 ? 0.97 : 0.78;
+    }
     function makeGeoJson(rows) {
         return {
             type: "FeatureCollection",
@@ -62,6 +132,10 @@
                     callsign: String(item.callsign || ""),
                     course: Number.isFinite(item.course) ? item.course : null,
                     course_known: Number.isFinite(item.course),
+                    length_m: Number.isFinite(item.length_m) ? item.length_m : null,
+                    icon_scale: item.type === "ais" ? iconScale(item.length_m) : 1,
+                    hull_available: item.type === "ais" && hullGeometry(item) !== null,
+                    shipclass: item.shipclass,
                     speed_knots: item.speed_knots,
                     altitude_ft: item.altitude_ft,
                     age_seconds: item.age_seconds,
@@ -72,7 +146,7 @@
     }
     function setLayerVisibility(kind, visible) {
         if (!loaded) return;
-        for (const suffix of ["icons", "labels"]) {
+        for (const suffix of kind === "ais" ? ["hull-fill", "hull-border", "icons", "labels"] : ["icons", "labels"]) {
             const id = "sdrcc-" + kind + "-" + suffix;
             const enabled = visible && (suffix !== "labels" || el("show-names").checked);
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", enabled ? "visible" : "none");
@@ -110,6 +184,9 @@
             line("Position not verified by AIS-Catcher");
         }
         if (props.callsign) line("Callsign: " + props.callsign);
+        if (props.type === "ais" && Number(props.length_m) > 0) {
+            line("Reported length: " + Number(props.length_m).toLocaleString() + " m");
+        }
         line(props.course_known ? "Reported course/track: " + props.course + "°" : "Course/track not reported (?)");
         if (props.speed_knots !== null && props.speed_knots !== undefined) line("Speed: " + props.speed_knots + " kn");
         if (props.type === "adsb" && props.altitude_ft !== null && props.altitude_ft !== undefined) {
@@ -217,6 +294,44 @@
             map.addImage(name + "-no-course", sprite(kind, color, true), {pixelRatio: 2});
         }
     }
+    function addHullLayer() {
+        map.addSource("sdrcc-ais-hulls", {type:"geojson", data:empty});
+        map.addLayer({
+            id:"sdrcc-ais-hull-fill", type:"fill", source:"sdrcc-ais-hulls",
+            minzoom:HULL_MIN_ZOOM,
+            paint:{
+                // Dark hull shape; unverified AIS has a warm dark tint.
+                "fill-color":["case",
+                    ["==", ["get", "validation_state"], "unverified"], "#532e2a",
+                    "#101927"],
+                "fill-opacity":0.93,
+            },
+        });
+        map.addLayer({
+            id:"sdrcc-ais-hull-border", type:"line", source:"sdrcc-ais-hulls",
+            minzoom:HULL_MIN_ZOOM,
+            paint:{
+                "line-color":["case",
+                    ["==", ["get", "validation_state"], "unverified"], "#ff9f68",
+                    ["match", ["get", "shipclass"],
+                        2, "#31d176", 6, "#ff7166", 4, "#668aff",
+                        7, "#e8c65c", 8, "#f28db7", "#50c5e7"]],
+                "line-width":["interpolate", ["linear"], ["zoom"], 14, 1.2, 17, 2],
+                "line-opacity":0.95,
+            },
+        });
+        map.on("click", "sdrcc-ais-hull-fill", event => {
+            const feature=event.features && event.features[0];
+            if (!feature) return;
+            const ring=feature.geometry && feature.geometry.coordinates?.[0];
+            const center=ring && ring[0];
+            if (!center) return;
+            new maplibregl.Popup({offset:12, maxWidth:"300px"})
+                .setLngLat(center).setDOMContent(popup(feature)).addTo(map);
+        });
+        map.on("mouseenter", "sdrcc-ais-hull-fill", () => {map.getCanvas().style.cursor="pointer";});
+        map.on("mouseleave", "sdrcc-ais-hull-fill", () => {map.getCanvas().style.cursor="";});
+    }
     function addPoints(kind) {
         const source = "sdrcc-" + kind;
         map.addSource(source, {type: "geojson", data: empty});
@@ -230,13 +345,24 @@
                 "icon-image": ["concat", baseIcon,
                     ["case", ["==", ["get", "course_known"], true], "", "-no-course"]],
                 "icon-size": ["interpolate", ["linear"], ["zoom"],
-                    7, 0.36, 10, 0.53, 13, 0.76, 16, 0.91],
+                    7, ["*", 0.36, ["get", "icon_scale"]],
+                    10, ["*", 0.53, ["get", "icon_scale"]],
+                    13, ["*", 0.76, ["get", "icon_scale"]],
+                    16, ["*", 0.91, ["get", "icon_scale"]]],
                 // Course/track is compass degrees clockwise from true north.
                 "icon-rotate": ["coalesce", ["get", "course"], 0],
                 "icon-rotation-alignment": "map",
                 "icon-pitch-alignment": "viewport",
                 "icon-allow-overlap": true,
                 "icon-ignore-placement": true,
+            },
+        });
+            paint: {
+                // Switch to real-size black AIS hulls at harbour zoom.
+                "icon-opacity": kind === "ais"
+                    ? ["step", ["zoom"], 1, HULL_MIN_ZOOM,
+                        ["case", ["get", "hull_available"], 0, 1]]
+                    : 1,
             },
         });
         map.addLayer({
@@ -312,6 +438,7 @@
             const unverified = Number.isInteger(data.ais?.unverified_count) ? data.ais.unverified_count : 0;
             el("feed-detail").textContent =
                 `AIS: ${ships.length} plotted from ${aisTotal} records`
+                + ` · ${hasHull(ships)} scaled hulls`
                 + (unverified ? ` (orange: ${unverified} unverified)` : "")
                 + ` · ADS-B: ${planes.length} plotted from ${adsbTotal} records`;
             el("feed-status").textContent =
@@ -320,6 +447,7 @@
                 + " · Updated " + new Date().toLocaleTimeString();
             if (loaded) {
                 map.getSource("sdrcc-ais").setData(makeGeoJson(ships));
+                map.getSource("sdrcc-ais-hulls").setData(hullCollection(ships));
                 map.getSource("sdrcc-adsb").setData(makeGeoJson(planes));
             }
         } catch (error) {
@@ -332,6 +460,7 @@
     map.on("load", () => {
         addBuildings();
         registerSprites();
+        addHullLayer();
         addPoints("ais");
         addPoints("adsb");
         loaded = true;
