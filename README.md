@@ -73,9 +73,11 @@ cd ~/SDRCC
 bash install.sh
 ```
 
-**Run `bash install.sh` without `sudo`.** The installer requests privileges when needed. The initial installation currently runs in the terminal; the AIS-catcher setup wizard opens in a browser near the end. A complete SDRCC graphical installer is not yet available.
+**Run `bash install.sh` without `sudo`.** On Ubuntu Desktop, a local **SDRCC Installer** web window opens automatically. Choose **Satellites**, **Traffic Voice** and **Radio Receiver**, press **Install SDRCC**, and follow the progress. Ubuntu may request your sudo password **in the terminal**: keep it open. Near the end, the installer opens the AIS-catcher wizard in your browser. Choose your AIS RTL-SDR and **Save & Close**, then return to SDRCC Installer and press **Verify AIS setup**.
 
-To test the development version, replace `--branch main` with `--branch develop` in the clone command.
+On Ubuntu Server or other headless systems, the original terminal prompts remain available. To use the terminal installer on a desktop, run `bash install.sh --cli`. To resume an incomplete AIS-catcher wizard, run `bash install.sh --ais-setup`.
+
+To test the development version, replace `--branch main` with `--branch develop` in the clone command. The graphical installer is being tested on `develop` before release.
 
 Already installed? Use **System → Advanced Maintenance** for updates. [Installation details and troubleshooting →](https://eyevisionsnl.github.io/SDRCC/installation.html)
 
