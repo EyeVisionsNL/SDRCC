@@ -88,7 +88,10 @@ class FakeMap {
         ais: {available: true, source_count: 3, count: 3, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
-                    lon:4.3, lat:51.9, course:132, validation_state:"verified"},
+                    lon:4.3, lat:51.9, course:132, hull_heading:134,
+                    length_m:140, to_bow:110, to_stern:30,
+                    to_port:9, to_starboard:10, hull_available:true, shipclass:6,
+                    validation_state:"verified"},
                 {type:"ais", id:"987654321", name:"Unverified ship",
                     lon:4.4, lat:51.91, course:90, validation_state:"unverified"},
                 {type:"ais", id:"111222333", name:"No heading",
@@ -141,6 +144,31 @@ class FakeMap {
     assert.equal(boats[2].properties.course, null);
     assert.equal(boats[2].properties.course_known, false);
     assert.equal(planes[0].properties.course, 212);
+
+    const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
+    assert.equal(polygons.length, 1, "only ships with real dimensions get hull outlines");
+    assert.equal(instance.layers["sdrcc-ais-hull-fill"].type, "fill");
+    assert.equal(instance.layers["sdrcc-ais-hull-border"].type, "line");
+    assert.equal(instance.layers["sdrcc-ais-hull-fill"].minzoom, 14);
+    const ring = polygons[0].geometry.coordinates[0];
+    assert.equal(ring.length, 8, "stern, shoulders, bow and closed polygon");
+    assert.deepEqual(ring[0], ring[ring.length - 1], "hull polygon must close");
+    assert(ring.every(pair => pair.every(Number.isFinite)), "hull geometry must be finite");
+    // Antenna offset is real-world metres: a 140 m ship must not remain a fixed-sized icon.
+    const x = (point) => (point[0] - 4.3) * 111320 * Math.cos(51.9 * Math.PI / 180);
+    const y = (point) => (point[1] - 51.9) * 111320;
+    const forward = p => x(p) * Math.sin(134*Math.PI/180) + y(p)*Math.cos(134*Math.PI/180);
+    const projected = ring.map(forward);
+    const length = Math.max(...projected) - Math.min(...projected);
+    assert(length > 138 && length < 142, "hull should span the actual 140 metres");
+    assert.equal(boats[0].properties.hull_available, true);
+    assert.equal(boats[1].properties.hull_available, false);
+    assert.equal(boats[0].properties.length_m, 140);
+    const iconOpacity = instance.layers["sdrcc-ais-icons"].paint["icon-opacity"];
+    assert.equal(iconOpacity[0], "step");
+    assert.equal(iconOpacity[3], 14);
+    assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
+
     assert.equal(node("count-ais").textContent, 3);
     assert.equal(node("count-adsb").textContent, 1);
 
@@ -162,7 +190,10 @@ class FakeMap {
     node("layer-ais").listeners.change();
     assert(instance.layoutChanges.some(change =>
         change.id === "sdrcc-ais-icons" && change.value === "none"));
+    assert(instance.layoutChanges.some(change =>
+        change.id === "sdrcc-ais-hull-fill" && change.value === "none"),
+        "hiding AIS must hide actual hull polygons too");
 
     console.log("PASS: MapLibre 6 ship/plane icons, 6 image variants, "
-        + "course rotation, dense targets, labels, layers and 3D");
+        + "real 140 m hulls, course rotation, fallbacks, layers and 3D");
 })().catch(error => {console.error(error); process.exitCode = 1;});
