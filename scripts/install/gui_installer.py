@@ -112,8 +112,9 @@ sudo password there.</div>
 not a precise time estimate.</p>
 <div id="aisPanel" class="note hidden">
 <div id="aisExplanation"><strong>Finish setup in the AIS-catcher browser tab</strong>.
-Choose your RTL-SDR, save the configuration with <strong>Save &amp; Close</strong>,
-then return here and click <strong>Verify AIS setup</strong>.</div>
+Choose one RTL-SDR input and save with <strong>Save &amp; Close</strong>.
+<strong>An SDR serial number is optional</strong>; you can assign or change the
+receiver binding later in SDRCC. Then click <strong>Verify AIS setup</strong> here.</div>
 <div class="actions">
 <button id="verify" disabled>Verify AIS setup</button>
 <button class="secondary" id="defer" disabled>Finish without AIS setup</button>
@@ -182,7 +183,7 @@ async function refresh() {
   by("defer").disabled = !s.awaiting_ais;
   by("aisHelp").textContent = preview ?
    (s.awaiting_ais ? "Test either button; this will not read or write AIS settings." : "Previewing the AIS step…") :
-   (s.awaiting_ais ? "After Save & Close, verify here. If the wizard is incomplete, you can try again." :
+   (s.awaiting_ais ? "After Save & Close, click Verify. No SDR serial number is required." :
     "Preparing the AIS-catcher wizard or checking the saved configuration…");
   finished = s.finished;
   by("finish").classList.toggle("hidden", !finished);
