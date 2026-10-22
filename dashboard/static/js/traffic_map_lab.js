@@ -60,7 +60,8 @@
                     id: String(item.id || ""),
                     name: String(item.name || item.id || ""),
                     callsign: String(item.callsign || ""),
-                    course: item.course,
+                    course: Number.isFinite(item.course) ? item.course : null,
+                    course_known: Number.isFinite(item.course),
                     speed_knots: item.speed_knots,
                     altitude_ft: item.altitude_ft,
                     age_seconds: item.age_seconds,
@@ -71,7 +72,7 @@
     }
     function setLayerVisibility(kind, visible) {
         if (!loaded) return;
-        for (const suffix of ["dots", "labels"]) {
+        for (const suffix of ["icons", "labels"]) {
             const id = "sdrcc-" + kind + "-" + suffix;
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
         }
@@ -108,7 +109,7 @@
             line("Position not verified by AIS-Catcher");
         }
         if (props.callsign) line("Callsign: " + props.callsign);
-        if (props.course !== null && props.course !== undefined) line("Heading/course: " + props.course + "°");
+        line(props.course_known ? "Reported course/track: " + props.course + "°" : "Course/track not reported (?)");
         if (props.speed_knots !== null && props.speed_knots !== undefined) line("Speed: " + props.speed_knots + " kn");
         if (props.type === "adsb" && props.altitude_ft !== null && props.altitude_ft !== undefined) {
             line("Reported altitude: " + Number(props.altitude_ft).toLocaleString() + " ft");
@@ -116,18 +117,125 @@
         if (props.age_seconds !== null && props.age_seconds !== undefined) line("Last position: " + props.age_seconds + " s ago");
         return box;
     }
-    function addPoints(kind, color) {
+    // Draw local, crisp 2x sprites; MapLibre 6 supports ImageData in addImage.
+    // Sprite noses point north; `icon-rotate` uses course/track in degrees.
+    // No external images, emojis/font dependencies, or a second AIS/ADS-B feed.
+    function sprite(kind, color, unknownCourse = false) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 96;
+        canvas.height = 96;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D context is unavailable");
+        ctx.scale(2, 2);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.shadowColor = "rgba(1, 15, 29, 0.8)";
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetY = 1.5;
+        ctx.fillStyle = color;
+        ctx.strokeStyle = "#07243a";
+        ctx.lineWidth = 2.4;
+
+        ctx.beginPath();
+        if (kind === "ais") {
+            // Vessel silhouette: pointed bow, long hull and square stern.
+            ctx.moveTo(24, 5);
+            ctx.bezierCurveTo(29, 10, 33, 16, 33, 24);
+            ctx.lineTo(31, 40);
+            ctx.quadraticCurveTo(24, 43, 17, 40);
+            ctx.lineTo(15, 24);
+            ctx.bezierCurveTo(15, 16, 19, 10, 24, 5);
+        } else {
+            // Distinct top-down aircraft silhouette, not an ambiguous dot.
+            ctx.moveTo(24, 3);
+            ctx.quadraticCurveTo(27.5, 6, 27.5, 11);
+            ctx.lineTo(28.5, 20);
+            ctx.lineTo(42.5, 27);
+            ctx.lineTo(42.5, 31);
+            ctx.lineTo(28, 27);
+            ctx.lineTo(27.5, 35);
+            ctx.lineTo(34, 39);
+            ctx.lineTo(34, 42);
+            ctx.lineTo(24, 39);
+            ctx.lineTo(14, 42);
+            ctx.lineTo(14, 39);
+            ctx.lineTo(20.5, 35);
+            ctx.lineTo(20, 27);
+            ctx.lineTo(5.5, 31);
+            ctx.lineTo(5.5, 27);
+            ctx.lineTo(19.5, 20);
+            ctx.lineTo(20.5, 11);
+            ctx.quadraticCurveTo(20.5, 6, 24, 3);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowColor = "transparent";
+
+        ctx.strokeStyle = "rgba(255,255,255,0.94)";
+        ctx.lineWidth = 1.6;
+        if (kind === "ais") {
+            ctx.beginPath();
+            ctx.moveTo(20, 26);
+            ctx.lineTo(28, 26);
+            ctx.moveTo(21, 33);
+            ctx.lineTo(27, 33);
+            ctx.stroke();
+            ctx.fillStyle = "#e5fbff";
+            ctx.fillRect(20, 19, 8, 4.5);
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(24, 9);
+            ctx.lineTo(24, 31);
+            ctx.stroke();
+        }
+        // A '?' badge prevents pointing-north from implying a known bearing.
+        if (unknownCourse) {
+            ctx.beginPath();
+            ctx.fillStyle = "#132a41";
+            ctx.strokeStyle = "#eff8ff";
+            ctx.lineWidth = 1.2;
+            ctx.arc(38, 38, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 11px system-ui, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("?", 38, 38);
+        }
+        return ctx.getImageData(0, 0, 96, 96);
+    }
+    function registerSprites() {
+        for (const [name, kind, color] of [
+            ["sdrcc-ship", "ais", "#34d5e5"],
+            ["sdrcc-ship-unverified", "ais", "#ff9f68"],
+            ["sdrcc-plane", "adsb", "#ffbd73"],
+        ]) {
+            map.addImage(name, sprite(kind, color), {pixelRatio: 2});
+            map.addImage(name + "-no-course", sprite(kind, color, true), {pixelRatio: 2});
+        }
+    }
+    function addPoints(kind) {
         const source = "sdrcc-" + kind;
         map.addSource(source, {type: "geojson", data: empty});
+        const baseIcon = kind === "ais"
+            ? ["case", ["==", ["get", "validation_state"], "unverified"],
+                "sdrcc-ship-unverified", "sdrcc-ship"]
+            : "sdrcc-plane";
         map.addLayer({
-            id: source + "-dots", type: "circle", source,
-            paint: {
-                "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3.5, 13, 7],
-                "circle-color": kind === "ais"
-                    ? ["case", ["==", ["get", "validation_state"], "unverified"], "#ff9f68", color]
-                    : color,
-                "circle-stroke-color": "#062032", "circle-stroke-width": 1.7,
-                "circle-opacity": .96,
+            id: source + "-icons", type: "symbol", source,
+            layout: {
+                "icon-image": ["concat", baseIcon,
+                    ["case", ["==", ["get", "course_known"], true], "", "-no-course"]],
+                "icon-size": ["interpolate", ["linear"], ["zoom"],
+                    7, 0.36, 10, 0.53, 13, 0.76, 16, 0.91],
+                // Course/track is compass degrees clockwise from true north.
+                "icon-rotate": ["coalesce", ["get", "course"], 0],
+                "icon-rotation-alignment": "map",
+                "icon-pitch-alignment": "viewport",
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
             },
         });
         map.addLayer({
@@ -142,7 +250,7 @@
             },
             paint: {"text-color": "#f4faff", "text-halo-color": "#11283b", "text-halo-width": 1.4},
         });
-        map.on("click", source + "-dots", event => {
+        map.on("click", source + "-icons", event => {
             const feature = event.features && event.features[0];
             if (!feature) return;
             new maplibregl.Popup({offset: 12, maxWidth: "300px"})
@@ -150,8 +258,8 @@
                 .setDOMContent(popup(feature))
                 .addTo(map);
         });
-        map.on("mouseenter", source + "-dots", () => {map.getCanvas().style.cursor = "pointer";});
-        map.on("mouseleave", source + "-dots", () => {map.getCanvas().style.cursor = "";});
+        map.on("mouseenter", source + "-icons", () => {map.getCanvas().style.cursor = "pointer";});
+        map.on("mouseleave", source + "-icons", () => {map.getCanvas().style.cursor = "";});
     }
     function addBuildings() {
         try {
@@ -222,8 +330,9 @@
 
     map.on("load", () => {
         addBuildings();
-        addPoints("ais", "#34d5e5");
-        addPoints("adsb", "#ffbd73");
+        registerSprites();
+        addPoints("ais");
+        addPoints("adsb");
         loaded = true;
         setLayerVisibility("ais", el("layer-ais").checked);
         setLayerVisibility("adsb", el("layer-adsb").checked);
