@@ -197,12 +197,20 @@ def aircraft(payload: Any) -> list[dict]:
 def snapshot() -> dict:
     """One bounded, read-only snapshot with explicit per-source availability."""
     center = list(DEFAULT_CENTER)
+    station = None
     try:
         home = config.get_home_position()
         if home.get("configured"):
             pos = _position(home, ("latitude",), ("longitude",))
             if pos is not None:
                 center = list(pos)
+                name = _label(home, ("name",), 64) or "My station"
+                altitude = _num(home.get("altitude_m"))
+                station = {
+                    "name": name, "lon": pos[0], "lat": pos[1],
+                    "altitude_m": round(altitude, 1) if altitude is not None else None,
+                    "source": "SDRCC Home Position",
+                }
     except (OSError, ValueError, TypeError, KeyError):
         pass
 
@@ -227,7 +235,7 @@ def snapshot() -> dict:
                 adsb_live, planes = True, http_planes
     adsb_rows = receiver_monitor._extract_list(adsb_payload, ("aircraft",)) if adsb_live else []
     return {
-        "ok": True, "read_only": True, "center": center,
+        "ok": True, "read_only": True, "center": center, "station": station,
         "ais": {"available": ais_payload is not None, "count": len(ships),
                 "source_count": len(ais_rows),
                 "unverified_count": sum(ship["validation_state"] == "unverified" for ship in ships),
