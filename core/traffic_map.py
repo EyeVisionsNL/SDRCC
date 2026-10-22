@@ -14,9 +14,12 @@ from typing import Any
 from core import config, receiver_monitor
 
 MAX_TARGETS = 2000
-AIS_MAX_AGE = 180.0
-ADSB_MAX_AGE = 30.0
+# Use SDRCC's existing AIS history window instead of an arbitrary 3-minute cut.
+AIS_MAX_AGE = receiver_monitor.AIS_VESSEL_MAX_AGE_SECONDS
+# readsb/tar1090 can show an aircraft for up to a minute after its last position.
+ADSB_MAX_AGE = 60.0
 ADSB_FILE_MAX_AGE = 30.0
+ADSB_HTTP_URLS = ("http://127.0.0.1/tar1090/data/aircraft.json",)
 DEFAULT_CENTER = [4.35, 51.91]  # Rotterdam/Rijnmond prototype only
 
 
@@ -66,7 +69,7 @@ def vessels(payload: Any) -> list[dict]:
     selected = []
     seen = set()
     for item in ships:
-        mmsi = str(item.get("mmsi") or "").strip()
+        mmsi = str(item.get("mmsi") or "").strip().removesuffix(".0")
         if not re.fullmatch(r"[0-9]{9}", mmsi) or mmsi in seen:
             continue
         pos = _position(item, ("lat", "latitude"), ("lon", "longitude"))
@@ -102,10 +105,18 @@ def aircraft(payload: Any) -> list[dict]:
     seen = set()
     for item in planes:
         ident = str(item.get("hex") or "").strip().lower()
-        if not re.fullmatch(r"[0-9a-f]{6}", ident) or ident in seen:
+        # readsb prefixes non-ICAO addresses with ~ (e.g. TIS-B).
+        if not re.fullmatch(r"~?[0-9a-f]{6}", ident) or ident in seen:
             continue
+        position_data = item
         pos = _position(item, ("lat",), ("lon",))
-        age = _num(item.get("seen_pos"))
+        # tar1090 may retain the last known position in lastPosition.
+        if pos is None and isinstance(item.get("lastPosition"), dict):
+            position_data = item["lastPosition"]
+            pos = _position(position_data, ("lat",), ("lon",))
+        age = _num(position_data.get("seen_pos"))
+        if age is None:
+            age = _num(item.get("seen_pos"))
         if age is None:
             age = _num(item.get("seen"))
         if pos is None or age is None or not 0 <= age <= ADSB_MAX_AGE:
@@ -140,13 +151,31 @@ def snapshot() -> dict:
         pass
 
     ais_payload, _ = receiver_monitor._read_ais_ships()
+    ais_rows = receiver_monitor._extract_list(ais_payload, ("ships", "vessels", "targets", "data"))
+    ships = vessels(ais_payload) if ais_payload is not None else []
+
     adsb_payload, adsb_source = receiver_monitor._read_json_file(receiver_monitor.READSB_AIRCRAFT_FILES)
     adsb_live = isinstance(adsb_payload, dict) and _fresh_adsb_file(adsb_source)
-    ships = vessels(ais_payload) if ais_payload is not None else []
     planes = aircraft(adsb_payload) if adsb_live else []
+    # tar1090 can serve current readsb data while its disk file is absent, stale,
+    # or lacks a usable position. This is a loopback-only READ; no service changes.
+    if not planes:
+        http_payload, http_source = receiver_monitor._read_json_url(ADSB_HTTP_URLS)
+        generated_at = _num(http_payload.get("now")) if isinstance(http_payload, dict) else None
+        http_live = (generated_at is not None
+                     and 0 <= time.time() - generated_at <= ADSB_FILE_MAX_AGE)
+        if http_live:
+            http_planes = aircraft(http_payload)
+            if http_planes or not adsb_live:
+                adsb_payload, adsb_source = http_payload, http_source
+                adsb_live, planes = True, http_planes
+    adsb_rows = receiver_monitor._extract_list(adsb_payload, ("aircraft",)) if adsb_live else []
     return {
         "ok": True, "read_only": True, "center": center,
-        "ais": {"available": ais_payload is not None, "count": len(ships), "targets": ships},
-        "adsb": {"available": adsb_live, "count": len(planes), "targets": planes},
+        "ais": {"available": ais_payload is not None, "count": len(ships),
+                "source_count": len(ais_rows), "targets": ships},
+        "adsb": {"available": adsb_live, "count": len(planes),
+                 "source_count": len(adsb_rows), "source": adsb_source if adsb_live else None,
+                 "targets": planes},
         "refresh_seconds": 10,
     }
