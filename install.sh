@@ -14,6 +14,9 @@ PROJECT_GROUP="$(id -gn "$INSTALL_USER")"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 CHECK_ONLY=0
 NON_INTERACTIVE=0
+GUI_CHOICES=0
+FORCE_CLI=0
+ORIGINAL_ARG_COUNT=$#
 SKIP_THIRD_PARTY=0
 AIS_SETUP_ONLY=0
 AUDIO_COMPARISON_ONLY=0
@@ -27,6 +30,8 @@ while (($#)); do
   case "$1" in
     --check) CHECK_ONLY=1 ;;
     --non-interactive) NON_INTERACTIVE=1 ;;
+    --gui-choices) GUI_CHOICES=1 ;;
+    --cli) FORCE_CLI=1 ;;
     --skip-third-party) SKIP_THIRD_PARTY=1 ;;
     --ais-setup) AIS_SETUP_ONLY=1 ;;
     --audio-comparison|--audio-processing) AUDIO_COMPARISON_ONLY=1 ;;
@@ -38,6 +43,23 @@ done
 PROJECT_ROOT="$(realpath -m "$PROJECT_ROOT")"
 PYTHON="$PROJECT_ROOT/venv/bin/python"
 
+# A fresh installation on an Ubuntu desktop opens the local GUI. Explicit
+# CLI arguments, existing installations and headless servers retain the old
+# terminal installer. The GUI child uses --gui-choices to avoid recursion.
+if ((ORIGINAL_ARG_COUNT == 0)) && [[ "${SDRCC_INSTALLER_NO_GUI:-0}" != 1 ]] \
+  && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] \
+  && command -v xdg-open >/dev/null 2>&1 \
+  && command -v python3 >/dev/null 2>&1 \
+  && [[ ! -e "$PROJECT_ROOT/venv/bin/python" || ! -f "$PROJECT_ROOT/VERSION" ]]; then
+  exec python3 "$SOURCE_ROOT/scripts/install/gui_installer.py"
+fi
+
+if ((GUI_CHOICES)); then
+  for key in SDRCC_FEATURE_SATELLITE SDRCC_FEATURE_TRAFFIC_VOICE SDRCC_FEATURE_RADIO_RECEIVER; do
+    [[ "${!key:-}" =~ ^[01]$ ]] || { echo "FAIL: invalid GUI selection for $key"; exit 2; }
+  done
+fi
+
 say(){ printf '\n==> %s\n' "$*"; }
 show_rtlsdr_choices(){
   say "RTL-SDR receivers available for AIS setup"
@@ -45,6 +67,25 @@ show_rtlsdr_choices(){
   echo "Choose the intended RTL-SDR serial in the AIS-catcher wizard below."
 }
 need_sudo(){ sudo -v; }
+install_ais_map_bridge(){
+  # Dedicated SDRCC AIS-Catcher companion; do not touch the Rijnmond plugin.
+  # Installing the plugin file never starts/stops radio services.
+  say "SDRCC AIS-Catcher map plugin"
+  if ! sudo python3 "$PROJECT_ROOT/scripts/install/install_ais_mobile_plugin.py" --install; then
+    echo "WARNING: SDRCC AIS map plugin was not installed."
+    echo "         Fix plugin folder/permissions and run:"
+    echo "         sudo python3 $PROJECT_ROOT/scripts/install/install_ais_mobile_plugin.py --install"
+    return 1
+  fi
+}
+run_ais_wizard(){
+  # Pass only desktop display hints across sudo; launch the local browser as
+  # the normal login user from setup_ais.py. Headless mode prints the URL.
+  sudo env SDRCC_SETUP_DISPLAY="${DISPLAY:-}" \
+    SDRCC_SETUP_WAYLAND="${WAYLAND_DISPLAY:-}" \
+    SDRCC_SETUP_XAUTHORITY="${XAUTHORITY:-}" \
+    "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" "$@"
+}
 receipt_set(){ printf '%s=%s\n' "$1" "$2" | sudo tee -a "$INSTALL_RECEIPT" >/dev/null; }
 receipt_value(){
   [[ -r "$INSTALL_RECEIPT" ]] || return 0
@@ -66,7 +107,8 @@ if ((AIS_SETUP_ONLY)); then
   [[ -x "$PYTHON" && -f "$PROJECT_ROOT/VERSION" ]] || { echo "FAIL: install SDRCC before resuming AIS setup."; exit 2; }
   need_sudo
   show_rtlsdr_choices
-  sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py"
+  run_ais_wizard
+  install_ais_map_bridge || true
   sudo systemctl enable --now sdrcc.service
   HTTP=000
   for attempt in {1..60}; do
@@ -148,10 +190,12 @@ sudo apt-get install -y \
   python3 python3-venv python3-pip git curl ca-certificates rsync \
   build-essential cmake pkg-config rtl-sdr librtlsdr-dev
 
-if ((NON_INTERACTIVE)); then
+if ((NON_INTERACTIVE || GUI_CHOICES)); then
+  say "Optional SDRCC features"
   FEATURE_SATELLITE="${SDRCC_FEATURE_SATELLITE:-1}"
   FEATURE_TRAFFIC_VOICE="${SDRCC_FEATURE_TRAFFIC_VOICE:-1}"
   FEATURE_RADIO_RECEIVER="${SDRCC_FEATURE_RADIO_RECEIVER:-1}"
+  echo "Satellites=$FEATURE_SATELLITE Traffic Voice=$FEATURE_TRAFFIC_VOICE Radio Receiver=$FEATURE_RADIO_RECEIVER"
 else
   say "Optional SDRCC features"
   read -r -p "Install satellite reception (SatDump + Mission tabs)? [Y/n] " ANSWER
@@ -185,15 +229,21 @@ features:
   radio_receiver: $([[ "$FEATURE_RADIO_RECEIVER" == 1 ]] && echo true || echo false)
 EOF
 
-say "Traffic Voice audio libraries"
-if ((FEATURE_TRAFFIC_VOICE)) && ! bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
-  echo "WARNING: noise reduction unavailable; built-in speech filters remain usable."
-fi
-
 say "Python environment"
 if [[ ! -x "$PYTHON" ]]; then python3 -m venv "$PROJECT_ROOT/venv"; fi
 "$PYTHON" -m pip install --upgrade pip
 "$PYTHON" -m pip install -r "$PROJECT_ROOT/requirements.txt"
+
+# The SSTV decoder is installed into SDRCC's venv; audio setup must run
+# AFTER creating that environment. Previously this failed on clean installs.
+if ((FEATURE_TRAFFIC_VOICE || FEATURE_SATELLITE)); then
+  say "Audio processing and ISS SSTV decoder"
+  if ! bash "$SOURCE_ROOT/scripts/install/prepare_audio_comparison.sh" "$PROJECT_ROOT" --install; then
+    echo "WARNING: Audio processing or ISS SSTV setup is incomplete."
+    echo "         SDRCC can run, but optional audio/SSTV functions are not ready."
+    echo "         Inspect installer output, then use System -> Advanced Maintenance -> Complete audio setup."
+  fi
+fi
 
 say "Groups"
 sudo usermod -a -G plugdev,dialout "$INSTALL_USER"
@@ -280,43 +330,30 @@ for svc in readsb.service ais-catcher.service ais-catcher-control.service sdrcc-
   sudo systemctl disable "$svc" >/dev/null 2>&1 || true
 done
 
-say "Station configuration (independent of receiver presence)"
-if ((NON_INTERACTIVE)); then
-  : "${SDRCC_LOCATION:?Set SDRCC_LOCATION}"
-  : "${SDRCC_LATITUDE:?Set SDRCC_LATITUDE}"
-  : "${SDRCC_LONGITUDE:?Set SDRCC_LONGITUDE}"
-  STATION_NAME="${SDRCC_STATION_NAME:-SDRCC}"
-  LOCATION="$SDRCC_LOCATION"; LATITUDE="$SDRCC_LATITUDE"; LONGITUDE="$SDRCC_LONGITUDE"
-  ALTITUDE="${SDRCC_ALTITUDE_M:-0}"
-else
-  echo "The following five values configure this ground station."
-  echo "Latitude, longitude and altitude are used for satellite pass planning, Radio View and Doppler correction."
-  echo "Use decimal degrees with a dot, for example 51.908401 and 4.351168."
-  while true; do
-    read -r -p "1/5 Station name (saved identifier) [SDRCC]: " STATION_NAME
-    STATION_NAME="${STATION_NAME:-SDRCC}"
-    read -r -p "2/5 Location or city (shown in Home Position): " LOCATION
-    read -r -p "3/5 Latitude (-90 to 90, decimal degrees): " LATITUDE
-    read -r -p "4/5 Longitude (-180 to 180, decimal degrees): " LONGITUDE
-    read -r -p "5/5 Altitude above sea level in metres [0]: " ALTITUDE
-    ALTITUDE="${ALTITUDE:-0}"
-    echo
-    echo "Station settings to save:"
-    echo "  Name      : $STATION_NAME"
-    echo "  Location  : $LOCATION"
-    echo "  Latitude  : $LATITUDE"
-    echo "  Longitude : $LONGITUDE"
-    echo "  Altitude  : $ALTITUDE m ASL"
-    read -r -p "Save these station settings? [Y/n] " CONFIRM_STATION
-    [[ ! "$CONFIRM_STATION" =~ ^[Nn]$ ]] && break
-    echo "Re-enter the station settings."
-  done
-fi
+say "Station setup"
+# Fresh installs do not treat the repository's sample coordinates as real.
+# Advanced unattended installs may explicitly provide all coordinates.
+STATION_NAME="${SDRCC_STATION_NAME:-SDRCC}"
+POSITION_VARS_SET=0
+for key in SDRCC_LOCATION SDRCC_LATITUDE SDRCC_LONGITUDE SDRCC_ALTITUDE_M; do
+  [[ -z "${!key:-}" ]] || POSITION_VARS_SET=1
+done
 say "Initialise external service configs"
 sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/initialize_external.py"
-"$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
-  --station-name "$STATION_NAME" --location "$LOCATION" \
-  --latitude "$LATITUDE" --longitude "$LONGITUDE" --altitude-m "$ALTITUDE" --apply
+if ((POSITION_VARS_SET)); then
+  : "${SDRCC_LOCATION:?Set SDRCC_LOCATION when providing explicit coordinates}"
+  : "${SDRCC_LATITUDE:?Set SDRCC_LATITUDE when providing explicit coordinates}"
+  : "${SDRCC_LONGITUDE:?Set SDRCC_LONGITUDE when providing explicit coordinates}"
+  "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
+    --station-name "$STATION_NAME" --location "$SDRCC_LOCATION" \
+    --latitude "$SDRCC_LATITUDE" --longitude "$SDRCC_LONGITUDE" \
+    --altitude-m "${SDRCC_ALTITUDE_M:-0}" --apply
+else
+  "$PYTHON" "$PROJECT_ROOT/scripts/install/configure_station.py" \
+    --station-name "$STATION_NAME" --defer --apply
+  echo "HOME POSITION NOT SET: open SDRCC -> System -> Advanced Maintenance -> Home Position."
+  echo "Satellite passes, scheduler AUTO and station-relative positioning wait until a real location is saved."
+fi
 
 say "Detect receivers"
 "$PYTHON" "$PROJECT_ROOT/scripts/install/detect_receivers.py" || true
@@ -338,7 +375,8 @@ say "Final AIS-catcher setup"
 show_rtlsdr_choices
 ais_setup_args=()
 ((NON_INTERACTIVE)) && ais_setup_args+=(--non-interactive)
-sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" "${ais_setup_args[@]}"
+run_ais_wizard "${ais_setup_args[@]}"
+install_ais_map_bridge || true
 
 # setup_ais.py temporarily stops SDRCC while the AIS configuration page owns
 # the receiver. It restores SDRCC afterwards when it was already running.
@@ -354,6 +392,6 @@ echo "Dashboard API after AIS setup: HTTP $HTTP"
 echo
 echo "SDRCC clean-machine provisioning stage complete in $PROJECT_ROOT"
 if ! sudo "$PYTHON" "$PROJECT_ROOT/scripts/install/setup_ais.py" --check; then
-  echo "AIS setup deferred. Resume with: $PROJECT_ROOT/install.sh --ais-setup"
+  echo "AIS setup deferred. Resume with: bash $PROJECT_ROOT/install.sh --ais-setup"
 fi
 echo "SDRCC starts automatically at boot. Receiver services are started on demand by SDRCC."

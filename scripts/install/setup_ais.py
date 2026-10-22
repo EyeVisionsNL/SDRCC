@@ -52,7 +52,13 @@ def read_config():
 
 
 def receiver_configured(value):
-    """Require exactly one active RTL-SDR with a real serial."""
+    """Require one selected RTL-SDR input, not a permanent serial binding.
+
+    AIS-catcher can receive with its automatic RTL-SDR selection. SDRCC's
+    Receiver Manager can assign/swap dongles after installation, so an empty
+    or absent serial must not keep the wizard in a verification loop.
+    Explicit UNBOUND placeholders are not an actual receiver selection.
+    """
     receivers = value.get('receiver')
     if not isinstance(receivers, list):
         return False
@@ -62,8 +68,8 @@ def receiver_configured(value):
         return False
     receiver = active[0]
     serial = str(receiver.get('serial') or '').strip()
-    return (str(receiver.get('input', '')).upper() == 'RTLSDR'
-            and bool(serial) and not serial.startswith('UNBOUND'))
+    return (str(receiver.get('input', '')).strip().upper() == 'RTLSDR'
+            and not serial.upper().startswith('UNBOUND'))
 
 
 def configured(value):
@@ -181,6 +187,52 @@ def listener():
     return f'http://{local}:{port}/'
 
 
+def open_local_wizard(url):
+    """Best-effort browser launch as the original login user, never as root."""
+    login = os.environ.get('SUDO_USER', '')
+    if not login or login == 'root' or os.environ.get('SSH_CONNECTION') or os.environ.get('SSH_TTY'):
+        print('AIS wizard: open the address above in your browser (remote/server session).', flush=True)
+        return False
+    display = os.environ.get('SDRCC_SETUP_DISPLAY') or os.environ.get('DISPLAY')
+    wayland = os.environ.get('SDRCC_SETUP_WAYLAND') or os.environ.get('WAYLAND_DISPLAY')
+    if not (display or wayland):
+        print('AIS wizard: open the address above in your browser.', flush=True)
+        return False
+    if not shutil.which('xdg-open') or not shutil.which('runuser'):
+        print('AIS wizard: open the address above in your browser.', flush=True)
+        return False
+    try:
+        account = pwd.getpwnam(login)
+        env = dict(os.environ)
+        env['HOME'], env['USER'], env['LOGNAME'] = account.pw_dir, login, login
+        if display:
+            env['DISPLAY'] = display
+        if wayland:
+            env['WAYLAND_DISPLAY'] = wayland
+        xauth = os.environ.get('SDRCC_SETUP_XAUTHORITY') or os.environ.get('XAUTHORITY')
+        if xauth:
+            env['XAUTHORITY'] = xauth
+        runtime = f'/run/user/{account.pw_uid}'
+        if Path(runtime).is_dir():
+            env['XDG_RUNTIME_DIR'] = runtime
+            if (Path(runtime) / 'bus').exists():
+                env['DBUS_SESSION_BUS_ADDRESS'] = f'unix:path={runtime}/bus'
+        else:
+            env.pop('XDG_RUNTIME_DIR', None)
+        subprocess.Popen(
+            ['runuser', '-u', login, '--', 'xdg-open', url],
+            env=env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        print(f'Opening the AIS-catcher wizard in the desktop browser: {url}', flush=True)
+        print('If it does not open, use the printed URL.', flush=True)
+        return True
+    except (OSError, KeyError, ValueError) as error:
+        print(f'Browser launch unavailable ({error}). Open {url} manually.', flush=True)
+        return False
+
+
 def wait_for_http(url):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     for _ in range(30):
@@ -210,7 +262,7 @@ def setup(non_interactive=False):
         quiet_receivers()
         value = read_config()
         if non_interactive and not configured(value):
-            print('DEFERRED: AIS wizard requires a browser. Resume with ./install.sh --ais-setup.')
+            print('DEFERRED: AIS wizard requires a browser. Resume with bash install.sh --ais-setup.')
             return False
         prepare_managed_service()
         if not configured(value):
@@ -226,13 +278,15 @@ def setup(non_interactive=False):
             run('systemctl', 'start', 'ais-catcher.service')
             url = listener()
             wait_for_http(url)
+            open_local_wizard(url)
             print('Complete the AIS-catcher wizard: choose one RTL-SDR, your password and desired outputs.\n'
                   'Use Save & Close. If necessary reopen Setup Wizard in the System panel.\n'
-                  'Return here after saving. A skipped wizard or UNBOUND input is not completion.', flush=True)
+                  'The SDR serial number is optional; assign/swap receivers later in SDRCC.\n'
+                  'Return here after saving. An unsaved wizard or UNBOUND input is not completion.', flush=True)
             while True:
                 answer = input('Enter = check saved configuration; d = defer AIS setup: ').strip().lower()
                 if answer == 'd':
-                    print('DEFERRED: AIS is not ready. Resume with ./install.sh --ais-setup.')
+                    print('DEFERRED: AIS is not ready. Resume with bash install.sh --ais-setup.')
                     return False
                 value = read_config()
                 if configured(value):
@@ -245,7 +299,8 @@ def setup(non_interactive=False):
                     save_config(value)
                     print('PASS: AIS wizard saved; normalized lingering wizard flag.')
                     break
-                print('AIS setup is incomplete: save one active RTL-SDR with a real serial in the wizard.')
+                print('AIS setup is incomplete: Save & Close with one active RTL-SDR input. '
+                      'A serial number is optional; UNBOUND placeholders are not supported.')
         # Stop before saving engine=on: systemd start/stop must control reception.
         quiet_receivers()
         value = read_config()
@@ -273,7 +328,7 @@ def main():
         print('PASS: AIS configured' if ready else 'DEFERRED: AIS setup incomplete')
         return 0 if ready else 2
     if os.geteuid() != 0:
-        parser.error('run through install.sh --ais-setup, or use sudo')
+        parser.error('run through bash install.sh --ais-setup, or use sudo')
     def interrupted(signum, frame):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupted)
@@ -284,7 +339,7 @@ def main():
         print(f'FAIL: {error}')
         return 1
     except KeyboardInterrupt:
-        print('\nAIS setup interrupted. Resume with ./install.sh --ais-setup.')
+        print('\nAIS setup interrupted. Resume with bash install.sh --ais-setup.')
         return 130
 
 

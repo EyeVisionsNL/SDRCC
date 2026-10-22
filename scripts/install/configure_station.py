@@ -32,10 +32,12 @@ def atomic_yaml(path:Path,payload:dict):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--station-name',default='SDRCC')
-    p.add_argument('--location',required=True)
-    p.add_argument('--latitude',type=float,required=True)
-    p.add_argument('--longitude',type=float,required=True)
+    p.add_argument('--location')
+    p.add_argument('--latitude',type=float)
+    p.add_argument('--longitude',type=float)
     p.add_argument('--altitude-m',type=float,default=0.0)
+    p.add_argument('--defer', action='store_true',
+                   help='Mark Home Position as pending without publishing placeholder coordinates')
     p.add_argument('--sdr1-serial',default=None)
     p.add_argument('--sdr2-serial',default=None)
     p.add_argument('--apply',action='store_true')
@@ -44,18 +46,27 @@ def main():
     station_name=a.station_name.strip()
     if not station_name: p.error('station name must not be empty')
     if len(station_name)>80: p.error('station name must be 80 characters or fewer')
-    try:
-        position=normalize_home_position({
-            'location':a.location,
-            'latitude':a.latitude,
-            'longitude':a.longitude,
-            'altitude_m':a.altitude_m,
-        })
-    except ValueError as error:
-        p.error(str(error))
+    if a.defer:
+        if a.location is not None or a.latitude is not None or a.longitude is not None:
+            p.error('--defer cannot be combined with coordinates')
+        position = {'location': 'Not configured', 'latitude': 0.0,
+                    'longitude': 0.0, 'altitude_m': 0.0}
+    else:
+        if a.location is None or a.latitude is None or a.longitude is None:
+            p.error('location, latitude and longitude are required without --defer')
+        try:
+            position=normalize_home_position({
+                'location':a.location,
+                'latitude':a.latitude,
+                'longitude':a.longitude,
+                'altitude_m':a.altitude_m,
+            })
+        except ValueError as error:
+            p.error(str(error))
     station=yaml.safe_load(STATION.read_text()) or {}; receivers=yaml.safe_load(RECEIVERS.read_text()) or {}
     station_before=copy.deepcopy(station)
-    st=station.setdefault('station',{}); st.update({'name':station_name,**position})
+    st=station.setdefault('station',{}); st.update({'name':station_name,**position,
+                                                     'position_configured': not a.defer})
     rs=receivers.setdefault('receivers',{})
     for key,serial in [('receiver01',a.sdr1_serial),('receiver02',a.sdr2_serial)]:
         if serial is None: continue
@@ -69,6 +80,10 @@ def main():
         print('Dry run only; pass --apply to write configuration.')
         return 0
     atomic_yaml(STATION,station)
+    if a.defer:
+        atomic_yaml(RECEIVERS,receivers)
+        print('Home Position pending; no readsb coordinates were written.')
+        return 0
     try:
         result=subprocess.run(
             [

@@ -1,0 +1,63 @@
+name: First installation step 1 beta validation
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'install.sh'
+      - 'scripts/install/configure_station.py'
+      - 'scripts/install/setup_ais.py'
+      - 'core/config.py'
+      - 'core/passes.py'
+      - 'core/iss_passes.py'
+      - 'core/mission_planner.py'
+      - 'core/mission_scheduler.py'
+      - 'core/satellite_view.py'
+      - 'dashboard/static/js/home_position.js'
+      - 'dashboard/templates/index.html'
+      - 'scripts/validate_installer_step1.py'
+      - 'scripts/install/update_manifest.json'
+      - '.github/workflows/installer-step1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-first-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install offline test requirements
+        run: python -m pip install --disable-pip-version-check PyYAML
+      - name: Test the deferred Home Position and AIS wizard launch path
+        run: python scripts/validate_installer_step1.py
+      - name: Test AIS Verify without serial and installer UI
+        run: |
+          python scripts/validate_ais_setup_v0560t.py
+          python -m unittest discover -s scripts/install -p 'test_gui_installer.py'
+      - name: Validate Home Position browser script
+        run: node --check dashboard/static/js/home_position.js
+      - name: Verify source hashes in update manifest
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path("scripts/install/update_manifest.json").read_text())
+          failures = []
+          for name, allowed in manifest.items():
+              if name == "scripts/install/update_manifest.json":
+                  continue
+              file = Path(name)
+              if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() not in allowed:
+                  failures.append(name)
+          if failures:
+              raise SystemExit("Unapproved paths: " + ", ".join(failures))
+          print("PASS: manifest hashes verified")
+          PY

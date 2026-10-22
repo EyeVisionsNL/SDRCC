@@ -70,10 +70,10 @@ sudo apt-get update
 sudo apt-get install -y git
 git clone --depth 1 --branch main https://github.com/EyeVisionsNL/SDRCC.git ~/SDRCC
 cd ~/SDRCC
-./install.sh
+bash install.sh
 ```
 
-**Do not use `sudo ./install.sh`.** The installer requests privileges when needed. Follow the station and AIS setup prompts.
+**Run `bash install.sh` without `sudo`.** On Ubuntu Desktop, the SDRCC Installer opens automatically. Choose your features, complete the AIS-catcher wizard and click **Verify AIS setup**. Keep the AIS RTL-SDR serial number handy: you must enter it in the AIS-catcher wizard before **Save & Close**. SDRCC receiver bindings and Home Position can be adjusted later.
 
 Already installed? Use **System → Advanced Maintenance** for updates. [Installation details and troubleshooting →](https://eyevisionsnl.github.io/SDRCC/installation.html)
 
@@ -107,6 +107,6 @@ Special thanks to **Mbruins** for extensive testing and feedback. ❤️
 
 **Original SDRCC software:** GNU GPL-3.0-only — see [LICENSE](LICENSE). © 2026 EyeVisionsNL. The SDRCC logo, project branding and original project graphics are EyeVisionsNL assets. Third-party software, data and photographs have their own rights: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-**Stable:** SDRCC v0.68.0 · **Android:** v2.0.0 · Development happens on `develop`; stable releases use `main`.
+**Stable:** SDRCC v0.68.2 · **Android:** v2.0.2 · Development happens on `develop`; stable releases use `main`.
 
 [💬 Questions and ideas](https://github.com/EyeVisionsNL/SDRCC/discussions) · [🐛 Report an issue](https://github.com/EyeVisionsNL/SDRCC/issues) · [📖 Wiki](https://eyevisionsnl.github.io/SDRCC/)

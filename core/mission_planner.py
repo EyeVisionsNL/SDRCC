@@ -14,7 +14,7 @@ from typing import Any
 import yaml
 
 from core import iss_passes, iss_sstv, passes, weather_planning
-from core.config import get_assignment, get_enabled_satellites
+from core.config import get_assignment, get_enabled_satellites, home_position_configured
 
 ROOT = Path(__file__).resolve().parent.parent
 ISS_CONFIG_FILE = ROOT / "config" / "iss_voice.yaml"
@@ -161,6 +161,8 @@ def _iss_candidates(hours_ahead: int) -> list[dict[str, Any]]:
 
 
 def _provider_candidates(hours_ahead: int) -> dict[str, list[dict[str, Any]]]:
+    if not home_position_configured():
+        return {"weather": [], "iss_voice": []}
     return {
         "weather": _weather_candidates(hours_ahead),
         "iss_voice": _iss_candidates(hours_ahead),

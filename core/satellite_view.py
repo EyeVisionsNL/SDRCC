@@ -14,7 +14,7 @@ from threading import RLock
 from typing import Any
 
 from core import tle
-from core.config import load_station
+from core.config import load_station, home_position_configured
 
 
 AUTHORITY = "read_only_tle_observer"
@@ -131,6 +131,17 @@ def _build_snapshot(now: datetime) -> dict[str, Any]:
 
     station_root = load_station() or {}
     station_config = station_root.get("station", {})
+    if not home_position_configured():
+        return {
+            "ok": False, "authority": AUTHORITY, "projection": "equirectangular",
+            "generated_at": now.isoformat(timespec="seconds"),
+            "generated_epoch": int(now.timestamp()),
+            "station": {"name": str(station_config.get("name") or "SDRCC"),
+                        "location": "Not configured", "latitude": None,
+                        "longitude": None, "altitude_m": None},
+            "satellites": [],
+            "errors": ["Home Position not configured. Set it in Advanced Maintenance."],
+        }
     station_latitude = float(station_config["latitude"])
     station_longitude = float(station_config["longitude"])
     station_altitude_m = float(station_config.get("altitude_m", 0.0))

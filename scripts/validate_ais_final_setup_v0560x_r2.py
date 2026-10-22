@@ -136,8 +136,18 @@ check(
 )
 
 check(
-    "empty serial rejected",
-    setup.receiver_configured(cfg(serial="")) is False,
+    "empty serial accepted (SDRCC binding can be assigned later)",
+    setup.receiver_configured(cfg(serial="")) is True,
+)
+
+check(
+    "missing serial accepted when RTL-SDR input is selected",
+    setup.configured(cfg(receivers=[{"active": True, "input": "RTLSDR"}])) is True,
+)
+
+check(
+    "receiver not selected rejected",
+    setup.receiver_configured(cfg(receivers=[])) is False,
 )
 
 check(

@@ -189,9 +189,46 @@ class WizardFlow(unittest.TestCase):
         self.assertTrue(setup.setup())
         self.assertEqual(self.services['sdrcc.service']['active'], 'inactive')
 
-    def test_dismissal_empty_serial_and_multiple_devices_not_ready(self):
-        for receiver in ([], [{'input': 'RTLSDR', 'serial': ''}],
-                         [{'input': 'RTLSDR', 'serial': 'UNBOUND_AIS'}],
+    def test_no_serial_required_to_verify_saved_wizard(self):
+        def finish(prompt):
+            # Mimic an AIS-catcher Save & Close with automatic RTL-SDR
+            # selection and NO serial in the receiver input.
+            value = ready()
+            value['receiver'] = [{'input': 'RTLSDR', 'active': True}]
+            self.put(value)
+            return ''
+        with patch('builtins.input', finish):
+            self.assertTrue(setup.setup())
+        self.assert_final_state()
+        saved = json.loads(self.config.read_text())
+        self.assertEqual(saved['receiver'], [{'input': 'RTLSDR', 'active': True}])
+        self.assertTrue(setup.configured(saved))
+        self.assertEqual(saved['engine'], 'on')
+
+    def test_no_serial_when_saved_wizard_flag_lingers(self):
+        def finish(prompt):
+            value = ready()
+            value['receiver'][0]['serial'] = ''
+            value['control']['wizard'] = True
+            value['engine'] = 'on'
+            self.put(value)
+            return ''
+        with patch('builtins.input', finish):
+            self.assertTrue(setup.setup())
+        self.assert_final_state()
+        saved = json.loads(self.config.read_text())
+        self.assertFalse(saved['control']['wizard'])
+        self.assertEqual(saved['receiver'][0]['serial'], '')
+
+    def test_serial_optional_only_for_selected_rtlsdr(self):
+        for receiver in ([{'input': 'RTLSDR', 'serial': ''}],
+                         [{'input': 'RTLSDR'}]):
+            value = ready()
+            value['receiver'] = receiver
+            self.assertTrue(setup.configured(value))
+
+    def test_incomplete_or_multiple_inputs_not_ready(self):
+        for receiver in ([], [{'input': 'RTLSDR', 'serial': 'UNBOUND_AIS'}],
                          [{'input': 'SERIALPORT', 'serial': 'TEST'}],
                          ready()['receiver'] * 2):
             value = ready()
