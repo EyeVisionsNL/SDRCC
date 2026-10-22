@@ -52,7 +52,13 @@ def read_config():
 
 
 def receiver_configured(value):
-    """Require exactly one active RTL-SDR with a real serial."""
+    """Require one selected RTL-SDR input, not a permanent serial binding.
+
+    AIS-catcher can receive with its automatic RTL-SDR selection. SDRCC's
+    Receiver Manager can assign/swap dongles after installation, so an empty
+    or absent serial must not keep the wizard in a verification loop.
+    Explicit UNBOUND placeholders are not an actual receiver selection.
+    """
     receivers = value.get('receiver')
     if not isinstance(receivers, list):
         return False
@@ -62,8 +68,8 @@ def receiver_configured(value):
         return False
     receiver = active[0]
     serial = str(receiver.get('serial') or '').strip()
-    return (str(receiver.get('input', '')).upper() == 'RTLSDR'
-            and bool(serial) and not serial.startswith('UNBOUND'))
+    return (str(receiver.get('input', '')).strip().upper() == 'RTLSDR'
+            and not serial.upper().startswith('UNBOUND'))
 
 
 def configured(value):
@@ -275,7 +281,8 @@ def setup(non_interactive=False):
             open_local_wizard(url)
             print('Complete the AIS-catcher wizard: choose one RTL-SDR, your password and desired outputs.\n'
                   'Use Save & Close. If necessary reopen Setup Wizard in the System panel.\n'
-                  'Return here after saving. A skipped wizard or UNBOUND input is not completion.', flush=True)
+                  'The SDR serial number is optional; assign/swap receivers later in SDRCC.\n'
+                  'Return here after saving. An unsaved wizard or UNBOUND input is not completion.', flush=True)
             while True:
                 answer = input('Enter = check saved configuration; d = defer AIS setup: ').strip().lower()
                 if answer == 'd':
@@ -292,7 +299,8 @@ def setup(non_interactive=False):
                     save_config(value)
                     print('PASS: AIS wizard saved; normalized lingering wizard flag.')
                     break
-                print('AIS setup is incomplete: save one active RTL-SDR with a real serial in the wizard.')
+                print('AIS setup is incomplete: Save & Close with one active RTL-SDR input. '
+                      'A serial number is optional; UNBOUND placeholders are not supported.')
         # Stop before saving engine=on: systemd start/stop must control reception.
         quiet_receivers()
         value = read_config()
