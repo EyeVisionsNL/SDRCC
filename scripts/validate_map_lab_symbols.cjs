@@ -62,14 +62,17 @@ class FakeMap {
     addImage(id, image, options) {
         assert.equal(options.pixelRatio, 2);
         assert.equal(image.width, 96);
-        assert.equal(image.height, 96);
+        assert.equal(image.height, id.startsWith("sdrcc-name-") ? 48 : 96);
+        if (id.startsWith("sdrcc-name-")) {
+            assert(options.stretchX && options.stretchY, "label plates must support text fitting");
+        }
         this.images[id] = image;
     }
     getStyle() {return {layers: []};}
     addLayer(layer) {
         if (layer.id.endsWith("-icons")) {
-            assert(Object.keys(this.images).length === 58,
-                "all 14 class colours and 2 aircraft sprites must be registered");
+            assert(Object.keys(this.images).length === 72,
+                "14 nameplates, 56 class symbols and 2 aircraft sprites must be registered");
         }
         this.layers[layer.id] = layer;
     }
@@ -117,7 +120,7 @@ class FakeMap {
     instance.callbacks.load();
     await new Promise(resolve => setImmediate(resolve));
 
-    assert.equal(Object.keys(instance.images).length, 58); // 14 AIS classes × moving/still × verified/unverified + 2 aircraft
+    assert.equal(Object.keys(instance.images).length, 72); // 56 AIS symbols + 14 coloured nameplates + 2 aircraft
     for (const name of [
         "sdrcc-ship-6-moving", "sdrcc-ship-2-moving-unverified",
         "sdrcc-ship-1-still", "sdrcc-plane", "sdrcc-plane-no-course",
@@ -128,6 +131,9 @@ class FakeMap {
             assert(instance.images[`sdrcc-ship-${code}-${movement}-unverified`]);
         }
     }
+
+    for (let cls = 0; cls < 14; cls++)
+        assert(instance.images["sdrcc-name-" + cls], "missing readable class nameplate");
 
     for (const kind of ["ais", "adsb"]) {
         const layer = instance.layers["sdrcc-" + kind + "-icons"];
@@ -162,6 +168,13 @@ class FakeMap {
     assert.equal(polygons.length, 1, "only ships with real dimensions get hull outlines");
     assert.equal(instance.layers["sdrcc-ais-hull-fill"].type, "fill");
     assert.equal(instance.layers["sdrcc-ais-hull-border"].type, "line");
+    const extrusion = instance.layers["sdrcc-ais-hull-3d"];
+    assert.equal(extrusion.type, "fill-extrusion");
+    assert.equal(extrusion.layout.visibility, "none");
+    assert.deepEqual(JSON.parse(JSON.stringify(extrusion.paint["fill-extrusion-height"])),
+        ["get", "display_height_m"]);
+    assert(instance.callbacks["click:sdrcc-ais-hull-3d"]);
+    assert.equal(polygons[0].properties.display_height_m, 7.22);
     assert.equal(instance.layers["sdrcc-ais-hull-fill"].minzoom, 14);
     const ring = polygons[0].geometry.coordinates[0];
     assert.equal(ring.length, 8, "stern, shoulders, bow and closed polygon");
@@ -183,12 +196,17 @@ class FakeMap {
     assert.deepEqual(JSON.parse(JSON.stringify(instance.layers["sdrcc-ais-fallback-icons"].filter)),
         ["!=", ["get", "hull_available"], true]);
     assert.equal(instance.layers["sdrcc-ais-labels"].minzoom, 12.5);
+    const labels = instance.layers["sdrcc-ais-labels"];
+    assert.equal(labels.layout["icon-text-fit"], "both");
+    assert.deepEqual(JSON.parse(JSON.stringify(labels.layout["text-field"])),
+        ["get", "label_name"]);
+    assert.equal(labels.paint["text-color"][0], "match");
+    assert(instance.callbacks["click:sdrcc-ais-labels"]);
+    assert(instance.callbacks["click:sdrcc-adsb-labels"]);
     const colors = JSON.parse(JSON.stringify(instance.layers["sdrcc-ais-labels"].paint["text-color"]));
     assert.equal(colors[0], "match");
-    assert(colors.includes("#1fbf5c"), "cargo green");
-    assert(colors.includes("#d93a2b"), "tanker red");
-    assert(colors.includes("#2c4fd0"), "passenger blue");
-    assert(colors.includes("#c04ef0"), "Class B purple");
+    assert(colors.includes("#17232b"), "light nameplates use dark text for contrast");
+    assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
     assert.equal(node("count-ais").textContent, 3);
@@ -210,6 +228,10 @@ class FakeMap {
     assert(instance.layers["sdrcc-buildings"], "existing 3D buildings preserved");
     assert(instance.layoutChanges.some(change =>
         change.id === "sdrcc-buildings" && change.value === "visible"));
+    assert(instance.layoutChanges.some(change =>
+        change.id === "sdrcc-ais-hull-3d" && change.value === "visible"));
+    assert(instance.layoutChanges.some(change =>
+        change.id === "sdrcc-ais-hull-fill" && change.value === "none"));
 
     node("layer-ais").checked = false;
     node("layer-ais").listeners.change();
@@ -219,9 +241,12 @@ class FakeMap {
         change.id === "sdrcc-ais-hull-fill" && change.value === "none"),
         "hiding AIS must hide actual hull polygons too");
     assert(instance.layoutChanges.some(change =>
+        change.id === "sdrcc-ais-hull-3d" && change.value === "none"),
+        "hiding AIS must hide 3D hulls too");
+    assert(instance.layoutChanges.some(change =>
         change.id === "sdrcc-ais-fallback-icons" && change.value === "none"),
         "hiding AIS must hide zoomed-in fallback vessels too");
 
-    console.log("PASS: AIS-catcher colours, 58 map sprites, class-specific arrows and dots, "
-        + "nonoverlapping zoom layers, 140m hull, labels, toggles and 3D");
+    console.log("PASS: 72 AIS/aircraft sprites including 14 nameplates, 140m 3D hull, "
+        + "label clicks, class colours, layer toggles and 3D visibility");
 })().catch(error => {console.error(error); process.exitCode = 1;});
