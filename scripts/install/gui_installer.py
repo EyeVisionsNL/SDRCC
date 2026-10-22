@@ -13,7 +13,6 @@ from pathlib import Path
 import re
 import secrets
 import shutil
-import signal
 import subprocess
 import sys
 import threading
@@ -261,7 +260,7 @@ class InstallState:
                 ["bash", str(ROOT / "install.sh"), "--gui-choices"],
                 cwd=ROOT, env=env, stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                bufsize=0, start_new_session=True)
+                bufsize=0)
             with self.lock:
                 self.process = process
             partial = ""
@@ -422,8 +421,13 @@ def main():
             process = state.process
         if process and process.poll() is None:
             print("\nInterrupting the active installer. Check system state before retrying.")
-            os.killpg(process.pid, signal.SIGINT)
-            process.wait(timeout=15)
+            # Keep the installer in our terminal's process group so sudo
+            # retains /dev/tty access for interactive password prompts.
+            # Ctrl+C from the terminal is already delivered to the child.
+            try:
+                process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.terminate()
     finally:
         httpd.server_close()
     return state.exit_code or 0
