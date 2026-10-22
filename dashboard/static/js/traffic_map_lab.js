@@ -64,6 +64,7 @@
                     speed_knots: item.speed_knots,
                     altitude_ft: item.altitude_ft,
                     age_seconds: item.age_seconds,
+                    validation_state: item.validation_state || "unknown",
                 },
             })),
         };
@@ -103,6 +104,9 @@
             box.appendChild(element);
         };
         line((props.type === "ais" ? "MMSI: " : "ICAO: ") + (props.id || "?"));
+        if (props.type === "ais" && props.validation_state === "unverified") {
+            line("Position not verified by AIS-Catcher");
+        }
         if (props.callsign) line("Callsign: " + props.callsign);
         if (props.course !== null && props.course !== undefined) line("Heading/course: " + props.course + "°");
         if (props.speed_knots !== null && props.speed_knots !== undefined) line("Speed: " + props.speed_knots + " kn");
@@ -119,7 +123,9 @@
             id: source + "-dots", type: "circle", source,
             paint: {
                 "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3.5, 13, 7],
-                "circle-color": color,
+                "circle-color": kind === "ais"
+                    ? ["case", ["==", ["get", "validation_state"], "unverified"], "#ff9f68", color]
+                    : color,
                 "circle-stroke-color": "#062032", "circle-stroke-width": 1.7,
                 "circle-opacity": .96,
             },
@@ -192,6 +198,13 @@
             const planes = validTargets(data.adsb?.targets, "adsb");
             el("count-ais").textContent = data.ais?.available ? ships.length : "OFF";
             el("count-adsb").textContent = data.adsb?.available ? planes.length : "OFF";
+            const aisTotal = Number.isInteger(data.ais?.source_count) ? data.ais.source_count : ships.length;
+            const adsbTotal = Number.isInteger(data.adsb?.source_count) ? data.adsb.source_count : planes.length;
+            const unverified = Number.isInteger(data.ais?.unverified_count) ? data.ais.unverified_count : 0;
+            el("feed-detail").textContent =
+                `AIS: ${ships.length} plotted from ${aisTotal} records`
+                + (unverified ? ` (orange: ${unverified} unverified)` : "")
+                + ` · ADS-B: ${planes.length} plotted from ${adsbTotal} records`;
             el("feed-status").textContent =
                 "AIS " + (data.ais?.available ? "LIVE" : "UNAVAILABLE")
                 + " · ADS-B " + (data.adsb?.available ? "LIVE" : "UNAVAILABLE")
