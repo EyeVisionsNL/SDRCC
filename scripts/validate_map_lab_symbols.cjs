@@ -35,11 +35,21 @@ const canvas = () => ({
 const document = {
     hidden: false, getElementById: node,
     createElement(tag) {
-        assert.equal(tag, "canvas");
-        return canvas();
+        if (tag === "canvas") return canvas();
+        return {
+            tag, children: [], textContent:"", className:"",
+            appendChild(child) {this.children.push(child); return child;},
+            remove() {},
+        };
     },
 };
 let instance;
+let lastPopup;
+class FakePopup {
+    setLngLat(value) {this.position = value; return this;}
+    setDOMContent(element) {this.element = element; return this;}
+    addTo() {lastPopup = this; return this;}
+}
 class FakeMap {
     constructor() {
         instance = this;
@@ -103,17 +113,24 @@ class FakeMap {
             ]},
         adsb: {available: true, source_count: 1, count: 1, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
-                lon:4.5, lat:51.92, course:212, altitude_ft:24000},
+                registration:"PH-BGX", aircraft_type:"B738", operator:"KLM",
+                squawk:"4720", lon:4.5, lat:51.92, course:212, altitude_ft:24000},
         ]},
     };
     const fakeWindow = {
-        __maplibreMock: {Map: FakeMap, NavigationControl: class {}, ScaleControl: class {}},
+        __maplibreMock: {Map: FakeMap, Popup: FakePopup, NavigationControl: class {}, ScaleControl: class {}},
         setInterval() {},
     };
     const patched = source.replace(esm, "await Promise.resolve(window.__maplibreMock)");
     vm.runInNewContext(patched, {
         document, window: fakeWindow, setInterval() {},
-        fetch: async () => ({ok:true, json:async () => data}),
+        fetch: async url => url.startsWith("/api/map-lab/aircraft-photo/")
+            ? {ok:true, json:async () => ({
+                ok:true, image_url:"https://cdn.planespotters.net/mock.jpg",
+                source_url:"https://www.planespotters.net/photo/123",
+                photographer:"Example Photographer", source:"Planespotters.net",
+            })}
+            : {ok:true, json:async () => data},
     });
     await new Promise(resolve => setImmediate(resolve));
     assert(instance, "map must be constructed");
@@ -222,6 +239,23 @@ class FakeMap {
     assert(instance.layoutChanges.some(change =>
         change.id === "sdrcc-ais-fallback-icons" && change.value === "visible"),
         "hiding labels must not hide fallback ship arrows");
+
+    // Clicking a plane requests the optional photo only at selection time.
+    instance.callbacks["click:sdrcc-adsb-icons"]({features:[planes[0]]});
+    assert(lastPopup && lastPopup.element, "aircraft popup must open");
+    await new Promise(resolve => setImmediate(resolve));
+    const card = lastPopup.element;
+    const detailLines = card.children.map(item => item.children?.map(child => child.textContent).join("") || "");
+    assert(detailLines.some(x => x.includes("Registration: PH-BGX")));
+    assert(detailLines.some(x => x.includes("Type: B738")));
+    const photo = card.children.find(child => child.className === "popup-photo");
+    assert(photo && photo.children.some(child =>
+        child.tag === "img" && child.src.startsWith("https://cdn.planespotters.net/")),
+        "credited aircraft image must be rendered on click");
+    assert(photo.children.some(child => child.textContent.includes("Example Photographer")));
+    instance.callbacks["click:sdrcc-ais-hull-3d"]({features:[polygons[0]]});
+    assert(lastPopup.element.children.some(child =>
+        child.children?.some(value => value.textContent.includes("Length"))));
 
     node("mode-3d").listeners.click();
     assert.equal(instance.camera.pitch, 62);
