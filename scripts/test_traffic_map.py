@@ -81,8 +81,24 @@ class TrafficMapTests(unittest.TestCase):
             {**base, "mmsi": "987654321", "last_signal": 1801},
             {**base, "mmsi": "111222333", "validated": 0, "last_signal": 15},
         ]})
-        self.assertEqual([row["id"] for row in rows], ["123456789"])
+        self.assertEqual([row["id"] for row in rows], ["123456789", "111222333"])
+        self.assertEqual(rows[0]["validation_state"], "verified")
+        self.assertEqual(rows[1]["validation_state"], "unverified")
         self.assertEqual(traffic_map.AIS_MAX_AGE, 1800)
+
+    def test_unverified_ais_visible_but_flagged(self):
+        """The viewer can show unverified AIS just as AIS-Catcher does;
+        ATIS and emergency-monitor validation remain entirely unchanged."""
+        data = {"ships": [
+            {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
+             "validated": 0, "last_signal": 8},
+            {"mmsi": "123456788", "lat": 51.9, "lon": 4.4,
+             "validated": 1, "last_signal": 8},
+        ]}
+        targets = traffic_map.vessels(data)
+        self.assertEqual(len(targets), 2)
+        self.assertEqual(targets[0]["validation_state"], "unverified")
+        self.assertEqual(targets[1]["validation_state"], "verified")
 
     def test_readsb_non_icao_and_last_position(self):
         """Recent position retained by tar1090 should be visible; old positions must not."""
