@@ -2,7 +2,7 @@ name: First installation step 1 beta validation
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, main]
     paths:
       - 'install.sh'
       - 'scripts/install/configure_station.py'
@@ -17,6 +17,9 @@ on:
       - 'dashboard/templates/index.html'
       - 'scripts/validate_installer_step1.py'
       - 'scripts/install/update_manifest.json'
+      - 'dashboard/static/js/update_manager.js'
+      - 'scripts/validate_update_channel_failure.cjs'
+      - 'VERSION'
       - '.github/workflows/installer-step1.yml'
   workflow_dispatch:
 
@@ -40,6 +43,8 @@ jobs:
         run: |
           python scripts/validate_ais_setup_v0560t.py
           python -m unittest discover -s scripts/install -p 'test_gui_installer.py'
+      - name: Test update failures when switching beta to stable
+        run: node scripts/validate_update_channel_failure.cjs
       - name: Validate Home Position browser script
         run: node --check dashboard/static/js/home_position.js
       - name: Verify source hashes in update manifest

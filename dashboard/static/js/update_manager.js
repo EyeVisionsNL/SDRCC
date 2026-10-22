@@ -113,7 +113,10 @@
             setResult(`Checking GitHub ${data.source_channel || "main"} for a newer SDRCC version...`, "warn");
         }
 
-        if (worker.state === "failed" && !data.same_version) {
+        // A same-version develop → main switch is a real deployment too.
+        // Do not suppress a failed worker merely because VERSION is equal.
+        if (worker.state === "failed" && (data.update_available || !data.same_version)) {
+            badge.textContent = "UPDATE FAILED";
             setResult(`Last update failed: ${worker.message || "unknown error"}`, "bad");
         } else if (worker.state === "success" && !data.same_version && !data.can_complete_audio_setup) {
             setResult(worker.message || `SDRCC ${data.installed_version} installed successfully.`, "ok");
