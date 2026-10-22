@@ -70,10 +70,12 @@ sudo apt-get update
 sudo apt-get install -y git
 git clone --depth 1 --branch main https://github.com/EyeVisionsNL/SDRCC.git ~/SDRCC
 cd ~/SDRCC
-./install.sh
+bash install.sh
 ```
 
-**Do not use `sudo ./install.sh`.** The installer requests privileges when needed. Follow the station and AIS setup prompts.
+**Run `bash install.sh` without `sudo`.** The installer requests privileges when needed. The initial installation currently runs in the terminal; the AIS-catcher setup wizard opens in a browser near the end. A complete SDRCC graphical installer is not yet available.
+
+To test the development version, replace `--branch main` with `--branch develop` in the clone command.
 
 Already installed? Use **System → Advanced Maintenance** for updates. [Installation details and troubleshooting →](https://eyevisionsnl.github.io/SDRCC/installation.html)
 
