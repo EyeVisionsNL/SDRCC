@@ -335,6 +335,10 @@ class FakeMap {
     instance.callbacks["click:sdrcc-ais-hull-3d"]({features:[polygons[0]]});
     assert(lastPopup.element.children.some(child =>
         child.children?.some(value => value.textContent.includes("Length"))));
+    assert(lastPopup.element.children.some(child =>
+        child.children?.some(value => value.textContent.includes("Emergency vessel"))));
+    assert(lastPopup.element.children.some(child =>
+        child.children?.some(value => value.textContent.includes("Matched Marine ATIS"))));
 
     node("mode-3d").listeners.click();
     assert.equal(instance.camera.pitch, 62);
