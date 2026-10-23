@@ -287,6 +287,10 @@ class FakeMap {
     assert.equal(boats[6].properties.icon_name,"sdrcc-ship-5-still");
     assert.equal(boats[6].properties.hull_available,true);
     assert.equal(boats[3].properties.icon_name,"sdrcc-offshore-wtg");
+    assert.equal(boats[3].properties.icon_scale,1.45,
+        "WTG needs its own enlarged icon scale");
+    assert.equal(boats[4].properties.icon_scale,0.75,
+        "offshore platforms must retain their existing icon size");
     assert.equal(boats[4].properties.icon_name,"sdrcc-offshore-platform");
     assert.equal(boats[3].properties.hull_available,false);
     assert.equal(boats[4].properties.hull_available,false);
