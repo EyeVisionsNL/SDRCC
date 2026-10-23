@@ -18,6 +18,20 @@ assert(markup.includes('<details id="map-lab-legend" class="map-legend"'),
     "layer controls must live in a floating native details legend");
 assert(markup.includes('<div class="map-stage">'));
 assert(!markup.includes('<aside class="side">'), "legacy sidebar still steals map space");
+// The map must start at the top, with 2D/3D, Reset and Refresh floating over it.
+assert(!markup.includes('<header>'), "oversized page header still steals map height");
+assert(!markup.includes('SDRCC Radio View'), "redundant dashboard link must be removed");
+assert(!markup.includes('class="toolbar"'), "old toolbar must not reserve vertical space");
+assert(markup.includes('#map{height:calc(100dvh - 58px)'), "map must fill available viewport height");
+assert(markup.includes('.map-tools{position:absolute'), "floating controls must be on the map");
+const mapIndex = markup.indexOf('<div id="map"');
+const controlIndex = markup.indexOf('<div class="map-tools"');
+const legendIndex = markup.indexOf('<details id="map-lab-legend"');
+assert(mapIndex >= 0 && controlIndex > mapIndex && legendIndex > controlIndex,
+    "map mode controls and legend must overlay the map in the same stage");
+for (const id of ["mode-2d","mode-3d","reset-view","refresh-now"]) {
+    assert.equal(markup.split('id="' + id + '"').length, 2, "missing/duplicate control " + id);
+}
 assert(!markup.includes('grid-template-columns:minmax(0,1fr) 280px'));
 assert(markup.includes('.map-legend:not([open])'), "legend must be compact when closed");
 assert(markup.includes('.legend-content{max-height:') === false ||

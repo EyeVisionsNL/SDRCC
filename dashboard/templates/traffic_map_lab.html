@@ -10,21 +10,18 @@
 :root{color-scheme:dark;font:15px/1.45 system-ui,Arial,sans-serif;background:#061322;color:#eaf4fd}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:#061322}
-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:17px 25px;background:linear-gradient(110deg,#0d2943,#091827);border-bottom:1px solid #326183}
-header h1{font-size:1.45rem;margin:0;color:#eef8ff}
-header p{margin:4px 0 0;color:#a1c2d9;font-size:.89rem}
-header a{color:#83dafa;text-decoration:none;border:1px solid #356582;border-radius:10px;padding:10px 15px;background:#123049}
-header a:focus-visible,button:focus-visible{outline:2px solid #9eeaff;outline-offset:3px}
-header .eyebrow{color:#73c9ea;font-size:.7rem;letter-spacing:.15em;font-weight:800}
-.layout{padding:12px;max-width:none;margin:0 auto}
-.viewer{min-width:0;background:#0d2336;border:1px solid #2f5673;border-radius:15px;overflow:hidden}
-.toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px;border-bottom:1px solid #2b536d}
-.toolbar .spacer{flex:1}
-button{cursor:pointer;border:1px solid #45728d;border-radius:9px;background:#163a54;color:#e9f7ff;padding:10px 14px;font:inherit;font-weight:650}
+.layout{padding:8px;max-width:none;margin:0 auto}
+.viewer{min-width:0;background:#0d2336;border:1px solid #2f5673;border-radius:11px;overflow:hidden}
+button{cursor:pointer;border:1px solid #45728d;border-radius:7px;background:#163a54;color:#e9f7ff;padding:7px 10px;font:inherit;font-size:.85rem;font-weight:650;white-space:nowrap}
 button:hover{background:#215172}
 button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
+button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
 .map-stage{position:relative;isolation:isolate}
-#map{height:clamp(430px,calc(100dvh - 212px),1080px);width:100%;background:#0b2033}
+#map{height:calc(100dvh - 58px);min-height:400px;width:100%;background:#0b2033}
+/* Small map controls take no document height and do not intercept map gestures. */
+.map-tools{position:absolute;left:10px;top:10px;z-index:9;display:flex;align-items:center;flex-wrap:wrap;gap:5px;max-width:calc(100% - 365px);padding:5px;background:#0d2438e8;border:1px solid #3e6881;border-radius:10px;box-shadow:0 3px 12px #0008;pointer-events:none}
+.map-tools button{pointer-events:auto}
+.map-tools .tool-divider{height:23px;width:1px;background:#426d85;margin:0 2px}
 .map-caption{font-size:.79rem;color:#9cbbd1;padding:9px 13px}
 .map-legend{position:absolute;right:60px;top:12px;z-index:8;width:min(300px,calc(100% - 78px));max-height:calc(100% - 24px);background:#0d2438f2;border:1px solid #44728d;border-radius:9px;box-shadow:0 5px 19px #0008;font-size:.84rem;color:#eaf4fd;pointer-events:auto}
 .map-legend:not([open]){width:min(247px,calc(100% - 78px))}
@@ -65,29 +62,23 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
 .maplibregl-control-container .maplibregl-ctrl-attrib{color:#263847}
 .popup-title{font-weight:800;margin:0 0 6px;font-size:.97rem}
 .popup-line{font-size:.84rem;margin:4px 0;display:flex;justify-content:space-between;gap:14px;align-items:baseline;border-bottom:1px solid #27445a;padding-bottom:3px}.popup-line strong{font-weight:650;color:#a9cadc;flex-shrink:0}.popup-line span{text-align:right;overflow-wrap:anywhere}.traffic-detail{min-width:210px;max-width:340px;max-height:360px;overflow-y:auto;padding-right:3px}.popup-photo{margin-top:12px;font-size:.8rem;color:#a9cadc}.popup-photo img{display:block;max-width:100%;width:100%;max-height:180px;object-fit:contain;background:#091b2b;border-radius:7px;margin-bottom:6px}.popup-photo a{color:#8bd8f5;display:block}
-@media(max-width:550px){header{padding:14px}.layout{padding:7px}#map{height:max(420px,calc(100dvh - 205px))}header h1{font-size:1.15rem}.toolbar{padding:8px;gap:5px}.toolbar button{padding:8px 9px;font-size:.84rem}.map-legend{right:55px;top:8px;width:min(280px,calc(100% - 66px))}.map-legend:not([open]){width:min(245px,calc(100% - 66px))}.legend-content{max-height:min(56vh,450px)}}
+@media(max-width:760px){.map-tools{right:55px;max-width:none;left:8px;top:8px}.map-legend{right:55px;top:86px;width:min(280px,calc(100% - 66px))}.map-legend:not([open]){width:min(245px,calc(100% - 66px))}.legend-content{max-height:min(55dvh,450px)}}
+@media(max-width:550px){.layout{padding:5px}#map{height:calc(100dvh - 50px);min-height:340px}.map-tools button{padding:6px 8px;font-size:.78rem}.map-tools .tool-divider{display:none}.map-caption{padding:6px 9px;font-size:.72rem}}
 </style>
 <script type="module" src="{{ url_for('static', filename='js/traffic_map_lab.js') }}?v={{ asset_version }}"></script>
 </head>
 <body>
-<header>
-  <div><span class="eyebrow">SDRCC · EXPERIMENTAL MAP · DEVELOP FIRST</span>
-    <h1>🌐 AIS + ADS-B · 2D / 3D</h1>
-    <p>Rijnmond traffic laboratory · a separate viewer, not a replacement for the existing maps</p>
-  </div>
-  <a href="/#tab-radio-view">← SDRCC Radio View</a>
-</header>
 <div class="layout">
-  <section class="viewer" aria-label="Interactive traffic map">
-    <div class="toolbar" role="group" aria-label="Map controls">
-      <button type="button" id="mode-2d" aria-pressed="true">▣ 2D map</button>
-      <button type="button" id="mode-3d" aria-pressed="false">◩ 3D buildings</button>
-      <span class="spacer"></span>
-      <button type="button" id="reset-view">⌖ Reset view</button>
-      <button type="button" id="refresh-now">↻ Refresh</button>
-    </div>
+  <section class="viewer" aria-label="SDRCC AIS and ADS-B 2D/3D traffic map">
     <div class="map-stage">
       <div id="map" aria-label="Map of ships and aircraft"></div>
+      <div class="map-tools" role="group" aria-label="Map controls">
+        <button type="button" id="mode-2d" aria-pressed="true">▣ 2D map</button>
+        <button type="button" id="mode-3d" aria-pressed="false">◩ 3D buildings</button>
+        <span class="tool-divider" aria-hidden="true"></span>
+        <button type="button" id="reset-view">⌖ Reset</button>
+        <button type="button" id="refresh-now">↻ Refresh</button>
+      </div>
       <details id="map-lab-legend" class="map-legend" aria-label="Map layers and legend">
         <summary><span class="legend-heading">◈ Layers · legend</span><span id="legend-mini-status" class="legend-mini-status">AIS — · ADS-B —</span></summary>
         <div class="legend-content">
