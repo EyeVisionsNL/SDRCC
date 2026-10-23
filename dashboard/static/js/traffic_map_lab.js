@@ -60,9 +60,9 @@
     let atisTarget = null;
     let previouslyDrawnEmergency = 0;
     let previouslyDrawnAtis = 0;
-    let selectedTrackMmsi = null;
     let trackRequestSequence = 0;
     let lastTrackFetchAt = 0;
+    let trackLoading = false;
 
     const validTargets = (rows, kind) => {
         if (!Array.isArray(rows)) return [];
@@ -248,10 +248,8 @@
             ? offshore
                 ? "sdrcc-" + profile.replace("_","-")
                     + (unverified ? "-unverified" : "")
-                : profile === "tug"
-                    ? "sdrcc-tug" + (unverified ? "-unverified" : "")
-                    : "sdrcc-ship-" + shipclass + "-" + (moving ? "moving" : "still")
-                        + (unverified ? "-unverified" : "")
+                : "sdrcc-ship-" + shipclass + "-" + (moving ? "moving" : "still")
+                    + (unverified ? "-unverified" : "")
             : "sdrcc-plane" + (Number.isFinite(item.course) ? "" : "-no-course");
         return {
             type: item.type,
@@ -307,53 +305,42 @@
         const show = el("layer-ais").checked && el("layer-tracks").checked;
         map.setLayoutProperty("sdrcc-ais-track", "visibility", show ? "visible" : "none");
     }
-    async function loadTrack(mmsi) {
-        if (!loaded || !el("layer-tracks").checked || !el("layer-ais").checked
-                || !/^[0-9]{9}$/.test(mmsi)) return;
+    async function loadAllTracks() {
+        if (!loaded || trackLoading || !el("layer-tracks").checked
+                || !el("layer-ais").checked || document.hidden) return;
         const request = ++trackRequestSequence;
+        trackLoading = true;
         lastTrackFetchAt = Date.now();
-        el("track-status").textContent = "Loading " + mmsi + "…";
+        el("track-status").textContent = "Loading tracks…";
         try {
-            const response = await fetch("/api/map-lab/ais-track/" + mmsi, {cache:"no-store"});
+            const response = await fetch("/api/map-lab/ais-tracks", {cache:"no-store"});
             if (!response.ok) throw new Error("Track HTTP " + response.status);
             const data = await response.json();
-            if (request !== trackRequestSequence || selectedTrackMmsi !== mmsi
-                    || !el("layer-tracks").checked || !el("layer-ais").checked) return;
-            const geojson = data.geojson;
-            const features = geojson?.type === "FeatureCollection" && Array.isArray(geojson.features)
-                ? geojson.features : [];
-            map.getSource("sdrcc-ais-track").setData({type:"FeatureCollection",features});
-            const count = Number.isInteger(data.point_count) ? data.point_count : 0;
+            if (request !== trackRequestSequence || !el("layer-tracks").checked
+                    || !el("layer-ais").checked) return;
+            const tracks = data.geojson?.type === "FeatureCollection"
+                && Array.isArray(data.geojson.features) ? data.geojson.features : [];
+            map.getSource("sdrcc-ais-track").setData({
+                type:"FeatureCollection", features:tracks,
+            });
+            const count = Number.isInteger(data.track_count) ? data.track_count : 0;
             el("track-status").textContent = !data.available
-                ? "AIS-Catcher track unavailable"
-                : count >= 2 ? count + " points · " + mmsi : "No recent track for " + mmsi;
+                ? "AIS-Catcher tracks unavailable"
+                : count ? count + " vessel tracks" : "No recent tracks";
         } catch (_) {
             if (request === trackRequestSequence)
-                el("track-status").textContent = "Track source unavailable";
+                el("track-status").textContent = "Tracks temporarily unavailable";
+        } finally {
+            trackLoading = false;
         }
-    }
-    function selectAIS(feature) {
-        const props = feature?.properties || {};
-        if (props.is_offshore_structure === true
-                || ["offshore_wtg","offshore_platform"].includes(props.render_profile)) {
-            selectedTrackMmsi = null;
-            trackRequestSequence++;
-            if (loaded) map.getSource("sdrcc-ais-track").setData(empty);
-            el("track-status").textContent = "Fixed offshore structure · no track";
-            return;
-        }
-        const mmsi = String(props.id || "");
-        if (!/^[0-9]{9}$/.test(mmsi)) return;
-        selectedTrackMmsi = mmsi;
-        if (el("layer-tracks").checked) void loadTrack(mmsi);
     }
     function addTrackLayer() {
         map.addSource("sdrcc-ais-track", {type:"geojson",data:empty});
         map.addLayer({
             id:"sdrcc-ais-track", type:"line", source:"sdrcc-ais-track",
             layout:{visibility:"none","line-cap":"round","line-join":"round"},
-            paint:{"line-color":"#5dd2ed","line-width":2.4,
-                "line-opacity":.84,"line-dasharray":[2.5,1]},
+            paint:{"line-color":classColorExpression, "line-width":1.7,
+                "line-opacity":.7},
         });
     }
     function setLayerVisibility(kind, visible) {
@@ -521,24 +508,6 @@
         ctx.stroke();
         return ctx.getImageData(0, 0, 96, 96);
     }
-    function spriteTug(unverified) {
-        const canvas = document.createElement("canvas");
-        canvas.width = 96; canvas.height = 96;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Canvas 2D context is unavailable");
-        ctx.scale(2,2);
-        ctx.fillStyle = "#ffad6e";
-        ctx.strokeStyle = unverified ? "#ffda9f" : "#10273a";
-        ctx.lineWidth = unverified ? 2.7 : 1.7;
-        ctx.beginPath();
-        ctx.moveTo(24,7);ctx.lineTo(34,15);ctx.lineTo(35,31);
-        ctx.quadraticCurveTo(24,42,13,31);
-        ctx.lineTo(14,15);ctx.closePath();ctx.fill();ctx.stroke();
-        ctx.fillStyle="#d1e5ee";ctx.fillRect(18,15,12,10);
-        ctx.fillStyle="#244358";ctx.fillRect(20,17,8,4);
-        ctx.fillStyle="#de7f50";ctx.fillRect(21,28,6,7);
-        return ctx.getImageData(0,0,96,96);
-    }
     function spriteOffshore(profile,unverified) {
         // Upright fixed-installation symbols, not ship arrows.
         const canvas=document.createElement("canvas");
@@ -663,10 +632,6 @@
                 content: [12, 8, 84, 40],
             });
         }
-        for (const unverified of [false,true]) {
-            map.addImage("sdrcc-tug" + (unverified ? "-unverified" : ""),
-                spriteTug(unverified),{pixelRatio:2});
-        }
         for(const profile of ["offshore_wtg","offshore_platform"]){
             for(const unverified of [false,true]){
                 const name="sdrcc-"+profile.replace("_","-")
@@ -736,7 +701,6 @@
             map.on("click", id, event => {
                 const feature = event.features && event.features[0];
                 if (!feature) return;
-                selectAIS(feature);
                 const ring = feature.geometry && feature.geometry.coordinates?.[0];
                 if (!ring?.length) return;
                 const center = ring.reduce(
@@ -837,7 +801,6 @@
             map.on("click", id, event => {
                 const feature = event.features && event.features[0];
                 if (!feature) return;
-                if (kind === "ais") selectAIS(feature);
                 new maplibregl.Popup({offset: 12, maxWidth: "300px"})
                     .setLngLat(feature.geometry.coordinates)
                     .setDOMContent(popup(feature))
@@ -1147,8 +1110,8 @@
                 map.getSource("sdrcc-ais-hulls").setData(hulls);
                 map.getSource("sdrcc-ais-decks").setData(deckCollection(ships,hulls));
                 map.getSource("sdrcc-adsb").setData(makeGeoJson(planes));
-                if (selectedTrackMmsi && el("layer-tracks").checked
-                        && Date.now()-lastTrackFetchAt > 30000) void loadTrack(selectedTrackMmsi);
+                if (el("layer-tracks").checked && Date.now()-lastTrackFetchAt > 30000)
+                    void loadAllTracks();
                 refreshStation(data.station);
                 latestShips = ships;
                 tickHighlights();
@@ -1192,6 +1155,8 @@
     el("layer-ais").addEventListener("change", () => {
         setLayerVisibility("ais", el("layer-ais").checked);
         setAlertVisibility();
+        if (el("layer-ais").checked && el("layer-tracks").checked)
+            void loadAllTracks();
     });
     el("layer-tracks").addEventListener("change", () => {
         trackRequestSequence++;
@@ -1199,10 +1164,8 @@
         if (!el("layer-tracks").checked) {
             map.getSource("sdrcc-ais-track").setData(empty);
             el("track-status").textContent = "Off";
-        } else if (selectedTrackMmsi) {
-            void loadTrack(selectedTrackMmsi);
         } else {
-            el("track-status").textContent = "Click a vessel";
+            void loadAllTracks();
         }
     });
     el("layer-adsb").addEventListener("change", () => setLayerVisibility("adsb", el("layer-adsb").checked));
