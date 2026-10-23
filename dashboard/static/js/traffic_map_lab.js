@@ -159,7 +159,7 @@
             type: item.type,
             id: String(item.id || ""),
             name: String(item.name || item.id || ""),
-            label_name: String(item.name || item.id || "").slice(0, 25),
+            label_name: String(item.name || item.id || "").slice(0, 20),
             callsign: String(item.callsign || ""),
             registration: item.registration || "",
             aircraft_type: item.aircraft_type || "",
@@ -406,8 +406,7 @@
         return ctx.getImageData(0, 0, 96, 96);
     }
     function labelPlate(color) {
-        // Borderless class-coloured AIS label: keep the colour, drop the heavy
-        // black frame. Nine-slice still stretches the plate to the text.
+        // Compact borderless class-coloured AIS label; nine-slice fits text.
         const canvas = document.createElement("canvas");
         canvas.width = 96; canvas.height = 48;
         const ctx = canvas.getContext("2d");
@@ -535,10 +534,18 @@
                     ? ["concat", "sdrcc-name-", ["to-string", ["get", "shipclass"]]]
                     : "sdrcc-plane",
                 "icon-text-fit": kind === "ais" ? "both" : "none",
-                "icon-text-fit-padding": [3, 7, 3, 7],
-                "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 16, 12.5],
-                "text-offset": [0, 0],
-                "text-anchor": "center",
+                "icon-text-fit-padding": kind === "ais" ? [2, 4, 2, 4] : [0, 0, 0, 0],
+                // A small plate is easier to read than a large label over the hull.
+                "text-size": kind === "ais"
+                    ? ["interpolate", ["linear"], ["zoom"], 12.5, 8.5, 15, 9, 18, 9.5]
+                    : ["interpolate", ["linear"], ["zoom"], 11, 9, 16, 10.5],
+                // MapLibre can try adjacent positions instead of covering the
+                // ship's own icon/real-scale hull or hiding the vessel entirely.
+                "text-variable-anchor": ["top", "bottom", "right", "left"],
+                "text-justify": "auto",
+                "text-radial-offset": kind === "ais"
+                    ? ["interpolate", ["linear"], ["zoom"], 12.5, 1.6, 14, 2.1, 16, 3.2, 18, 5]
+                    : 1.2,
                 "text-optional": false,
                 "text-allow-overlap": false,
                 "text-ignore-placement": false,
@@ -575,7 +582,7 @@
         if (!loaded) return;
         const layers = kind === "station"
             ? ["sdrcc-home-ring", "sdrcc-home-dot", "sdrcc-home-name"]
-            : ["sdrcc-vts-fill", "sdrcc-vts-line", "sdrcc-vts-labels"];
+            : ["sdrcc-vts-fill", "sdrcc-vts-line"];
         for (const id of layers) {
             if (map.getLayer(id)) {
                 map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
@@ -599,31 +606,9 @@
                 "line-opacity":0.8,
             },
         });
-        map.addLayer({
-            id:"sdrcc-vts-labels", type:"symbol", source:"sdrcc-vts",
-            minzoom:10.5,
-            layout: {
-                "text-field":["concat",["get","name"]," · VHF ",["get","vhfchannel"]],
-                "text-size":11,
-                "text-allow-overlap":false,
-                "text-ignore-placement":false,
-            },
-            paint: {
-                "text-color":"#e3eefd",
-                "text-halo-color":"#102d44",
-                "text-halo-width":1.7,
-            },
-        });
-        map.on("click", "sdrcc-vts-fill", event => {
-            const feature = event.features && event.features[0];
-            if (!feature || !event.lngLat) return;
-            const content = document.createElement("div");
-            content.className = "popup-title";
-            content.textContent = (feature.properties?.name || "VTS sector")
-                + " · VHF " + (feature.properties?.vhfchannel || "?");
-            new maplibregl.Popup({offset:12})
-                .setLngLat(event.lngLat).setDOMContent(content).addTo(map);
-        });
+        // VTS fills and borders are visual context only: never put a sector
+        // name on every polygon or open a popup when clicking the water.
+        // A click should select a ship/aircraft, not a covering VTS polygon.
     }
     async function loadSectors() {
         const status = el("vts-status");
