@@ -274,7 +274,7 @@ class FakeMap {
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
     assert.equal(polygons.length, 2, "only dimensioned vessels have hull outlines");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
-    assert(decks.length>=12, "tanker and cargo deck parts must be built");
+    assert.equal(decks.length,11, "7 tanker details and 4 cargo details expected");
     for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap"])
         assert(decks.some(f=>f.properties.part===part), "missing deck part "+part);
     assert(decks.every(f=>["123456789","244123999"].includes(f.properties.id)));
