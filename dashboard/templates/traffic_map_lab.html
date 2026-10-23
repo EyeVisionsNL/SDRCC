@@ -70,7 +70,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     </div>
     <div id="map" aria-label="Map of ships and aircraft"></div>
     <div id="map-error" role="alert"></div>
-    <div class="map-caption">Zoomed out: class-coloured AIS arrows or dots. Closer in: readable coloured name labels without heavy black frames. Harbour zoom (14+): dark true-scale vessel hulls. In 3D, hull height remains illustrative. Optional local Rijnmond VTS sectors and your configured station are shown as separate layers.</div>
+    <div class="map-caption">Zoomed out: class-coloured AIS arrows or dots. Closer in: compact coloured labels placed beside the vessel where possible, so they don't cover its hull. Harbour zoom (14+): dark true-scale vessel hulls. In 3D, hull height remains illustrative. Optional local Rijnmond VTS sectors and your configured station are shown as separate layers.</div>
   </section>
   <aside class="side">
     <section class="panel">
@@ -88,7 +88,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     <section class="panel">
       <h2>Preview scope</h2>
       <p class="muted">Live positions from your existing AIS-Catcher and readsb services. The viewer never starts, stops or binds an SDR.</p>
-      <p class="muted">No simulated targets are shown when a live source is unavailable. The station marker comes from SDRCC Home Position. VTS polygons come from the locally installed AIS-Catcher Rijnmond sector plugin (Rijkswaterstaat), without another receiver or data download.</p>
+      <p class="muted">No simulated targets are shown when a live source is unavailable. The station marker comes from SDRCC Home Position. VTS polygons and borders are read from the installed AIS-Catcher Rijnmond plugin (Rijkswaterstaat) without another download. VTS names are hidden to keep the map uncluttered; clicking open water does not open a sector popup.</p>
     </section>
     <section class="panel footer-note">
       <h2>2D/3D roadmap</h2>
