@@ -37,7 +37,7 @@ assert(markup.includes('.map-legend:not([open])'), "legend must be compact when 
 assert(markup.includes('.legend-content{max-height:') === false ||
        markup.includes('.legend-content{padding:'), "expanded legend must scroll");
 for (const id of ["layer-ais","layer-adsb","layer-station","layer-vts",
-                  "layer-emergency","layer-atis","show-names","feed-status"]) {
+                  "layer-emergency","layer-atis","layer-tracks","track-status","show-names","feed-status"]) {
     assert(markup.includes('id="' + id + '"'), "missing existing control " + id);
 }
 const esm = 'await import("https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs")';
@@ -118,8 +118,8 @@ class FakeMap {
     getStyle() {return {layers: []};}
     addLayer(layer) {
         if (layer.id.endsWith("-icons")) {
-            assert(Object.keys(this.images).length === 76,
-                "14 nameplates, 56 class symbols, 4 offshore sprites and 2 aircraft sprites");
+            assert(Object.keys(this.images).length === 78,
+                "14 nameplates, 56 ship, 4 offshore, 2 tug, and 2 aircraft sprites");
         }
         this.layers[layer.id] = layer;
     }
@@ -139,7 +139,7 @@ class FakeMap {
     const data = {
         ok: true, center: [4.28, 51.93],
         station: {name:"EyeVisions Home", lon:4.28, lat:51.93, altitude_m:12},
-        ais: {available: true, source_count: 6, count: 6, unverified_count: 1,
+        ais: {available: true, source_count: 7, count: 7, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
                     lon:4.3, lat:51.9, course:132, hull_heading:134, speed_knots:6,
@@ -158,6 +158,9 @@ class FakeMap {
                 {type:"ais",id:"244123999",name:"Cargo ship",lon:4.35,lat:51.93,
                     render_profile:"cargo",shipclass:2,shiptype:70,course:90,hull_heading:90,
                     to_bow:90,to_stern:20,to_port:7,to_starboard:8,hull_available:true},
+                {type:"ais",id:"244555000",name:"MULTRATUG",lon:4.42,lat:51.94,
+                    render_profile:"tug",shipclass:5,shiptype:52,course:160,hull_heading:160,
+                    to_bow:14,to_stern:8,to_port:3,to_starboard:3,hull_available:true},
             ]},
         adsb: {available: true, source_count: 1, count: 1, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
@@ -192,6 +195,7 @@ class FakeMap {
         __maplibreMock: {Map: FakeMap, Popup: FakePopup, NavigationControl: class {}, ScaleControl: class {}},
         setInterval() {},
     };
+    node("layer-tracks").checked = false; // HTML default: tracks are opt-in
     const patched = source.replace(esm, "await Promise.resolve(window.__maplibreMock)");
     vm.runInNewContext(patched, {
         document, window: fakeWindow, setInterval() {},
@@ -199,6 +203,15 @@ class FakeMap {
             ? {ok:true, json:async () => vts}
             : url === "/api/map-lab/highlights"
             ? {ok:true, json:async () => highlights}
+            : url.startsWith("/api/map-lab/ais-track/")
+            ? {ok:true, json:async () => ({
+                ok:true,available:true,mmsi:"244555000",point_count:3,
+                geojson:{type:"FeatureCollection",features:[{
+                    type:"Feature",properties:{mmsi:"244555000"},
+                    geometry:{type:"LineString",coordinates:[
+                        [4.3,51.9],[4.35,51.92],[4.42,51.94]]},
+                }]},
+            })}
             : url.startsWith("/api/map-lab/aircraft-photo/")
             ? {ok:true, json:async () => ({
                 ok:true, image_url:"https://cdn.planespotters.net/mock.jpg",
@@ -217,7 +230,9 @@ class FakeMap {
     instance.callbacks.load();
     await new Promise(resolve => setImmediate(resolve));
 
-    assert.equal(Object.keys(instance.images).length, 76); // 56 ships + 4 offshore + 14 labels + 2 planes
+    assert.equal(Object.keys(instance.images).length, 78); // 56 ships + 4 offshore + 2 tugs + 14 labels + 2 planes
+    assert(instance.images["sdrcc-tug"]);
+    assert(instance.images["sdrcc-tug-unverified"]);
     for(const id of ["sdrcc-offshore-wtg","sdrcc-offshore-wtg-unverified",
                      "sdrcc-offshore-platform","sdrcc-offshore-platform-unverified"]){
         assert(instance.images[id], "missing offshore symbol "+id);
@@ -252,7 +267,9 @@ class FakeMap {
     }
     const boats = instance.sources["sdrcc-ais"].data.features;
     const planes = instance.sources["sdrcc-adsb"].data.features;
-    assert.equal(boats.length, 6);
+    assert.equal(boats.length, 7);
+    assert.equal(boats[6].properties.icon_name,"sdrcc-tug");
+    assert.equal(boats[6].properties.hull_available,true);
     assert.equal(boats[3].properties.icon_name,"sdrcc-offshore-wtg");
     assert.equal(boats[4].properties.icon_name,"sdrcc-offshore-platform");
     assert.equal(boats[3].properties.hull_available,false);
@@ -272,12 +289,12 @@ class FakeMap {
     assert.equal(planes[0].properties.course, 212);
 
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
-    assert.equal(polygons.length, 2, "only dimensioned vessels have hull outlines");
+    assert.equal(polygons.length, 3, "dimensioned tanker, cargo, short tug have hulls");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
-    assert.equal(decks.length,11, "7 tanker details and 4 cargo details expected");
-    for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap"])
+    assert.equal(decks.length,13, "7 tanker, 4 cargo and 2 tug details expected");
+    for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap","tug-wheelhouse","tug-winch"])
         assert(decks.some(f=>f.properties.part===part), "missing deck part "+part);
-    assert(decks.every(f=>["123456789","244123999"].includes(f.properties.id)));
+    assert(decks.every(f=>["123456789","244123999","244555000"].includes(f.properties.id)));
     assert(decks.every(f=>f.geometry.coordinates[0].every(p=>p.every(Number.isFinite))));
     assert.equal(instance.layers["sdrcc-ais-hull-decks"].minzoom,15);
     assert.equal(instance.layers["sdrcc-ais-hull-decks"].type,"fill-extrusion");
@@ -334,9 +351,9 @@ class FakeMap {
     assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
-    assert.equal(node("count-ais").textContent, 6);
+    assert.equal(node("count-ais").textContent, 7);
     assert.equal(node("count-adsb").textContent, 1);
-    assert.equal(node("legend-mini-status").textContent, "AIS 6 · ADS-B 1",
+    assert.equal(node("legend-mini-status").textContent, "AIS 7 · ADS-B 1",
         "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];
@@ -374,6 +391,12 @@ class FakeMap {
     assert(!instance.callbacks["click:sdrcc-vts-fill"],
         "clicking water must not pop up VTS info or steal ship clicks");
 
+    assert.equal(instance.layers["sdrcc-ais-track"].type,"line");
+    assert.equal(instance.layers["sdrcc-ais-track"].layout.visibility,"none");
+    node("layer-tracks").checked = true;
+    node("layer-tracks").listeners.change();
+    assert(instance.layoutChanges.some(x=>x.id==="sdrcc-ais-track"&&x.value==="visible"));
+    assert(node("track-status").textContent.includes("Click a vessel"));
     node("show-names").checked = false;
     node("show-names").listeners.change();
     assert(instance.layoutChanges.some(change =>
@@ -434,6 +457,14 @@ class FakeMap {
     assert(instance.layoutChanges.some(c => c.id==="sdrcc-home-name" && c.value==="none"));
     assert(instance.layoutChanges.some(c => c.id==="sdrcc-home-ring" && c.value==="none"));
 
+    instance.callbacks["click:sdrcc-ais-icons"]({features:[boats[6]]});
+    for (let i=0;i<8;i++) await Promise.resolve();
+    assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,1);
+    assert(node("track-status").textContent.includes("3 points"));
+    node("layer-tracks").checked=false;
+    node("layer-tracks").listeners.change();
+    assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,0);
+    assert(instance.layoutChanges.some(x=>x.id==="sdrcc-ais-track"&&x.value==="none"));
     node("layer-ais").checked = false;
     node("layer-ais").listeners.change();
     assert(instance.layoutChanges.some(change =>
@@ -450,6 +481,6 @@ class FakeMap {
         change.id === "sdrcc-ais-fallback-icons" && change.value === "none"),
         "hiding AIS must hide zoomed-in fallback vessels too");
 
-    console.log("PASS: 72 AIS/aircraft sprites including 14 nameplates, 140m 3D hull, "
+    console.log("PASS: 78 AIS/aircraft sprites including tugs and 14 nameplates, 3D hull, "
         + "emergency/ATIS matched rings, visibility, nameplates and 3D");
 })().catch(error => {console.error(error); process.exitCode = 1;});
