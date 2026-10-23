@@ -31,15 +31,30 @@ _PLATFORM_NAME_RE = re.compile(
     r"^(?:(?:OFFSHORE[ -]+)?(?:OIL[ -]+|GAS[ -]+)?PLATFORM|"
     r"(?:DRILLING[ -]+)?RIG)(?:\b|[- #])", re.I,
 )
+# Shiptype 52=tug; 31/32=towing; navstatus 11/12=towing/pushing.
+_TUG_NAME_RE = re.compile(
+    r"(?:^|[\s._/-])(?:TUG|TUGBOAT|SLEPER|SLEEPBOOT)(?:$|[\s._/-]|\d)"
+    r"|^MULTRATUG(?:$|[\s._/-]|\d)|^SMIT(?:$|[\s._/-])", re.I,
+)
+_TUG_STATUS_RE = re.compile(r"\b(?:TUGGING|TOWING|PUSHING|TOWED|PUSHED)\b", re.I)
+TRACK_WINDOW_SECONDS = 3600
+TRACK_POINT_LIMIT = 300
+TRACK_URL_PREFIXES = ("http://127.0.0.1:8119/api/path.geojson?",
+                      "http://localhost:8119/api/path.geojson?")
 
 
-def display_profile(name: str, shiptype: int | None, shipclass: int | None) -> str:
-    """Illustrative rendering profile; no modifications to received AIS."""
+def display_profile(name: str, shiptype: int | None, shipclass: int | None,
+                    nav_status: Any = None) -> str:
+    """Illustrative rendering profile; never changes received AIS or alerts."""
     label = str(name or "").strip()
     if _WTG_NAME_RE.search(label):
         return "offshore_wtg"
     if _PLATFORM_CODE_RE.fullmatch(label) or _PLATFORM_NAME_RE.match(label):
         return "offshore_platform"
+    status = str(nav_status or "").strip()
+    if (shiptype in (31, 32, 52) or _TUG_NAME_RE.search(label)
+            or status in ("11", "12") or _TUG_STATUS_RE.search(status)):
+        return "tug"
     if (shiptype is not None and 80 <= shiptype <= 89) or shipclass == 6:
         return "tanker"
     if (shiptype is not None and 70 <= shiptype <= 79) or shipclass == 2:
@@ -148,7 +163,8 @@ def vessels(payload: Any) -> list[dict]:
         name = _label(item, ("shipname", "name"), 70) or mmsi
         normalized_type = int(shiptype) if shiptype is not None and 0 <= shiptype <= 9999 else None
         normalized_class = int(shipclass) if shipclass is not None and 0 <= shipclass <= 13 else None
-        profile = display_profile(name, normalized_type, normalized_class)
+        nav_status = _label(item, ("status","nav_status","navigation_status"), 40)
+        profile = display_profile(name, normalized_type, normalized_class, nav_status)
         if profile.startswith("offshore_"):
             has_hull = False
         selected.append({
@@ -171,7 +187,7 @@ def vessels(payload: Any) -> list[dict]:
             "eni": _label(item, ("eni",), 15),
             "destination": _label(item, ("destination",), 90),
             "country": _label(item, ("country",), 45),
-            "nav_status": _label(item, ("status",), 30),
+            "nav_status": nav_status,
             "beam_m": round(beam, 1) if beam is not None else None,
             "draught_m": round(draught, 1) if draught is not None else None,
             "speed_knots": round(speed, 1) if speed is not None else None,
@@ -227,6 +243,67 @@ def aircraft(payload: Any) -> list[dict]:
         if len(selected) >= MAX_TARGETS:
             break
     return selected
+
+
+def track_snapshot(mmsi: str) -> dict:
+    """Read a bounded native AIS-Catcher vessel track; no fabricated history.
+
+    AIS-Catcher already collects tracks independently of the Map Lab viewer.
+    Never modifies its settings, services, receivers or hardware.
+    """
+    ident = str(mmsi or "")
+    empty = {"type": "FeatureCollection", "features": []}
+    if not re.fullmatch(r"[0-9]{9}", ident):
+        return {"ok": False, "available": False, "mmsi": ident[:20],
+                "point_count": 0, "geojson": empty}
+    urls = tuple(prefix + ident for prefix in TRACK_URL_PREFIXES)
+    payload, _ = receiver_monitor._read_json_url(urls, timeout=0.75)
+    if not isinstance(payload, dict) or payload.get("type") != "Feature":
+        return {"ok": True, "available": False, "mmsi": ident,
+                "point_count": 0, "geojson": empty}
+    geometry, props = payload.get("geometry"), payload.get("properties")
+    if (not isinstance(geometry, dict) or geometry.get("type") != "LineString"
+            or not isinstance(props, dict) or str(props.get("mmsi")) != ident):
+        return {"ok": True, "available": False, "mmsi": ident,
+                "point_count": 0, "geojson": empty}
+    coords, times = geometry.get("coordinates"), props.get("timestamps_start")
+    if not isinstance(coords, list) or not isinstance(times, list):
+        return {"ok": True, "available": False, "mmsi": ident,
+                "point_count": 0, "geojson": empty}
+    now = time.time()
+    samples = []
+    for point, ts in zip(coords[:20000], times[:20000]):
+        if not isinstance(point, list) or len(point) < 2:
+            continue
+        lon, lat, recorded = _num(point[0]), _num(point[1]), _num(ts)
+        if (lon is None or lat is None or recorded is None
+                or not -180 <= lon <= 180 or not -90 <= lat <= 90
+                or not now - TRACK_WINDOW_SECONDS <= recorded <= now + 60):
+            continue
+        samples.append((recorded, [round(lon, 6), round(lat, 6)]))
+    samples = sorted(samples, key=lambda row: row[0])[-TRACK_POINT_LIMIT:]
+    features, segment, previous = [], [], None
+    def flush():
+        if len(segment) >= 2:
+            features.append({"type": "Feature",
+                             "geometry": {"type": "LineString", "coordinates": segment[:]},
+                             "properties": {"mmsi": ident}})
+    for ts, point in samples:
+        if previous:
+            last_ts, last_point = previous
+            if (ts - last_ts > 900 or abs(point[0]-last_point[0]) > 0.3
+                    or abs(point[1]-last_point[1]) > 0.3):
+                flush()
+                segment = []
+            if point == last_point:
+                previous = (ts, point)
+                continue
+        segment.append(point)
+        previous = (ts, point)
+    flush()
+    return {"ok": True, "available": True, "mmsi": ident,
+            "point_count": sum(len(f["geometry"]["coordinates"]) for f in features),
+            "geojson": {"type": "FeatureCollection", "features": features}}
 
 
 def snapshot() -> dict:
