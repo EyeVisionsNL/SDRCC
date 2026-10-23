@@ -60,6 +60,9 @@
     let atisTarget = null;
     let previouslyDrawnEmergency = 0;
     let previouslyDrawnAtis = 0;
+    let selectedTrackMmsi = null;
+    let trackRequestSequence = 0;
+    let lastTrackFetchAt = 0;
 
     const validTargets = (rows, kind) => {
         if (!Array.isArray(rows)) return [];
@@ -99,7 +102,7 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
-                || length < 30 || length > 450 || beam < 2 || beam > 90
+                || length < (ship.render_profile === "tug" ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -164,7 +167,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo"].includes(profile)) continue;
+            if (!["tanker", "cargo", "tug"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -172,7 +175,7 @@
             if (![bow,stern,port,starboard,lon,lat,headingDeg].every(Number.isFinite)
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
-            if (length < 30 || beam < 2) continue;
+            if (length < (profile === "tug" ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
@@ -191,6 +194,14 @@
                         top_height_m:info.display_height_m+above,
                         center_lon:lon,center_lat:lat}});
             };
+            if (profile === "tug") {
+                // Wheelhouse toward the bow, compact towing winch on the afterdeck.
+                add(-stern+length*.37,-stern+length*.70,
+                    -port*.67,starboard*.67,"tug-wheelhouse",4.8);
+                add(-stern+length*.12,-stern+length*.28,
+                    -port*.4,starboard*.4,"tug-winch",1.65);
+                continue;
+            }
             add(-stern+length*.05,-stern+length*.17,
                 -port*.75,starboard*.75,"bridge",4.1);
             const start=-stern+length*.24, end=-stern+length*.67;
@@ -237,8 +248,10 @@
             ? offshore
                 ? "sdrcc-" + profile.replace("_","-")
                     + (unverified ? "-unverified" : "")
-                : "sdrcc-ship-" + shipclass + "-" + (moving ? "moving" : "still")
-                    + (unverified ? "-unverified" : "")
+                : profile === "tug"
+                    ? "sdrcc-tug" + (unverified ? "-unverified" : "")
+                    : "sdrcc-ship-" + shipclass + "-" + (moving ? "moving" : "still")
+                        + (unverified ? "-unverified" : "")
             : "sdrcc-plane" + (Number.isFinite(item.course) ? "" : "-no-course");
         return {
             type: item.type,
@@ -289,6 +302,60 @@
             })),
         };
     }
+    function setTrackVisibility() {
+        if (!loaded || !map.getLayer("sdrcc-ais-track")) return;
+        const show = el("layer-ais").checked && el("layer-tracks").checked;
+        map.setLayoutProperty("sdrcc-ais-track", "visibility", show ? "visible" : "none");
+    }
+    async function loadTrack(mmsi) {
+        if (!loaded || !el("layer-tracks").checked || !el("layer-ais").checked
+                || !/^[0-9]{9}$/.test(mmsi)) return;
+        const request = ++trackRequestSequence;
+        lastTrackFetchAt = Date.now();
+        el("track-status").textContent = "Loading " + mmsi + "…";
+        try {
+            const response = await fetch("/api/map-lab/ais-track/" + mmsi, {cache:"no-store"});
+            if (!response.ok) throw new Error("Track HTTP " + response.status);
+            const data = await response.json();
+            if (request !== trackRequestSequence || selectedTrackMmsi !== mmsi
+                    || !el("layer-tracks").checked || !el("layer-ais").checked) return;
+            const geojson = data.geojson;
+            const features = geojson?.type === "FeatureCollection" && Array.isArray(geojson.features)
+                ? geojson.features : [];
+            map.getSource("sdrcc-ais-track").setData({type:"FeatureCollection",features});
+            const count = Number.isInteger(data.point_count) ? data.point_count : 0;
+            el("track-status").textContent = !data.available
+                ? "AIS-Catcher track unavailable"
+                : count >= 2 ? count + " points · " + mmsi : "No recent track for " + mmsi;
+        } catch (_) {
+            if (request === trackRequestSequence)
+                el("track-status").textContent = "Track source unavailable";
+        }
+    }
+    function selectAIS(feature) {
+        const props = feature?.properties || {};
+        if (props.is_offshore_structure === true
+                || ["offshore_wtg","offshore_platform"].includes(props.render_profile)) {
+            selectedTrackMmsi = null;
+            trackRequestSequence++;
+            if (loaded) map.getSource("sdrcc-ais-track").setData(empty);
+            el("track-status").textContent = "Fixed offshore structure · no track";
+            return;
+        }
+        const mmsi = String(props.id || "");
+        if (!/^[0-9]{9}$/.test(mmsi)) return;
+        selectedTrackMmsi = mmsi;
+        if (el("layer-tracks").checked) void loadTrack(mmsi);
+    }
+    function addTrackLayer() {
+        map.addSource("sdrcc-ais-track", {type:"geojson",data:empty});
+        map.addLayer({
+            id:"sdrcc-ais-track", type:"line", source:"sdrcc-ais-track",
+            layout:{visibility:"none","line-cap":"round","line-join":"round"},
+            paint:{"line-color":"#5dd2ed","line-width":2.4,
+                "line-opacity":.84,"line-dasharray":[2.5,1]},
+        });
+    }
     function setLayerVisibility(kind, visible) {
         if (!loaded) return;
         for (const suffix of kind === "ais"
@@ -302,6 +369,7 @@
                 && (!["hull-3d","hull-decks"].includes(suffix) || mode3d);
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", enabled ? "visible" : "none");
         }
+        if (kind === "ais") setTrackVisibility();
     }
     function setMode(three) {
         mode3d = three;
@@ -359,6 +427,7 @@
             else if (props.render_profile === "offshore_platform") add("Structure", "Offshore platform (name-based)");
             else if (props.render_profile === "tanker") add("3D deck", "Tanker pipes (illustrative)");
             else if (props.render_profile === "cargo") add("3D deck", "Cargo hatches (illustrative)");
+            else if (props.render_profile === "tug") add("3D deck", "Tug wheelhouse / towing winch (illustrative)");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
@@ -451,6 +520,24 @@
         ctx.fill();
         ctx.stroke();
         return ctx.getImageData(0, 0, 96, 96);
+    }
+    function spriteTug(unverified) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 96; canvas.height = 96;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D context is unavailable");
+        ctx.scale(2,2);
+        ctx.fillStyle = "#ffad6e";
+        ctx.strokeStyle = unverified ? "#ffda9f" : "#10273a";
+        ctx.lineWidth = unverified ? 2.7 : 1.7;
+        ctx.beginPath();
+        ctx.moveTo(24,7);ctx.lineTo(34,15);ctx.lineTo(35,31);
+        ctx.quadraticCurveTo(24,42,13,31);
+        ctx.lineTo(14,15);ctx.closePath();ctx.fill();ctx.stroke();
+        ctx.fillStyle="#d1e5ee";ctx.fillRect(18,15,12,10);
+        ctx.fillStyle="#244358";ctx.fillRect(20,17,8,4);
+        ctx.fillStyle="#de7f50";ctx.fillRect(21,28,6,7);
+        return ctx.getImageData(0,0,96,96);
     }
     function spriteOffshore(profile,unverified) {
         // Upright fixed-installation symbols, not ship arrows.
@@ -576,6 +663,10 @@
                 content: [12, 8, 84, 40],
             });
         }
+        for (const unverified of [false,true]) {
+            map.addImage("sdrcc-tug" + (unverified ? "-unverified" : ""),
+                spriteTug(unverified),{pixelRatio:2});
+        }
         for(const profile of ["offshore_wtg","offshore_platform"]){
             for(const unverified of [false,true]){
                 const name="sdrcc-"+profile.replace("_","-")
@@ -633,7 +724,8 @@
             paint:{
                 "fill-extrusion-color":["match",["get","part"],
                     "bridge","#c1d6df","cargo-hatch","#677e92",
-                    "tanker-pipe","#91c5d0","tanker-cap","#d1d8d5","#8195a8"],
+                    "tanker-pipe","#91c5d0","tanker-cap","#d1d8d5",
+                    "tug-wheelhouse","#dce4ed","tug-winch","#f5a46e","#8195a8"],
                 "fill-extrusion-base":["get","base_height_m"],
                 "fill-extrusion-height":["get","top_height_m"],
                 "fill-extrusion-opacity":.93,
@@ -644,6 +736,7 @@
             map.on("click", id, event => {
                 const feature = event.features && event.features[0];
                 if (!feature) return;
+                selectAIS(feature);
                 const ring = feature.geometry && feature.geometry.coordinates?.[0];
                 if (!ring?.length) return;
                 const center = ring.reduce(
@@ -744,6 +837,7 @@
             map.on("click", id, event => {
                 const feature = event.features && event.features[0];
                 if (!feature) return;
+                if (kind === "ais") selectAIS(feature);
                 new maplibregl.Popup({offset: 12, maxWidth: "300px"})
                     .setLngLat(feature.geometry.coordinates)
                     .setDOMContent(popup(feature))
@@ -1053,6 +1147,8 @@
                 map.getSource("sdrcc-ais-hulls").setData(hulls);
                 map.getSource("sdrcc-ais-decks").setData(deckCollection(ships,hulls));
                 map.getSource("sdrcc-adsb").setData(makeGeoJson(planes));
+                if (selectedTrackMmsi && el("layer-tracks").checked
+                        && Date.now()-lastTrackFetchAt > 30000) void loadTrack(selectedTrackMmsi);
                 refreshStation(data.station);
                 latestShips = ships;
                 tickHighlights();
@@ -1069,6 +1165,7 @@
         addBuildings();
         addSectorLayers();
         registerSprites();
+        addTrackLayer();
         addHullLayer();
         addPoints("ais");
         addPoints("adsb");
@@ -1095,6 +1192,18 @@
     el("layer-ais").addEventListener("change", () => {
         setLayerVisibility("ais", el("layer-ais").checked);
         setAlertVisibility();
+    });
+    el("layer-tracks").addEventListener("change", () => {
+        trackRequestSequence++;
+        setTrackVisibility();
+        if (!el("layer-tracks").checked) {
+            map.getSource("sdrcc-ais-track").setData(empty);
+            el("track-status").textContent = "Off";
+        } else if (selectedTrackMmsi) {
+            void loadTrack(selectedTrackMmsi);
+        } else {
+            el("track-status").textContent = "Click a vessel";
+        }
     });
     el("layer-adsb").addEventListener("change", () => setLayerVisibility("adsb", el("layer-adsb").checked));
     el("layer-station").addEventListener("change", () =>
