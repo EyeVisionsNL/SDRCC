@@ -88,6 +88,33 @@ class TrafficMapTests(unittest.TestCase):
             "PLATFORM P15 C", 99, 0, "6", mmsi="245453000",
             speed_knots=None, destination="STEADY OBJECT"), "vessel")
 
+    def test_mstx_names_and_callsigns_are_water_taxis(self):
+        for name in ("MSTX 12","MSTX12","MSTX-13","mstx 31","MSTX/10"):
+            with self.subTest(name=name):
+                self.assertEqual(traffic_map.display_profile(name,1900,7),"watertaxi")
+        self.assertEqual(traffic_map.display_profile(
+            "FAST WATER TAXI",1900,7,callsign="MSTX 12"),"watertaxi")
+        for name in ("AMSTX 12","MSTXELLENT","OTHER FAST FERRY"):
+            with self.subTest(name=name):
+                self.assertEqual(traffic_map.display_profile(name,1900,7),"vessel")
+        self.assertEqual(traffic_map.display_profile("MSTX 12",55,5),"police")
+        self.assertEqual(traffic_map.display_profile(
+            "MSTX 12",1900,12,mmsi="992440001"),"vessel")
+
+    def test_mstx_12_real_11m_dimensions_are_preserved(self):
+        item=traffic_map.vessels({"ships":[{
+            "mmsi":"244020742","shipname":"MSTX 12","callsign":"PD3993",
+            "shiptype":1900,"shipclass":7,"lat":51.91,"lon":4.35,
+            "speed":19.7,"cog":86.3,"to_bow":8,"to_stern":3,
+            "to_port":1.5,"to_starboard":1.5,
+        }]})[0]
+        self.assertEqual(item["render_profile"],"watertaxi")
+        self.assertEqual(item["length_m"],11)
+        self.assertEqual(item["beam_m"],3)
+        self.assertTrue(item["hull_available"])
+        self.assertAlmostEqual(item["hull_heading"],86.3)
+        self.assertFalse(item["is_offshore_structure"])
+
     def test_tug_classification_by_type_status_and_name(self):
         cases = [
             ("MULTRATUG 9", None, None, None, "tug"),
