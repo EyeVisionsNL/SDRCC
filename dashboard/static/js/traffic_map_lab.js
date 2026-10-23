@@ -304,7 +304,10 @@
             course: Number.isFinite(item.course) ? item.course : null,
             course_known: Number.isFinite(item.course),
             length_m: Number.isFinite(item.length_m) ? item.length_m : null,
-            icon_scale: isAIS ? iconScale(item.length_m) : 1,
+            // Enlarge turbines ~2x at every map zoom without changing ship sizes.
+            icon_scale: isAIS
+                ? (profile === "offshore_wtg" ? 1.45 : iconScale(item.length_m))
+                : 1,
             hull_available: isAIS && !offshore && hullGeometry(item) !== null,
             shipclass,
             speed_knots: item.speed_knots,
