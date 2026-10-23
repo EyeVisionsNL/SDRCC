@@ -126,6 +126,7 @@
                     length_m: ship.length_m,
                     shipclass: ship.shipclass,
                     validation_state: ship.validation_state || "unknown",
+                    position_stale: ship.position_stale === true,
                     course: ship.course,
                     course_known: Number.isFinite(ship.course),
                     speed_knots: ship.speed_knots,
@@ -194,6 +195,7 @@
             speed_knots: item.speed_knots,
             altitude_ft: item.altitude_ft,
             age_seconds: item.age_seconds,
+            position_stale: item.position_stale === true,
             validation_state: item.validation_state || "unknown",
         };
     }
@@ -266,6 +268,13 @@
                     && atisTarget.expiresAt > Date.now()) {
                 add("Matched Marine ATIS", atisTarget.atis_code);
             }
+            if (Number.isFinite(props.age_seconds)) {
+                const ageText = props.age_seconds >= 60
+                    ? Math.floor(props.age_seconds / 60) + " min ago"
+                    : Math.round(props.age_seconds) + " s ago";
+                add("Last AIS signal", ageText);
+            }
+            if (props.position_stale) add("AIS position", "Historical (older than 30 min)");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
@@ -460,7 +469,7 @@
                 "fill-color":["case",
                     ["==", ["get", "validation_state"], "unverified"], "#532e2a",
                     "#101927"],
-                "fill-opacity":0.93,
+                "fill-opacity":["case", ["get", "position_stale"], 0.65, 0.93],
             },
         });
         map.addLayer({
@@ -471,7 +480,7 @@
                     ["==", ["get", "validation_state"], "unverified"], "#ffae75",
                     classColorExpression],
                 "line-width":["interpolate", ["linear"], ["zoom"], 14, 1.2, 17, 2],
-                "line-opacity":0.95,
+                "line-opacity":["case", ["get", "position_stale"], 0.65, 0.95],
             },
         });
         map.addLayer({
@@ -526,6 +535,8 @@
         const iconLayer = {
             id: source + "-icons", type: "symbol", source,
             layout: iconLayout,
+            paint: {"icon-opacity": kind === "ais"
+                ? ["case", ["get", "position_stale"], 0.65, 1] : 1},
         };
         if (kind === "ais") iconLayer.maxzoom = HULL_MIN_ZOOM;
         map.addLayer(iconLayer);
@@ -537,6 +548,7 @@
                 minzoom: HULL_MIN_ZOOM,
                 filter: ["!=", ["get", "hull_available"], true],
                 layout: {...iconLayout},
+                paint: {"icon-opacity": ["case", ["get", "position_stale"], 0.65, 1]},
             });
         }
         map.addLayer({
@@ -565,7 +577,10 @@
                 "text-ignore-placement": false,
             },
             paint: {
-                "icon-opacity": kind === "ais" ? 1 : 0,
+                "icon-opacity": kind === "ais"
+                    ? ["case", ["get", "position_stale"], 0.65, 1] : 0,
+                "text-opacity": kind === "ais"
+                    ? ["case", ["get", "position_stale"], 0.72, 1] : 1,
                 "text-color": kind === "ais"
                     ? ["match", ["get", "shipclass"],
                         0, "#072331", 1, "#072331", 2, "#0c281c",
@@ -872,10 +887,12 @@
             const aisTotal = Number.isInteger(data.ais?.source_count) ? data.ais.source_count : ships.length;
             const adsbTotal = Number.isInteger(data.adsb?.source_count) ? data.adsb.source_count : planes.length;
             const unverified = Number.isInteger(data.ais?.unverified_count) ? data.ais.unverified_count : 0;
+            const historical = ships.filter(ship => ship.position_stale === true).length;
             el("feed-detail").textContent =
                 `AIS: ${ships.length} plotted from ${aisTotal} records`
                 + ` · ${hasHull(ships)} scaled hulls`
                 + (unverified ? ` (orange: ${unverified} unverified)` : "")
+                + (historical ? ` · ${historical} historical AIS positions (>30 min)` : "")
                 + ` · ADS-B: ${planes.length} plotted from ${adsbTotal} records`;
             el("feed-status").textContent =
                 "AIS " + (data.ais?.available ? "LIVE" : "UNAVAILABLE")

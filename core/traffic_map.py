@@ -14,8 +14,11 @@ from typing import Any
 from core import config, receiver_monitor
 
 MAX_TARGETS = 2000
-# Use SDRCC's existing AIS history window instead of an arbitrary 3-minute cut.
-AIS_MAX_AGE = receiver_monitor.AIS_VESSEL_MAX_AGE_SECONDS
+# AIS-Catcher retains moored vessel positions beyond the live correlation window.
+# Keep bounded historical positions on the MAP ONLY; Emergency Monitor/ATIS
+# still enforce their existing strict freshness and validation requirements.
+AIS_LIVE_MAX_AGE = receiver_monitor.AIS_VESSEL_MAX_AGE_SECONDS
+AIS_DISPLAY_MAX_AGE = 24 * 60 * 60  # Last reported position, up to one day old.
 # readsb/tar1090 can show an aircraft for up to a minute after its last position.
 ADSB_MAX_AGE = 60.0
 ADSB_FILE_MAX_AGE = 30.0
@@ -64,7 +67,7 @@ def _fresh_adsb_file(source: str | None) -> bool:
 
 
 def vessels(payload: Any) -> list[dict]:
-    """Only identified vessels with plausible recent AIS positions."""
+    """Identified AIS-Catcher positions, including clearly marked old fixes."""
     ships = receiver_monitor._extract_list(payload, ("ships", "vessels", "targets", "data"))
     selected = []
     seen = set()
@@ -82,8 +85,9 @@ def vessels(payload: Any) -> list[dict]:
                             "unverified" if validated is not None else "unknown")
         age = next((v for k in ("last_signal", "last_signal_seconds", "age")
                     if (v := _num(item.get(k))) is not None), None)
-        if age is not None and not 0 <= age <= AIS_MAX_AGE:
+        if age is not None and not 0 <= age <= AIS_DISPLAY_MAX_AGE:
             continue
+        position_stale = age is not None and age > AIS_LIVE_MAX_AGE
         seen.add(mmsi)
         speed = next((v for k in ("speed", "sog") if (v := _num(item.get(k))) is not None), None)
         if speed is not None and not 0 <= speed < 102.3:
@@ -123,6 +127,7 @@ def vessels(payload: Any) -> list[dict]:
             "type": "ais", "id": mmsi, "name": _label(item, ("shipname", "name"), 70) or mmsi,
             "callsign": _label(item, ("callsign",), 24), "lon": pos[0], "lat": pos[1],
             "validation_state": validation_state,
+            "position_stale": position_stale,
             "course": course,
             "heading": heading,
             "hull_heading": hull_heading if has_hull else None,

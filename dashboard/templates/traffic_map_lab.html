@@ -70,7 +70,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     </div>
     <div id="map" aria-label="Map of ships and aircraft"></div>
     <div id="map-error" role="alert"></div>
-    <div class="map-caption">Zoomed out: class-coloured AIS arrows or dots. Closer in: compact coloured labels placed beside the vessel where possible, so they don't cover its hull. Harbour zoom (14+): dark true-scale vessel hulls. In 3D, hull height remains illustrative. Optional local Rijnmond VTS sectors and your configured station are shown as separate layers.</div>
+    <div class="map-caption">Zoomed out: class-coloured AIS arrows or dots. Closer in: compact coloured labels placed beside the vessel where possible, so they don't cover its hull. Harbour zoom (14+): dark true-scale vessel hulls. In 3D, hull height remains illustrative. Old AIS-Catcher positions remain visible (up to 24 hours) but appear faded after 30 minutes; old positions never trigger Emergency or ATIS highlights. Optional local Rijnmond VTS sectors and your configured station are shown as separate layers.</div>
   </section>
   <aside class="side">
     <section class="panel">
@@ -84,7 +84,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
       <div class="row"><label><input id="layer-atis" type="checkbox" checked> <span style="color:#37e4a6">◎</span> ATIS / AIS match</label><span id="atis-status" class="muted">Loading…</span></div>
       <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
       <p id="feed-detail" class="muted">Loading source and visible-position counts…</p>
-      <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. <i class="dot adsb"></i> Aircraft.</p>
+      <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. Faded icons/labels: old AIS position, not a live contact. <i class="dot adsb"></i> Aircraft.</p>
       <p class="muted">Emergency Monitor: temporary white rings for KNRM and blue rings for water police. A fresh validated ATIS/AIS match adds a short green ring to the matched ship. Neither overlay moves the map or operates an SDR. Click a ship or aircraft for details; aircraft photos are only requested on selection.</p>
     </section>
     <section class="panel">
