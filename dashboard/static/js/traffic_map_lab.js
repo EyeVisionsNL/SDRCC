@@ -256,6 +256,14 @@
         };
         if (props.type === "ais") {
             add("MMSI", props.id);
+            const activeEmergency = emergencyTargets.find(item =>
+                item.mmsi === String(props.id) && item.expiresAt > Date.now());
+            if (activeEmergency) add("Emergency vessel",
+                activeEmergency.category === "knrm" ? "KNRM" : "Water police");
+            if (atisTarget?.mmsi === String(props.id)
+                    && atisTarget.expiresAt > Date.now()) {
+                add("Matched Marine ATIS", atisTarget.atis_code);
+            }
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
