@@ -47,6 +47,47 @@ class TrafficMapTests(unittest.TestCase):
         self.assertFalse(items[1]["hull_available"])
         self.assertTrue(items[2]["hull_available"])
 
+    def test_platform_p15_c_real_ais_type_99_snapshot(self):
+        # Screenshot from AIS-Catcher, 2026-10-23: P15 C is type 99 Other,
+        # not an AtoN, with steady destination and speed zero.
+        result = traffic_map.vessels({"ships": [{
+            "mmsi": "245453000", "shipname": "PLATFORM P15 C",
+            "shipclass": 0, "shiptype": 99, "callsign": "PCQK",
+            "lat": 52.12, "lon": 4.10, "last_signal": 1754,
+            "speed": 0, "status": 6, "destination": "STEADY OBJECT",
+            "to_bow": 38, "to_stern": 11, "to_port": 8,
+            "to_starboard": 8, "heading": 165,
+        }]})[0]
+        self.assertEqual(result["id"], "245453000")
+        self.assertEqual(result["render_profile"], "offshore_platform")
+        self.assertTrue(result["is_offshore_structure"])
+        self.assertFalse(result["hull_available"])
+        self.assertEqual(result["shiptype"], 99)
+        self.assertEqual(result["destination"], "STEADY OBJECT")
+
+    def test_p15_police_and_moving_boats_never_become_platforms(self):
+        self.assertEqual(traffic_map.display_profile(
+            "P15", 55, 5, "6", mmsi="244600015",
+            speed_knots=0, destination="STEADY OBJECT"), "police")
+        self.assertEqual(traffic_map.display_profile(
+            "PLATFORM P15 C", 55, 5, "6", mmsi="244600015",
+            speed_knots=0, destination="STEADY OBJECT"), "police")
+        self.assertEqual(traffic_map.display_profile(
+            "P15", 99, 0, "6", mmsi="245453000",
+            speed_knots=0, destination="STEADY OBJECT"), "vessel")
+        self.assertEqual(traffic_map.display_profile(
+            "PLATFORM P15 C", 99, 0, "0", mmsi="245453000",
+            speed_knots=8, destination="STEADY OBJECT"), "vessel")
+        self.assertEqual(traffic_map.display_profile(
+            "PLATFORM SERVICE", 70, 2, "6", mmsi="244900001",
+            speed_knots=0, destination="STEADY OBJECT"), "cargo")
+        self.assertEqual(traffic_map.display_profile(
+            "PLATFORM P15 C", 99, 0, "0", mmsi="245453000",
+            speed_knots=0, destination="STEADY OBJECT"), "offshore_platform")
+        self.assertEqual(traffic_map.display_profile(
+            "PLATFORM P15 C", 99, 0, "6", mmsi="245453000",
+            speed_knots=None, destination="STEADY OBJECT"), "vessel")
+
     def test_tug_classification_by_type_status_and_name(self):
         cases = [
             ("MULTRATUG 9", None, None, None, "tug"),
