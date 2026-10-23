@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import re
 
-from core import emergency_monitor, receiver_monitor, traffic_voice_atis
+from core import emergency_monitor, receiver_monitor, traffic_voice_atis, traffic_voice_audio
 
 
 def _emergency_rows(payload: object) -> list[dict]:
@@ -88,6 +88,10 @@ def snapshot() -> dict:
     except Exception:
         emergency = []
     try:
+        # The Marine Voice status route starts the shared UDP audio observer.
+        # Standalone Map Lab must also initialize it to receive decoded ATIS.
+        # This does not claim or open SDR hardware.
+        traffic_voice_audio.ensure_listener()
         atis = _atis_event(traffic_voice_atis.get_status())
     except Exception:
         atis = None

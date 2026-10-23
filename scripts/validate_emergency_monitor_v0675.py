@@ -274,8 +274,8 @@ def check():
         monitor._recent.clear()
         monitor._recent.update(old_recent)
 
-    # Map overlays use real AIS positions, configured identifiers and
-    # reported movement only. The tests replace read paths without network use.
+    # Map overlays use real AIS positions and configured identifiers.
+    # Only moving is optional. Tests replace read paths without network use.
     from core import receiver_monitor as ais_reader
     from core import config as station_configuration
     old_settings = monitor.settings
@@ -286,6 +286,7 @@ def check():
         cfg = monitor.validate({"enabled": True, "radius_km": 50})
         cfg["categories"]["knrm"] = True
         cfg["categories"]["waterpolitie"] = True
+        cfg["motion_only"] = True
         cfg["vessel_mmsi"]["knrm"] = ["244123456"]
         cfg["vessel_mmsi"]["waterpolitie"] = ["244987654"]
         station_configuration.get_home_position = lambda: {
@@ -305,8 +306,18 @@ def check():
         assert first["linger_seconds"] == 300
         ais_reader._read_ais_ships = lambda: ({"ships": []}, "test")
         assert len(monitor.map_highlights()["vessels"]) == 1, "Five-minute linger missing"
-        monitor._map_recent["244123456"]["last_moving"] -= 301
+        monitor._map_recent["244123456"]["last_qualifying"] -= 301
         assert monitor.map_highlights()["vessels"] == [], "Expired ring still present"
+        # Disabling Only moving includes stationary and unknown-speed vessels.
+        cfg["motion_only"] = False
+        ais_reader._read_ais_ships = lambda: ({"ships": [stationary]}, "test")
+        stationary_ring = monitor.map_highlights()["vessels"]
+        assert len(stationary_ring) == 1 and stationary_ring[0]["category"] == "waterpolitie"
+        unknown_speed = {**stationary, "speed": 102.3}
+        ais_reader._read_ais_ships = lambda: ({"ships": [unknown_speed]}, "test")
+        assert len(monitor.map_highlights()["vessels"]) == 1, "Unknown-speed vessel excluded"
+        cfg["motion_only"] = True
+        monitor._map_recent.clear()
         moving_far = {**moving, "lon": 4.39}  # Several km from station.
         cfg["category_radius_km"]["knrm"] = 2
         ais_reader._read_ais_ships = lambda: ({"ships": [moving_far]}, "test")

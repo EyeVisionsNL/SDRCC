@@ -643,7 +643,8 @@
         }
     }
     // Emergency and ATIS indicators reuse existing SDRCC observers.
-    // Add them behind traffic symbols so a ring never blocks ship selection.
+    // Draw after AIS icons/hulls so 3D extrusions never hide their alert rings.
+    // Transparent ring centres leave ships visible and selectable.
     function addAlertLayers() {
         map.addSource("sdrcc-emergency", {type:"geojson", data:empty});
         map.addSource("sdrcc-atis", {type:"geojson", data:empty});
@@ -657,6 +658,7 @@
                 "circle-stroke-width":3.2,
                 "circle-stroke-opacity":0.92,
                 "circle-pitch-alignment":"viewport",
+                "circle-pitch-scale":"viewport",
             },
         });
         map.addLayer({
@@ -668,6 +670,7 @@
                 "circle-stroke-width":3,
                 "circle-stroke-opacity":0.9,
                 "circle-pitch-alignment":"viewport",
+                "circle-pitch-scale":"viewport",
             },
         });
     }
@@ -899,9 +902,9 @@
         addSectorLayers();
         registerSprites();
         addHullLayer();
-        addAlertLayers();
         addPoints("ais");
         addPoints("adsb");
+        addAlertLayers();
         addStationLayer();
         loaded = true;
         setAuxVisibility("station", el("layer-station").checked);

@@ -72,6 +72,7 @@ class MapAlertTests(unittest.TestCase):
     def test_missing_emergency_or_atis_service_cannot_fail_traffic_map(self):
         with patch.object(highlights.emergency_monitor, "map_highlights",
                           side_effect=RuntimeError("offline")), patch.object(
+                              highlights.traffic_voice_audio, "ensure_listener") as listener, patch.object(
                               highlights.traffic_voice_atis, "get_status",
                               side_effect=RuntimeError("audio unavailable")):
             out = highlights.snapshot()
@@ -87,11 +88,13 @@ class MapAlertTests(unittest.TestCase):
         }]}
         with patch.object(highlights.emergency_monitor, "map_highlights",
                           return_value=rows), patch.object(
+                              highlights.traffic_voice_audio, "ensure_listener") as listener, patch.object(
                               highlights.traffic_voice_atis, "get_status",
                               return_value=valid_atis(fresh=False)):
             result = highlights.snapshot()
         self.assertEqual(len(result["emergency_vessels"]), 1)
         self.assertIsNone(result["atis_match"])
+        listener.assert_called_once_with()
 
 
 if __name__ == "__main__":
