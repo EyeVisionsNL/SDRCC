@@ -118,8 +118,8 @@ class FakeMap {
     getStyle() {return {layers: []};}
     addLayer(layer) {
         if (layer.id.endsWith("-icons")) {
-            assert(Object.keys(this.images).length === 78,
-                "14 nameplates, 56 ship, 4 offshore, 2 tug, and 2 aircraft sprites");
+            assert(Object.keys(this.images).length === 76,
+                "14 nameplates, 56 ship, 4 offshore and 2 aircraft sprites");
         }
         this.layers[layer.id] = layer;
     }
@@ -203,14 +203,15 @@ class FakeMap {
             ? {ok:true, json:async () => vts}
             : url === "/api/map-lab/highlights"
             ? {ok:true, json:async () => highlights}
-            : url.startsWith("/api/map-lab/ais-track/")
+            : url === "/api/map-lab/ais-tracks"
             ? {ok:true, json:async () => ({
-                ok:true,available:true,mmsi:"244555000",point_count:3,
-                geojson:{type:"FeatureCollection",features:[{
-                    type:"Feature",properties:{mmsi:"244555000"},
-                    geometry:{type:"LineString",coordinates:[
-                        [4.3,51.9],[4.35,51.92],[4.42,51.94]]},
-                }]},
+                ok:true,available:true,track_count:2,point_count:5,
+                geojson:{type:"FeatureCollection",features:[
+                    {type:"Feature",properties:{mmsi:"244555000",shipclass:5},
+                     geometry:{type:"LineString",coordinates:[[4.3,51.9],[4.42,51.94]]}},
+                    {type:"Feature",properties:{mmsi:"123456789",shipclass:6},
+                     geometry:{type:"LineString",coordinates:[[4.2,51.9],[4.25,51.93],[4.3,51.9]]}},
+                ]},
             })}
             : url.startsWith("/api/map-lab/aircraft-photo/")
             ? {ok:true, json:async () => ({
@@ -230,9 +231,8 @@ class FakeMap {
     instance.callbacks.load();
     await new Promise(resolve => setImmediate(resolve));
 
-    assert.equal(Object.keys(instance.images).length, 78); // 56 ships + 4 offshore + 2 tugs + 14 labels + 2 planes
-    assert(instance.images["sdrcc-tug"]);
-    assert(instance.images["sdrcc-tug-unverified"]);
+    assert.equal(Object.keys(instance.images).length, 76); // 56 AIS class symbols + 4 offshore + 14 labels + 2 planes
+    assert(!instance.images["sdrcc-tug"], "tugs must reuse class icons at distant zoom");
     for(const id of ["sdrcc-offshore-wtg","sdrcc-offshore-wtg-unverified",
                      "sdrcc-offshore-platform","sdrcc-offshore-platform-unverified"]){
         assert(instance.images[id], "missing offshore symbol "+id);
@@ -268,7 +268,7 @@ class FakeMap {
     const boats = instance.sources["sdrcc-ais"].data.features;
     const planes = instance.sources["sdrcc-adsb"].data.features;
     assert.equal(boats.length, 7);
-    assert.equal(boats[6].properties.icon_name,"sdrcc-tug");
+    assert.equal(boats[6].properties.icon_name,"sdrcc-ship-5-still");
     assert.equal(boats[6].properties.hull_available,true);
     assert.equal(boats[3].properties.icon_name,"sdrcc-offshore-wtg");
     assert.equal(boats[4].properties.icon_name,"sdrcc-offshore-platform");
@@ -396,7 +396,10 @@ class FakeMap {
     node("layer-tracks").checked = true;
     node("layer-tracks").listeners.change();
     assert(instance.layoutChanges.some(x=>x.id==="sdrcc-ais-track"&&x.value==="visible"));
-    assert(node("track-status").textContent.includes("Click a vessel"));
+    for(let i=0;i<8;i++) await Promise.resolve();
+    assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,2);
+    assert(node("track-status").textContent.includes("2 vessel tracks"));
+    assert.equal(instance.layers["sdrcc-ais-track"].paint["line-color"][0],"match");
     node("show-names").checked = false;
     node("show-names").listeners.change();
     assert(instance.layoutChanges.some(change =>
@@ -457,10 +460,10 @@ class FakeMap {
     assert(instance.layoutChanges.some(c => c.id==="sdrcc-home-name" && c.value==="none"));
     assert(instance.layoutChanges.some(c => c.id==="sdrcc-home-ring" && c.value==="none"));
 
+    // Clicking another vessel must not replace the all-vessel trail set.
     instance.callbacks["click:sdrcc-ais-icons"]({features:[boats[6]]});
     for (let i=0;i<8;i++) await Promise.resolve();
-    assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,1);
-    assert(node("track-status").textContent.includes("3 points"));
+    assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,2);
     node("layer-tracks").checked=false;
     node("layer-tracks").listeners.change();
     assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,0);
@@ -481,6 +484,6 @@ class FakeMap {
         change.id === "sdrcc-ais-fallback-icons" && change.value === "none"),
         "hiding AIS must hide zoomed-in fallback vessels too");
 
-    console.log("PASS: 78 AIS/aircraft sprites including tugs and 14 nameplates, 3D hull, "
+    console.log("PASS: 76 AIS/aircraft sprites, original distant tug icons, all-vessel tracks and 3D hull, "
         + "emergency/ATIS matched rings, visibility, nameplates and 3D");
 })().catch(error => {console.error(error); process.exitCode = 1;});
