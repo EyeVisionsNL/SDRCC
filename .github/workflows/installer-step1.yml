@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install offline test requirements
-        run: python -m pip install --disable-pip-version-check PyYAML
+        run: python -m pip install --disable-pip-version-check PyYAML numpy
       - name: Test the deferred Home Position and AIS wizard launch path
         run: python scripts/validate_installer_step1.py
       - name: Test AIS Verify without serial and installer UI
@@ -63,6 +63,8 @@ jobs:
         run: node scripts/validate_update_channel_failure.cjs
       - name: Test read-only AIS/ADS-B map normalization
         run: python -m unittest scripts.test_traffic_map scripts.test_traffic_map_aircraft_photo scripts.test_traffic_map_sectors scripts.test_traffic_map_highlights
+      - name: Validate Emergency Monitor motion filters and map highlights
+        run: python scripts/validate_emergency_monitor_v0675.py
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
       - name: Check MapLibre 6 map boot and error handling
