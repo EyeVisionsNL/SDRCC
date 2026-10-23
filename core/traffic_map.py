@@ -41,6 +41,12 @@ TRACK_WINDOW_SECONDS = 3600
 TRACK_POINT_LIMIT = 300
 TRACK_URL_PREFIXES = ("http://127.0.0.1:8119/api/path.geojson?",
                       "http://localhost:8119/api/path.geojson?")
+# Native AIS-Catcher collection endpoint, not an artificial browser-local trail.
+TRACK_ALL_URLS = ("http://127.0.0.1:8119/api/allpath.geojson",
+                  "http://localhost:8119/api/allpath.geojson")
+TRACK_ALL_MAX_SHIPS = 1200
+TRACK_ALL_POINT_LIMIT = 150
+TRACK_ALL_TOTAL_POINTS = 45000
 
 
 def display_profile(name: str, shiptype: int | None, shipclass: int | None,
@@ -243,6 +249,92 @@ def aircraft(payload: Any) -> list[dict]:
         if len(selected) >= MAX_TARGETS:
             break
     return selected
+
+
+def all_tracks_snapshot() -> dict:
+    """Read and bound genuine historical paths for all currently displayed ships.
+
+    The AIS-Catcher endpoint is read-only and tracks are shown only for vessels
+    present in our AIS map snapshot. Named fixed installations never get trails.
+    Gaps and implausible jumps are split rather than joined by false segments.
+    """
+    empty = {"type": "FeatureCollection", "features": []}
+    payload, _ = receiver_monitor._read_json_url(TRACK_ALL_URLS, timeout=1.0)
+    if not isinstance(payload, dict) or payload.get("type") != "FeatureCollection":
+        return {"ok": True, "available": False, "track_count": 0,
+                "point_count": 0, "geojson": empty}
+    paths = payload.get("features")
+    if not isinstance(paths, list):
+        return {"ok": True, "available": False, "track_count": 0,
+                "point_count": 0, "geojson": empty}
+    ais_payload, _ = receiver_monitor._read_ais_ships()
+    allowed = {}
+    if ais_payload is not None:
+        for ship in vessels(ais_payload):
+            if not ship["is_offshore_structure"]:
+                allowed[ship["id"]] = ship
+    now = time.time()
+    features, drawn, used_points = [], set(), 0
+    for feature in paths[:MAX_TARGETS * 2]:
+        if len(drawn) >= TRACK_ALL_MAX_SHIPS or used_points >= TRACK_ALL_TOTAL_POINTS:
+            break
+        if not isinstance(feature, dict):
+            continue
+        properties, geometry = feature.get("properties"), feature.get("geometry")
+        if not isinstance(properties, dict) or not isinstance(geometry, dict):
+            continue
+        if geometry.get("type") != "LineString":
+            continue
+        ident = str(properties.get("mmsi", ""))
+        ship = allowed.get(ident)
+        if ship is None or ident in drawn:
+            continue
+        coords, times = geometry.get("coordinates"), properties.get("timestamps_start")
+        if not isinstance(coords, list) or not isinstance(times, list):
+            continue
+        # AIS-Catcher writes its path newest-first; retain only a bounded hour.
+        samples = []
+        for point, ts in zip(coords[:6000], times[:6000]):
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                continue
+            lon, lat, stamp = _num(point[0]), _num(point[1]), _num(ts)
+            if (lon is None or lat is None or stamp is None
+                    or not -180 <= lon <= 180 or not -90 <= lat <= 90
+                    or not now - TRACK_WINDOW_SECONDS <= stamp <= now + 60):
+                continue
+            samples.append((stamp, [round(lon, 6), round(lat, 6)]))
+        samples.sort(key=lambda v: v[0])
+        limit = min(TRACK_ALL_POINT_LIMIT, TRACK_ALL_TOTAL_POINTS - used_points)
+        samples = samples[-limit:]
+        lines, segment, previous = [], [], None
+        for stamp, point in samples:
+            if previous is not None:
+                last_stamp, last_point = previous
+                if (stamp-last_stamp > 900
+                        or abs(point[0]-last_point[0]) > .3
+                        or abs(point[1]-last_point[1]) > .3):
+                    if len(segment) >= 2:
+                        lines.append(segment)
+                    segment = []
+                if point == last_point:
+                    previous = (stamp, point)
+                    continue
+            segment.append(point)
+            previous = (stamp, point)
+        if len(segment) >= 2:
+            lines.append(segment)
+        if not lines:
+            continue
+        points = sum(len(line) for line in lines)
+        used_points += points
+        drawn.add(ident)
+        for line in lines:
+            features.append({"type": "Feature",
+                "geometry": {"type": "LineString", "coordinates": line},
+                "properties": {"mmsi": ident, "shipclass": ship["shipclass"] or 1}})
+    return {"ok": True, "available": True, "track_count": len(drawn),
+            "point_count": used_points,
+            "geojson": {"type": "FeatureCollection", "features": features}}
 
 
 def track_snapshot(mmsi: str) -> dict:
