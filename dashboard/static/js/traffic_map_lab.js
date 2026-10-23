@@ -42,6 +42,10 @@
     let resetCenter = [4.35, 51.91];
     let initialCenterSet = false;
     let inFlight = false;
+    let overlayBusy = false;
+    let latestShips = [];
+    let emergencyTargets = [];
+    let atisTarget = null;
 
     const validTargets = (rows, kind) => {
         if (!Array.isArray(rows)) return [];
@@ -628,6 +632,113 @@
             status.textContent = "VTS sectors unavailable";
         }
     }
+    // Emergency and ATIS indicators reuse existing SDRCC observers.
+    // Add them behind traffic symbols so a ring never blocks ship selection.
+    function addAlertLayers() {
+        map.addSource("sdrcc-emergency", {type:"geojson", data:empty});
+        map.addSource("sdrcc-atis", {type:"geojson", data:empty});
+        map.addLayer({
+            id:"sdrcc-emergency-ring", type:"circle", source:"sdrcc-emergency",
+            paint: {
+                "circle-radius":13,
+                "circle-color":"rgba(0,0,0,0)",
+                "circle-stroke-color":["match",["get","category"],
+                    "knrm","#ffffff","waterpolitie","#2499ff","#ffffff"],
+                "circle-stroke-width":3.2,
+                "circle-stroke-opacity":0.92,
+                "circle-pitch-alignment":"viewport",
+            },
+        });
+        map.addLayer({
+            id:"sdrcc-atis-ring", type:"circle", source:"sdrcc-atis",
+            paint: {
+                "circle-radius":15,
+                "circle-color":"rgba(46,216,147,0.06)",
+                "circle-stroke-color":"#37e4a6",
+                "circle-stroke-width":3,
+                "circle-stroke-opacity":0.9,
+                "circle-pitch-alignment":"viewport",
+            },
+        });
+    }
+    function setAlertVisibility() {
+        if (!loaded) return;
+        for (const [name, toggle] of [
+            ["sdrcc-emergency-ring","layer-emergency"],
+            ["sdrcc-atis-ring","layer-atis"],
+        ]) {
+            if (map.getLayer(name)) {
+                map.setLayoutProperty(name, "visibility",
+                    el(toggle).checked && el("layer-ais").checked ? "visible" : "none");
+            }
+        }
+    }
+    function validHighlightLocation(entry) {
+        return entry && Number.isFinite(entry.latitude)
+            && Number.isFinite(entry.longitude)
+            && Math.abs(entry.latitude) <= 90 && Math.abs(entry.longitude) <= 180;
+    }
+    function tickHighlights() {
+        if (!loaded) return;
+        const now = Date.now();
+        const shipsByMmsi = new Map(latestShips.map(ship => [String(ship.id), ship]));
+        const points = (rows, category) => rows.filter(row => now < row.expiresAt)
+            .filter(row => /^\d{9}$/.test(row.mmsi))
+            .map(row => {
+                const ship = shipsByMmsi.get(row.mmsi);
+                // Follow received AIS positions, never pan or re-center the map.
+                const latitude = ship?.lat ?? row.latitude;
+                const longitude = ship?.lon ?? row.longitude;
+                return {type:"Feature", geometry:{
+                    type:"Point", coordinates:[longitude, latitude],
+                }, properties:{mmsi:row.mmsi, category:row.category || category}};
+            });
+        const emergencies = points(emergencyTargets, "emergency");
+        const atis = points(atisTarget ? [atisTarget] : [], "atis");
+        map.getSource("sdrcc-emergency").setData({type:"FeatureCollection",features:emergencies});
+        map.getSource("sdrcc-atis").setData({type:"FeatureCollection",features:atis});
+        el("emergency-status").textContent = emergencies.length
+            ? emergencies.length + " highlighted" : "None active";
+        el("atis-status").textContent = atis.length
+            ? "ATIS matched" : "No active match";
+        // Subtle pulse, matching AIS-Catcher emergency and ATIS colours.
+        const phase = (Math.sin(now / 1350 * Math.PI * 2) + 1) / 2;
+        map.setPaintProperty("sdrcc-emergency-ring","circle-radius", 11 + phase * 6);
+        map.setPaintProperty("sdrcc-atis-ring","circle-radius", 12 + phase * 6);
+    }
+    async function refreshHighlights() {
+        if (overlayBusy || document.hidden) return;
+        overlayBusy = true;
+        try {
+            const response = await fetch("/api/map-lab/highlights", {cache:"no-store"});
+            if (!response.ok) throw new Error("Highlight API unavailable");
+            const data = await response.json();
+            if (!data || data.ok !== true) throw new Error("Highlight data unavailable");
+            const now = Date.now();
+            emergencyTargets = (Array.isArray(data.emergency_vessels)
+                ? data.emergency_vessels : []).slice(0,80)
+                .filter(row => row && /^\d{9}$/.test(String(row.mmsi || ""))
+                    && ["knrm","waterpolitie"].includes(row.category)
+                    && validHighlightLocation(row)
+                    && Number.isFinite(row.remaining_seconds)
+                    && row.remaining_seconds > 0 && row.remaining_seconds <= 300)
+                .map(row => ({...row, mmsi:String(row.mmsi),
+                    expiresAt:now + row.remaining_seconds * 1000}));
+            const match = data.atis_match;
+            atisTarget = match && /^\d{9}$/.test(String(match.mmsi || ""))
+                && validHighlightLocation(match)
+                && Number.isFinite(match.remaining_seconds)
+                && match.remaining_seconds > 0 && match.remaining_seconds <= 30
+                ? {...match, mmsi:String(match.mmsi),
+                    expiresAt:now + match.remaining_seconds * 1000} : null;
+        } catch (_) {
+            // No stale rings are created if the optional overlay is unavailable.
+            // Previously approved highlights expire naturally on their deadlines.
+        } finally {
+            overlayBusy = false;
+            tickHighlights();
+        }
+    }
     function addStationLayer() {
         map.addSource("sdrcc-home", {type:"geojson", data:empty});
         map.addLayer({
@@ -747,11 +858,14 @@
                 map.getSource("sdrcc-ais-hulls").setData(hullCollection(ships));
                 map.getSource("sdrcc-adsb").setData(makeGeoJson(planes));
                 refreshStation(data.station);
+                latestShips = ships;
+                tickHighlights();
             }
         } catch (error) {
             el("feed-status").textContent = "Traffic refresh failed: " + error.message;
         } finally {
             inFlight = false;
+            if (loaded) void refreshHighlights();
         }
     }
 
@@ -760,6 +874,7 @@
         addSectorLayers();
         registerSprites();
         addHullLayer();
+        addAlertLayers();
         addPoints("ais");
         addPoints("adsb");
         addStationLayer();
@@ -769,8 +884,9 @@
         void loadSectors();
         setLayerVisibility("ais", el("layer-ais").checked);
         setLayerVisibility("adsb", el("layer-adsb").checked);
+        setAlertVisibility();
         setMode(mode3d);
-        refresh();
+        void refresh();
     });
     map.on("error", event => {
         const reason = event.error && event.error.message || "";
@@ -780,12 +896,17 @@
     });
     el("mode-2d").addEventListener("click", () => setMode(false));
     el("mode-3d").addEventListener("click", () => setMode(true));
-    el("layer-ais").addEventListener("change", () => setLayerVisibility("ais", el("layer-ais").checked));
+    el("layer-ais").addEventListener("change", () => {
+        setLayerVisibility("ais", el("layer-ais").checked);
+        setAlertVisibility();
+    });
     el("layer-adsb").addEventListener("change", () => setLayerVisibility("adsb", el("layer-adsb").checked));
     el("layer-station").addEventListener("change", () =>
         setAuxVisibility("station", el("layer-station").checked));
     el("layer-vts").addEventListener("change", () =>
         setAuxVisibility("vts", el("layer-vts").checked));
+    el("layer-emergency").addEventListener("change", setAlertVisibility);
+    el("layer-atis").addEventListener("change", setAlertVisibility);
     el("show-names").addEventListener("change", () => {
         setLayerVisibility("ais", el("layer-ais").checked);
         setLayerVisibility("adsb", el("layer-adsb").checked);
@@ -795,4 +916,5 @@
     });
     el("refresh-now").addEventListener("click", refresh);
     window.setInterval(refresh, 10000);
+    window.setInterval(tickHighlights, 650);
 })();
