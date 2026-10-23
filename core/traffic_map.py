@@ -25,11 +25,11 @@ ADSB_FILE_MAX_AGE = 30.0
 ADSB_HTTP_URLS = ("http://127.0.0.1/tar1090/data/aircraft.json",)
 DEFAULT_CENTER = [4.35, 51.91]  # Rotterdam/Rijnmond prototype only
 # These are conservative display hints only; do not alter AIS/ATIS alerts.
-_WTG_NAME_RE = re.compile(r"^(?:WTG|WIND[ -]?TURBINE)(?=$|[\\s#._/-]|\\d)", re.I)
-_PLATFORM_CODE_RE = re.compile(r"^(?:P|L|K|Q)[ -]?\\d{1,3}(?:[-/][A-Z0-9]+)?$", re.I)
+_WTG_NAME_RE = re.compile(r"^(?:WTG|WIND[ -]?TURBINE)(?=$|[\s#._/-]|\d)", re.I)
+_PLATFORM_CODE_RE = re.compile(r"^(?:P|L|K|Q)[ -]?\d{1,3}(?:[-/][A-Z0-9]+)?$", re.I)
 _PLATFORM_NAME_RE = re.compile(
     r"^(?:(?:OFFSHORE[ -]+)?(?:OIL[ -]+|GAS[ -]+)?PLATFORM|"
-    r"(?:DRILLING[ -]+)?RIG)(?:\\b|[- #])", re.I,
+    r"(?:DRILLING[ -]+)?RIG)(?:\b|[- #])", re.I,
 )
 
 
