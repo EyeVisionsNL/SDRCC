@@ -24,6 +24,28 @@ ADSB_MAX_AGE = 60.0
 ADSB_FILE_MAX_AGE = 30.0
 ADSB_HTTP_URLS = ("http://127.0.0.1/tar1090/data/aircraft.json",)
 DEFAULT_CENTER = [4.35, 51.91]  # Rotterdam/Rijnmond prototype only
+# These are conservative display hints only; do not alter AIS/ATIS alerts.
+_WTG_NAME_RE = re.compile(r"^(?:WTG|WIND[ -]?TURBINE)(?=$|[\\s#._/-]|\\d)", re.I)
+_PLATFORM_CODE_RE = re.compile(r"^(?:P|L|K|Q)[ -]?\\d{1,3}(?:[-/][A-Z0-9]+)?$", re.I)
+_PLATFORM_NAME_RE = re.compile(
+    r"^(?:(?:OFFSHORE[ -]+)?(?:OIL[ -]+|GAS[ -]+)?PLATFORM|"
+    r"(?:DRILLING[ -]+)?RIG)(?:\\b|[- #])", re.I,
+)
+
+
+def display_profile(name: str, shiptype: int | None, shipclass: int | None) -> str:
+    """Illustrative rendering profile; no modifications to received AIS."""
+    label = str(name or "").strip()
+    if _WTG_NAME_RE.search(label):
+        return "offshore_wtg"
+    if _PLATFORM_CODE_RE.fullmatch(label) or _PLATFORM_NAME_RE.match(label):
+        return "offshore_platform"
+    if (shiptype is not None and 80 <= shiptype <= 89) or shipclass == 6:
+        return "tanker"
+    if (shiptype is not None and 70 <= shiptype <= 79) or shipclass == 2:
+        return "cargo"
+    return "vessel"
+
 
 
 def _num(value: Any) -> float | None:
@@ -123,8 +145,16 @@ def vessels(payload: Any) -> list[dict]:
         draught = _num(item.get("draught"))
         if draught is not None and not 0 <= draught <= 25:
             draught = None
+        name = _label(item, ("shipname", "name"), 70) or mmsi
+        normalized_type = int(shiptype) if shiptype is not None and 0 <= shiptype <= 9999 else None
+        normalized_class = int(shipclass) if shipclass is not None and 0 <= shipclass <= 13 else None
+        profile = display_profile(name, normalized_type, normalized_class)
+        if profile.startswith("offshore_"):
+            has_hull = False
         selected.append({
-            "type": "ais", "id": mmsi, "name": _label(item, ("shipname", "name"), 70) or mmsi,
+            "type": "ais", "id": mmsi, "name": name,
+            "render_profile": profile,
+            "is_offshore_structure": profile.startswith("offshore_"),
             "callsign": _label(item, ("callsign",), 24), "lon": pos[0], "lat": pos[1],
             "validation_state": validation_state,
             "position_stale": position_stale,
@@ -135,8 +165,8 @@ def vessels(payload: Any) -> list[dict]:
             "to_port": to_port, "to_starboard": to_starboard,
             "hull_available": has_hull,
             "length_m": round(length, 1) if length is not None else None,
-            "shipclass": int(shipclass) if shipclass is not None and 0 <= shipclass <= 13 else None,
-            "shiptype": int(shiptype) if shiptype is not None and 0 <= shiptype <= 9999 else None,
+            "shipclass": normalized_class,
+            "shiptype": normalized_type,
             "imo": _label(item, ("imo",), 15),
             "eni": _label(item, ("eni",), 15),
             "destination": _label(item, ("destination",), 90),

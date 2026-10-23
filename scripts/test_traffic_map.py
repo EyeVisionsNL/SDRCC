@@ -7,6 +7,39 @@ from core import traffic_map
 
 
 class TrafficMapTests(unittest.TestCase):
+    def test_render_profiles_and_conservative_offshore_names(self):
+        profiles = [
+            ("WTG 014", None, 12, "offshore_wtg"),
+            ("WTG-07", None, 11, "offshore_wtg"),
+            ("WIND TURBINE 11", None, 12, "offshore_wtg"),
+            ("P15", None, 11, "offshore_platform"),
+            ("P15-A", None, 11, "offshore_platform"),
+            ("K14", None, 11, "offshore_platform"),
+            ("OFFSHORE PLATFORM P15", None, 12, "offshore_platform"),
+            ("WIND SERVICE", 70, 2, "cargo"),
+            ("P1500 CONTAINER", 70, 2, "cargo"),
+            ("TEST TANKER", 80, 2, "tanker"),
+            ("TEST CARGO", 70, None, "cargo"),
+            ("UNKNOWN", None, None, "vessel"),
+        ]
+        for name, shiptype, shipclass, expected in profiles:
+            with self.subTest(name=name):
+                self.assertEqual(traffic_map.display_profile(name, shiptype, shipclass), expected)
+
+    def test_offshore_facilities_never_generate_normal_ship_hulls(self):
+        raw = {"lat": 51.9, "lon": 4.3, "validated": 1, "heading": 15,
+               "to_bow": 90, "to_stern": 20, "to_port": 6, "to_starboard": 6}
+        items = traffic_map.vessels({"ships": [
+            {**raw, "mmsi": "992440001", "shipname": "WTG 19"},
+            {**raw, "mmsi": "992440002", "shipname": "P15"},
+            {**raw, "mmsi": "244120000", "shipname": "TEST TANKER", "shiptype": 80},
+        ]})
+        self.assertEqual([x["render_profile"] for x in items],
+                         ["offshore_wtg", "offshore_platform", "tanker"])
+        self.assertFalse(items[0]["hull_available"])
+        self.assertFalse(items[1]["hull_available"])
+        self.assertTrue(items[2]["hull_available"])
+
     def test_vessel_with_no_position_is_not_plotted(self):
         self.assertEqual(traffic_map.vessels({"ships":[{"mmsi":"123456789","lat":51.9}]}), [])
 
