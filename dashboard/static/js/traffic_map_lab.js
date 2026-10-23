@@ -2,6 +2,18 @@
 (async () => {
     "use strict";
     const el = id => document.getElementById(id);
+    // Match the existing collapsible Rijnmond VTS legend behaviour:
+    // a small default-closed panel that remembers the user's preference.
+    const legend = el("map-lab-legend");
+    const legendKey = "sdrcc.mapLab.legendOpen";
+    if (legend) {
+        try { legend.open = window.localStorage.getItem(legendKey) === "1"; }
+        catch (_) { /* Storage is optional, so the map stays available. */ }
+        legend.addEventListener("toggle", () => {
+            try { window.localStorage.setItem(legendKey, legend.open ? "1" : "0"); }
+            catch (_) { /* Browser storage may be disabled. */ }
+        });
+    }
     const errorBox = el("map-error");
     const setError = message => {
         errorBox.textContent = message;
@@ -884,6 +896,9 @@
             const planes = validTargets(data.adsb?.targets, "adsb");
             el("count-ais").textContent = data.ais?.available ? ships.length : "OFF";
             el("count-adsb").textContent = data.adsb?.available ? planes.length : "OFF";
+            el("legend-mini-status").textContent =
+                "AIS " + (data.ais?.available ? ships.length : "OFF")
+                + " · ADS-B " + (data.adsb?.available ? planes.length : "OFF");
             const aisTotal = Number.isInteger(data.ais?.source_count) ? data.ais.source_count : ships.length;
             const adsbTotal = Number.isInteger(data.adsb?.source_count) ? data.adsb.source_count : planes.length;
             const unverified = Number.isInteger(data.ais?.unverified_count) ? data.ais.unverified_count : 0;

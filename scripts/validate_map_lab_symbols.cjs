@@ -11,6 +11,21 @@ const path = require("node:path");
 
 const source = fs.readFileSync(
     path.join(__dirname, "../dashboard/static/js/traffic_map_lab.js"), "utf8");
+const markup = fs.readFileSync(
+    path.join(__dirname, "../dashboard/templates/traffic_map_lab.html"), "utf8");
+// The expanded map must not compete with a permanent 280px right sidebar.
+assert(markup.includes('<details id="map-lab-legend" class="map-legend"'),
+    "layer controls must live in a floating native details legend");
+assert(markup.includes('<div class="map-stage">'));
+assert(!markup.includes('<aside class="side">'), "legacy sidebar still steals map space");
+assert(!markup.includes('grid-template-columns:minmax(0,1fr) 280px'));
+assert(markup.includes('.map-legend:not([open])'), "legend must be compact when closed");
+assert(markup.includes('.legend-content{max-height:') === false ||
+       markup.includes('.legend-content{padding:'), "expanded legend must scroll");
+for (const id of ["layer-ais","layer-adsb","layer-station","layer-vts",
+                  "layer-emergency","layer-atis","show-names","feed-status"]) {
+    assert(markup.includes('id="' + id + '"'), "missing existing control " + id);
+}
 const esm = 'await import("https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs")';
 assert(source.includes(esm), "MapLibre 6 import unexpectedly changed");
 
@@ -147,7 +162,12 @@ class FakeMap {
                 4.25,51.88],[4.30,51.88],[4.30,51.90],[4.25,51.88]]]},
         }]},
     };
+    const stored = new Map([["sdrcc.mapLab.legendOpen", "1"]]);
     const fakeWindow = {
+        localStorage: {
+            getItem(key) { return stored.get(key) ?? null; },
+            setItem(key, value) { stored.set(key, value); },
+        },
         __maplibreMock: {Map: FakeMap, Popup: FakePopup, NavigationControl: class {}, ScaleControl: class {}},
         setInterval() {},
     };
@@ -168,6 +188,11 @@ class FakeMap {
     });
     await new Promise(resolve => setImmediate(resolve));
     assert(instance, "map must be constructed");
+    assert.equal(node("map-lab-legend").open, true, "stored legend preference ignored");
+    node("map-lab-legend").open = false;
+    node("map-lab-legend").listeners.toggle();
+    assert.equal(stored.get("sdrcc.mapLab.legendOpen"), "0",
+        "collapsing the legend must be persisted");
     instance.callbacks.load();
     await new Promise(resolve => setImmediate(resolve));
 
@@ -271,6 +296,8 @@ class FakeMap {
 
     assert.equal(node("count-ais").textContent, 3);
     assert.equal(node("count-adsb").textContent, 1);
+    assert.equal(node("legend-mini-status").textContent, "AIS 3 · ADS-B 1",
+        "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];
     assert.deepEqual(JSON.parse(JSON.stringify(home.geometry.coordinates)), [4.28,51.93]);

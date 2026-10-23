@@ -16,19 +16,39 @@ header p{margin:4px 0 0;color:#a1c2d9;font-size:.89rem}
 header a{color:#83dafa;text-decoration:none;border:1px solid #356582;border-radius:10px;padding:10px 15px;background:#123049}
 header a:focus-visible,button:focus-visible{outline:2px solid #9eeaff;outline-offset:3px}
 header .eyebrow{color:#73c9ea;font-size:.7rem;letter-spacing:.15em;font-weight:800}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;padding:16px;max-width:1800px;margin:0 auto}
+.layout{padding:12px;max-width:none;margin:0 auto}
 .viewer{min-width:0;background:#0d2336;border:1px solid #2f5673;border-radius:15px;overflow:hidden}
 .toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px;border-bottom:1px solid #2b536d}
 .toolbar .spacer{flex:1}
 button{cursor:pointer;border:1px solid #45728d;border-radius:9px;background:#163a54;color:#e9f7ff;padding:10px 14px;font:inherit;font-weight:650}
 button:hover{background:#215172}
 button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
-#map{height:min(75vh,880px);min-height:430px;width:100%;background:#0b2033}
-.map-caption{font-size:.81rem;color:#9cbbd1;padding:10px 13px}
-.side{display:flex;flex-direction:column;gap:13px}
-.panel{background:#0d2438;border:1px solid #315978;border-radius:12px;padding:17px}
-.panel h2{font-size:1rem;margin:0 0 13px;color:#e8f6ff}
-.row{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:10px 0}
+.map-stage{position:relative;isolation:isolate}
+#map{height:clamp(430px,calc(100dvh - 212px),1080px);width:100%;background:#0b2033}
+.map-caption{font-size:.79rem;color:#9cbbd1;padding:9px 13px}
+.map-legend{position:absolute;right:60px;top:12px;z-index:8;width:min(300px,calc(100% - 78px));max-height:calc(100% - 24px);background:#0d2438f2;border:1px solid #44728d;border-radius:9px;box-shadow:0 5px 19px #0008;font-size:.84rem;color:#eaf4fd;pointer-events:auto}
+.map-legend:not([open]){width:min(247px,calc(100% - 78px))}
+.map-legend>summary{display:flex;align-items:center;gap:6px;padding:8px 10px;cursor:pointer;list-style:none;user-select:none;white-space:nowrap}
+.map-legend>summary::-webkit-details-marker,.legend-more>summary::-webkit-details-marker{display:none}
+.map-legend>summary::after{content:"▾";margin-left:auto;color:#7fd8f4;transition:transform .16s ease}
+.map-legend[open]>summary::after{transform:rotate(180deg)}
+.map-legend summary:focus-visible{outline:2px solid #91dffc;outline-offset:-3px;border-radius:7px}
+.legend-heading{font-size:.83rem;font-weight:750}
+.legend-mini-status{font-size:.69rem;color:#acd3e7;font-variant-numeric:tabular-nums}
+.legend-content{padding:3px 10px 11px;max-height:min(65vh,calc(100dvh - 255px));overflow-y:auto;overscroll-behavior:contain;border-top:1px solid #31536a;scrollbar-color:#406d88 transparent;scrollbar-width:thin}
+.legend-content .section-title{color:#82bddd;font-size:.7rem;font-weight:800;letter-spacing:.07em;margin:10px 0 7px;text-transform:uppercase}
+.legend-content .row{margin:7px 0}
+.legend-content .row .muted{max-width:105px}
+.legend-content .muted{font-size:.77rem}
+.legend-status{padding-top:7px;border-top:1px solid #32556d;margin-top:9px}
+.legend-status p{margin:5px 0}
+.legend-more{border-top:1px solid #31536a;margin-top:9px;padding-top:5px}
+.legend-more>summary{cursor:pointer;list-style:none;color:#9dd9ed;font-size:.79rem;font-weight:700;padding:5px 0}
+.legend-more>summary::before{content:"▸";display:inline-block;margin-right:7px;color:#7fd8f4}
+.legend-more[open]>summary::before{transform:rotate(90deg)}
+.legend-more p{line-height:1.45;margin:7px 0}
+
+.row{display:flex;justify-content:space-between;gap:9px;align-items:center;margin:10px 0}
 .row label{display:flex;align-items:center;gap:8px;cursor:pointer}
 .row input{accent-color:#39bfea;width:18px;height:18px}
 .row .muted{font-size:.72rem;text-align:right;max-width:106px}
@@ -45,9 +65,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
 .maplibregl-control-container .maplibregl-ctrl-attrib{color:#263847}
 .popup-title{font-weight:800;margin:0 0 6px;font-size:.97rem}
 .popup-line{font-size:.84rem;margin:4px 0;display:flex;justify-content:space-between;gap:14px;align-items:baseline;border-bottom:1px solid #27445a;padding-bottom:3px}.popup-line strong{font-weight:650;color:#a9cadc;flex-shrink:0}.popup-line span{text-align:right;overflow-wrap:anywhere}.traffic-detail{min-width:210px;max-width:340px;max-height:360px;overflow-y:auto;padding-right:3px}.popup-photo{margin-top:12px;font-size:.8rem;color:#a9cadc}.popup-photo img{display:block;max-width:100%;width:100%;max-height:180px;object-fit:contain;background:#091b2b;border-radius:7px;margin-bottom:6px}.popup-photo a{color:#8bd8f5;display:block}
-.footer-note{margin-top:auto}
-@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.footer-note{grid-column:1/-1}}
-@media(max-width:550px){header{padding:14px}.layout{padding:8px;gap:8px}.side{display:block}.side .panel{margin-bottom:8px}#map{height:58vh;min-height:330px}header h1{font-size:1.15rem}}
+@media(max-width:550px){header{padding:14px}.layout{padding:7px}#map{height:max(420px,calc(100dvh - 205px))}header h1{font-size:1.15rem}.toolbar{padding:8px;gap:5px}.toolbar button{padding:8px 9px;font-size:.84rem}.map-legend{right:55px;top:8px;width:min(280px,calc(100% - 66px))}.map-legend:not([open]){width:min(245px,calc(100% - 66px))}.legend-content{max-height:min(56vh,450px)}}
 </style>
 <script type="module" src="{{ url_for('static', filename='js/traffic_map_lab.js') }}?v={{ asset_version }}"></script>
 </head>
@@ -68,35 +86,35 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
       <button type="button" id="reset-view">⌖ Reset view</button>
       <button type="button" id="refresh-now">↻ Refresh</button>
     </div>
-    <div id="map" aria-label="Map of ships and aircraft"></div>
+    <div class="map-stage">
+      <div id="map" aria-label="Map of ships and aircraft"></div>
+      <details id="map-lab-legend" class="map-legend" aria-label="Map layers and legend">
+        <summary><span class="legend-heading">◈ Layers · legend</span><span id="legend-mini-status" class="legend-mini-status">AIS — · ADS-B —</span></summary>
+        <div class="legend-content">
+          <div class="section-title">Live traffic layers</div>
+          <div class="row"><label><input id="layer-ais" type="checkbox" checked><span><i class="dot ais"></i> AIS vessels</span></label><span id="count-ais" class="count">—</span></div>
+          <div class="row"><label><input id="layer-adsb" type="checkbox" checked><span><i class="dot adsb"></i> ADS-B aircraft</span></label><span id="count-adsb" class="count">—</span></div>
+          <div class="row"><label><input id="show-names" type="checkbox" checked> Show vessel / aircraft names</label></div>
+          <div class="row"><label><input id="layer-station" type="checkbox" checked><span style="color:#fbbf56">◎</span> My SDRCC station</label><span id="station-status" class="muted">Loading…</span></div>
+          <div class="row"><label><input id="layer-vts" type="checkbox" checked> Rijnmond VTS sectors</label><span id="vts-status" class="muted">Loading…</span></div>
+          <div class="row"><label><input id="layer-emergency" type="checkbox" checked><span style="color:#f2f9ff">◉</span> Emergency vessels</label><span id="emergency-status" class="muted">Loading…</span></div>
+          <div class="row"><label><input id="layer-atis" type="checkbox" checked><span style="color:#37e4a6">◎</span> ATIS / AIS match</label><span id="atis-status" class="muted">Loading…</span></div>
+          <div class="legend-status">
+            <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
+            <p id="feed-detail" class="muted">Loading source and visible-position counts…</p>
+          </div>
+          <details class="legend-more">
+            <summary>Colours &amp; information</summary>
+            <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. Faded: historical AIS position. <i class="dot adsb"></i> Aircraft.</p>
+            <p class="muted">White rings: KNRM; blue rings: Water police; green rings: fresh verified ATIS/AIS matches. These indicators never control the SDR or move the map.</p>
+            <p class="muted">Read-only positions from AIS-Catcher and readsb. VTS polygons come from the installed Rijnmond sector layer. Map Lab never starts or claims SDR receivers.</p>
+          </details>
+        </div>
+      </details>
+    </div>
     <div id="map-error" role="alert"></div>
-    <div class="map-caption">Zoomed out: class-coloured AIS arrows or dots. Closer in: compact coloured labels placed beside the vessel where possible, so they don't cover its hull. Harbour zoom (14+): dark true-scale vessel hulls. In 3D, hull height remains illustrative. Old AIS-Catcher positions remain visible (up to 24 hours) but appear faded after 30 minutes; old positions never trigger Emergency or ATIS highlights. Optional local Rijnmond VTS sectors and your configured station are shown as separate layers.</div>
+    <div class="map-caption">Live AIS/ADS-B from your receivers · zoom in for scaled vessel hulls · old AIS positions are faded · open the map legend for layers and explanations.</div>
   </section>
-  <aside class="side">
-    <section class="panel">
-      <h2>Live traffic layers</h2>
-      <div class="row"><label><input id="layer-ais" type="checkbox" checked><span><i class="dot ais"></i> AIS vessels</span></label><span id="count-ais" class="count">—</span></div>
-      <div class="row"><label><input id="layer-adsb" type="checkbox" checked><span><i class="dot adsb"></i> ADS-B aircraft</span></label><span id="count-adsb" class="count">—</span></div>
-      <div class="row"><label><input id="show-names" type="checkbox" checked> Show vessel / aircraft names</label></div>
-      <div class="row"><label><input id="layer-station" type="checkbox" checked> <span style="color:#fbbf56">◎</span> My SDRCC station</label><span id="station-status" class="muted">Loading…</span></div>
-      <div class="row"><label><input id="layer-vts" type="checkbox" checked> Rijnmond VTS sectors</label><span id="vts-status" class="muted">Loading…</span></div>
-      <div class="row"><label><input id="layer-emergency" type="checkbox" checked> <span style="color:#f2f9ff">◉</span> Emergency vessels</label><span id="emergency-status" class="muted">Loading…</span></div>
-      <div class="row"><label><input id="layer-atis" type="checkbox" checked> <span style="color:#37e4a6">◎</span> ATIS / AIS match</label><span id="atis-status" class="muted">Loading…</span></div>
-      <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
-      <p id="feed-detail" class="muted">Loading source and visible-position counts…</p>
-      <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. Faded icons/labels: old AIS position, not a live contact. <i class="dot adsb"></i> Aircraft.</p>
-      <p class="muted">Emergency Monitor: temporary white rings for KNRM and blue rings for water police. A fresh validated ATIS/AIS match adds a short green ring to the matched ship. Neither overlay moves the map or operates an SDR. Click a ship or aircraft for details; aircraft photos are only requested on selection.</p>
-    </section>
-    <section class="panel">
-      <h2>Preview scope</h2>
-      <p class="muted">Live positions from your existing AIS-Catcher and readsb services. The viewer never starts, stops or binds an SDR.</p>
-      <p class="muted">No simulated targets are shown when a live source is unavailable. The station marker comes from SDRCC Home Position. VTS polygons and borders are read from the installed AIS-Catcher Rijnmond plugin (Rijkswaterstaat) without another download. VTS names are hidden to keep the map uncluttered; clicking open water does not open a sector popup.</p>
-    </section>
-    <section class="panel footer-note">
-      <h2>2D/3D roadmap</h2>
-      <p class="muted">Live AIS/ADS-B, class-coloured symbols, unobtrusive name labels, measured-size vessel hulls, optional 3D depth, detailed click cards, station marker and Rijnmond VTS sector layer. Also available: independent emergency vessel and validated ATIS overlays. Next: trails and more detailed 3D models.</p>
-    </section>
-  </aside>
 </div>
 </body>
 </html>
