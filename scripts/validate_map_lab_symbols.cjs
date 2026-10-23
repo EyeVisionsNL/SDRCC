@@ -63,6 +63,7 @@ class FakeMap {
         this.sources = {};
         this.images = {};
         this.layoutChanges = [];
+        this.paintChanges = [];
         this.camera = {};
     }
     addControl() {}
@@ -97,6 +98,9 @@ class FakeMap {
     setLayoutProperty(id, key, value) {
         this.layoutChanges.push({id, key, value});
     }
+    setPaintProperty(id, key, value) {
+        this.paintChanges.push({id, key, value});
+    }
     easeTo(camera) {this.camera = camera;}
     jumpTo(camera) {this.camera = camera;}
     getCanvas() {return {style: {}};}
@@ -125,6 +129,15 @@ class FakeMap {
                 squawk:"4720", lon:4.5, lat:51.92, course:212, altitude_ft:24000},
         ]},
     };
+    const highlights = {
+        ok: true, read_only: true, emergency_vessels: [
+            {mmsi:"123456789",category:"knrm",latitude:51.9,longitude:4.3,remaining_seconds:300},
+            {mmsi:"987654321",category:"waterpolitie",latitude:51.91,longitude:4.4,remaining_seconds:90},
+        ],
+        atis_match: {mmsi:"123456789",atis_code:"9244050123",
+            event_id:"9244050123|2026-10-23T11:34:56+02:00",
+            latitude:51.9,longitude:4.3,remaining_seconds:25},
+    };
     const vts = {
         ok: true, available: true, count: 1,
         geojson: {type:"FeatureCollection",features:[{
@@ -143,6 +156,8 @@ class FakeMap {
         document, window: fakeWindow, setInterval() {},
         fetch: async url => url === "/api/map-lab/vts-sectors"
             ? {ok:true, json:async () => vts}
+            : url === "/api/map-lab/highlights"
+            ? {ok:true, json:async () => highlights}
             : url.startsWith("/api/map-lab/aircraft-photo/")
             ? {ok:true, json:async () => ({
                 ok:true, image_url:"https://cdn.planespotters.net/mock.jpg",
@@ -262,6 +277,23 @@ class FakeMap {
     assert.equal(home.properties.name, "EyeVisions Home");
     assert.equal(node("station-status").textContent, "Home Position");
     assert.equal(node("vts-status").textContent, "1 RWS sectors");
+    // Live Emergency Monitor and ATIS rings overlay the original vessel.
+    assert(instance.layers["sdrcc-emergency-ring"]);
+    assert(instance.layers["sdrcc-atis-ring"]);
+    assert.deepEqual(JSON.parse(JSON.stringify(
+        instance.layers["sdrcc-emergency-ring"].paint["circle-stroke-color"])),
+        ["match",["get","category"],"knrm","#ffffff","waterpolitie","#2499ff","#ffffff"]);
+    assert.equal(instance.sources["sdrcc-emergency"].data.features.length, 2);
+    assert.equal(instance.sources["sdrcc-atis"].data.features.length, 1);
+    assert.equal(node("emergency-status").textContent, "2 highlighted");
+    assert.equal(node("atis-status").textContent, "ATIS matched");
+    assert.deepEqual(JSON.parse(JSON.stringify(
+        instance.sources["sdrcc-atis"].data.features[0].geometry.coordinates)),
+        [4.3,51.9]);
+    assert(instance.paintChanges.some(p =>
+        p.id === "sdrcc-atis-ring" && p.key === "circle-radius"),
+        "rings should pulse without modifying camera");
+
     assert.equal(instance.sources["sdrcc-vts"].data.features.length, 1);
     assert.equal(instance.sources["sdrcc-vts"].data.features[0].properties.color, "#e5007e");
     assert.equal(instance.layers["sdrcc-vts-fill"].type, "fill");
@@ -312,6 +344,12 @@ class FakeMap {
     assert(instance.layoutChanges.some(change =>
         change.id === "sdrcc-ais-hull-fill" && change.value === "none"));
 
+    node("layer-emergency").checked = false;
+    node("layer-emergency").listeners.change();
+    assert(instance.layoutChanges.some(c=>c.id==="sdrcc-emergency-ring"&&c.value==="none"));
+    node("layer-atis").checked = false;
+    node("layer-atis").listeners.change();
+    assert(instance.layoutChanges.some(c=>c.id==="sdrcc-atis-ring"&&c.value==="none"));
     node("layer-vts").checked = false;
     node("layer-vts").listeners.change();
     assert(instance.layoutChanges.some(c => c.id==="sdrcc-vts-fill" && c.value==="none"));
@@ -336,5 +374,5 @@ class FakeMap {
         "hiding AIS must hide zoomed-in fallback vessels too");
 
     console.log("PASS: 72 AIS/aircraft sprites including 14 nameplates, 140m 3D hull, "
-        + "compact offset nameplates, no VTS popups, Home Position and 3D visibility");
+        + "emergency/ATIS matched rings, visibility, nameplates and 3D");
 })().catch(error => {console.error(error); process.exitCode = 1;});
