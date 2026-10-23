@@ -40,6 +40,73 @@ class TrafficMapTests(unittest.TestCase):
         self.assertFalse(items[1]["hull_available"])
         self.assertTrue(items[2]["hull_available"])
 
+    def test_tug_classification_by_type_status_and_name(self):
+        cases = [
+            ("MULTRATUG 9", None, None, None, "tug"),
+            ("SMIT SWIFT", None, None, None, "tug"),
+            ("HARBOUR TUG", None, None, None, "tug"),
+            ("SLEEPBOOT 1", None, None, None, "tug"),
+            ("FREEDOM", 52, None, None, "tug"),
+            ("FREEDOM", 31, None, None, "tug"),
+            ("FREEDOM", None, None, "11", "tug"),
+            ("FREEDOM", None, None, "Tugging", "tug"),
+            ("CARGO TOW", 70, 2, "Pushing", "tug"),
+            ("TUGGER CARGO", 70, 2, None, "cargo"),
+            ("WTG 13", 52, None, "Towing", "offshore_wtg"),
+            ("P15", 52, None, "Towing", "offshore_platform"),
+        ]
+        for name, kind, cls, status, expected in cases:
+            with self.subTest(name=name,status=status):
+                self.assertEqual(traffic_map.display_profile(name,kind,cls,status),expected)
+
+    def test_tug_vessel_profile_reports_navigation_status(self):
+        row=traffic_map.vessels({"ships":[{
+            "mmsi":"244555000","shipname":"TEST","shiptype":52,
+            "status":"Tugging","lat":51.9,"lon":4.3,
+            "to_bow":11,"to_stern":8,"to_port":3,"to_starboard":3,
+            "heading":78,
+        }]})[0]
+        self.assertEqual(row["render_profile"],"tug")
+        self.assertTrue(row["hull_available"])
+        self.assertEqual(row["nav_status"],"Tugging")
+
+    def test_ais_catcher_native_track_is_real_bounded_and_ordered(self):
+        now=2000000000
+        raw={"type":"Feature","geometry":{"type":"LineString",
+             "coordinates":[[4.40,51.92],[4.38,51.92],[4.36,51.91],[4.30,51.90]]},
+             "properties":{"mmsi":244555000,
+                           "timestamps_start":[now-10,now-45,now-80,now-9999]}}
+        with patch.object(traffic_map.receiver_monitor,"_read_json_url",
+                          return_value=(raw,"loopback")) as reader, \
+             patch.object(traffic_map.time,"time",return_value=now):
+            result=traffic_map.track_snapshot("244555000")
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["available"])
+        self.assertEqual(result["point_count"],3)
+        self.assertEqual(result["geojson"]["features"][0]["geometry"]["coordinates"],
+                         [[4.36,51.91],[4.38,51.92],[4.4,51.92]])
+        self.assertEqual(len(reader.call_args.args[0]),2)
+        self.assertIn("/api/path.geojson?244555000",reader.call_args.args[0][0])
+        self.assertFalse(traffic_map.track_snapshot("../etc/passwd")["ok"])
+        with patch.object(traffic_map.receiver_monitor,"_read_json_url",
+                          return_value=(None,None)):
+            self.assertFalse(traffic_map.track_snapshot("244555000")["available"])
+
+    def test_track_filters_invalid_points_and_breaks_bad_jumps(self):
+        now=2000000000
+        raw={"type":"Feature","geometry":{"type":"LineString",
+             "coordinates":[[4.91,51.9],[4.90,51.9],[4.35,51.9],[4.34,51.9],
+                            [None,51.9],[4.33,51.9]]},
+             "properties":{"mmsi":244555000,
+                           "timestamps_start":[now-10,now-20,now-30,now-40,
+                                               now-50,now-60]}}
+        with patch.object(traffic_map.receiver_monitor,"_read_json_url",
+                          return_value=(raw,"loopback")), \
+             patch.object(traffic_map.time,"time",return_value=now):
+            result=traffic_map.track_snapshot("244555000")
+        self.assertEqual(result["point_count"],5)
+        self.assertEqual(len(result["geojson"]["features"]),2)
+
     def test_vessel_with_no_position_is_not_plotted(self):
         self.assertEqual(traffic_map.vessels({"ships":[{"mmsi":"123456789","lat":51.9}]}), [])
 
