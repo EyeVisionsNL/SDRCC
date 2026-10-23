@@ -141,7 +141,7 @@ class FakeMap {
     const data = {
         ok: true, center: [4.28, 51.93],
         station: {name:"EyeVisions Home", lon:4.28, lat:51.93, altitude_m:12},
-        ais: {available: true, source_count: 9, count: 9, unverified_count: 1,
+        ais: {available: true, source_count: 10, count: 10, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
                     lon:4.3, lat:51.9, course:132, hull_heading:134, speed_knots:6,
@@ -171,6 +171,11 @@ class FakeMap {
                     course:86.3,hull_heading:86.3,speed_knots:19.7,
                     length_m:11,beam_m:3,to_bow:8,to_stern:3,
                     to_port:1.5,to_starboard:1.5,hull_available:true},
+                {type:"ais",id:"244456065",name:"KRVE 65",lon:4.49,lat:51.96,
+                    render_profile:"krve",shipclass:7,shiptype:1900,
+                    course:75,hull_heading:75,speed_knots:13.4,
+                    length_m:10,beam_m:3.6,to_bow:7,to_stern:3,
+                    to_port:1.8,to_starboard:1.8,hull_available:true},
             ]},
         adsb: {available: true, source_count: 1, count: 1, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
@@ -284,7 +289,13 @@ class FakeMap {
     }
     const boats = instance.sources["sdrcc-ais"].data.features;
     const planes = instance.sources["sdrcc-adsb"].data.features;
-    assert.equal(boats.length, 9);
+    assert.equal(boats.length, 10);
+    assert.equal(boats[9].properties.render_profile,"krve");
+    assert.equal(boats[9].properties.icon_name,"sdrcc-ship-7-moving",
+        "KRVE must retain the normal HSC symbol while zoomed out");
+    assert.equal(boats[9].properties.hull_available,true);
+    assert.equal(boats[9].properties.length_m,10);
+    assert.equal(boats[9].properties.icon_scale,.75);
     assert.equal(boats[8].properties.render_profile,"watertaxi");
     assert.equal(boats[8].properties.icon_name,"sdrcc-ship-7-moving",
         "MSTX must use normal AIS high-speed icon at low zoom");
@@ -320,17 +331,27 @@ class FakeMap {
     assert.equal(planes[0].properties.course, 212);
 
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
-    assert.equal(polygons.length, 5,
-        "tanker, cargo, tug, police and 11m MSTX need 3D hulls");
+    assert.equal(polygons.length, 6,
+        "tanker, cargo, tug, police, MSTX and short KRVE need 3D hulls");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
-    assert.equal(decks.length,23,
-        "7 tanker, 4 cargo, 2 tug, 4 police, 6 water taxi details expected");
+    assert.equal(decks.length,31,
+        "7 tanker, 4 cargo, 2 tug, 4 police, 6 MSTX and 8 KRVE details expected");
     for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap","tug-wheelhouse","tug-winch",
                        "police-cabin","police-stripe","police-lightbar",
-                       "watertaxi-cabin","watertaxi-roof","watertaxi-stripe","watertaxi-window"])
+                       "watertaxi-cabin","watertaxi-roof","watertaxi-stripe","watertaxi-window",
+                       "krve-workdeck","krve-cabin","krve-roof","krve-fender",
+                       "krve-windows","krve-mooring-gear"])
         assert(decks.some(f=>f.properties.part===part), "missing deck part "+part);
     assert(decks.every(f=>["123456789","244123999","244555000",
-        "244600015","244020742"].includes(f.properties.id)));
+        "244600015","244020742","244456065"].includes(f.properties.id)));
+    const krveParts=decks.filter(f=>f.properties.id==="244456065");
+    assert.equal(krveParts.length,8,"KRVE has a cabin, roof, yellow fenders, windows and working deck");
+    const krveRoof=krveParts.find(f=>f.properties.part==="krve-roof");
+    assert(krveRoof.properties.base_height_m>2.5);
+    assert(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"]
+        .includes("#20272e"),"KRVE hull is dark");
+    assert(instance.layers["sdrcc-ais-hull-decks"].paint["fill-extrusion-color"]
+        .includes("#f8bf1e"),"KRVE fenders are yellow");
     const taxideck=decks.filter(f=>f.properties.id==="244020742");
     assert.equal(taxideck.length,6);
     assert(Math.abs(taxideck.find(f=>f.properties.part==="watertaxi-roof")
@@ -399,9 +420,9 @@ class FakeMap {
     assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
-    assert.equal(node("count-ais").textContent, 9);
+    assert.equal(node("count-ais").textContent, 10);
     assert.equal(node("count-adsb").textContent, 1);
-    assert.equal(node("legend-mini-status").textContent, "AIS 9 · ADS-B 1",
+    assert.equal(node("legend-mini-status").textContent, "AIS 10 · ADS-B 1",
         "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];

@@ -113,7 +113,7 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
-                || length < (ship.render_profile === "watertaxi" ? 5
+                || length < (["watertaxi","krve"].includes(ship.render_profile) ? 5
                     : ["tug","police"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
@@ -166,7 +166,7 @@
                     nav_status: ship.nav_status, shiptype: ship.shiptype,
                     beam_m: ship.beam_m, draught_m: ship.draught_m,
                     heading: ship.heading,
-                    display_height_m: ship.render_profile === "watertaxi"
+                    display_height_m: ["watertaxi","krve"].includes(ship.render_profile)
                         ? Math.min(1.8, Math.max(.9,
                             (Number(ship.to_port) + Number(ship.to_starboard)) * .45))
                         : Math.min(9, Math.max(2.5,
@@ -182,7 +182,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "tug", "police", "watertaxi"].includes(profile)) continue;
+            if (!["tanker", "cargo", "tug", "police", "watertaxi", "krve"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -190,7 +190,7 @@
             if (![bow,stern,port,starboard,lon,lat,headingDeg].every(Number.isFinite)
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
-            if (length < (profile === "watertaxi" ? 5
+            if (length < (["watertaxi","krve"].includes(profile) ? 5
                     : ["tug","police"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
@@ -210,6 +210,30 @@
                         top_height_m:info.display_height_m+baseOffset+above,
                         center_lon:lon,center_lat:lat}});
             };
+            if (profile === "krve") {
+                // Illustrative KRVE RIB/roeiersvlet: dark hull, thick yellow
+                // rubbing fenders and pale enclosed wheelhouse with amber roof.
+                // All pieces scale with real AIS antenna offsets.
+                const from=-stern+length*.30, to=-stern+length*.71;
+                add(-stern+length*.06,-stern+length*.30,
+                    -port*.66,starboard*.66,"krve-workdeck",.16);
+                add(from,to,-port*.66,starboard*.66,"krve-cabin",1.75);
+                add(from+length*.025,to-length*.025,
+                    -port*.7,starboard*.7,"krve-roof",.2,1.75);
+                for (const side of [-1,1]) {
+                    const near=side<0 ? -port*.98 : starboard*.77;
+                    const far=side<0 ? -port*.77 : starboard*.98;
+                    add(-stern+length*.07,-stern+length*.88,
+                        near,far,"krve-fender",.48);
+                    const glassNear=side<0 ? -port*.69 : starboard*.59;
+                    const glassFar=side<0 ? -port*.59 : starboard*.69;
+                    add(from+length*.045,to-length*.045,
+                        glassNear,glassFar,"krve-windows",.48,.66);
+                }
+                add(-stern+length*.16,-stern+length*.24,
+                    -port*.23,starboard*.23,"krve-mooring-gear",.28);
+                continue;
+            }
             if (profile === "watertaxi") {
                 // Black fast boat with a low cabin, yellow roof and twin yellow rails.
                 const from=-stern+length*.29, to=-stern+length*.68;
@@ -477,6 +501,7 @@
             else if (props.render_profile === "tug") add("3D deck", "Tug wheelhouse / towing winch (illustrative)");
             else if (props.render_profile === "police") add("3D deck", "Police patrol cabin / blue markings (illustrative)");
             else if (props.render_profile === "watertaxi") add("3D deck", "Black/yellow MSTX fast water taxi (illustrative)");
+            else if (props.render_profile === "krve") add("3D deck", "KRVE mooring / pilot-transport craft (illustrative)");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
@@ -737,6 +762,7 @@
                     ["==", ["get", "validation_state"], "unverified"], "#57352c",
                     ["==", ["get", "render_profile"], "police"], "#153f6b",
                     ["==", ["get", "render_profile"], "watertaxi"], "#11161c",
+                    ["==", ["get", "render_profile"], "krve"], "#20272e",
                     "#1b3243"],
                 // Illustrative depth only: actual ship height is not present in AIS.
                 "fill-extrusion-height": ["get", "display_height_m"],
@@ -759,6 +785,9 @@
                     "police-lightbar","#198aff",
                     "watertaxi-cabin","#161d24","watertaxi-roof","#ffd31a",
                     "watertaxi-stripe","#ffe02a","watertaxi-window","#87bdd2",
+                    "krve-workdeck","#333941","krve-cabin","#e8eef1",
+                    "krve-roof","#ee9c19","krve-fender","#f8bf1e",
+                    "krve-windows","#38677b","krve-mooring-gear","#414953",
                     "#8195a8"],
                 "fill-extrusion-base":["get","base_height_m"],
                 "fill-extrusion-height":["get","top_height_m"],

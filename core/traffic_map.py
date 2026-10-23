@@ -35,6 +35,9 @@ _POLICE_NAME_RE = re.compile(r"\b(?:WATERPOLITIE|POLITIE|POLICE)\b", re.I)
 _POLICE_P_NUMBER_RE = re.compile(r"^P[ -]?\d{1,2}(?:$|[ -])", re.I)
 # MSTX 12, MSTX12, MSTX-13 are local high-speed water taxis.
 _WATERTAXI_NAME_RE = re.compile(r"^MSTX(?=$|[\s._/-]|\d)", re.I)
+# Koninklijke Roeiers Vereeniging Eendracht: KRVE 65 / K.R.V.E. 62.
+# Their HSC craft differ from MSTX water taxis in cabin and fender shape.
+_KRVE_NAME_RE = re.compile(r"^K\.?R\.?V\.?E\.?(?=$|[\s._/-]|\d)", re.I)
 # Shiptype 52=tug; 31/32=towing; navstatus 11/12=towing/pushing.
 _TUG_NAME_RE = re.compile(
     r"(?:^|[\s._/-])(?:TUG|TUGBOAT|SLEPER|SLEEPBOOT)(?:$|[\s._/-]|\d)"
@@ -72,6 +75,11 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
     if shiptype == 55 and not is_station:
         return "police"
     if not fixed_evidence:
+        is_hsc = (shipclass == 7 or shiptype == 1900
+                  or (shiptype is not None and 40 <= shiptype <= 49))
+        if is_hsc and (_KRVE_NAME_RE.match(label)
+                       or _KRVE_NAME_RE.match(callsign)):
+            return "krve"
         if shiptype != 55 and (_WATERTAXI_NAME_RE.match(label)
                                or _WATERTAXI_NAME_RE.match(callsign)):
             return "watertaxi"

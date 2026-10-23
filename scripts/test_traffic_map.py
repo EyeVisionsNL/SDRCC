@@ -115,6 +115,40 @@ class TrafficMapTests(unittest.TestCase):
         self.assertAlmostEqual(item["hull_heading"],86.3)
         self.assertFalse(item["is_offshore_structure"])
 
+    def test_krve_hsc_names_and_ais_precedence(self):
+        for name in ("KRVE 65", "KRVE65", "krve-31", "K.R.V.E. 62", "KRVE/80"):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    traffic_map.display_profile(name, 1900, 7), "krve")
+        self.assertEqual(traffic_map.display_profile(
+            "CREW TENDER", 40, None, callsign="KRVE 61"), "krve")
+        self.assertEqual(traffic_map.display_profile(
+            "KRVE 65", None, 7), "krve")
+        for name in ("AKRVE 65", "KRVELESS", "KRVEBOAT"):
+            self.assertEqual(traffic_map.display_profile(name, 1900, 7), "vessel")
+        self.assertEqual(traffic_map.display_profile(
+            "KRVE 65", 52, 5), "tug",
+            "non-HSC KRVE boats must retain existing classification")
+        self.assertEqual(traffic_map.display_profile(
+            "KRVE 65", 55, 5), "police")
+        self.assertEqual(traffic_map.display_profile(
+            "KRVE 65", 1900, 12, mmsi="992440001"), "vessel")
+        self.assertEqual(traffic_map.display_profile(
+            "MSTX 12", 1900, 7), "watertaxi")
+
+    def test_krve_hsc_short_real_ais_hull(self):
+        krve=traffic_map.vessels({"ships":[{
+            "mmsi":"244456065","shipname":"KRVE 65",
+            "shiptype":1900,"shipclass":7,"lat":51.93,"lon":4.35,
+            "speed":13.4,"cog":75.0,"to_bow":7,"to_stern":3,
+            "to_port":1.8,"to_starboard":1.8,
+        }]})[0]
+        self.assertEqual(krve["render_profile"],"krve")
+        self.assertTrue(krve["hull_available"])
+        self.assertEqual(krve["length_m"],10)
+        self.assertEqual(krve["beam_m"],3.6)
+        self.assertFalse(krve["is_offshore_structure"])
+
     def test_tug_classification_by_type_status_and_name(self):
         cases = [
             ("MULTRATUG 9", None, None, None, "tug"),
