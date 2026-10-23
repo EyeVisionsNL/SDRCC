@@ -234,6 +234,15 @@ class FakeMap {
     assert.equal(instance.layers["sdrcc-ais-labels"].minzoom, 12.5);
     const labels = instance.layers["sdrcc-ais-labels"];
     assert.equal(labels.layout["icon-text-fit"], "both");
+    assert.deepEqual(JSON.parse(JSON.stringify(labels.layout["icon-text-fit-padding"])), [2,4,2,4]);
+    assert.deepEqual(JSON.parse(JSON.stringify(labels.layout["text-variable-anchor"])),
+        ["top","bottom","right","left"], "AIS names must move away from ship markers");
+    const sizes = JSON.parse(JSON.stringify(labels.layout["text-size"]));
+    assert.equal(sizes[0], "interpolate");
+    assert.equal(sizes[sizes.length-1], 9.5, "labels must stay compact even at maximum zoom");
+    assert.equal(labels.layout["text-radial-offset"][0], "interpolate",
+        "AIS text must be offset away from vessel icons and hulls");
+    assert.equal(labels.layout["text-radial-offset"].at(-1), 5);
     assert.deepEqual(JSON.parse(JSON.stringify(labels.layout["text-field"])),
         ["get", "label_name"]);
     assert.equal(labels.paint["text-color"][0], "match");
@@ -257,10 +266,12 @@ class FakeMap {
     assert.equal(instance.sources["sdrcc-vts"].data.features[0].properties.color, "#e5007e");
     assert.equal(instance.layers["sdrcc-vts-fill"].type, "fill");
     assert.equal(instance.layers["sdrcc-vts-line"].type, "line");
-    assert(instance.layers["sdrcc-vts-labels"]);
+    assert(!instance.layers["sdrcc-vts-labels"],
+        "sector labels must never cover vessels in the shipping lanes");
     assert(instance.layers["sdrcc-home-name"]);
     assert(instance.callbacks["click:sdrcc-home-dot"]);
-    assert(instance.callbacks["click:sdrcc-vts-fill"]);
+    assert(!instance.callbacks["click:sdrcc-vts-fill"],
+        "clicking water must not pop up VTS info or steal ship clicks");
 
     node("show-names").checked = false;
     node("show-names").listeners.change();
@@ -325,5 +336,5 @@ class FakeMap {
         "hiding AIS must hide zoomed-in fallback vessels too");
 
     console.log("PASS: 72 AIS/aircraft sprites including 14 nameplates, 140m 3D hull, "
-        + "borderless labels, Home Position, VTS sectors, toggles and 3D visibility");
+        + "compact offset nameplates, no VTS popups, Home Position and 3D visibility");
 })().catch(error => {console.error(error); process.exitCode = 1;});
