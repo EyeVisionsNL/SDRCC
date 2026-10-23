@@ -31,6 +31,15 @@ _PLATFORM_NAME_RE = re.compile(
     r"^(?:(?:OFFSHORE[ -]+)?(?:OIL[ -]+|GAS[ -]+)?PLATFORM|"
     r"(?:DRILLING[ -]+)?RIG)(?:\b|[- #])", re.I,
 )
+# An AIS Aid-to-Navigation can be named "Q13A-A PLATFORM", rather than
+# beginning with PLATFORM. Only match this suffix on fixed/AtoN evidence.
+_PLATFORM_AID_WORD_RE = re.compile(r"\bPLATFORM\b", re.I)
+_RPA_NAME_RE = re.compile(r"^RPA[ -]?\d{1,2}(?:$|[\s./-])", re.I)
+# RPA12 (MMSI 244050469): published by Binnenvaart.eu and Maritime Journal.
+# Only used for clearly marked 3D rendering when AIS dimensions are missing.
+_RPA12_MMSI = "244050469"
+_RPA12_LENGTH_M = 28.78
+_RPA12_BEAM_M = 8.20
 _POLICE_NAME_RE = re.compile(r"\b(?:WATERPOLITIE|POLITIE|POLICE)\b", re.I)
 _POLICE_P_NUMBER_RE = re.compile(r"^P[ -]?\d{1,2}(?:$|[ -])", re.I)
 # MSTX 12, MSTX12, MSTX-13 are local high-speed water taxis.
@@ -71,6 +80,11 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
     is_station = shipclass in (11, 12)
     is_aton_mmsi = str(mmsi or "").startswith("99")
     fixed_evidence = is_station or is_aton_mmsi
+    # Port of Rotterdam Authority (RPA) patrol craft are NOT water police.
+    # Keep them distinct and draw their own blue/yellow 3D deck profile.
+    if not fixed_evidence and (_RPA_NAME_RE.match(label)
+                               or _RPA_NAME_RE.match(callsign)):
+        return "port_authority"
     # A real ship's reported type takes priority over suggestive short names.
     if shiptype == 55 and not is_station:
         return "police"
@@ -93,7 +107,8 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
     if fixed_evidence and _WTG_NAME_RE.search(label):
         return "offshore_wtg"
     if fixed_evidence and (_PLATFORM_CODE_RE.fullmatch(label)
-                           or _PLATFORM_NAME_RE.match(label)):
+                           or _PLATFORM_NAME_RE.match(label)
+                           or _PLATFORM_AID_WORD_RE.search(label)):
         return "offshore_platform"
     status = str(nav_status or "").strip()
     # PLATFORM P15 C is an actual offshore installation reporting AIS
@@ -225,6 +240,25 @@ def vessels(payload: Any) -> list[dict]:
             destination=destination or "")
         if profile.startswith("offshore_"):
             has_hull = False
+        # Published real RPA12 dimensions (28.78 x 8.20 m) are safe to use
+        # for an illustrative hull *only* with the matching MMSI AND name.
+        # This is not an AIS antenna offset: centre the published hull on
+        # the AIS-reported position; do not invent a measured AIS geometry.
+        hull_geometry_source = "AIS dimensions"
+        hull_bearing_approximate = False
+        if (profile == "port_authority" and mmsi == _RPA12_MMSI
+                and _RPA_NAME_RE.match(name) and not has_hull):
+            if hull_heading is None and course is not None:
+                hull_heading = course
+                hull_bearing_approximate = True
+            if hull_heading is not None:
+                if to_bow is None:
+                    to_bow = to_stern = _RPA12_LENGTH_M / 2
+                    to_port = to_starboard = _RPA12_BEAM_M / 2
+                    length = _RPA12_LENGTH_M
+                    beam = _RPA12_BEAM_M
+                    hull_geometry_source = "Published dimensions; approximate AIS position offset"
+                has_hull = True
         selected.append({
             "type": "ais", "id": mmsi, "name": name,
             "render_profile": profile,
@@ -238,6 +272,8 @@ def vessels(payload: Any) -> list[dict]:
             "to_bow": to_bow, "to_stern": to_stern,
             "to_port": to_port, "to_starboard": to_starboard,
             "hull_available": has_hull,
+            "hull_geometry_source": hull_geometry_source if has_hull else None,
+            "hull_bearing_approximate": hull_bearing_approximate,
             "length_m": round(length, 1) if length is not None else None,
             "shipclass": normalized_class,
             "shiptype": normalized_type,

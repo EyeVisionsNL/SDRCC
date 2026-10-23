@@ -16,6 +16,12 @@ class TrafficMapTests(unittest.TestCase):
             ("P15-A", None, 12, "offshore_platform"),
             ("K14", None, 11, "offshore_platform"),
             ("OFFSHORE PLATFORM P15", None, 12, "offshore_platform"),
+            ("Q13A-A PLATFORM", 0, 12, "offshore_platform"),
+            ("Q13A-A PLATFORM", 0, None, "vessel"),
+            ("Q13A-A PLATFORM", 55, 5, "police"),
+            ("PLATFORM SUPPLY", 70, 2, "cargo"),
+            ("RPA12", None, None, "port_authority"),
+            ("RPA 10", 55, 5, "port_authority"),
             ("P1", None, None, "vessel"),
             ("P15", None, None, "vessel"),
             ("P15", 55, 5, "police"),
@@ -46,6 +52,54 @@ class TrafficMapTests(unittest.TestCase):
         self.assertFalse(items[0]["hull_available"])
         self.assertFalse(items[1]["hull_available"])
         self.assertTrue(items[2]["hull_available"])
+
+    def test_q13a_a_platform_mmsi_aton_without_heading(self):
+        ship=traffic_map.vessels({"ships":[{
+            "mmsi":"992456974","shipname":"Q13A-A PLATFORM",
+            "shipclass":12,"shiptype":0,"status":15,
+            "lat":52.19112,"lon":4.13618,"last_signal":855,
+        }]})[0]
+        self.assertEqual(ship["render_profile"],"offshore_platform")
+        self.assertTrue(ship["is_offshore_structure"])
+        self.assertFalse(ship["hull_available"])
+
+    def test_rpa12_reference_dimensions_and_identity_protection(self):
+        ship=traffic_map.vessels({"ships":[{
+            "mmsi":"244050469","shipname":"RPA12","shipclass":5,
+            "shiptype":99,"lat":51.93,"lon":4.34,"cog":186.3,
+            "speed":4.5, "last_signal":10,
+        }]})[0]
+        self.assertEqual(ship["render_profile"],"port_authority")
+        self.assertTrue(ship["hull_available"])
+        self.assertEqual(ship["length_m"],28.8)
+        self.assertEqual(ship["beam_m"],8.20)
+        self.assertAlmostEqual(ship["hull_heading"],186.3)
+        self.assertEqual(ship["hull_geometry_source"],
+                         "Published dimensions; approximate AIS position offset")
+        self.assertTrue(ship["hull_bearing_approximate"])
+        self.assertAlmostEqual(ship["to_bow"],14.39)
+        self.assertAlmostEqual(ship["to_stern"],14.39)
+        other=traffic_map.vessels({"ships":[{
+            "mmsi":"244050468","shipname":"RPA12","shipclass":5,
+            "shiptype":99,"lat":51.93,"lon":4.34,"cog":186.3,
+            "speed":4.5,
+        }]})[0]
+        self.assertEqual(other["render_profile"],"port_authority")
+        self.assertFalse(other["hull_available"])
+        self.assertIsNone(other["hull_geometry_source"])
+        no_course=traffic_map.vessels({"ships":[{
+            "mmsi":"244050469","shipname":"RPA 12","shipclass":5,
+            "shiptype":99,"lat":51.93,"lon":4.34,"speed":0,
+        }]})[0]
+        self.assertFalse(no_course["hull_available"])
+        with_ais=traffic_map.vessels({"ships":[{
+            "mmsi":"244050469","shipname":"RPA12","shipclass":5,
+            "shiptype":55,"lat":51.93,"lon":4.34,"heading":85,
+            "to_bow":20,"to_stern":8,"to_port":4,"to_starboard":4,
+        }]})[0]
+        self.assertTrue(with_ais["hull_available"])
+        self.assertEqual(with_ais["hull_geometry_source"],"AIS dimensions")
+        self.assertEqual(with_ais["length_m"],28)
 
     def test_platform_p15_c_real_ais_type_99_snapshot(self):
         # Screenshot from AIS-Catcher, 2026-10-23: P15 C is type 99 Other,

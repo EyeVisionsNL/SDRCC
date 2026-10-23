@@ -141,7 +141,7 @@ class FakeMap {
     const data = {
         ok: true, center: [4.28, 51.93],
         station: {name:"EyeVisions Home", lon:4.28, lat:51.93, altitude_m:12},
-        ais: {available: true, source_count: 10, count: 10, unverified_count: 1,
+        ais: {available: true, source_count: 12, count: 12, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
                     lon:4.3, lat:51.9, course:132, hull_heading:134, speed_knots:6,
@@ -176,6 +176,16 @@ class FakeMap {
                     course:75,hull_heading:75,speed_knots:13.4,
                     length_m:10,beam_m:3.6,to_bow:7,to_stern:3,
                     to_port:1.8,to_starboard:1.8,hull_available:true},
+                {type:"ais",id:"992456974",name:"Q13A-A PLATFORM",
+                    lon:4.13618,lat:52.19112,render_profile:"offshore_platform",
+                    is_offshore_structure:true,shipclass:12,shiptype:0},
+                {type:"ais",id:"244050469",name:"RPA12",
+                    lon:4.34,lat:51.93,render_profile:"port_authority",
+                    shipclass:5,shiptype:99,course:186.3,hull_heading:186.3,
+                    speed_knots:4.5,length_m:28.8,beam_m:8.2,
+                    to_bow:14.39,to_stern:14.39,to_port:4.1,to_starboard:4.1,
+                    hull_available:true,hull_bearing_approximate:true,
+                    hull_geometry_source:"Published dimensions; approximate AIS position offset"},
             ]},
         adsb: {available: true, source_count: 1, count: 1, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
@@ -289,7 +299,15 @@ class FakeMap {
     }
     const boats = instance.sources["sdrcc-ais"].data.features;
     const planes = instance.sources["sdrcc-adsb"].data.features;
-    assert.equal(boats.length, 10);
+    assert.equal(boats.length, 12);
+    assert.equal(boats[10].properties.icon_name,"sdrcc-offshore-platform");
+    assert.equal(boats[10].properties.hull_available,false);
+    assert.equal(boats[11].properties.render_profile,"port_authority");
+    assert.equal(boats[11].properties.icon_name,"sdrcc-ship-5-moving");
+    assert.equal(boats[11].properties.hull_available,true);
+    assert.equal(boats[11].properties.hull_geometry_source,
+                 "Published dimensions; approximate AIS position offset");
+    assert.equal(boats[11].properties.hull_bearing_approximate,true);
     assert.equal(boats[9].properties.render_profile,"krve");
     assert.equal(boats[9].properties.icon_name,"sdrcc-ship-7-moving",
         "KRVE must retain the normal HSC symbol while zoomed out");
@@ -309,8 +327,8 @@ class FakeMap {
     assert.equal(boats[6].properties.icon_name,"sdrcc-ship-5-still");
     assert.equal(boats[6].properties.hull_available,true);
     assert.equal(boats[3].properties.icon_name,"sdrcc-offshore-wtg");
-    assert.equal(boats[3].properties.icon_scale,1.45,
-        "WTG needs its own enlarged icon scale");
+    assert.equal(boats[3].properties.icon_scale,0.78,
+        "WTG should be reduced to a similar size as offshore platform icons");
     assert.equal(boats[4].properties.icon_scale,0.9,
         "offshore platforms should have 20% larger icons");
     assert.equal(boats[4].properties.icon_name,"sdrcc-offshore-platform");
@@ -331,19 +349,26 @@ class FakeMap {
     assert.equal(planes[0].properties.course, 212);
 
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
-    assert.equal(polygons.length, 6,
-        "tanker, cargo, tug, police, MSTX and short KRVE need 3D hulls");
+    assert.equal(polygons.length, 7,
+        "tanker, cargo, tug, police, MSTX, KRVE and RPA12 need 3D hulls");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
-    assert.equal(decks.length,31,
-        "7 tanker, 4 cargo, 2 tug, 4 police, 6 MSTX and 8 KRVE details expected");
+    assert.equal(decks.length,38,
+        "7 tanker, 4 cargo, 2 tug, 4 police, 6 MSTX, 8 KRVE and 7 RPA details expected");
     for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap","tug-wheelhouse","tug-winch",
                        "police-cabin","police-stripe","police-lightbar",
                        "watertaxi-cabin","watertaxi-roof","watertaxi-stripe","watertaxi-window",
                        "krve-workdeck","krve-cabin","krve-roof","krve-fender",
-                       "krve-windows","krve-mooring-gear"])
+                       "krve-windows","krve-mooring-gear","rpa-cabin","rpa-roof",
+                       "rpa-yellow-stripe","rpa-windows","rpa-fire-monitor"])
         assert(decks.some(f=>f.properties.part===part), "missing deck part "+part);
     assert(decks.every(f=>["123456789","244123999","244555000",
-        "244600015","244020742","244456065"].includes(f.properties.id)));
+        "244600015","244020742","244456065","244050469"].includes(f.properties.id)));
+    const rpaDetails=decks.filter(f=>f.properties.id==="244050469");
+    assert.equal(rpaDetails.length,7);
+    assert(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"]
+        .includes("#1d4c79"),"RPA hull must be navy blue");
+    assert(instance.layers["sdrcc-ais-hull-decks"].paint["fill-extrusion-color"]
+        .includes("#f7d438"),"RPA needs bright yellow flank stripes");
     const krveParts=decks.filter(f=>f.properties.id==="244456065");
     assert.equal(krveParts.length,8,"KRVE has a cabin, roof, yellow fenders, windows and working deck");
     const krveRoof=krveParts.find(f=>f.properties.part==="krve-roof");
@@ -420,9 +445,9 @@ class FakeMap {
     assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
-    assert.equal(node("count-ais").textContent, 10);
+    assert.equal(node("count-ais").textContent, 12);
     assert.equal(node("count-adsb").textContent, 1);
-    assert.equal(node("legend-mini-status").textContent, "AIS 10 · ADS-B 1",
+    assert.equal(node("legend-mini-status").textContent, "AIS 12 · ADS-B 1",
         "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];

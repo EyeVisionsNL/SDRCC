@@ -114,7 +114,7 @@
         const length = bow + stern, beam = port + starboard;
         if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
                 || length < (["watertaxi","krve"].includes(ship.render_profile) ? 5
-                    : ["tug","police"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
+                    : ["tug","police","port_authority"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -155,6 +155,8 @@
                     length_m: ship.length_m,
                     shipclass: ship.shipclass,
                     render_profile: ship.render_profile || "vessel",
+                    hull_geometry_source: ship.hull_geometry_source || "",
+                    hull_bearing_approximate: ship.hull_bearing_approximate === true,
                     validation_state: ship.validation_state || "unknown",
                     position_stale: ship.position_stale === true,
                     course: ship.course,
@@ -182,7 +184,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "tug", "police", "watertaxi", "krve"].includes(profile)) continue;
+            if (!["tanker", "cargo", "tug", "police", "watertaxi", "krve", "port_authority"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -191,7 +193,7 @@
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
             if (length < (["watertaxi","krve"].includes(profile) ? 5
-                    : ["tug","police"].includes(profile) ? 12 : 30) || beam < 2) continue;
+                    : ["tug","police","port_authority"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
@@ -256,6 +258,27 @@
                     -port*.67,starboard*.67,"tug-wheelhouse",4.8);
                 add(-stern+length*.12,-stern+length*.28,
                     -port*.4,starboard*.4,"tug-winch",1.65);
+                continue;
+            }
+            if (profile === "port_authority") {
+                // Port of Rotterdam blue/yellow inspection and fire/rescue craft.
+                // 3D geometry illustrates its appearance, not AIS deck measurements.
+                const from=-stern+length*.28, to=-stern+length*.66;
+                add(from,to,-port*.70,starboard*.70,"rpa-cabin",3.2);
+                add(from+length*.02,to-length*.02,
+                    -port*.72,starboard*.72,"rpa-roof",.25,3.2);
+                for(const side of [-1,1]){
+                    const stripeNear=side<0?-port*.96:starboard*.82;
+                    const stripeFar=side<0?-port*.82:starboard*.96;
+                    add(-stern+length*.1,-stern+length*.88,
+                        stripeNear,stripeFar,"rpa-yellow-stripe",.48);
+                    const glassNear=side<0?-port*.74:starboard*.62;
+                    const glassFar=side<0?-port*.62:starboard*.74;
+                    add(from+length*.03,to-length*.03,
+                        glassNear,glassFar,"rpa-windows",.55,.65);
+                }
+                add(from+length*.23,from+length*.31,
+                    -port*.19,starboard*.19,"rpa-fire-monitor",.9,3.2);
                 continue;
             }
             if (profile === "police") {
@@ -342,6 +365,8 @@
             beam_m: item.beam_m,
             draught_m: item.draught_m,
             heading: item.heading,
+            hull_geometry_source: item.hull_geometry_source || "",
+            hull_bearing_approximate: item.hull_bearing_approximate === true,
             icon_name: iconName,
             render_profile: profile,
             is_offshore_structure: offshore,
@@ -351,7 +376,7 @@
             length_m: Number.isFinite(item.length_m) ? item.length_m : null,
             // Enlarge turbines ~2x at every map zoom without changing ship sizes.
             icon_scale: isAIS
-                ? (profile === "offshore_wtg" ? 1.45
+                ? (profile === "offshore_wtg" ? 0.78
                     : profile === "offshore_platform" ? 0.9
                     : iconScale(item.length_m))
                 : 1,
@@ -502,6 +527,10 @@
             else if (props.render_profile === "police") add("3D deck", "Police patrol cabin / blue markings (illustrative)");
             else if (props.render_profile === "watertaxi") add("3D deck", "Black/yellow MSTX fast water taxi (illustrative)");
             else if (props.render_profile === "krve") add("3D deck", "KRVE mooring / pilot-transport craft (illustrative)");
+            else if (props.render_profile === "port_authority") add("3D deck", "Rotterdam Port Authority patrol / rescue boat (illustrative)");
+            if (props.hull_geometry_source && props.hull_geometry_source !== "AIS dimensions")
+                add("3D hull data", props.hull_geometry_source);
+            if (props.hull_bearing_approximate) add("3D orientation", "Based on AIS course; may differ from true heading");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
@@ -763,6 +792,7 @@
                     ["==", ["get", "render_profile"], "police"], "#153f6b",
                     ["==", ["get", "render_profile"], "watertaxi"], "#11161c",
                     ["==", ["get", "render_profile"], "krve"], "#20272e",
+                    ["==", ["get", "render_profile"], "port_authority"], "#1d4c79",
                     "#1b3243"],
                 // Illustrative depth only: actual ship height is not present in AIS.
                 "fill-extrusion-height": ["get", "display_height_m"],
@@ -788,6 +818,9 @@
                     "krve-workdeck","#333941","krve-cabin","#e8eef1",
                     "krve-roof","#ee9c19","krve-fender","#f8bf1e",
                     "krve-windows","#38677b","krve-mooring-gear","#414953",
+                    "rpa-cabin","#f4df4c","rpa-roof","#ffcc24",
+                    "rpa-yellow-stripe","#f7d438","rpa-windows","#39748d",
+                    "rpa-fire-monitor","#c8d5da",
                     "#8195a8"],
                 "fill-extrusion-base":["get","base_height_m"],
                 "fill-extrusion-height":["get","top_height_m"],
