@@ -46,6 +46,8 @@
     let latestShips = [];
     let emergencyTargets = [];
     let atisTarget = null;
+    let previouslyDrawnEmergency = 0;
+    let previouslyDrawnAtis = 0;
 
     const validTargets = (rows, kind) => {
         if (!Array.isArray(rows)) return [];
@@ -689,6 +691,15 @@
     function tickHighlights() {
         if (!loaded) return;
         const now = Date.now();
+        const emergencyActive = emergencyTargets.some(row => now < row.expiresAt);
+        const atisActive = atisTarget && now < atisTarget.expiresAt;
+        // Avoid re-uploading empty GeoJSON or repainting an idle map every 650 ms.
+        if (!emergencyActive && !atisActive
+                && !previouslyDrawnEmergency && !previouslyDrawnAtis) {
+            el("emergency-status").textContent = "None active";
+            el("atis-status").textContent = "No active match";
+            return;
+        }
         const shipsByMmsi = new Map(latestShips.map(ship => [String(ship.id), ship]));
         const points = (rows, category) => rows.filter(row => now < row.expiresAt)
             .filter(row => /^\d{9}$/.test(row.mmsi))
@@ -703,6 +714,8 @@
             });
         const emergencies = points(emergencyTargets, "emergency");
         const atis = points(atisTarget ? [atisTarget] : [], "atis");
+        previouslyDrawnEmergency = emergencies.length;
+        previouslyDrawnAtis = atis.length;
         map.getSource("sdrcc-emergency").setData({type:"FeatureCollection",features:emergencies});
         map.getSource("sdrcc-atis").setData({type:"FeatureCollection",features:atis});
         el("emergency-status").textContent = emergencies.length
@@ -711,8 +724,12 @@
             ? "ATIS matched" : "No active match";
         // Subtle pulse, matching AIS-Catcher emergency and ATIS colours.
         const phase = (Math.sin(now / 1350 * Math.PI * 2) + 1) / 2;
-        map.setPaintProperty("sdrcc-emergency-ring","circle-radius", 11 + phase * 6);
-        map.setPaintProperty("sdrcc-atis-ring","circle-radius", 12 + phase * 6);
+        if (emergencies.length && el("layer-emergency").checked) {
+            map.setPaintProperty("sdrcc-emergency-ring","circle-radius", 11 + phase * 6);
+        }
+        if (atis.length && el("layer-atis").checked) {
+            map.setPaintProperty("sdrcc-atis-ring","circle-radius", 12 + phase * 6);
+        }
     }
     async function refreshHighlights() {
         if (overlayBusy || document.hidden) return;
