@@ -53,7 +53,8 @@ TRACK_ALL_TOTAL_POINTS = 45000
 
 def display_profile(name: str, shiptype: int | None, shipclass: int | None,
                     nav_status: Any = None, *, mmsi: str = "",
-                    callsign: str = "") -> str:
+                    callsign: str = "", speed_knots: float | None = None,
+                    destination: str = "") -> str:
     """Conservative AIS-based display hint; never changes alerts or AIS records.
 
     AIS-Catcher: class 11 = base station, class 12 = Aid-to-Navigation.
@@ -81,8 +82,16 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
     if fixed_evidence and (_PLATFORM_CODE_RE.fullmatch(label)
                            or _PLATFORM_NAME_RE.match(label)):
         return "offshore_platform"
-    # No moving vessel may be interpreted as a fixed installation by name.
     status = str(nav_status or "").strip()
+    # PLATFORM P15 C is an actual offshore installation reporting AIS
+    # shiptype 99 (Other), MMSI 245453000, navstatus 6 and zero speed.
+    # Do not classify vessel names like P15 or underway police boats here.
+    steady_object = "STEADY OBJECT" in str(destination or "").upper()
+    if (_PLATFORM_NAME_RE.match(label) and shiptype == 99
+            and speed_knots is not None and 0 <= speed_knots <= 0.5
+            and (status in ("5", "6") or steady_object)):
+        return "offshore_platform"
+    # No moving vessel may be interpreted as a fixed installation by name.
     if (shiptype in (31, 32, 52) or _TUG_NAME_RE.search(label)
             or status in ("11", "12") or _TUG_STATUS_RE.search(status)):
         return "tug"
@@ -196,8 +205,11 @@ def vessels(payload: Any) -> list[dict]:
         normalized_class = int(shipclass) if shipclass is not None and 0 <= shipclass <= 13 else None
         nav_status = _label(item, ("status","nav_status","navigation_status"), 40)
         callsign = _label(item, ("callsign",), 24)
-        profile = display_profile(name, normalized_type, normalized_class, nav_status,
-                                  mmsi=mmsi, callsign=callsign)
+        destination = _label(item, ("destination",), 90)
+        profile = display_profile(
+            name, normalized_type, normalized_class, nav_status,
+            mmsi=mmsi, callsign=callsign, speed_knots=speed,
+            destination=destination or "")
         if profile.startswith("offshore_"):
             has_hull = False
         selected.append({
@@ -218,7 +230,7 @@ def vessels(payload: Any) -> list[dict]:
             "shiptype": normalized_type,
             "imo": _label(item, ("imo",), 15),
             "eni": _label(item, ("eni",), 15),
-            "destination": _label(item, ("destination",), 90),
+            "destination": destination,
             "country": _label(item, ("country",), 45),
             "nav_status": nav_status,
             "beam_m": round(beam, 1) if beam is not None else None,
