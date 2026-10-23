@@ -252,6 +252,8 @@ def vessels(payload: Any) -> list[dict]:
                 hull_heading = course
                 hull_bearing_approximate = True
             if hull_heading is not None:
+                if heading is None:
+                    hull_bearing_approximate = True
                 if to_bow is None:
                     to_bow = to_stern = _RPA12_LENGTH_M / 2
                     to_port = to_starboard = _RPA12_BEAM_M / 2
