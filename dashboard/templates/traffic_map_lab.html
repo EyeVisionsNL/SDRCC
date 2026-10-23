@@ -85,7 +85,7 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
           <div class="section-title">Live traffic layers</div>
           <div class="row"><label><input id="layer-ais" type="checkbox" checked><span><i class="dot ais"></i> AIS vessels</span></label><span id="count-ais" class="count">—</span></div>
           <div class="row"><label><input id="layer-adsb" type="checkbox" checked><span><i class="dot adsb"></i> ADS-B aircraft</span></label><span id="count-adsb" class="count">—</span></div>
-          <div class="row"><label><input id="layer-tracks" type="checkbox"> AIS track · selected ship</label><span id="track-status" class="muted">Off</span></div>
+          <div class="row"><label><input id="layer-tracks" type="checkbox"> AIS tracks · all vessels</label><span id="track-status" class="muted">Off</span></div>
           <div class="row"><label><input id="show-names" type="checkbox" checked> Show vessel / aircraft names</label></div>
           <div class="row"><label><input id="layer-station" type="checkbox" checked><span style="color:#fbbf56">◎</span> My SDRCC station</label><span id="station-status" class="muted">Loading…</span></div>
           <div class="row"><label><input id="layer-vts" type="checkbox" checked> Rijnmond VTS sectors</label><span id="vts-status" class="muted">Loading…</span></div>
@@ -98,8 +98,8 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
           <details class="legend-more">
             <summary>Colours &amp; information</summary>
             <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. Faded: historical AIS position. <i class="dot adsb"></i> Aircraft.</p>
-            <p class="muted">WTG: turquoise turbine symbol. Offshore platforms such as P15: amber platform symbol. Tugs have an orange symbol and in 3D a raised wheelhouse and towing winch. Tankers show pipes and cargo ships show hatch covers. Deck details are illustrative.</p>
-            <p class="muted">Tracks: enable the checkbox and click a vessel. The real AIS-Catcher track from up to the last hour is drawn. No estimated points or offshore-structure tracks; availability depends on AIS-Catcher's retained history.</p>
+            <p class="muted">WTG: turquoise turbine symbol. Offshore platforms such as P15: amber platform symbol. Tugs keep their normal AIS-class symbol at low zoom and receive a raised wheelhouse and towing winch only in close-up 3D. Tankers show pipes and cargo ships show hatch covers. Deck details are illustrative.</p>
+            <p class="muted">Tracks: switch on to display received AIS-Catcher routes for all vessels currently on the map (up to the past hour). No estimated positions or fixed offshore-structure tracks; availability depends on AIS-Catcher's retained history.</p>
             <p class="muted">White rings: KNRM; blue rings: Water police; green rings: fresh verified ATIS/AIS matches. These indicators never control the SDR or move the map.</p>
             <p class="muted">Read-only positions from AIS-Catcher and readsb. VTS polygons come from the installed Rijnmond sector layer. Map Lab never starts or claims SDR receivers.</p>
           </details>
