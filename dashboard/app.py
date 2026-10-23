@@ -2616,8 +2616,12 @@ def api_traffic_map_lab():
 
 @app.route("/api/map-lab/ais-tracks")
 def api_traffic_map_all_ais_tracks():
-    """Read-only AIS-Catcher historical paths of displayed vessels."""
-    return jsonify(traffic_map_core.all_tracks_snapshot())
+    """Read-only AIS-Catcher paths, clipped to a bounded 1–60 minute interval."""
+    try:
+        minutes = int(request.args.get("minutes", "15"))
+    except (TypeError, ValueError):
+        minutes = 15
+    return jsonify(traffic_map_core.all_tracks_snapshot(minutes=max(1, min(60, minutes))))
 
 
 @app.route("/api/map-lab/ais-track/<mmsi>")

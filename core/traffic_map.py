@@ -251,13 +251,15 @@ def aircraft(payload: Any) -> list[dict]:
     return selected
 
 
-def all_tracks_snapshot() -> dict:
+def all_tracks_snapshot(minutes: int = 15) -> dict:
     """Read and bound genuine historical paths for all currently displayed ships.
 
     The AIS-Catcher endpoint is read-only and tracks are shown only for vessels
     present in our AIS map snapshot. Named fixed installations never get trails.
     Gaps and implausible jumps are split rather than joined by false segments.
     """
+    # 1–60 minutes, bounded even when called outside the Flask route.
+    window_seconds = max(60, min(TRACK_WINDOW_SECONDS, int(minutes) * 60))
     empty = {"type": "FeatureCollection", "features": []}
     payload, _ = receiver_monitor._read_json_url(TRACK_ALL_URLS, timeout=1.0)
     if not isinstance(payload, dict) or payload.get("type") != "FeatureCollection":
@@ -300,7 +302,7 @@ def all_tracks_snapshot() -> dict:
             lon, lat, stamp = _num(point[0]), _num(point[1]), _num(ts)
             if (lon is None or lat is None or stamp is None
                     or not -180 <= lon <= 180 or not -90 <= lat <= 90
-                    or not now - TRACK_WINDOW_SECONDS <= stamp <= now + 60):
+                    or not now - window_seconds <= stamp <= now + 60):
                 continue
             samples.append((stamp, [round(lon, 6), round(lat, 6)]))
         samples.sort(key=lambda v: v[0])

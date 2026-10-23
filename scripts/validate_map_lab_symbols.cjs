@@ -37,11 +37,13 @@ assert(markup.includes('.map-legend:not([open])'), "legend must be compact when 
 assert(markup.includes('.legend-content{max-height:') === false ||
        markup.includes('.legend-content{padding:'), "expanded legend must scroll");
 for (const id of ["layer-ais","layer-adsb","layer-station","layer-vts",
-                  "layer-emergency","layer-atis","layer-tracks","track-status","show-names","feed-status"]) {
+                  "layer-emergency","layer-atis","layer-tracks","track-status","track-duration","track-duration-value","show-names","feed-status"]) {
     assert(markup.includes('id="' + id + '"'), "missing existing control " + id);
 }
 const esm = 'await import("https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs")';
 assert(source.includes(esm), "MapLibre 6 import unexpectedly changed");
+assert(markup.includes('id="track-duration" type="range" min="1" max="60" step="1" value="15"'),
+    "AIS track duration must be adjustable from 1 to 60 minutes");
 
 const nodes = {};
 const node = id => nodes[id] ||= {
@@ -186,7 +188,9 @@ class FakeMap {
                 4.25,51.88],[4.30,51.88],[4.30,51.90],[4.25,51.88]]]},
         }]},
     };
-    const stored = new Map([["sdrcc.mapLab.legendOpen", "1"]]);
+    const stored = new Map([["sdrcc.mapLab.legendOpen", "1"],
+        ["sdrcc.mapLab.trackMinutes", "7"]]);
+    let lastTrackUrl = "";
     const fakeWindow = {
         localStorage: {
             getItem(key) { return stored.get(key) ?? null; },
@@ -199,11 +203,13 @@ class FakeMap {
     const patched = source.replace(esm, "await Promise.resolve(window.__maplibreMock)");
     vm.runInNewContext(patched, {
         document, window: fakeWindow, setInterval() {},
-        fetch: async url => url === "/api/map-lab/vts-sectors"
+        fetch: async url => {
+            if (url.startsWith("/api/map-lab/ais-tracks?")) lastTrackUrl = url;
+            return url === "/api/map-lab/vts-sectors"
             ? {ok:true, json:async () => vts}
             : url === "/api/map-lab/highlights"
             ? {ok:true, json:async () => highlights}
-            : url === "/api/map-lab/ais-tracks"
+            : url.startsWith("/api/map-lab/ais-tracks?minutes=")
             ? {ok:true, json:async () => ({
                 ok:true,available:true,track_count:2,point_count:5,
                 geojson:{type:"FeatureCollection",features:[
@@ -219,7 +225,8 @@ class FakeMap {
                 source_url:"https://www.planespotters.net/photo/123",
                 photographer:"Example Photographer", source:"Planespotters.net",
             })}
-            : {ok:true, json:async () => data},
+            : {ok:true, json:async () => data};
+        },
     });
     await new Promise(resolve => setImmediate(resolve));
     assert(instance, "map must be constructed");
@@ -228,6 +235,8 @@ class FakeMap {
     node("map-lab-legend").listeners.toggle();
     assert.equal(stored.get("sdrcc.mapLab.legendOpen"), "0",
         "collapsing the legend must be persisted");
+    assert.equal(node("track-duration").value, "7", "saved track duration ignored");
+    assert.equal(node("track-duration-value").textContent, "7 min");
     instance.callbacks.load();
     await new Promise(resolve => setImmediate(resolve));
 
@@ -399,7 +408,19 @@ class FakeMap {
     for(let i=0;i<8;i++) await Promise.resolve();
     assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,2);
     assert(node("track-status").textContent.includes("2 vessel tracks"));
+    assert.equal(lastTrackUrl, "/api/map-lab/ais-tracks?minutes=7");
     assert.equal(instance.layers["sdrcc-ais-track"].paint["line-color"][0],"match");
+    node("track-duration").value = "1";
+    node("track-duration").listeners.input();
+    assert.equal(node("track-duration-value").textContent, "1 min");
+    node("track-duration").listeners.change();
+    for (let i=0;i<8;i++) await Promise.resolve();
+    assert.equal(stored.get("sdrcc.mapLab.trackMinutes"), "1");
+    assert.equal(lastTrackUrl, "/api/map-lab/ais-tracks?minutes=1");
+    node("track-duration").value = "60";
+    node("track-duration").listeners.change();
+    for (let i=0;i<8;i++) await Promise.resolve();
+    assert.equal(lastTrackUrl, "/api/map-lab/ais-tracks?minutes=60");
     node("show-names").checked = false;
     node("show-names").listeners.change();
     assert(instance.layoutChanges.some(change =>

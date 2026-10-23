@@ -37,6 +37,10 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
 .legend-content .row{margin:7px 0}
 .legend-content .row .muted{max-width:105px}
 .legend-content .muted{font-size:.77rem}
+.track-duration-control{display:flex;align-items:center;gap:8px;margin:5px 0 9px;color:#b7d5e7;font-size:.78rem}
+.track-duration-control label{white-space:nowrap}
+.track-duration-control input[type="range"]{flex:1;min-width:70px;width:auto;height:auto;margin:0;cursor:pointer;accent-color:#39bfea}
+.track-duration-control output{min-width:43px;text-align:right;color:#eaf4fd;font-variant-numeric:tabular-nums}
 .legend-status{padding-top:7px;border-top:1px solid #32556d;margin-top:9px}
 .legend-status p{margin:5px 0}
 .legend-more{border-top:1px solid #31536a;margin-top:9px;padding-top:5px}
@@ -86,6 +90,7 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
           <div class="row"><label><input id="layer-ais" type="checkbox" checked><span><i class="dot ais"></i> AIS vessels</span></label><span id="count-ais" class="count">—</span></div>
           <div class="row"><label><input id="layer-adsb" type="checkbox" checked><span><i class="dot adsb"></i> ADS-B aircraft</span></label><span id="count-adsb" class="count">—</span></div>
           <div class="row"><label><input id="layer-tracks" type="checkbox"> AIS tracks · all vessels</label><span id="track-status" class="muted">Off</span></div>
+          <div class="track-duration-control"><label for="track-duration">Track length</label><input id="track-duration" type="range" min="1" max="60" step="1" value="15" aria-label="AIS track length in minutes"><output id="track-duration-value" for="track-duration">15 min</output></div>
           <div class="row"><label><input id="show-names" type="checkbox" checked> Show vessel / aircraft names</label></div>
           <div class="row"><label><input id="layer-station" type="checkbox" checked><span style="color:#fbbf56">◎</span> My SDRCC station</label><span id="station-status" class="muted">Loading…</span></div>
           <div class="row"><label><input id="layer-vts" type="checkbox" checked> Rijnmond VTS sectors</label><span id="vts-status" class="muted">Loading…</span></div>
@@ -99,7 +104,7 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
             <summary>Colours &amp; information</summary>
             <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. Faded: historical AIS position. <i class="dot adsb"></i> Aircraft.</p>
             <p class="muted">WTG: turquoise turbine symbol. Offshore platforms such as P15: amber platform symbol. Tugs keep their normal AIS-class symbol at low zoom and receive a raised wheelhouse and towing winch only in close-up 3D. Tankers show pipes and cargo ships show hatch covers. Deck details are illustrative.</p>
-            <p class="muted">Tracks: switch on to display received AIS-Catcher routes for all vessels currently on the map (up to the past hour). No estimated positions or fixed offshore-structure tracks; availability depends on AIS-Catcher's retained history.</p>
+            <p class="muted">Tracks: switch on to display received AIS-Catcher routes for all vessels currently on the map. Adjust the history from 1 to 60 minutes (default 15); the setting is remembered. No estimated positions or fixed offshore-structure tracks; availability depends on AIS-Catcher's retained history.</p>
             <p class="muted">White rings: KNRM; blue rings: Water police; green rings: fresh verified ATIS/AIS matches. These indicators never control the SDR or move the map.</p>
             <p class="muted">Read-only positions from AIS-Catcher and readsb. VTS polygons come from the installed Rijnmond sector layer. Map Lab never starts or claims SDR receivers.</p>
           </details>

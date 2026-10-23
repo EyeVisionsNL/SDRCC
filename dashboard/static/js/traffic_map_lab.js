@@ -2,6 +2,16 @@
 (async () => {
     "use strict";
     const el = id => document.getElementById(id);
+    // Preserve the selected AIS track window independently of the legend.
+    const trackMinutesKey = "sdrcc.mapLab.trackMinutes";
+    let trackMinutes = 15;
+    try {
+        const stored = Number(window.localStorage.getItem(trackMinutesKey));
+        if (Number.isInteger(stored) && stored >= 1 && stored <= 60)
+            trackMinutes = stored;
+    } catch (_) { /* Local storage is optional. */ }
+    el("track-duration").value = String(trackMinutes);
+    el("track-duration-value").textContent = trackMinutes + " min";
     // Match the existing collapsible Rijnmond VTS legend behaviour:
     // a small default-closed panel that remembers the user's preference.
     const legend = el("map-lab-legend");
@@ -63,6 +73,7 @@
     let trackRequestSequence = 0;
     let lastTrackFetchAt = 0;
     let trackLoading = false;
+    let trackRefreshPending = false;
 
     const validTargets = (rows, kind) => {
         if (!Array.isArray(rows)) return [];
@@ -306,14 +317,19 @@
         map.setLayoutProperty("sdrcc-ais-track", "visibility", show ? "visible" : "none");
     }
     async function loadAllTracks() {
-        if (!loaded || trackLoading || !el("layer-tracks").checked
-                || !el("layer-ais").checked || document.hidden) return;
+        if (trackLoading) {
+            trackRefreshPending = true;
+            return;
+        }
+        if (!loaded || !el("layer-tracks").checked || !el("layer-ais").checked
+                || document.hidden) return;
         const request = ++trackRequestSequence;
         trackLoading = true;
         lastTrackFetchAt = Date.now();
         el("track-status").textContent = "Loading tracks…";
         try {
-            const response = await fetch("/api/map-lab/ais-tracks", {cache:"no-store"});
+            const response = await fetch("/api/map-lab/ais-tracks?minutes=" + trackMinutes,
+                {cache:"no-store"});
             if (!response.ok) throw new Error("Track HTTP " + response.status);
             const data = await response.json();
             if (request !== trackRequestSequence || !el("layer-tracks").checked
@@ -332,6 +348,11 @@
                 el("track-status").textContent = "Tracks temporarily unavailable";
         } finally {
             trackLoading = false;
+            if (trackRefreshPending) {
+                trackRefreshPending = false;
+                if (el("layer-tracks").checked && el("layer-ais").checked)
+                    void loadAllTracks();
+            }
         }
     }
     function addTrackLayer() {
@@ -1156,6 +1177,21 @@
         setLayerVisibility("ais", el("layer-ais").checked);
         setAlertVisibility();
         if (el("layer-ais").checked && el("layer-tracks").checked)
+            void loadAllTracks();
+    });
+    el("track-duration").addEventListener("input", () => {
+        el("track-duration-value").textContent = el("track-duration").value + " min";
+    });
+    el("track-duration").addEventListener("change", () => {
+        const parsed = Number(el("track-duration").value);
+        trackMinutes = Number.isFinite(parsed)
+            ? Math.max(1, Math.min(60, Math.round(parsed))) : 15;
+        el("track-duration").value = String(trackMinutes);
+        el("track-duration-value").textContent = trackMinutes + " min";
+        try { window.localStorage.setItem(trackMinutesKey, String(trackMinutes)); }
+        catch (_) { /* Browser storage may be disabled. */ }
+        trackRequestSequence++;
+        if (loaded && el("layer-tracks").checked && el("layer-ais").checked)
             void loadAllTracks();
     });
     el("layer-tracks").addEventListener("change", () => {

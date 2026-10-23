@@ -166,7 +166,7 @@ class TrafficMapTests(unittest.TestCase):
              patch.object(traffic_map.receiver_monitor, "_read_ais_ships",
                           return_value=(ais,"local")), \
              patch.object(traffic_map.time,"time",return_value=now):
-            result = traffic_map.all_tracks_snapshot()
+            result = traffic_map.all_tracks_snapshot(minutes=60)
         self.assertEqual(result["track_count"], 1)
         self.assertEqual(result["point_count"], 4)
         self.assertEqual(len(result["geojson"]["features"]), 2)
@@ -175,6 +175,29 @@ class TrafficMapTests(unittest.TestCase):
             offline = traffic_map.all_tracks_snapshot()
         self.assertFalse(offline["available"])
         self.assertEqual(offline["track_count"], 0)
+
+    def test_track_duration_minutes_one_fifteen_sixty_and_bounds(self):
+        now = 2000000000
+        offsets = [10, 30, 70, 80, 1600, 1620, 3540, 3550]
+        raw = {"type": "FeatureCollection", "features": [{
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates":
+                         [[4.30 + idx * .001, 51.9] for idx in range(len(offsets))]},
+            "properties": {"mmsi": 244555000,
+                           "timestamps_start": [now - value for value in offsets]},
+        }]}
+        ais = {"ships": [{"mmsi": "244555000", "shipname": "TEST TUG",
+                          "lat": 51.9, "lon": 4.3, "last_signal": 10}]}
+        with patch.object(traffic_map.receiver_monitor, "_read_json_url",
+                          return_value=(raw, "loopback")), \
+             patch.object(traffic_map.receiver_monitor, "_read_ais_ships",
+                          return_value=(ais, "loopback")), \
+             patch.object(traffic_map.time, "time", return_value=now):
+            for minutes, points in [(1, 2), (15, 4), (60, 8), (0, 2), (99, 8)]:
+                with self.subTest(minutes=minutes):
+                    result = traffic_map.all_tracks_snapshot(minutes=minutes)
+                    self.assertEqual(result["track_count"], 1)
+                    self.assertEqual(result["point_count"], points)
 
     def test_vessel_with_no_position_is_not_plotted(self):
         self.assertEqual(traffic_map.vessels({"ships":[{"mmsi":"123456789","lat":51.9}]}), [])
