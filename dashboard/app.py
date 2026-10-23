@@ -2614,6 +2614,12 @@ def api_traffic_map_lab():
     """Read live positions only; never operate receiver hardware."""
     return jsonify(traffic_map_core.snapshot())
 
+@app.route("/api/map-lab/ais-tracks")
+def api_traffic_map_all_ais_tracks():
+    """Read-only AIS-Catcher historical paths of displayed vessels."""
+    return jsonify(traffic_map_core.all_tracks_snapshot())
+
+
 @app.route("/api/map-lab/ais-track/<mmsi>")
 def api_traffic_map_ais_track(mmsi):
     """Selected AIS-Catcher native track; read-only and loopback only."""
