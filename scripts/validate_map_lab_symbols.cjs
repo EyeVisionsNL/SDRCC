@@ -278,6 +278,8 @@ class FakeMap {
     assert.equal(node("station-status").textContent, "Home Position");
     assert.equal(node("vts-status").textContent, "1 RWS sectors");
     // Live Emergency Monitor and ATIS rings overlay the original vessel.
+    // The Map Lab polls its observer endpoint after traffic refresh.
+    for (let i = 0; i < 8; i++) await Promise.resolve();
     assert(instance.layers["sdrcc-emergency-ring"]);
     assert(instance.layers["sdrcc-atis-ring"]);
     assert.deepEqual(JSON.parse(JSON.stringify(
