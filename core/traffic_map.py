@@ -31,6 +31,8 @@ _PLATFORM_NAME_RE = re.compile(
     r"^(?:(?:OFFSHORE[ -]+)?(?:OIL[ -]+|GAS[ -]+)?PLATFORM|"
     r"(?:DRILLING[ -]+)?RIG)(?:\b|[- #])", re.I,
 )
+_POLICE_NAME_RE = re.compile(r"\b(?:WATERPOLITIE|POLITIE|POLICE)\b", re.I)
+_POLICE_P_NUMBER_RE = re.compile(r"^P[ -]?\d{1,2}(?:$|[ -])", re.I)
 # Shiptype 52=tug; 31/32=towing; navstatus 11/12=towing/pushing.
 _TUG_NAME_RE = re.compile(
     r"(?:^|[\s._/-])(?:TUG|TUGBOAT|SLEPER|SLEEPBOOT)(?:$|[\s._/-]|\d)"
@@ -50,13 +52,36 @@ TRACK_ALL_TOTAL_POINTS = 45000
 
 
 def display_profile(name: str, shiptype: int | None, shipclass: int | None,
-                    nav_status: Any = None) -> str:
-    """Illustrative rendering profile; never changes received AIS or alerts."""
+                    nav_status: Any = None, *, mmsi: str = "",
+                    callsign: str = "") -> str:
+    """Conservative AIS-based display hint; never changes alerts or AIS records.
+
+    AIS-Catcher: class 11 = base station, class 12 = Aid-to-Navigation.
+    Type 55 = law-enforcement vessel. A 'P15' name alone proves neither
+    a fixed platform nor a police boat.
+    """
     label = str(name or "").strip()
-    if _WTG_NAME_RE.search(label):
+    callsign = str(callsign or "").strip()
+    is_station = shipclass in (11, 12)
+    is_aton_mmsi = str(mmsi or "").startswith("99")
+    fixed_evidence = is_station or is_aton_mmsi
+    # A real ship's reported type takes priority over suggestive short names.
+    if shiptype == 55 and not is_station:
+        return "police"
+    if not fixed_evidence:
+        if _POLICE_NAME_RE.search(label) or _POLICE_NAME_RE.search(callsign):
+            return "police"
+        # P1/P15 identifiers are common for Rijnmond police boats, but
+        # require the AIS special-ship class, NOT a bare name match.
+        if shipclass == 5 and (_POLICE_P_NUMBER_RE.match(label)
+                               or _POLICE_P_NUMBER_RE.match(callsign)):
+            return "police"
+    if fixed_evidence and _WTG_NAME_RE.search(label):
         return "offshore_wtg"
-    if _PLATFORM_CODE_RE.fullmatch(label) or _PLATFORM_NAME_RE.match(label):
+    if fixed_evidence and (_PLATFORM_CODE_RE.fullmatch(label)
+                           or _PLATFORM_NAME_RE.match(label)):
         return "offshore_platform"
+    # No moving vessel may be interpreted as a fixed installation by name.
     status = str(nav_status or "").strip()
     if (shiptype in (31, 32, 52) or _TUG_NAME_RE.search(label)
             or status in ("11", "12") or _TUG_STATUS_RE.search(status)):
@@ -170,14 +195,16 @@ def vessels(payload: Any) -> list[dict]:
         normalized_type = int(shiptype) if shiptype is not None and 0 <= shiptype <= 9999 else None
         normalized_class = int(shipclass) if shipclass is not None and 0 <= shipclass <= 13 else None
         nav_status = _label(item, ("status","nav_status","navigation_status"), 40)
-        profile = display_profile(name, normalized_type, normalized_class, nav_status)
+        callsign = _label(item, ("callsign",), 24)
+        profile = display_profile(name, normalized_type, normalized_class, nav_status,
+                                  mmsi=mmsi, callsign=callsign)
         if profile.startswith("offshore_"):
             has_hull = False
         selected.append({
             "type": "ais", "id": mmsi, "name": name,
             "render_profile": profile,
             "is_offshore_structure": profile.startswith("offshore_"),
-            "callsign": _label(item, ("callsign",), 24), "lon": pos[0], "lat": pos[1],
+            "callsign": callsign, "lon": pos[0], "lat": pos[1],
             "validation_state": validation_state,
             "position_stale": position_stale,
             "course": course,

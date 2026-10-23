@@ -113,7 +113,7 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
-                || length < (ship.render_profile === "tug" ? 12 : 30) || length > 450 || beam < 2 || beam > 90
+                || length < (["tug","police"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -178,7 +178,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "tug"].includes(profile)) continue;
+            if (!["tanker", "cargo", "tug", "police"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -186,7 +186,7 @@
             if (![bow,stern,port,starboard,lon,lat,headingDeg].every(Number.isFinite)
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
-            if (length < (profile === "tug" ? 12 : 30) || beam < 2) continue;
+            if (length < (["tug","police"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
@@ -211,6 +211,19 @@
                     -port*.67,starboard*.67,"tug-wheelhouse",4.8);
                 add(-stern+length*.12,-stern+length*.28,
                     -port*.4,starboard*.4,"tug-winch",1.65);
+                continue;
+            }
+            if (profile === "police") {
+                // Distinct compact blue/white patrol boat: cabin, blue side deck
+                // accent and a small illustrative beacon on its wheelhouse.
+                add(-stern+length*.29,-stern+length*.66,
+                    -port*.76,starboard*.76,"police-cabin",3.7);
+                add(-stern+length*.31,-stern+length*.62,
+                    -port*.79,-port*.66,"police-stripe",1.15);
+                add(-stern+length*.31,-stern+length*.62,
+                    starboard*.66,starboard*.79,"police-stripe",1.15);
+                add(-stern+length*.43,-stern+length*.50,
+                    -port*.22,starboard*.22,"police-lightbar",4.5);
                 continue;
             }
             add(-stern+length*.05,-stern+length*.17,
@@ -436,6 +449,7 @@
             else if (props.render_profile === "tanker") add("3D deck", "Tanker pipes (illustrative)");
             else if (props.render_profile === "cargo") add("3D deck", "Cargo hatches (illustrative)");
             else if (props.render_profile === "tug") add("3D deck", "Tug wheelhouse / towing winch (illustrative)");
+            else if (props.render_profile === "police") add("3D deck", "Police patrol cabin / blue markings (illustrative)");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
@@ -694,6 +708,7 @@
             paint: {
                 "fill-extrusion-color": ["case",
                     ["==", ["get", "validation_state"], "unverified"], "#57352c",
+                    ["==", ["get", "render_profile"], "police"], "#153f6b",
                     "#1b3243"],
                 // Illustrative depth only: actual ship height is not present in AIS.
                 "fill-extrusion-height": ["get", "display_height_m"],
@@ -711,7 +726,9 @@
                 "fill-extrusion-color":["match",["get","part"],
                     "bridge","#c1d6df","cargo-hatch","#677e92",
                     "tanker-pipe","#91c5d0","tanker-cap","#d1d8d5",
-                    "tug-wheelhouse","#dce4ed","tug-winch","#f5a46e","#8195a8"],
+                    "tug-wheelhouse","#dce4ed","tug-winch","#f5a46e",
+                    "police-cabin","#ebf5fa","police-stripe","#1769b0",
+                    "police-lightbar","#198aff","#8195a8"],
                 "fill-extrusion-base":["get","base_height_m"],
                 "fill-extrusion-height":["get","top_height_m"],
                 "fill-extrusion-opacity":.93,

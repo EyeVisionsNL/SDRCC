@@ -13,9 +13,16 @@ class TrafficMapTests(unittest.TestCase):
             ("WTG-07", None, 11, "offshore_wtg"),
             ("WIND TURBINE 11", None, 12, "offshore_wtg"),
             ("P15", None, 11, "offshore_platform"),
-            ("P15-A", None, 11, "offshore_platform"),
+            ("P15-A", None, 12, "offshore_platform"),
             ("K14", None, 11, "offshore_platform"),
             ("OFFSHORE PLATFORM P15", None, 12, "offshore_platform"),
+            ("P1", None, None, "vessel"),
+            ("P15", None, None, "vessel"),
+            ("P15", 55, 5, "police"),
+            ("P1", 55, 5, "police"),
+            ("P12", None, 5, "police"),
+            ("POLITIE 3", None, 3, "police"),
+            ("WTG 17", 70, 2, "cargo"),
             ("WIND SERVICE", 70, 2, "cargo"),
             ("P1500 CONTAINER", 70, 2, "cargo"),
             ("TEST TANKER", 80, 2, "tanker"),
@@ -30,8 +37,8 @@ class TrafficMapTests(unittest.TestCase):
         raw = {"lat": 51.9, "lon": 4.3, "validated": 1, "heading": 15,
                "to_bow": 90, "to_stern": 20, "to_port": 6, "to_starboard": 6}
         items = traffic_map.vessels({"ships": [
-            {**raw, "mmsi": "992440001", "shipname": "WTG 19"},
-            {**raw, "mmsi": "992440002", "shipname": "P15"},
+            {**raw, "mmsi": "992440001", "shipname": "WTG 19", "shipclass": 12},
+            {**raw, "mmsi": "992440002", "shipname": "P15", "shipclass": 12},
             {**raw, "mmsi": "244120000", "shipname": "TEST TANKER", "shiptype": 80},
         ]})
         self.assertEqual([x["render_profile"] for x in items],
@@ -52,12 +59,41 @@ class TrafficMapTests(unittest.TestCase):
             ("FREEDOM", None, None, "Tugging", "tug"),
             ("CARGO TOW", 70, 2, "Pushing", "tug"),
             ("TUGGER CARGO", 70, 2, None, "cargo"),
-            ("WTG 13", 52, None, "Towing", "offshore_wtg"),
-            ("P15", 52, None, "Towing", "offshore_platform"),
+            ("WTG 13", 52, None, "Towing", "tug"),
+            ("P15", 52, None, "Towing", "tug"),
         ]
         for name, kind, cls, status, expected in cases:
             with self.subTest(name=name,status=status):
                 self.assertEqual(traffic_map.display_profile(name,kind,cls,status),expected)
+
+    def test_police_vs_platform_ais_metadata_and_moving_police_traces(self):
+        common = {"lat": 51.91, "lon": 4.35, "heading": 90,
+                  "to_bow": 13, "to_stern": 7, "to_port": 2.5,
+                  "to_starboard": 2.5, "validated": 1}
+        rows = traffic_map.vessels({"ships": [
+            {**common, "mmsi": "244600001", "shipname": "P1",
+             "shiptype": 55, "shipclass": 5, "speed": 14},
+            {**common, "mmsi": "244600015", "shipname": "P15",
+             "shiptype": 55, "shipclass": 5, "speed": 8},
+            {**common, "mmsi": "244600017", "shipname": "HARBOUR",
+             "callsign": "P17", "shipclass": 5, "speed": 8},
+            {**common, "mmsi": "992440015", "shipname": "P15",
+             "shipclass": 12, "speed": 0},
+            {**common, "mmsi": "244600099", "shipname": "P15",
+             "shipclass": 3, "speed": 5},
+            {**common, "mmsi": "244600098", "shipname": "PLATFORM SERVICE",
+             "shiptype": 70, "shipclass": 2, "speed": 6},
+        ]})
+        self.assertEqual([row["render_profile"] for row in rows],
+                         ["police","police","police","offshore_platform","vessel","cargo"])
+        self.assertEqual([row["hull_available"] for row in rows],
+                         [True, True, True, False, True, True])
+        self.assertTrue(all(not row["is_offshore_structure"] for row in rows[:3]))
+        self.assertTrue(all(row["is_offshore_structure"] is False for row in rows[4:]))
+        self.assertEqual(traffic_map.display_profile(
+            "P15", 55, 5, mmsi="244600015", callsign="P15"), "police")
+        self.assertEqual(traffic_map.display_profile(
+            "P15", None, 12, mmsi="992440015"), "offshore_platform")
 
     def test_tug_vessel_profile_reports_navigation_status(self):
         row=traffic_map.vessels({"ships":[{
