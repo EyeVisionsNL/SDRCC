@@ -80,10 +80,12 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
       <div class="row"><label><input id="show-names" type="checkbox" checked> Show vessel / aircraft names</label></div>
       <div class="row"><label><input id="layer-station" type="checkbox" checked> <span style="color:#fbbf56">◎</span> My SDRCC station</label><span id="station-status" class="muted">Loading…</span></div>
       <div class="row"><label><input id="layer-vts" type="checkbox" checked> Rijnmond VTS sectors</label><span id="vts-status" class="muted">Loading…</span></div>
+      <div class="row"><label><input id="layer-emergency" type="checkbox" checked> <span style="color:#f2f9ff">◉</span> Emergency vessels</label><span id="emergency-status" class="muted">Loading…</span></div>
+      <div class="row"><label><input id="layer-atis" type="checkbox" checked> <span style="color:#37e4a6">◎</span> ATIS / AIS match</label><span id="atis-status" class="muted">Loading…</span></div>
       <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
       <p id="feed-detail" class="muted">Loading source and visible-position counts…</p>
       <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. <i class="dot adsb"></i> Aircraft.</p>
-      <p class="muted">Click a ship, aircraft or coloured nameplate for detailed AIS/ADS-B data. Aircraft photos, with photographer credit, are requested only when clicked and available.</p>
+      <p class="muted">Emergency Monitor: temporary white rings for KNRM and blue rings for water police. A fresh validated ATIS/AIS match adds a short green ring to the matched ship. Neither overlay moves the map or operates an SDR. Click a ship or aircraft for details; aircraft photos are only requested on selection.</p>
     </section>
     <section class="panel">
       <h2>Preview scope</h2>
@@ -92,7 +94,7 @@ button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
     </section>
     <section class="panel footer-note">
       <h2>2D/3D roadmap</h2>
-      <p class="muted">Live AIS/ADS-B, class-coloured symbols, unobtrusive name labels, measured-size vessel hulls, optional 3D depth, detailed click cards, station marker and Rijnmond VTS sector layer. Next: trails and more detailed 3D models.</p>
+      <p class="muted">Live AIS/ADS-B, class-coloured symbols, unobtrusive name labels, measured-size vessel hulls, optional 3D depth, detailed click cards, station marker and Rijnmond VTS sector layer. Also available: independent emergency vessel and validated ATIS overlays. Next: trails and more detailed 3D models.</p>
     </section>
   </aside>
 </div>
