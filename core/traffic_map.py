@@ -33,6 +33,8 @@ _PLATFORM_NAME_RE = re.compile(
 )
 _POLICE_NAME_RE = re.compile(r"\b(?:WATERPOLITIE|POLITIE|POLICE)\b", re.I)
 _POLICE_P_NUMBER_RE = re.compile(r"^P[ -]?\d{1,2}(?:$|[ -])", re.I)
+# MSTX 12, MSTX12, MSTX-13 are local high-speed water taxis.
+_WATERTAXI_NAME_RE = re.compile(r"^MSTX(?=$|[\s._/-]|\d)", re.I)
 # Shiptype 52=tug; 31/32=towing; navstatus 11/12=towing/pushing.
 _TUG_NAME_RE = re.compile(
     r"(?:^|[\s._/-])(?:TUG|TUGBOAT|SLEPER|SLEEPBOOT)(?:$|[\s._/-]|\d)"
@@ -70,6 +72,9 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
     if shiptype == 55 and not is_station:
         return "police"
     if not fixed_evidence:
+        if shiptype != 55 and (_WATERTAXI_NAME_RE.match(label)
+                               or _WATERTAXI_NAME_RE.match(callsign)):
+            return "watertaxi"
         if _POLICE_NAME_RE.search(label) or _POLICE_NAME_RE.search(callsign):
             return "police"
         # P1/P15 identifiers are common for Rijnmond police boats, but

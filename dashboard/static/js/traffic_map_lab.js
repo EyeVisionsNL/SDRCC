@@ -113,7 +113,8 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
-                || length < (["tug","police"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
+                || length < (ship.render_profile === "watertaxi" ? 5
+                    : ["tug","police"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -165,8 +166,11 @@
                     nav_status: ship.nav_status, shiptype: ship.shiptype,
                     beam_m: ship.beam_m, draught_m: ship.draught_m,
                     heading: ship.heading,
-                    display_height_m: Math.min(9, Math.max(2.5,
-                        (Number(ship.to_port) + Number(ship.to_starboard)) * 0.38)),
+                    display_height_m: ship.render_profile === "watertaxi"
+                        ? Math.min(1.8, Math.max(.9,
+                            (Number(ship.to_port) + Number(ship.to_starboard)) * .45))
+                        : Math.min(9, Math.max(2.5,
+                            (Number(ship.to_port) + Number(ship.to_starboard)) * 0.38)),
                 },
             });
         }
@@ -178,7 +182,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "tug", "police"].includes(profile)) continue;
+            if (!["tanker", "cargo", "tug", "police", "watertaxi"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -186,7 +190,8 @@
             if (![bow,stern,port,starboard,lon,lat,headingDeg].every(Number.isFinite)
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
-            if (length < (["tug","police"].includes(profile) ? 12 : 30) || beam < 2) continue;
+            if (length < (profile === "watertaxi" ? 5
+                    : ["tug","police"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
@@ -194,17 +199,33 @@
                 lon+(forward*sin+right*cos)/metresPerLon,
                 lat+(forward*cos-right*sin)/111320,
             ];
-            const add = (a,b,left,right,part,above) => {
+            const add = (a,b,left,right,part,above,baseOffset=0) => {
                 if (a>=b || left>=right) return;
                 const ring = [at(a,left),at(a,right),at(b,right),at(b,left)];
                 ring.push(ring[0]);
                 features.push({type:"Feature",
                     geometry:{type:"Polygon",coordinates:[ring]},
                     properties:{...info,part,
-                        base_height_m:info.display_height_m,
-                        top_height_m:info.display_height_m+above,
+                        base_height_m:info.display_height_m+baseOffset,
+                        top_height_m:info.display_height_m+baseOffset+above,
                         center_lon:lon,center_lat:lat}});
             };
+            if (profile === "watertaxi") {
+                // Black fast boat with a low cabin, yellow roof and twin yellow rails.
+                const from=-stern+length*.29, to=-stern+length*.68;
+                add(from,to,-port*.67,starboard*.67,"watertaxi-cabin",1.55);
+                add(from+length*.025,to-length*.025,
+                    -port*.71,starboard*.71,"watertaxi-roof",.22,1.55);
+                add(-stern+length*.14,-stern+length*.82,
+                    -port*.94,-port*.78,"watertaxi-stripe",.23);
+                add(-stern+length*.14,-stern+length*.82,
+                    starboard*.78,starboard*.94,"watertaxi-stripe",.23);
+                add(from+length*.04,to-length*.04,
+                    -port*.73,-port*.65,"watertaxi-window",.4,.66);
+                add(from+length*.04,to-length*.04,
+                    starboard*.65,starboard*.73,"watertaxi-window",.4,.66);
+                continue;
+            }
             if (profile === "tug") {
                 // Wheelhouse toward the bow, compact towing winch on the afterdeck.
                 add(-stern+length*.37,-stern+length*.70,
@@ -306,7 +327,9 @@
             length_m: Number.isFinite(item.length_m) ? item.length_m : null,
             // Enlarge turbines ~2x at every map zoom without changing ship sizes.
             icon_scale: isAIS
-                ? (profile === "offshore_wtg" ? 1.45 : iconScale(item.length_m))
+                ? (profile === "offshore_wtg" ? 1.45
+                    : profile === "offshore_platform" ? 0.9
+                    : iconScale(item.length_m))
                 : 1,
             hull_available: isAIS && !offshore && hullGeometry(item) !== null,
             shipclass,
@@ -453,6 +476,7 @@
             else if (props.render_profile === "cargo") add("3D deck", "Cargo hatches (illustrative)");
             else if (props.render_profile === "tug") add("3D deck", "Tug wheelhouse / towing winch (illustrative)");
             else if (props.render_profile === "police") add("3D deck", "Police patrol cabin / blue markings (illustrative)");
+            else if (props.render_profile === "watertaxi") add("3D deck", "Black/yellow MSTX fast water taxi (illustrative)");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
@@ -712,6 +736,7 @@
                 "fill-extrusion-color": ["case",
                     ["==", ["get", "validation_state"], "unverified"], "#57352c",
                     ["==", ["get", "render_profile"], "police"], "#153f6b",
+                    ["==", ["get", "render_profile"], "watertaxi"], "#11161c",
                     "#1b3243"],
                 // Illustrative depth only: actual ship height is not present in AIS.
                 "fill-extrusion-height": ["get", "display_height_m"],
@@ -731,7 +756,10 @@
                     "tanker-pipe","#91c5d0","tanker-cap","#d1d8d5",
                     "tug-wheelhouse","#dce4ed","tug-winch","#f5a46e",
                     "police-cabin","#ebf5fa","police-stripe","#1769b0",
-                    "police-lightbar","#198aff","#8195a8"],
+                    "police-lightbar","#198aff",
+                    "watertaxi-cabin","#161d24","watertaxi-roof","#ffd31a",
+                    "watertaxi-stripe","#ffe02a","watertaxi-window","#87bdd2",
+                    "#8195a8"],
                 "fill-extrusion-base":["get","base_height_m"],
                 "fill-extrusion-height":["get","top_height_m"],
                 "fill-extrusion-opacity":.93,
