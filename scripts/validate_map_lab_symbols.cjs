@@ -120,8 +120,8 @@ class FakeMap {
     getStyle() {return {layers: []};}
     addLayer(layer) {
         if (layer.id.endsWith("-icons")) {
-            assert(Object.keys(this.images).length === 76,
-                "14 nameplates, 56 ship, 4 offshore and 2 aircraft sprites");
+            assert(Object.keys(this.images).length === 102,
+                "14 nameplates, 56 ship, 4 offshore and 28 altitude aircraft sprites");
         }
         this.layers[layer.id] = layer;
     }
@@ -201,10 +201,15 @@ class FakeMap {
                     to_port:1.4,to_starboard:1.6,hull_available:true,
                     hull_geometry_source:"AIS dimensions"},
             ]},
-        adsb: {available: true, source_count: 1, count: 1, targets:[
+        adsb: {available: true, source_count: 3, count: 3, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
                 registration:"PH-BGX", aircraft_type:"B738", operator:"KLM",
                 squawk:"4720", lon:4.5, lat:51.92, course:212, altitude_ft:24000},
+            {type:"adsb", id:"4ca124", name:"POLICE HELI",
+                registration:"PH-POL", aircraft_type:"H145",is_helicopter:true,
+                lon:4.45,lat:51.92,course:112,altitude_ft:1500},
+            {type:"adsb", id:"4ca125", name:"UNKNOWN ALT",
+                aircraft_type:"A320",lon:4.5,lat:51.93,course:null,altitude_ft:null},
         ]},
     };
     const highlights = {
@@ -277,7 +282,7 @@ class FakeMap {
     instance.callbacks.load();
     await new Promise(resolve => setImmediate(resolve));
 
-    assert.equal(Object.keys(instance.images).length, 76); // 56 AIS class symbols + 4 offshore + 14 labels + 2 planes
+    assert.equal(Object.keys(instance.images).length, 102); // 56 AIS + 4 offshore + 14 labels + 28 aircraft altitude sprites
     assert(!instance.images["sdrcc-tug"], "tugs must reuse class icons at distant zoom");
     for(const id of ["sdrcc-offshore-wtg","sdrcc-offshore-wtg-unverified",
                      "sdrcc-offshore-platform","sdrcc-offshore-platform-unverified"]){
@@ -285,7 +290,8 @@ class FakeMap {
     }
     for (const name of [
         "sdrcc-ship-6-moving", "sdrcc-ship-2-moving-unverified",
-        "sdrcc-ship-1-still", "sdrcc-plane", "sdrcc-plane-no-course",
+        "sdrcc-ship-1-still", "sdrcc-plane-alt-upper",
+        "sdrcc-helicopter-alt-low", "sdrcc-plane-alt-unknown-no-course",
     ]) assert(instance.images[name], "missing " + name);
     for(const code of Array.from({length:14}, (_,i)=>i)){
         for(const movement of ["moving","still"]){
@@ -371,6 +377,13 @@ class FakeMap {
     assert.equal(boats[2].properties.icon_name, "sdrcc-ship-1-still");
     assert.equal(boats[2].properties.is_moving, false);
     assert.equal(planes[0].properties.course, 212);
+    assert.equal(planes.length,3);
+    assert.equal(planes[0].properties.icon_name,"sdrcc-plane-alt-upper");
+    assert.equal(planes[1].properties.icon_name,"sdrcc-helicopter-alt-low");
+    assert.equal(planes[1].properties.altitude_color,"#3bd66f");
+    assert.equal(planes[2].properties.icon_name,"sdrcc-plane-alt-unknown-no-course");
+    assert.equal(planes[2].properties.altitude_color,"#aebdcc");
+    assert(instance.layers["sdrcc-adsb-labels"].layout["icon-image"][0]==="get");
 
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
     assert.equal(polygons.length, 9,
@@ -478,8 +491,8 @@ class FakeMap {
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
     assert.equal(node("count-ais").textContent, 14);
-    assert.equal(node("count-adsb").textContent, 1);
-    assert.equal(node("legend-mini-status").textContent, "AIS 14 · ADS-B 1",
+    assert.equal(node("count-adsb").textContent, 3);
+    assert.equal(node("legend-mini-status").textContent, "AIS 14 · ADS-B 3",
         "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];
@@ -622,6 +635,6 @@ class FakeMap {
         change.id === "sdrcc-ais-fallback-icons" && change.value === "none"),
         "hiding AIS must hide zoomed-in fallback vessels too");
 
-    console.log("PASS: 76 AIS/aircraft sprites, original distant tug icons, all-vessel tracks and 3D hull, "
+    console.log("PASS: 102 AIS/aircraft altitude sprites, helicopter symbols, original tug and Class B models, "
         + "emergency/ATIS matched rings, visibility, nameplates and 3D");
 })().catch(error => {console.error(error); process.exitCode = 1;});
