@@ -117,7 +117,8 @@
     });
     function hullGeometry(ship) {
         if (ship.is_offshore_structure ||
-                ["offshore_wtg", "offshore_platform"].includes(ship.render_profile)) return null;
+                ["offshore_wtg", "offshore_platform", "ais_helicopter"]
+                    .includes(ship.render_profile)) return null;
         if (!ship.hull_available || !Number.isFinite(ship.hull_heading)) return null;
         const bow = ship.to_bow, stern = ship.to_stern;
         const port = ship.to_port, starboard = ship.to_starboard;
@@ -355,18 +356,23 @@
     function trafficProperties(item) {
         const isAIS = item.type === "ais";
         const shipclass = isAIS ? aisClass(item.shipclass) : null;
-        const moving = isAIS && Number.isFinite(item.course)
-            && Number.isFinite(item.speed_knots) && item.speed_knots > 0.5;
-        const unverified = item.validation_state === "unverified";
         const profile = isAIS ? (item.render_profile || "vessel") : "";
+        // AIS airborne helicopter targets have a real course even if they
+        // don't report ship speed. Normal AIS ships retain existing rules.
+        const moving = isAIS && Number.isFinite(item.course)
+            && (profile === "ais_helicopter"
+                || (Number.isFinite(item.speed_knots) && item.speed_knots > 0.5));
+        const unverified = item.validation_state === "unverified";
         const offshore = ["offshore_wtg","offshore_platform"].includes(profile);
         const band = altitudeBand(item.altitude_ft);
         const iconName = isAIS
-            ? offshore
-                ? "sdrcc-" + profile.replace("_","-")
-                    + (unverified ? "-unverified" : "")
-                : "sdrcc-ship-" + shipclass + "-" + (moving ? "moving" : "still")
-                    + (unverified ? "-unverified" : "")
+            ? profile === "ais_helicopter"
+                ? "sdrcc-ais-helicopter" + (unverified ? "-unverified" : "")
+                : offshore
+                    ? "sdrcc-" + profile.replace("_","-")
+                        + (unverified ? "-unverified" : "")
+                    : "sdrcc-ship-" + shipclass + "-" + (moving ? "moving" : "still")
+                        + (unverified ? "-unverified" : "")
             : "sdrcc-" + (item.is_helicopter === true ? "helicopter" : "plane")
                 + "-alt-" + band + (Number.isFinite(item.course) ? "" : "-no-course");
         return {
@@ -517,8 +523,18 @@
         box.className = "traffic-detail";
         const title = document.createElement("div");
         title.className = "popup-title";
-        title.textContent = (props.type === "ais" ? "🚢 " : "✈ ") + (props.name || props.id);
+        title.textContent = (props.render_profile === "ais_helicopter" || props.is_helicopter
+            ? "🚁 " : props.type === "ais" ? "🚢 " : "✈ ") + (props.name || props.id);
         box.appendChild(title);
+        // Visible without scrolling: aviation photo used to be placed below
+        // every aircraft detail (outside the 360px-high popup viewport).
+        const photo = props.type === "adsb" && /^[a-f0-9]{6}$/i.test(props.id || "")
+            ? document.createElement("div") : null;
+        if (photo) {
+            photo.className = "popup-photo";
+            photo.textContent = "Checking for a credited aircraft photo…";
+            box.appendChild(photo);
+        }
         const add = (label, value, suffix = "") => {
             if (value === null || value === undefined || value === "") return;
             const row = document.createElement("div");
@@ -550,6 +566,8 @@
             if (props.position_stale) add("AIS position", "Historical (older than 30 min)");
             if (props.render_profile === "offshore_wtg") add("Structure", "Wind turbine (name-based)");
             else if (props.render_profile === "offshore_platform") add("Structure", "Offshore platform (name-based)");
+            else if (props.render_profile === "ais_helicopter")
+                add("AIS target", "Helicopter (not a marine vessel)");
             else if (props.render_profile === "tanker") add("3D deck", "Tanker pipes (illustrative)");
             else if (props.render_profile === "cargo") add("3D deck", "Cargo hatches (illustrative)");
             else if (props.render_profile === "tug") add("3D deck", "Tug wheelhouse / towing winch (illustrative)");
@@ -571,7 +589,8 @@
             if (props.hull_bearing_approximate && props.render_profile !== "pleasure")
                 add("3D orientation", "Based on AIS course; may differ from true heading");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
-            add("Ship type", props.shiptype);
+            if (props.render_profile !== "ais_helicopter")
+                add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
             add("IMO", props.imo);
             add("ENI", props.eni);
@@ -601,11 +620,7 @@
             props.course_known ? "°" : "");
         add("Ground speed", props.speed_knots, " kn");
         add("Last position", props.age_seconds, " s ago");
-        if (props.type === "adsb" && /^[a-f0-9]{6}$/i.test(props.id || "")) {
-            const photo = document.createElement("div");
-            photo.className = "popup-photo";
-            photo.textContent = "Checking for a credited aircraft photo…";
-            box.appendChild(photo);
+        if (photo) {
             // Keep all image lookups click-only. If the SDRCC server cannot
             // contact Planespotters, try their browser API just like tar1090.
             const hints = (props.registration ? "&reg=" + encodeURIComponent(props.registration) : "")
@@ -613,6 +628,16 @@
             const suffix = hints ? "?" + hints.slice(1) : "";
             const trusted = url => typeof url === "string"
                 && /^https:\/\/(?:[a-z0-9-]+\.)*planespotters\.net(?:\/|$)/i.test(url);
+            const photoPage = "https://www.planespotters.net/hex/" + props.id;
+            const photoUnavailable = () => {
+                photo.textContent = "Photo cannot be loaded here. ";
+                const link = document.createElement("a");
+                link.href = photoPage;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = "View aircraft photos on Planespotters.net";
+                photo.appendChild(link);
+            };
             const fallbackPhoto = () => fetch("https://api.planespotters.net/pub/photos/hex/"
                 + encodeURIComponent(props.id) + suffix)
                 .then(response => response.ok ? response.json() : null)
@@ -635,7 +660,7 @@
                 .then(result => {
                     photo.textContent = "";
                     if (!result?.ok || !trusted(result.image_url)) {
-                        photo.textContent = "No aircraft photo available";
+                        photoUnavailable();
                         return;
                     }
                     const img = document.createElement("img");
@@ -643,7 +668,7 @@
                     img.alt = "Aircraft photograph";
                     img.loading = "lazy";
                     img.referrerPolicy = "no-referrer";
-                    img.onerror = () => {img.remove(); photo.textContent = "Aircraft photo unavailable";};
+                    img.onerror = () => {img.remove(); photoUnavailable();};
                     photo.appendChild(img);
                     const sourceUrl = trusted(result.source_url) ? result.source_url : "";
                     const credit = document.createElement(sourceUrl ? "a" : "div");
@@ -655,7 +680,7 @@
                     }
                     photo.appendChild(credit);
                 })
-                .catch(() => {photo.textContent = "Aircraft photo unavailable";});
+                .catch(() => {photoUnavailable();});
         }
         return box;
     }
@@ -862,6 +887,12 @@
                     spriteHelicopter(noCourse,color), {pixelRatio:2});
             }
         }
+        // AIS class 10 is a reported helicopter target, not a ship:
+        // use the same rotor silhouette, in the established AIS class colour.
+        map.addImage("sdrcc-ais-helicopter",
+            spriteHelicopter(false, AIS_CLASS_COLORS[10]), {pixelRatio:2});
+        map.addImage("sdrcc-ais-helicopter-unverified",
+            spriteHelicopter(false, "#d19b67"), {pixelRatio:2});
     }
     function addHullLayer() {
         map.addSource("sdrcc-ais-hulls", {type:"geojson", data:empty});
