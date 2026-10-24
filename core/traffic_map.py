@@ -156,7 +156,10 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
     # vessel classifications, including tug, police and cargo, above.
     # 36=sailing, 37=pleasure craft; some Class B units omit static type.
     if (not fixed_evidence and shipclass == 3
-            and shiptype in (None, 0, 36, 37, 99)):
+            and shiptype in (None, 0, 36, 37, 99)
+            and not (_KRVE_NAME_RE.match(label) or _KRVE_NAME_RE.match(callsign))
+            and not (_POLICE_P_NUMBER_RE.match(label)
+                     or _POLICE_P_NUMBER_RE.match(callsign))):
         return "pleasure"
     return "vessel"
 
