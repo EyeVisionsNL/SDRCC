@@ -29,6 +29,20 @@ class AircraftPhotoTests(unittest.TestCase):
         self.assertIn("/pub/photos/hex/4ca123", get.call_args.args[0].full_url)
         get.assert_called_once()
 
+    def test_registration_and_icao_type_hints_are_safe(self):
+        payload=b'{"photos":[{"thumbnail":{"src":"https://cdn.planespotters.net/p.jpg"}}]}'
+        with patch.object(photos,"urlopen",return_value=io.BytesIO(payload)) as get:
+            result=photos.lookup("345107","EC-MJC","A320")
+        self.assertTrue(result["ok"])
+        self.assertIn("reg=EC-MJC",get.call_args.args[0].full_url)
+        self.assertIn("icaoType=A320",get.call_args.args[0].full_url)
+        photos._CACHE.clear()
+        with patch.object(photos,"urlopen",return_value=io.BytesIO(payload)) as get:
+            result=photos.lookup("345107","https://bad.example/","../../")
+        self.assertTrue(result["ok"])
+        self.assertNotIn("bad.example",get.call_args.args[0].full_url)
+        self.assertNotIn("icaoType=",get.call_args.args[0].full_url)
+
     def test_untrusted_image_or_photo_link_is_rejected(self):
         payload = b'{"photos":[{"thumbnail":{"src":"http://127.0.0.1/photo.jpg"},' \
                   b'"link":"https://evil.example/photo", "photographer":"Fraud"}]}'
