@@ -85,15 +85,13 @@ class TrafficMapTests(unittest.TestCase):
             "speed":4.5,
         }]})[0]
         self.assertEqual(other["render_profile"],"port_authority")
-        self.assertTrue(other["hull_available"])
-        self.assertIn("Illustrative",other["hull_geometry_source"])
+        self.assertFalse(other["hull_available"])
+        self.assertIsNone(other["hull_geometry_source"])
         no_course=traffic_map.vessels({"ships":[{
             "mmsi":"244050469","shipname":"RPA 12","shipclass":5,
             "shiptype":99,"lat":51.93,"lon":4.34,"speed":0,
         }]})[0]
-        self.assertTrue(no_course["hull_available"])
-        self.assertTrue(no_course["hull_bearing_approximate"])
-        self.assertEqual(no_course["hull_heading"],0)
+        self.assertFalse(no_course["hull_available"])
         with_ais=traffic_map.vessels({"ships":[{
             "mmsi":"244050469","shipname":"RPA12","shipclass":5,
             "shiptype":55,"lat":51.93,"lon":4.34,"heading":85,
@@ -138,8 +136,7 @@ class TrafficMapTests(unittest.TestCase):
                     "shipclass":5, "lat":51.9, "lon":4.3, "cog":135, "speed":5,
                 }]})[0]
                 self.assertEqual(unnamed["render_profile"], "port_authority")
-                self.assertTrue(unnamed["hull_available"])
-                self.assertIn("Illustrative",unnamed["hull_geometry_source"])
+                self.assertFalse(unnamed["hull_available"])
         for name in ("RPA1","RPA 8","RPA 13","RPA 15","RPA 20","RPA ZERO"):
             self.assertEqual(traffic_map.display_profile(name,None,5),
                              "port_authority")
@@ -160,15 +157,13 @@ class TrafficMapTests(unittest.TestCase):
             "mmsi":"244050426", "shipname":"RPA 11",
             "shipclass":5,"lat":51.9,"lon":4.3,"speed":5, "cog":135,
         }]})[0]
-        self.assertTrue(wrong["hull_available"])
-        self.assertIn("Illustrative",wrong["hull_geometry_source"])
+        self.assertFalse(wrong["hull_available"])
         unknown = traffic_map.vessels({"ships": [{
             "mmsi":"244070288", "shipname":"RPA13",
             "shipclass":5,"lat":51.9,"lon":4.3,"speed":5,"cog":135,
         }]})[0]
         self.assertEqual(unknown["render_profile"], "port_authority")
-        self.assertTrue(unknown["hull_available"])
-        self.assertIn("Illustrative",unknown["hull_geometry_source"])
+        self.assertFalse(unknown["hull_available"])
         real_ais = traffic_map.vessels({"ships": [{
             "mmsi":"244100055","shipname":"RPA11",
             "shipclass":5,"lat":51.9,"lon":4.3,"heading":280,
@@ -181,8 +176,7 @@ class TrafficMapTests(unittest.TestCase):
             "mmsi":"244757000", "shipname":"RPA16",
             "shipclass":5,"lat":51.9,"lon":4.3, "speed":0,
         }]})[0]
-        self.assertTrue(no_bearing["hull_available"])
-        self.assertEqual(no_bearing["hull_heading"],0)
+        self.assertFalse(no_bearing["hull_available"])
 
     def test_platform_p15_c_real_ais_type_99_snapshot(self):
         # Screenshot from AIS-Catcher, 2026-10-23: P15 C is type 99 Other,
@@ -619,14 +613,13 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(result["shipclass"], 6)
         self.assertEqual(result["shiptype"], 80)
 
-    def test_missing_dimensions_use_illustrative_3d_hulls_by_class(self):
+    def test_no_dimensions_uses_fallback_symbol(self):
         ship = {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
                 "length": 90, "heading": 230}
         result = traffic_map.vessels({"ships": [ship]})[0]
-        self.assertTrue(result["hull_available"])
-        self.assertEqual(result["to_bow"],45)
-        self.assertEqual(result["length_m"],90)
-        self.assertIn("Illustrative",result["hull_geometry_source"])
+        self.assertFalse(result["hull_available"])
+        self.assertIsNone(result["to_bow"])
+        self.assertEqual(result["length_m"], 90)
 
     def test_unknown_heading_needs_moving_course(self):
         base = {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
@@ -635,9 +628,7 @@ class TrafficMapTests(unittest.TestCase):
                 "heading": 511, "cog": 122}
         static = traffic_map.vessels({"ships": [{**base, "speed": 0}]})[0]
         moving = traffic_map.vessels({"ships": [{**base, "speed": 6}]})[0]
-        self.assertTrue(static["hull_available"])
-        self.assertTrue(static["hull_bearing_approximate"])
-        self.assertEqual(static["hull_heading"],0)
+        self.assertFalse(static["hull_available"])
         self.assertTrue(moving["hull_available"])
         self.assertEqual(moving["hull_heading"], 122)
 
@@ -647,64 +638,8 @@ class TrafficMapTests(unittest.TestCase):
                 "to_bow": 650, "to_stern": 10,
                 "to_port": 20, "to_starboard": 20}
         result = traffic_map.vessels({"ships": [ship]})[0]
-        self.assertTrue(result["hull_available"])
-        self.assertEqual(result["length_m"],87)
-        self.assertEqual(result["to_bow"],43.5)
-        self.assertIn("Illustrative",result["hull_geometry_source"])
-
-    def test_real_ais_offsets_survive_missing_heading(self):
-        row=traffic_map.vessels({"ships":[{
-            "mmsi":"244661111","shipname":"MOORING CARGO",
-            "lat":51.9,"lon":4.3,"speed":0,"cog":77,
-            "shipclass":2,"shiptype":70,
-            "to_bow":80,"to_stern":20,"to_port":6,"to_starboard":7,
-        }]})[0]
-        self.assertTrue(row["hull_available"])
-        self.assertEqual((row["to_bow"],row["to_stern"],
-                          row["to_port"],row["to_starboard"]),(80,20,6,7))
-        self.assertEqual(row["length_m"],100)
-        self.assertEqual(row["beam_m"],13)
-        self.assertEqual(row["hull_geometry_source"],"AIS dimensions")
-        self.assertEqual(row["hull_heading"],0)
-        self.assertTrue(row["hull_bearing_approximate"])
-
-    def test_cargo_rival_without_ais_offsets_has_3d_model(self):
-        row=traffic_map.vessels({"ships":[{
-            "mmsi":"244660212","shipname":"RIVAL","shipclass":2,
-            "shiptype":70,"lat":51.9,"lon":4.3,"cog":77.2,
-            "speed":4.9,"validated":1,"status":15,
-        }]})[0]
-        self.assertEqual(row["render_profile"],"cargo")
-        self.assertTrue(row["hull_available"])
-        self.assertEqual(row["length_m"],110)
-        self.assertEqual(row["beam_m"],16)
-        self.assertAlmostEqual(row["hull_heading"],77.2)
-        self.assertTrue(row["hull_bearing_approximate"])
-        self.assertIn("Illustrative",row["hull_geometry_source"])
-        self.assertEqual((row["to_bow"],row["to_stern"]),(55,55))
-
-    def test_all_vessel_classes_and_unknown_course_still_get_hulls(self):
-        classes=[(2,70,110,16),(6,80,135,20),(4,60,65,13),
-                 (8,30,22,6),(7,1900,18,5),(3,None,14,4.5),
-                 (1,None,35,8)]
-        for index,(shipclass,shiptype,length,beam) in enumerate(classes):
-            with self.subTest(shipclass=shipclass):
-                row=traffic_map.vessels({"ships":[{
-                    "mmsi":str(244111000+index),"shipname":"TEST",
-                    "shipclass":shipclass,"shiptype":shiptype,
-                    "lat":51.9,"lon":4.3,"speed":0,
-                }]})[0]
-                self.assertTrue(row["hull_available"])
-                self.assertEqual(row["length_m"],length)
-                self.assertEqual(row["beam_m"],beam)
-                self.assertEqual(row["hull_heading"],0)
-                self.assertTrue(row["hull_bearing_approximate"])
-                self.assertIn("Illustrative",row["hull_geometry_source"])
-        for shipclass,mmsi in [(11,"003000001"),(12,"992440001")]:
-            row=traffic_map.vessels({"ships":[{
-                "mmsi":mmsi,"shipclass":shipclass,"lat":51.9,"lon":4.3,
-            }]})[0]
-            self.assertFalse(row["hull_available"])
+        self.assertFalse(result["hull_available"])
+        self.assertEqual(result["length_m"], 87)
 
     def test_extended_vessel_details(self):
         raw = {"ships": [{"mmsi": "123456789", "lat": 51.9, "lon": 4.3,

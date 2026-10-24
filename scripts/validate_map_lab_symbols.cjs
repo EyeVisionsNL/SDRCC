@@ -149,19 +149,10 @@ class FakeMap {
                     to_port:9, to_starboard:10, hull_available:true, shipclass:6,
                     render_profile:"tanker",validation_state:"verified"},
                 {type:"ais", id:"987654321", name:"Unverified ship",
-                    lon:4.4, lat:51.91, course:90, hull_heading:90, speed_knots:7,
-                    shipclass:2, render_profile:"cargo",length_m:110,beam_m:16,
-                    to_bow:55,to_stern:55,to_port:8,to_starboard:8,
-                    hull_available:true,hull_bearing_approximate:true,
-                    hull_geometry_source:"Illustrative class/type hull; not measured AIS dimensions",
+                    lon:4.4, lat:51.91, course:90, speed_knots:7, shipclass:2,
                     validation_state:"unverified"},
                 {type:"ais", id:"111222333", name:"No heading",
-                    lon:4.31, lat:51.9,course:null,hull_heading:0,
-                    shipclass:1,render_profile:"vessel",length_m:35,beam_m:8,
-                    to_bow:17.5,to_stern:17.5,to_port:4,to_starboard:4,
-                    hull_available:true,hull_bearing_approximate:true,
-                    hull_geometry_source:"Illustrative class/type hull; not measured AIS dimensions",
-                    validation_state:"unknown"},
+                    lon:4.31, lat:51.9, course:null, validation_state:"unknown"},
                 {type:"ais",id:"992440001",name:"WTG 19",lon:4.33,lat:51.94,
                     render_profile:"offshore_wtg",is_offshore_structure:true,shipclass:12},
                 {type:"ais",id:"992440002",name:"P15",lon:4.34,lat:51.94,
@@ -358,22 +349,20 @@ class FakeMap {
     assert.equal(planes[0].properties.course, 212);
 
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
-    assert.equal(polygons.length, 9,
-        "all 9 vessel targets must have 3D hulls; 3 offshore aids stay symbols");
+    assert.equal(polygons.length, 7,
+        "tanker, cargo, tug, police, MSTX, KRVE and RPA12 need 3D hulls");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
-    assert.equal(decks.length,44,
-        "existing 38 decks plus 4 fallback cargo and 2 generic parts expected");
+    assert.equal(decks.length,38,
+        "7 tanker, 4 cargo, 2 tug, 4 police, 6 MSTX, 8 KRVE and 7 RPA details expected");
     for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap","tug-wheelhouse","tug-winch",
                        "police-cabin","police-stripe","police-lightbar",
                        "watertaxi-cabin","watertaxi-roof","watertaxi-stripe","watertaxi-window",
                        "krve-workdeck","krve-cabin","krve-roof","krve-fender",
                        "krve-windows","krve-mooring-gear","rpa-cabin","rpa-roof",
-                       "rpa-yellow-stripe","rpa-windows","rpa-fire-monitor",
-                       "general-cabin","general-roof"])
+                       "rpa-yellow-stripe","rpa-windows","rpa-fire-monitor"])
         assert(decks.some(f=>f.properties.part===part), "missing deck part "+part);
     assert(decks.every(f=>["123456789","244123999","244555000",
-        "244600015","244020742","244456065","244050469",
-        "987654321","111222333"].includes(f.properties.id)));
+        "244600015","244020742","244456065","244050469"].includes(f.properties.id)));
     const rpaDetails=decks.filter(f=>f.properties.id==="244050469");
     assert.equal(rpaDetails.length,7);
     assert(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"]
@@ -426,14 +415,7 @@ class FakeMap {
     const length = Math.max(...projected) - Math.min(...projected);
     assert(length > 138 && length < 142, "hull should span the actual 140 metres");
     assert.equal(boats[0].properties.hull_available, true);
-    assert.equal(boats[1].properties.hull_available, true);
-    assert.equal(boats[2].properties.hull_available,true);
-    assert(boats[1].properties.hull_geometry_source.includes("Illustrative"));
-    assert(boats[2].properties.hull_bearing_approximate);
-    assert.equal(polygons.find(f=>f.properties.id==="987654321")
-        .properties.hull_available,true);
-    assert.equal(decks.filter(f=>f.properties.id==="987654321").length,4);
-    assert.equal(decks.filter(f=>f.properties.id==="111222333").length,2);
+    assert.equal(boats[1].properties.hull_available, false);
     assert.equal(boats[0].properties.length_m, 140);
     // Exact, non-overlapping zoom ranges: no cartoon icon drawn on top of a hull.
     assert.equal(instance.layers["sdrcc-ais-icons"].maxzoom, 14);

@@ -113,7 +113,8 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
-                || length < 5 || length > 450 || beam < 2 || beam > 90
+                || length < (["watertaxi","krve"].includes(ship.render_profile) ? 5
+                    : ["tug","police","port_authority"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -154,7 +155,6 @@
                     length_m: ship.length_m,
                     shipclass: ship.shipclass,
                     render_profile: ship.render_profile || "vessel",
-                    hull_available: true,
                     hull_geometry_source: ship.hull_geometry_source || "",
                     hull_bearing_approximate: ship.hull_bearing_approximate === true,
                     validation_state: ship.validation_state || "unknown",
@@ -184,7 +184,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "tug", "police", "watertaxi", "krve", "port_authority", "vessel"].includes(profile)) continue;
+            if (!["tanker", "cargo", "tug", "police", "watertaxi", "krve", "port_authority"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -192,7 +192,8 @@
             if (![bow,stern,port,starboard,lon,lat,headingDeg].every(Number.isFinite)
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
-            if (length < 5 || beam < 2) continue;
+            if (length < (["watertaxi","krve"].includes(profile) ? 5
+                    : ["tug","police","port_authority"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
@@ -211,33 +212,6 @@
                         top_height_m:info.display_height_m+baseOffset+above,
                         center_lon:lon,center_lat:lat}});
             };
-            if (profile === "vessel") {
-                // Distinct but low-cost illustrations for the remaining AIS
-                // classes; no class gets stranded as a flat pointer at 3D zoom.
-                const cls=ship.shipclass;
-                if (cls === 4) {
-                    add(-stern+length*.2,-stern+length*.78,
-                        -port*.70,starboard*.70,"passenger-cabin",3.5);
-                    add(-stern+length*.23,-stern+length*.75,
-                        -port*.72,starboard*.72,"passenger-roof",.4,3.5);
-                } else if (cls === 8) {
-                    add(-stern+length*.42,-stern+length*.73,
-                        -port*.67,starboard*.67,"fishing-wheelhouse",2.8);
-                    add(-stern+length*.12,-stern+length*.28,
-                        -port*.30,starboard*.30,"fishing-gear",.8);
-                } else if (cls === 7) {
-                    add(-stern+length*.26,-stern+length*.72,
-                        -port*.64,starboard*.64,"fast-cabin",2);
-                    add(-stern+length*.30,-stern+length*.67,
-                        -port*.68,starboard*.68,"fast-roof",.2,2);
-                } else {
-                    add(-stern+length*.31,-stern+length*.64,
-                        -port*.68,starboard*.68,"general-cabin",2.3);
-                    add(-stern+length*.34,-stern+length*.61,
-                        -port*.70,starboard*.70,"general-roof",.25,2.3);
-                }
-                continue;
-            }
             if (profile === "krve") {
                 // Illustrative KRVE RIB/roeiersvlet: dark hull, thick yellow
                 // rubbing fenders and pale enclosed wheelhouse with amber roof.
@@ -545,12 +519,6 @@
                 add("Last AIS signal", ageText);
             }
             if (props.position_stale) add("AIS position", "Historical (older than 30 min)");
-            if (props.hull_geometry_source) {
-                add("3D hull", props.hull_geometry_source === "AIS dimensions"
-                    ? "Real AIS dimensions" : props.hull_geometry_source);
-            } else if (!props.is_offshore_structure && props.hull_available === false) {
-                add("3D hull", "Unavailable: fixed AIS object or invalid position");
-            }
             if (props.render_profile === "offshore_wtg") add("Structure", "Wind turbine (name-based)");
             else if (props.render_profile === "offshore_platform") add("Structure", "Offshore platform (name-based)");
             else if (props.render_profile === "tanker") add("3D deck", "Tanker pipes (illustrative)");
@@ -560,11 +528,9 @@
             else if (props.render_profile === "watertaxi") add("3D deck", "Black/yellow MSTX fast water taxi (illustrative)");
             else if (props.render_profile === "krve") add("3D deck", "KRVE mooring / pilot-transport craft (illustrative)");
             else if (props.render_profile === "port_authority") add("3D deck", "Rotterdam Port Authority patrol / rescue boat (illustrative)");
-            if (props.hull_bearing_approximate) add("3D orientation",
-                Number.isFinite(props.course) && Number.isFinite(props.speed_knots)
-                    && props.speed_knots > .5
-                    ? "Based on AIS course; not necessarily true heading"
-                    : "North-up illustration; true heading not reported");
+            if (props.hull_geometry_source && props.hull_geometry_source !== "AIS dimensions")
+                add("3D hull data", props.hull_geometry_source);
+            if (props.hull_bearing_approximate) add("3D orientation", "Based on AIS course; may differ from true heading");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
@@ -855,10 +821,6 @@
                     "rpa-cabin","#f4df4c","rpa-roof","#ffcc24",
                     "rpa-yellow-stripe","#f7d438","rpa-windows","#39748d",
                     "rpa-fire-monitor","#c8d5da",
-                    "passenger-cabin","#d7e5ed","passenger-roof","#729fba",
-                    "fishing-wheelhouse","#e3e6de","fishing-gear","#ddaa64",
-                    "fast-cabin","#b3d0e1","fast-roof","#f0cf42",
-                    "general-cabin","#c3d1dc","general-roof","#879ba9",
                     "#8195a8"],
                 "fill-extrusion-base":["get","base_height_m"],
                 "fill-extrusion-height":["get","top_height_m"],
