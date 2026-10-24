@@ -141,7 +141,7 @@
         const length = bow + stern, beam = port + starboard;
         if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
                 || length < (["watertaxi","krve","pleasure"].includes(ship.render_profile) ? 5
-                    : ["tug","police","port_authority"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
+                    : ["tug","police","port_authority","passenger"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -220,7 +220,7 @@
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
             if (length < (["watertaxi","krve","pleasure"].includes(profile) ? 5
-                    : ["tug","police","port_authority"].includes(profile) ? 12 : 30) || beam < 2) continue;
+                    : ["tug","police","port_authority","passenger"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
