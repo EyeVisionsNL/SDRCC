@@ -141,7 +141,7 @@ class FakeMap {
     const data = {
         ok: true, center: [4.28, 51.93],
         station: {name:"EyeVisions Home", lon:4.28, lat:51.93, altitude_m:12},
-        ais: {available: true, source_count: 12, count: 12, unverified_count: 1,
+        ais: {available: true, source_count: 14, count: 14, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
                     lon:4.3, lat:51.9, course:132, hull_heading:134, speed_knots:6,
@@ -186,6 +186,20 @@ class FakeMap {
                     to_bow:14.39,to_stern:14.39,to_port:4.1,to_starboard:4.1,
                     hull_available:true,hull_bearing_approximate:true,
                     hull_geometry_source:"Published dimensions; approximate AIS position offset"},
+                {type:"ais",id:"244901101",name:"CLASS B PLEASURE",
+                    lon:4.39,lat:51.94,shipclass:3,shiptype:37,
+                    render_profile:"pleasure",course:76,hull_heading:76,
+                    speed_knots:3.1,length_m:11,beam_m:3.2,
+                    to_bow:5.5,to_stern:5.5,to_port:1.6,to_starboard:1.6,
+                    hull_available:true,hull_geometry_source:
+                        "Illustrative Class B pleasure hull; antenna offsets unavailable",
+                    hull_bearing_approximate:true},
+                {type:"ais",id:"244901102",name:"CLASS B REAL DIMENSIONS",
+                    lon:4.40,lat:51.94,shipclass:3,shiptype:36,
+                    render_profile:"pleasure",course:160,hull_heading:160,
+                    length_m:9,beam_m:3,to_bow:6,to_stern:3,
+                    to_port:1.4,to_starboard:1.6,hull_available:true,
+                    hull_geometry_source:"AIS dimensions"},
             ]},
         adsb: {available: true, source_count: 1, count: 1, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
@@ -299,7 +313,16 @@ class FakeMap {
     }
     const boats = instance.sources["sdrcc-ais"].data.features;
     const planes = instance.sources["sdrcc-adsb"].data.features;
-    assert.equal(boats.length, 12);
+    assert.equal(boats.length, 14);
+    for (const target of boats.slice(12,14)) {
+        assert.equal(target.properties.render_profile,"pleasure");
+        assert.equal(target.properties.icon_name,"sdrcc-ship-3-still",
+            "Class B keeps existing AIS icon at low zoom");
+        assert.equal(target.properties.hull_available,true);
+    }
+    assert.equal(boats[12].properties.hull_geometry_source,
+        "Illustrative Class B pleasure hull; antenna offsets unavailable");
+    assert.equal(boats[13].properties.hull_geometry_source,"AIS dimensions");
     assert.equal(boats[10].properties.icon_name,"sdrcc-offshore-platform");
     assert.equal(boats[10].properties.hull_available,false);
     assert.equal(boats[11].properties.render_profile,"port_authority");
@@ -349,20 +372,28 @@ class FakeMap {
     assert.equal(planes[0].properties.course, 212);
 
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
-    assert.equal(polygons.length, 7,
-        "tanker, cargo, tug, police, MSTX, KRVE and RPA12 need 3D hulls");
+    assert.equal(polygons.length, 9,
+        "existing seven 3D models plus two new Class B hulls only");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
-    assert.equal(decks.length,38,
-        "7 tanker, 4 cargo, 2 tug, 4 police, 6 MSTX, 8 KRVE and 7 RPA details expected");
+    assert.equal(decks.length,46,
+        "existing 38 deck parts plus four for each Class B vessel");
     for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap","tug-wheelhouse","tug-winch",
                        "police-cabin","police-stripe","police-lightbar",
                        "watertaxi-cabin","watertaxi-roof","watertaxi-stripe","watertaxi-window",
                        "krve-workdeck","krve-cabin","krve-roof","krve-fender",
                        "krve-windows","krve-mooring-gear","rpa-cabin","rpa-roof",
-                       "rpa-yellow-stripe","rpa-windows","rpa-fire-monitor"])
+                       "rpa-yellow-stripe","rpa-windows","rpa-fire-monitor",
+                       "pleasure-deck","pleasure-cabin","pleasure-windshield","pleasure-cockpit"])
         assert(decks.some(f=>f.properties.part===part), "missing deck part "+part);
     assert(decks.every(f=>["123456789","244123999","244555000",
-        "244600015","244020742","244456065","244050469"].includes(f.properties.id)));
+        "244600015","244020742","244456065","244050469",
+        "244901101","244901102"].includes(f.properties.id)));
+    assert.equal(decks.filter(f=>f.properties.id==="244901101").length,4);
+    assert.equal(decks.filter(f=>f.properties.id==="244901102").length,4);
+    assert(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"]
+        .includes("#29475b"),"Class B boat hull is dark blue");
+    assert(instance.layers["sdrcc-ais-hull-decks"].paint["fill-extrusion-color"]
+        .includes("#f7f8f3"),"Class B boat cabin is white");
     const rpaDetails=decks.filter(f=>f.properties.id==="244050469");
     assert.equal(rpaDetails.length,7);
     assert(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"]
@@ -445,9 +476,9 @@ class FakeMap {
     assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
-    assert.equal(node("count-ais").textContent, 12);
+    assert.equal(node("count-ais").textContent, 14);
     assert.equal(node("count-adsb").textContent, 1);
-    assert.equal(node("legend-mini-status").textContent, "AIS 12 · ADS-B 1",
+    assert.equal(node("legend-mini-status").textContent, "AIS 14 · ADS-B 1",
         "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];

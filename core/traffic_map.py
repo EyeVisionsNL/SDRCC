@@ -151,6 +151,13 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
         return "tanker"
     if (shiptype is not None and 70 <= shiptype <= 79) or shipclass == 2:
         return "cargo"
+    # ONLY ordinary Class B recreation targets; Class B is a transponder
+    # class, not proof of recreational use. Retain all known professional
+    # vessel classifications, including tug, police and cargo, above.
+    # 36=sailing, 37=pleasure craft; some Class B units omit static type.
+    if (not fixed_evidence and shipclass == 3
+            and shiptype in (None, 0, 36, 37, 99)):
+        return "pleasure"
     return "vessel"
 
 
@@ -290,6 +297,23 @@ def vessels(payload: Any) -> list[dict]:
                     hull_geometry_source = (
                         "Published dimensions; approximate AIS position offset")
                 has_hull = True
+        # Scoped Class B pleasure-craft illustration. Other ship types
+        # retain precisely their pre-existing geometry and fallback rules.
+        if profile == "pleasure" and not has_hull:
+            if to_bow is None:
+                # Overall length/beam may be reported even without the
+                # four antenna offsets; preserve plausible figures.
+                sketch_length = length if length is not None and 5 <= length <= 45 else 11.0
+                sketch_beam = beam if beam is not None and 2 <= beam <= 12 else 3.2
+                to_bow = to_stern = sketch_length / 2
+                to_port = to_starboard = sketch_beam / 2
+                length, beam = sketch_length, sketch_beam
+                hull_geometry_source = (
+                    "Illustrative Class B pleasure hull; antenna offsets unavailable")
+            if hull_heading is None:
+                hull_heading = 0.0  # explicit neutral north-up drawing
+            hull_bearing_approximate = heading is None
+            has_hull = True
         selected.append({
             "type": "ais", "id": mmsi, "name": name,
             "render_profile": profile,

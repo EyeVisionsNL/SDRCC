@@ -280,6 +280,69 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(krve["beam_m"],3.6)
         self.assertFalse(krve["is_offshore_structure"])
 
+    def test_class_b_recreation_profile_is_strictly_scoped(self):
+        examples=[
+            ("PLEASURE 1",3,37,"pleasure"),
+            ("SAILING YACHT",3,36,"pleasure"),
+            ("MY BOAT",3,None,"pleasure"),
+            ("MY BOAT",3,0,"pleasure"),
+            ("MY BOAT",3,99,"pleasure"),
+            ("CLASS B TUG",3,52,"tug"),
+            ("CLASS B TANKER",3,80,"tanker"),
+            ("CLASS B CARGO",3,70,"cargo"),
+            ("POLICE",3,55,"police"),
+            ("MSTX 12",3,37,"watertaxi"),
+            ("KRVE 65",3,36,"vessel"),
+            ("RPA 12",3,37,"port_authority"),
+            ("MY BOAT",3,60,"vessel"),
+            ("MY BOAT",2,37,"cargo"),
+            ("P15",12,37,"vessel"),
+        ]
+        for name,cls,kind,expected in examples:
+            with self.subTest(name=name,cls=cls,kind=kind):
+                self.assertEqual(traffic_map.display_profile(
+                    name,kind,cls),expected)
+
+    def test_pleasure_fallback_preserves_existing_vessel_geometry(self):
+        all_ships=[
+            {"mmsi":"244901101","shipname":"PLEASURE 1","shipclass":3,
+             "shiptype":37,"lat":51.9,"lon":4.3,"speed":3,"cog":76},
+            {"mmsi":"244901102","shipname":"PLEASURE 2","shipclass":3,
+             "shiptype":36,"lat":51.91,"lon":4.31,"heading":190,"speed":0,
+             "length":9,"width":3.4},
+            {"mmsi":"244901103","shipname":"PLEASURE 3","shipclass":3,
+             "lat":51.92,"lon":4.32,"speed":0},
+            {"mmsi":"244901104","shipname":"PLEASURE 4","shipclass":3,
+             "shiptype":37,"lat":51.93,"lon":4.33,"heading":90,
+             "to_bow":6,"to_stern":2,"to_port":1.4,"to_starboard":1.5},
+            {"mmsi":"244901105","shipname":"TUG","shipclass":5,
+             "shiptype":52,"lat":51.93,"lon":4.35},
+            {"mmsi":"244901106","shipname":"CARGO","shipclass":2,
+             "shiptype":70,"lat":51.93,"lon":4.36,"heading":90},
+        ]
+        rows=traffic_map.vessels({"ships":all_ships})
+        self.assertEqual([row["render_profile"] for row in rows],
+                         ["pleasure"]*4+["tug","cargo"])
+        self.assertEqual([row["hull_available"] for row in rows],
+                         [True,True,True,True,False,False])
+        self.assertEqual((rows[0]["length_m"],rows[0]["beam_m"]),(11,3.2))
+        self.assertEqual((rows[0]["to_bow"],rows[0]["to_stern"]),(5.5,5.5))
+        self.assertIn("Illustrative",rows[0]["hull_geometry_source"])
+        self.assertEqual(rows[0]["hull_heading"],76)
+        self.assertTrue(rows[0]["hull_bearing_approximate"])
+        self.assertEqual((rows[1]["length_m"],rows[1]["beam_m"]),(9,3.4))
+        self.assertEqual(rows[1]["hull_heading"],190)
+        self.assertFalse(rows[1]["hull_bearing_approximate"])
+        self.assertEqual(rows[2]["hull_heading"],0)
+        self.assertTrue(rows[2]["hull_bearing_approximate"])
+        self.assertEqual((rows[3]["to_bow"],rows[3]["to_stern"],
+                          rows[3]["to_port"],rows[3]["to_starboard"]),
+                         (6,2,1.4,1.5))
+        self.assertEqual(rows[3]["hull_geometry_source"],"AIS dimensions")
+        self.assertFalse(rows[3]["hull_bearing_approximate"])
+        self.assertIsNone(rows[4]["hull_geometry_source"])
+        self.assertIsNone(rows[5]["hull_geometry_source"])
+
     def test_tug_classification_by_type_status_and_name(self):
         cases = [
             ("MULTRATUG 9", None, None, None, "tug"),
