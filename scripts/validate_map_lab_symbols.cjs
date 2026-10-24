@@ -120,8 +120,8 @@ class FakeMap {
     getStyle() {return {layers: []};}
     addLayer(layer) {
         if (layer.id.endsWith("-icons")) {
-            assert(Object.keys(this.images).length === 102,
-                "14 nameplates, 56 ship, 4 offshore and 28 altitude aircraft sprites");
+            assert(Object.keys(this.images).length === 104,
+                "14 nameplates, 56 ship, 4 offshore, 28 ADS-B and 2 AIS helicopter sprites");
         }
         this.layers[layer.id] = layer;
     }
@@ -141,7 +141,7 @@ class FakeMap {
     const data = {
         ok: true, center: [4.28, 51.93],
         station: {name:"EyeVisions Home", lon:4.28, lat:51.93, altitude_m:12},
-        ais: {available: true, source_count: 14, count: 14, unverified_count: 1,
+        ais: {available: true, source_count: 15, count: 15, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
                     lon:4.3, lat:51.9, course:132, hull_heading:134, speed_knots:6,
@@ -200,6 +200,11 @@ class FakeMap {
                     length_m:9,beam_m:3,to_bow:6,to_stern:3,
                     to_port:1.4,to_starboard:1.6,hull_available:true,
                     hull_geometry_source:"AIS dimensions"},
+                {type:"ais",id:"111205511",name:"PILOT SERVICES SV",
+                    lon:3.98,lat:52.06,shipclass:10,shiptype:0,
+                    callsign:"OO-NSV",render_profile:"ais_helicopter",
+                    course:318,speed_knots:0,hull_available:false,
+                    age_seconds:71},
             ]},
         adsb: {available: true, source_count: 3, count: 3, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
@@ -264,13 +269,13 @@ class FakeMap {
             })}
             : url.startsWith("https://api.planespotters.net/pub/photos/hex/")
             ? (directPhotoUrl=url, {ok:true, json:async () => ({
-                photos:[{thumbnail_large:{src:"http://unsafe.invalid/photo.jpg"},
+                photos:url.includes("4ca125") ? [] : [{thumbnail_large:{src:"http://unsafe.invalid/photo.jpg"},
                          thumbnail:{src:"https://cdn.planespotters.net/heli.jpg"},
                          photographer:"Helicopter Photographer",
                          link:"https://www.planespotters.net/photo/124"}],
             })})
             : url.startsWith("/api/map-lab/aircraft-photo/")
-            ? {ok:true, json:async () => url.includes("4ca124")
+            ? {ok:true, json:async () => (url.includes("4ca124")||url.includes("4ca125"))
                 ? {ok:false, message:"No server-side photo available"}
                 : {ok:true, image_url:"https://cdn.planespotters.net/mock.jpg",
                     source_url:"https://www.planespotters.net/photo/123",
@@ -290,7 +295,7 @@ class FakeMap {
     instance.callbacks.load();
     await new Promise(resolve => setImmediate(resolve));
 
-    assert.equal(Object.keys(instance.images).length, 102); // 56 AIS + 4 offshore + 14 labels + 28 aircraft altitude sprites
+    assert.equal(Object.keys(instance.images).length, 104); // 56 AIS + 4 offshore + 14 labels + 28 ADS-B altitude + 2 AIS heli
     assert(!instance.images["sdrcc-tug"], "tugs must reuse class icons at distant zoom");
     for(const id of ["sdrcc-offshore-wtg","sdrcc-offshore-wtg-unverified",
                      "sdrcc-offshore-platform","sdrcc-offshore-platform-unverified"]){
@@ -300,6 +305,7 @@ class FakeMap {
         "sdrcc-ship-6-moving", "sdrcc-ship-2-moving-unverified",
         "sdrcc-ship-1-still", "sdrcc-plane-alt-upper",
         "sdrcc-helicopter-alt-low", "sdrcc-plane-alt-unknown-no-course",
+        "sdrcc-ais-helicopter","sdrcc-ais-helicopter-unverified",
     ]) assert(instance.images[name], "missing " + name);
     for(const code of Array.from({length:14}, (_,i)=>i)){
         for(const movement of ["moving","still"]){
@@ -327,7 +333,14 @@ class FakeMap {
     }
     const boats = instance.sources["sdrcc-ais"].data.features;
     const planes = instance.sources["sdrcc-adsb"].data.features;
-    assert.equal(boats.length, 14);
+    assert.equal(boats.length, 15);
+    const pilotHelo=boats[14];
+    assert.equal(pilotHelo.properties.render_profile,"ais_helicopter");
+    assert.equal(pilotHelo.properties.icon_name,"sdrcc-ais-helicopter");
+    assert.equal(pilotHelo.properties.course,318);
+    assert.equal(pilotHelo.properties.is_moving,true,
+        "AIS helicopter needs course rotation even if ship speed is zero");
+    assert.equal(pilotHelo.properties.hull_available,false);
     for (const target of boats.slice(12,14)) {
         assert.equal(target.properties.render_profile,"pleasure");
         assert.equal(target.properties.hull_available,true);
@@ -498,9 +511,9 @@ class FakeMap {
     assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
-    assert.equal(node("count-ais").textContent, 14);
+    assert.equal(node("count-ais").textContent, 15);
     assert.equal(node("count-adsb").textContent, 3);
-    assert.equal(node("legend-mini-status").textContent, "AIS 14 · ADS-B 3",
+    assert.equal(node("legend-mini-status").textContent, "AIS 15 · ADS-B 3",
         "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];
@@ -580,6 +593,8 @@ class FakeMap {
     assert(detailLines.some(x => x.includes("Registration: PH-BGX")));
     assert(detailLines.some(x => x.includes("Type: B738")));
     const photo = card.children.find(child => child.className === "popup-photo");
+    assert.equal(card.children[1],photo,
+        "the aircraft photo must be visible directly below the title");
     assert(photo && photo.children.some(child =>
         child.tag === "img" && child.src.startsWith("https://cdn.planespotters.net/")),
         "credited aircraft image must be rendered on click");
@@ -597,6 +612,21 @@ class FakeMap {
         child.tag==="img" && child.src==="https://cdn.planespotters.net/heli.jpg"));
     assert(heliPhoto.children.some(child =>
         child.textContent.includes("Helicopter Photographer")));
+    // If both server and browser API fail, never claim the aircraft has
+    // no photographs: provide a direct accredited aircraft photo page.
+    instance.callbacks["click:sdrcc-adsb-icons"]({features:[planes[2]]});
+    for (let i=0;i<12;i++) await Promise.resolve();
+    const noPhotoCard=lastPopup.element;
+    const noPhoto=noPhotoCard.children.find(child=>child.className==="popup-photo");
+    assert(noPhoto.children.some(child=>child.tag==="a"
+        && child.href==="https://www.planespotters.net/hex/4ca125"));
+    // AIS helicopters are air targets, but do not have ADS-B ICAO photo IDs.
+    instance.callbacks["click:sdrcc-ais-icons"]({features:[pilotHelo]});
+    const aisHeloCard=lastPopup.element;
+    assert(aisHeloCard.children[0].textContent.includes("🚁"));
+    assert(aisHeloCard.children.some(child=>child.children?.some(value=>
+        value.textContent.includes("Helicopter (not a marine vessel)"))));
+    assert(!aisHeloCard.children.some(child=>child.className==="popup-photo"));
     instance.callbacks["click:sdrcc-ais-hull-3d"]({features:[polygons[0]]});
     assert(lastPopup.element.children.some(child =>
         child.children?.some(value => value.textContent.includes("Length"))));
@@ -656,6 +686,6 @@ class FakeMap {
         change.id === "sdrcc-ais-fallback-icons" && change.value === "none"),
         "hiding AIS must hide zoomed-in fallback vessels too");
 
-    console.log("PASS: 102 AIS/aircraft altitude sprites, helicopter symbols, original tug and Class B models, "
+    console.log("PASS: 104 AIS/aircraft sprites including AIS class 10 helicopters, photo fallback, original tug and Class B models, "
         + "emergency/ATIS matched rings, visibility, nameplates and 3D");
 })().catch(error => {console.error(error); process.exitCode = 1;});
