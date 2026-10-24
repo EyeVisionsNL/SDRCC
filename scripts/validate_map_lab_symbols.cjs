@@ -233,6 +233,7 @@ class FakeMap {
     const stored = new Map([["sdrcc.mapLab.legendOpen", "1"],
         ["sdrcc.mapLab.trackMinutes", "7"]]);
     let lastTrackUrl = "";
+    let directPhotoUrl = "";
     const fakeWindow = {
         localStorage: {
             getItem(key) { return stored.get(key) ?? null; },
@@ -261,12 +262,19 @@ class FakeMap {
                      geometry:{type:"LineString",coordinates:[[4.2,51.9],[4.25,51.93],[4.3,51.9]]}},
                 ]},
             })}
+            : url.startsWith("https://api.planespotters.net/pub/photos/hex/")
+            ? (directPhotoUrl=url, {ok:true, json:async () => ({
+                photos:[{thumbnail_large:{src:"http://unsafe.invalid/photo.jpg"},
+                         thumbnail:{src:"https://cdn.planespotters.net/heli.jpg"},
+                         photographer:"Helicopter Photographer",
+                         link:"https://www.planespotters.net/photo/124"}],
+            })})
             : url.startsWith("/api/map-lab/aircraft-photo/")
-            ? {ok:true, json:async () => ({
-                ok:true, image_url:"https://cdn.planespotters.net/mock.jpg",
-                source_url:"https://www.planespotters.net/photo/123",
-                photographer:"Example Photographer", source:"Planespotters.net",
-            })}
+            ? {ok:true, json:async () => url.includes("4ca124")
+                ? {ok:false, message:"No server-side photo available"}
+                : {ok:true, image_url:"https://cdn.planespotters.net/mock.jpg",
+                    source_url:"https://www.planespotters.net/photo/123",
+                    photographer:"Example Photographer", source:"Planespotters.net"}}
             : {ok:true, json:async () => data};
         },
     });
@@ -576,6 +584,19 @@ class FakeMap {
         child.tag === "img" && child.src.startsWith("https://cdn.planespotters.net/")),
         "credited aircraft image must be rendered on click");
     assert(photo.children.some(child => child.textContent.includes("Example Photographer")));
+    // Server may have no outgoing internet even when browser tar1090 has
+    // photos. Direct browser lookup must then preserve image + attribution.
+    instance.callbacks["click:sdrcc-adsb-icons"]({features:[planes[1]]});
+    for (let i=0;i<12;i++) await Promise.resolve();
+    assert(directPhotoUrl.includes("/pub/photos/hex/4ca124"));
+    assert(directPhotoUrl.includes("reg=PH-POL"));
+    assert(directPhotoUrl.includes("icaoType=H145"));
+    const heliCard=lastPopup.element;
+    const heliPhoto=heliCard.children.find(child => child.className==="popup-photo");
+    assert(heliPhoto.children.some(child =>
+        child.tag==="img" && child.src==="https://cdn.planespotters.net/heli.jpg"));
+    assert(heliPhoto.children.some(child =>
+        child.textContent.includes("Helicopter Photographer")));
     instance.callbacks["click:sdrcc-ais-hull-3d"]({features:[polygons[0]]});
     assert(lastPopup.element.children.some(child =>
         child.children?.some(value => value.textContent.includes("Length"))));
