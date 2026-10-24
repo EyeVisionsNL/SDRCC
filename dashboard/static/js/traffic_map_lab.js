@@ -552,7 +552,8 @@
             }
             if (props.hull_geometry_source && props.hull_geometry_source !== "AIS dimensions" && props.render_profile !== "pleasure")
                 add("3D hull data", props.hull_geometry_source);
-            if (props.hull_bearing_approximate) add("3D orientation", "Based on AIS course; may differ from true heading");
+            if (props.hull_bearing_approximate && props.render_profile !== "pleasure")
+                add("3D orientation", "Based on AIS course; may differ from true heading");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             add("Ship type", props.shiptype);
             add("Callsign", props.callsign);
