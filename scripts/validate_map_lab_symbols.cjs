@@ -37,7 +37,7 @@ assert(markup.includes('.map-legend:not([open])'), "legend must be compact when 
 assert(markup.includes('.legend-content{max-height:') === false ||
        markup.includes('.legend-content{padding:'), "expanded legend must scroll");
 for (const id of ["layer-ais","layer-adsb","layer-station","layer-vts",
-                  "layer-emergency","layer-atis","layer-tracks","track-status","track-duration","track-duration-value","show-names","feed-status"]) {
+                  "layer-emergency","layer-atis","atis-auto-focus","atis-focus-zoom","atis-focus-zoom-value","layer-tracks","track-status","track-duration","track-duration-value","show-names","feed-status"]) {
     assert(markup.includes('id="' + id + '"'), "missing existing control " + id);
 }
 const esm = 'await import("https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs")';
@@ -292,6 +292,8 @@ class FakeMap {
         "collapsing the legend must be persisted");
     assert.equal(node("track-duration").value, "7", "saved track duration ignored");
     assert.equal(node("track-duration-value").textContent, "7 min");
+    assert.equal(node("atis-auto-focus").checked, false,
+        "ATIS camera follow must default to off");
     instance.callbacks.load();
     await new Promise(resolve => setImmediate(resolve));
 
