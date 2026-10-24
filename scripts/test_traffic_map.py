@@ -771,6 +771,21 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(plane["squawk"], "4720")
         self.assertEqual(plane["baro_rate"], -640)
 
+    def test_readsb_source_type_is_not_icao_aircraft_type(self):
+        rows=traffic_map.aircraft({"aircraft":[{
+            "hex":"48520a","flight":"TRA5063","type":"adsb_icao",
+            "lat":51.9,"lon":4.3,"seen_pos":0,"category":"A3",
+        }]})
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["name"],"TRA5063")
+        self.assertEqual(rows[0]["aircraft_type"],"")
+        self.assertFalse(rows[0]["is_helicopter"])
+        with_type=traffic_map.aircraft({"aircraft":[{
+            "hex":"48520a","type":"adsb_icao","t":"A320",
+            "lat":51.9,"lon":4.3,"seen_pos":0,
+        }]})[0]
+        self.assertEqual(with_type["aircraft_type"],"A320")
+
     def test_readsb_non_icao_and_last_position(self):
         """Recent position retained by tar1090 should be visible; old positions must not."""
         items = [
