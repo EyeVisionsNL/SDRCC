@@ -2644,7 +2644,8 @@ def api_traffic_map_vts_sectors():
 @app.route("/api/map-lab/aircraft-photo/<hex_id>")
 def api_traffic_map_aircraft_photo(hex_id):
     """Optional on-click photo lookup; bounded ICAO hex and trusted source URLs."""
-    return jsonify(traffic_map_aircraft_photo.lookup(hex_id))
+    return jsonify(traffic_map_aircraft_photo.lookup(
+        hex_id, request.args.get("reg", ""), request.args.get("icaoType", "")))
 
 
 @app.route("/api/mobile/capabilities")
