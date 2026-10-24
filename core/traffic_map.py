@@ -151,6 +151,10 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
     if (shiptype in (31, 32, 52) or _TUG_NAME_RE.search(label)
             or status in ("11", "12") or _TUG_STATUS_RE.search(status)):
         return "tug"
+    # AIS types 60-69 are passenger vessels. Retain special service profiles
+    # resolved above and do not mistake generic Class B for a passenger ship.
+    if (shiptype is not None and 60 <= shiptype <= 69) or shipclass == 4:
+        return "passenger"
     if (shiptype is not None and 80 <= shiptype <= 89) or shipclass == 6:
         return "tanker"
     if (shiptype is not None and 70 <= shiptype <= 79) or shipclass == 2:
