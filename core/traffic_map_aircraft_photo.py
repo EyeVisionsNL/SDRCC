@@ -26,7 +26,13 @@ def _trusted_url(value: object, image: bool = False) -> str:
         host = p.hostname or ""
         if p.scheme != "https" or p.username or p.password or p.port not in (None, 443):
             return ""
-        if not (host == "planespotters.net" or host.endswith(".planespotters.net")):
+        # Planespotters thumbnails are served on its own abbreviated CDN,
+        # not just *.planespotters.net. Previous check dropped every such
+        # response and falsely reported "no photograph".
+        official = (host == "planespotters.net" or
+                    host.endswith(".planespotters.net"))
+        photo_cdn = host == "t.plnspttrs.net" and image
+        if not (official or photo_cdn):
             return ""
         # The image CDN also serves thumbnails from extensionless paths.
         # Origin validation is the restriction; never accept unknown domains.
