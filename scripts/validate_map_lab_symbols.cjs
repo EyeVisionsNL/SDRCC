@@ -329,11 +329,11 @@ class FakeMap {
         assert.deepEqual(JSON.parse(JSON.stringify(layer.layout["icon-rotate"])),
             kind === "ais"
                 ? ["case", ["==", ["get", "render_profile"], "ais_helicopter"],
-                    ["-", ["coalesce", ["get", "course"], 270], 270],
+                    ["coalesce", ["get", "course"], 0],
                     ["get", "is_offshore_structure"], 0,
                     ["get", "is_moving"], ["coalesce", ["get", "course"], 0], 0]
                 : ["case", ["get", "is_helicopter"],
-                    ["-", ["coalesce", ["get", "course"], 270], 270],
+                    ["coalesce", ["get", "course"], 0],
                     ["coalesce", ["get", "course"], 0]]);
         assert(instance.callbacks["click:sdrcc-" + kind + "-icons"]);
     }
@@ -348,7 +348,7 @@ class FakeMap {
         "AIS helicopter needs course rotation even if ship speed is zero");
     assert.equal(pilotHelo.properties.hull_available,false);
     assert.equal(pilotHelo.properties.icon_scale,1.45,
-        "AIS helicopter should have a clearly visible circular badge");
+        "AIS helicopter silhouette should remain legible");
     for (const target of boats.slice(12,14)) {
         assert.equal(target.properties.render_profile,"pleasure");
         assert.equal(target.properties.hull_available,true);
@@ -541,6 +541,16 @@ class FakeMap {
     assert.equal(instance.sources["sdrcc-atis"].data.features.length, 1);
     assert.equal(node("emergency-status").textContent, "2 highlighted");
     assert.equal(node("atis-status").textContent, "ATIS matched");
+    // Auto-focus uses latitude/longitude from the highlight API, never lon/lat.
+    assert.equal(node("atis-auto-focus").checked, false);
+    node("atis-auto-focus").checked = true;
+    node("atis-auto-focus").listeners.change();
+    assert.deepEqual(JSON.parse(JSON.stringify(instance.camera.center)), [4.3, 51.9],
+        "ATIS follow must center on a valid vessel coordinate");
+    assert.equal(instance.camera.zoom, 15, "default ATIS focus zoom");
+    node("atis-focus-zoom").value = "17";
+    node("atis-focus-zoom").listeners.change();
+    assert.equal(stored.get("sdrcc.mapLab.atisFocusZoom"), "17");
     assert.deepEqual(JSON.parse(JSON.stringify(
         instance.sources["sdrcc-atis"].data.features[0].geometry.coordinates)),
         [4.3,51.9]);
