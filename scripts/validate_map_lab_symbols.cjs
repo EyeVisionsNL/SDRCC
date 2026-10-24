@@ -347,8 +347,8 @@ class FakeMap {
     assert.equal(pilotHelo.properties.is_moving,true,
         "AIS helicopter needs course rotation even if ship speed is zero");
     assert.equal(pilotHelo.properties.hull_available,false);
-    assert.equal(pilotHelo.properties.icon_scale,1.45,
-        "AIS helicopter silhouette should remain legible");
+    assert.equal(pilotHelo.properties.icon_scale,0.82,
+        "AIS helicopter must be compact like other map symbols");
     for (const target of boats.slice(12,14)) {
         assert.equal(target.properties.render_profile,"pleasure");
         assert.equal(target.properties.hull_available,true);
