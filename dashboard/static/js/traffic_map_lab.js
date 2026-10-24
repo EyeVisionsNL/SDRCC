@@ -436,9 +436,9 @@
             icon_scale: isAIS
                 ? (profile === "offshore_wtg" ? 0.78
                     : profile === "offshore_platform" ? 0.9
-                    : profile === "ais_helicopter" ? 1.45
+                    : profile === "ais_helicopter" ? 0.82
                     : iconScale(item.length_m))
-                : (item.is_helicopter === true ? 1.3 : 1),
+                : (item.is_helicopter === true ? 0.85 : 1),
             hull_available: isAIS && !offshore && hullGeometry(item) !== null,
             shipclass,
             speed_knots: item.speed_knots,
