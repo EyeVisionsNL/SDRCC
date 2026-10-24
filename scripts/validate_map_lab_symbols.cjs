@@ -365,7 +365,7 @@ class FakeMap {
     assert.equal(boats[3].properties.hull_available,false);
     assert.equal(boats[4].properties.hull_available,false);
     assert.equal(boats[5].properties.render_profile,"cargo");
-    assert.equal(planes.length, 1);
+    assert.equal(planes.length, 3);
     assert.equal(boats[0].properties.course, 132);
     assert.equal(boats[0].properties.course_known, true);
     assert.equal(boats[0].properties.icon_name, "sdrcc-ship-6-moving");
