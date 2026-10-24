@@ -316,10 +316,11 @@ class FakeMap {
     assert.equal(boats.length, 14);
     for (const target of boats.slice(12,14)) {
         assert.equal(target.properties.render_profile,"pleasure");
-        assert.equal(target.properties.icon_name,"sdrcc-ship-3-still",
-            "Class B keeps existing AIS icon at low zoom");
         assert.equal(target.properties.hull_available,true);
     }
+    assert.equal(boats[12].properties.icon_name,"sdrcc-ship-3-moving");
+    assert.equal(boats[13].properties.icon_name,"sdrcc-ship-3-still",
+        "Class B keeps original AIS icon at low zoom");
     assert.equal(boats[12].properties.hull_geometry_source,
         "Illustrative Class B pleasure hull; antenna offsets unavailable");
     assert.equal(boats[13].properties.hull_geometry_source,"AIS dimensions");
