@@ -7,6 +7,13 @@ from core import traffic_map
 
 
 class TrafficMapTests(unittest.TestCase):
+    def test_passenger_3d_profile(self):
+        self.assertEqual(traffic_map.display_profile("FERRY", 60, 4), "passenger")
+        self.assertEqual(traffic_map.display_profile("WATERBUS", 69, None), "passenger")
+        self.assertEqual(traffic_map.display_profile("PASSENGER", None, 4), "passenger")
+        self.assertEqual(traffic_map.display_profile("CONTAINER", 70, 2), "cargo")
+        self.assertEqual(traffic_map.display_profile("TANKER", 80, 6), "tanker")
+
     def test_render_profiles_and_conservative_offshore_names(self):
         profiles = [
             ("WTG 014", None, 12, "offshore_wtg"),
