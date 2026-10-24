@@ -287,6 +287,8 @@ class TrafficMapTests(unittest.TestCase):
             ("MY BOAT",3,None,"pleasure"),
             ("MY BOAT",3,0,"pleasure"),
             ("MY BOAT",3,99,"pleasure"),
+            ("P15",3,99,"vessel"),
+            ("P1",3,37,"vessel"),
             ("CLASS B TUG",3,52,"tug"),
             ("CLASS B TANKER",3,80,"tanker"),
             ("CLASS B CARGO",3,70,"cargo"),
