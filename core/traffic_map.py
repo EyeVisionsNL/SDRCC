@@ -350,6 +350,22 @@ def vessels(payload: Any) -> list[dict]:
     return selected
 
 
+def _is_helicopter(item: dict) -> bool:
+    """Helicopter using ADS-B category, ICAO type and type description only."""
+    category = str(item.get("category") or "").strip().upper()
+    desc = str(item.get("desc") or "").strip().upper()
+    typ = str(item.get("t") or item.get("type") or "").strip().upper()
+    return (
+        category == "A7"
+        or bool(re.match(r"^H[0-9][A-Z]$", desc))
+        or "HELICOPTER" in desc or "ROTORCRAFT" in desc
+        or bool(re.match(
+            r"^(?:H1\d\d|H5\d\d|H60|EC\d\d|AS\d\d|AW\d{2,3}|"
+            r"R(?:22|44|66)|B0[56]|B4(?:07|12|29)|S(?:76|92)|"
+            r"MD5\d|NH90|CH47|UH1|MI8|G2CA)$", typ))
+    )
+
+
 def aircraft(payload: Any) -> list[dict]:
     """Readsb observations younger than 30 seconds, with valid positions."""
     planes = receiver_monitor._extract_list(payload, ("aircraft",))
@@ -384,6 +400,7 @@ def aircraft(payload: Any) -> list[dict]:
             "registration": _label(item, ("r", "registration"), 20),
             "aircraft_type": _label(item, ("t", "type"), 20),
             "description": _label(item, ("desc",), 80),
+            "is_helicopter": _is_helicopter(item),
             "operator": _label(item, ("ownOp", "operator"), 80),
             "squawk": _label(item, ("squawk",), 6),
             "category": _label(item, ("category",), 12),
