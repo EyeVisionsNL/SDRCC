@@ -98,6 +98,17 @@
     const classColorExpression = ["match", ["get", "shipclass"],
         ...Object.entries(AIS_CLASS_COLORS).flatMap(([key, value]) => [Number(key), value]),
         AIS_CLASS_COLORS[1]];
+    // Fixed altitude bands in feet; unknown altitude is neutral grey.
+    const AIR_ALTITUDE_COLORS = Object.freeze({
+        unknown:"#aebdcc",low:"#3bd66f",climb:"#b8e15a",
+        mid:"#ffd45a",high:"#ff9650",upper:"#e47bd7",cruise:"#ae88ff",
+    });
+    function altitudeBand(ft) {
+        if (!Number.isFinite(ft)) return "unknown";
+        return ft < 2000 ? "low" : ft < 5000 ? "climb"
+            : ft < 10000 ? "mid" : ft < 20000 ? "high"
+            : ft < 30000 ? "upper" : "cruise";
+    }
     const AIS_CLASS_NAMES = Object.freeze({
         0:"Other", 1:"Unknown", 2:"Cargo", 3:"Class B", 4:"Passenger",
         5:"Special", 6:"Tanker", 7:"High speed", 8:"Fishing",
@@ -349,13 +360,15 @@
         const unverified = item.validation_state === "unverified";
         const profile = isAIS ? (item.render_profile || "vessel") : "";
         const offshore = ["offshore_wtg","offshore_platform"].includes(profile);
+        const band = altitudeBand(item.altitude_ft);
         const iconName = isAIS
             ? offshore
                 ? "sdrcc-" + profile.replace("_","-")
                     + (unverified ? "-unverified" : "")
                 : "sdrcc-ship-" + shipclass + "-" + (moving ? "moving" : "still")
                     + (unverified ? "-unverified" : "")
-            : "sdrcc-plane" + (Number.isFinite(item.course) ? "" : "-no-course");
+            : "sdrcc-" + (item.is_helicopter === true ? "helicopter" : "plane")
+                + "-alt-" + band + (Number.isFinite(item.course) ? "" : "-no-course");
         return {
             type: item.type,
             id: String(item.id || ""),
@@ -365,6 +378,9 @@
             registration: item.registration || "",
             aircraft_type: item.aircraft_type || "",
             description: item.description || "",
+            is_helicopter: item.is_helicopter === true,
+            altitude_band: band,
+            altitude_color: AIR_ALTITUDE_COLORS[band],
             operator: item.operator || "",
             squawk: item.squawk || "",
             category: item.category || "",
@@ -571,12 +587,15 @@
             add("ICAO24", props.id?.toUpperCase());
             add("Registration", props.registration);
             add("Type", props.aircraft_type);
+            if (props.is_helicopter) add("Aircraft class", "Helicopter");
             add("Aircraft", props.description);
             add("Operator", props.operator);
             add("Squawk", props.squawk);
             add("Category", props.category);
             add("Vertical rate", props.baro_rate, " ft/min");
             add("Altitude", props.altitude_ft, " ft");
+            if (props.altitude_band === "unknown") add("Altitude colour", "Unknown");
+            else add("Altitude colour", props.altitude_band);
         }
         add("Course/track", props.course_known ? props.course : "Not reported",
             props.course_known ? "°" : "");
@@ -587,12 +606,34 @@
             photo.className = "popup-photo";
             photo.textContent = "Checking for a credited aircraft photo…";
             box.appendChild(photo);
-            // The server only asks Planespotters for photos when a plane is clicked.
-            void fetch("/api/map-lab/aircraft-photo/" + encodeURIComponent(props.id))
+            // Keep all image lookups click-only. If the SDRCC server cannot
+            // contact Planespotters, try their browser API just like tar1090.
+            const hints = (props.registration ? "&reg=" + encodeURIComponent(props.registration) : "")
+                + (props.aircraft_type ? "&icaoType=" + encodeURIComponent(props.aircraft_type) : "");
+            const suffix = hints ? "?" + hints.slice(1) : "";
+            const trusted = url => typeof url === "string"
+                && /^https:\/\/(?:[a-z0-9-]+\.)*planespotters\.net(?:\/|$)/i.test(url);
+            const fallbackPhoto = () => fetch("https://api.planespotters.net/pub/photos/hex/"
+                + encodeURIComponent(props.id) + suffix)
                 .then(response => response.ok ? response.json() : null)
+                .then(data => {
+                    for (const entry of Array.isArray(data?.photos) ? data.photos.slice(0,5) : []) {
+                        const src = entry?.thumbnail_large?.src || entry?.thumbnail?.src;
+                        if (!trusted(src)) continue;
+                        return {ok:true,image_url:src,source:"Planespotters.net",
+                            source_url:trusted(entry.link) ? entry.link : "",
+                            photographer:String(entry.photographer || "").slice(0,90)};
+                    }
+                    return null;
+                });
+            void fetch("/api/map-lab/aircraft-photo/" + encodeURIComponent(props.id) + suffix)
+                .then(response => response.ok ? response.json() : null)
+                .catch(() => null)
+                .then(result => result?.ok && trusted(result.image_url)
+                    ? result : fallbackPhoto().catch(() => null))
                 .then(result => {
                     photo.textContent = "";
-                    if (!result || !result.ok || !result.image_url) {
+                    if (!result?.ok || !trusted(result.image_url)) {
                         photo.textContent = "No aircraft photo available";
                         return;
                     }
@@ -603,10 +644,11 @@
                     img.referrerPolicy = "no-referrer";
                     img.onerror = () => {img.remove(); photo.textContent = "Aircraft photo unavailable";};
                     photo.appendChild(img);
-                    const credit = document.createElement(result.source_url ? "a" : "div");
-                    credit.textContent = "Photo: " + (result.photographer || result.source);
-                    if (result.source_url) {
-                        credit.href = result.source_url;
+                    const sourceUrl = trusted(result.source_url) ? result.source_url : "";
+                    const credit = document.createElement(sourceUrl ? "a" : "div");
+                    credit.textContent = "Photo: " + (result.photographer || "Planespotters.net");
+                    if (sourceUrl) {
+                        credit.href = sourceUrl;
                         credit.target = "_blank";
                         credit.rel = "noopener noreferrer";
                     }
@@ -683,7 +725,7 @@
         }
         return ctx.getImageData(0,0,96,96);
     }
-    function spritePlane(unknownCourse = false) {
+    function spritePlane(unknownCourse = false, color = "#ffbd73") {
         const canvas = document.createElement("canvas");
         canvas.width = 96;
         canvas.height = 96;
@@ -694,7 +736,7 @@
         ctx.lineCap = "round";
         ctx.shadowColor = "rgba(1, 15, 29, 0.8)";
         ctx.shadowBlur = 3;
-        ctx.fillStyle = "#ffbd73";
+        ctx.fillStyle = color;
         ctx.strokeStyle = "#07243a";
         ctx.lineWidth = 2.4;
         ctx.beginPath();
@@ -743,6 +785,38 @@
         }
         return ctx.getImageData(0, 0, 96, 96);
     }
+    function spriteHelicopter(unknownCourse = false, color = "#ffbd73") {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 96;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D context is unavailable");
+        ctx.scale(2,2);
+        ctx.lineJoin="round";ctx.lineCap="round";
+        ctx.shadowColor="rgba(1,15,29,0.75)";ctx.shadowBlur=3;
+        ctx.fillStyle=color;ctx.strokeStyle="#082439";ctx.lineWidth=2;
+        // Rotor, cockpit, tail boom and twin skids, viewed from above.
+        ctx.beginPath();
+        ctx.moveTo(24,9);ctx.quadraticCurveTo(31,13,31,21);
+        ctx.lineTo(30,32);ctx.lineTo(27,38);ctx.lineTo(21,38);
+        ctx.lineTo(18,32);ctx.lineTo(17,21);ctx.quadraticCurveTo(17,13,24,9);
+        ctx.closePath();ctx.fill();ctx.stroke();
+        ctx.beginPath();ctx.moveTo(24,29);ctx.lineTo(24,44);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(17,35);ctx.lineTo(17,41);
+        ctx.moveTo(31,35);ctx.lineTo(31,41);
+        ctx.moveTo(13,40);ctx.lineTo(19,40);
+        ctx.moveTo(29,40);ctx.lineTo(35,40);ctx.stroke();
+        ctx.lineWidth=3.7;
+        ctx.beginPath();ctx.moveTo(4,23);ctx.lineTo(44,23);
+        ctx.moveTo(24,4);ctx.lineTo(24,42);ctx.stroke();
+        ctx.fillStyle="#082439";ctx.beginPath();ctx.arc(24,23,3,0,Math.PI*2);ctx.fill();
+        if (unknownCourse) {
+            ctx.fillStyle="#173449";ctx.strokeStyle="#eef7ff";ctx.lineWidth=1;
+            ctx.beginPath();ctx.arc(39,39,6,0,Math.PI*2);ctx.fill();ctx.stroke();
+            ctx.fillStyle="#fff";ctx.font="bold 10px system-ui,sans-serif";
+            ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("?",39,39);
+        }
+        return ctx.getImageData(0,0,96,96);
+    }
     function labelPlate(color) {
         // Compact borderless class-coloured AIS label; nine-slice fits text.
         const canvas = document.createElement("canvas");
@@ -778,8 +852,15 @@
                 map.addImage(name,spriteOffshore(profile,unverified),{pixelRatio:2});
             }
         }
-        map.addImage("sdrcc-plane", spritePlane(), {pixelRatio: 2});
-        map.addImage("sdrcc-plane-no-course", spritePlane(true), {pixelRatio: 2});
+        for (const [band,color] of Object.entries(AIR_ALTITUDE_COLORS)) {
+            for (const noCourse of [false,true]) {
+                const suffix = "-alt-" + band + (noCourse ? "-no-course" : "");
+                map.addImage("sdrcc-plane"+suffix,
+                    spritePlane(noCourse,color), {pixelRatio:2});
+                map.addImage("sdrcc-helicopter"+suffix,
+                    spriteHelicopter(noCourse,color), {pixelRatio:2});
+            }
+        }
     }
     function addHullLayer() {
         map.addSource("sdrcc-ais-hulls", {type:"geojson", data:empty});
@@ -918,7 +999,7 @@
                 "text-field": kind === "ais" ? ["get", "label_name"] : ["get", "name"],
                 "icon-image": kind === "ais"
                     ? ["concat", "sdrcc-name-", ["to-string", ["get", "shipclass"]]]
-                    : "sdrcc-plane",
+                    : ["get", "icon_name"],
                 "icon-text-fit": kind === "ais" ? "both" : "none",
                 "icon-text-fit-padding": kind === "ais" ? [2, 4, 2, 4] : [0, 0, 0, 0],
                 // A small plate is easier to read than a large label over the hull.
