@@ -652,6 +652,22 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(result["to_bow"],43.5)
         self.assertIn("Illustrative",result["hull_geometry_source"])
 
+    def test_real_ais_offsets_survive_missing_heading(self):
+        row=traffic_map.vessels({"ships":[{
+            "mmsi":"244661111","shipname":"MOORING CARGO",
+            "lat":51.9,"lon":4.3,"speed":0,"cog":77,
+            "shipclass":2,"shiptype":70,
+            "to_bow":80,"to_stern":20,"to_port":6,"to_starboard":7,
+        }]})[0]
+        self.assertTrue(row["hull_available"])
+        self.assertEqual((row["to_bow"],row["to_stern"],
+                          row["to_port"],row["to_starboard"]),(80,20,6,7))
+        self.assertEqual(row["length_m"],100)
+        self.assertEqual(row["beam_m"],13)
+        self.assertEqual(row["hull_geometry_source"],"AIS dimensions")
+        self.assertEqual(row["hull_heading"],0)
+        self.assertTrue(row["hull_bearing_approximate"])
+
     def test_cargo_rival_without_ais_offsets_has_3d_model(self):
         row=traffic_map.vessels({"ships":[{
             "mmsi":"244660212","shipname":"RIVAL","shipclass":2,

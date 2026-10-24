@@ -307,6 +307,14 @@ def vessels(payload: Any) -> list[dict]:
         is_fixed_target = (profile.startswith("offshore_")
                            or normalized_class in (11, 12)
                            or mmsi.startswith("99"))
+        if not has_hull and not is_fixed_target and to_bow is not None:
+            # AIS geometry is valid but its true heading and moving COG are
+            # unknown. Preserve all FOUR real offsets; rotate a neutral
+            # north-up illustration without inventing vessel heading.
+            hull_heading = 0.0
+            hull_geometry_source = "AIS dimensions"
+            hull_bearing_approximate = True
+            has_hull = True
         if not has_hull and not is_fixed_target:
             fallback_profile = profile
             if profile == "vessel":
@@ -332,13 +340,6 @@ def vessels(payload: Any) -> list[dict]:
                 "Illustrative class/type hull; not measured AIS dimensions"
                 if length == fallback_length and beam == fallback_beam
                 else "Illustrative hull using available AIS size; antenna offsets unknown")
-            has_hull = True
-        # Real AIS offsets without heading also get a neutral north-up drawing.
-        # Keep the authentic dimensions and make the orientation uncertainty explicit.
-        if to_bow is not None and not has_hull and not is_fixed_target:
-            hull_heading = 0.0
-            hull_bearing_approximate = True
-            hull_geometry_source = "AIS dimensions"
             has_hull = True
         selected.append({
             "type": "ais", "id": mmsi, "name": name,
