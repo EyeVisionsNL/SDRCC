@@ -39,6 +39,25 @@ class TrafficMapTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(traffic_map.display_profile(name, shiptype, shipclass), expected)
 
+    def test_ais_class_ten_helicopter_is_not_a_ship_hull(self):
+        self.assertEqual(traffic_map.display_profile(
+            "PILOT SERVICES SV",0,10,mmsi="111205511"),
+            "ais_helicopter")
+        rows=traffic_map.vessels({"ships":[{
+            "mmsi":"111205511","shipname":"PILOT SERVICES SV",
+            "callsign":"OO-NSV","shipclass":10,"shiptype":0,
+            "lat":52.06,"lon":3.98,"cog":318,"speed":0,"last_signal":71,
+            "to_bow":10,"to_stern":3,"to_port":2,"to_starboard":2,
+        }]})
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["render_profile"],"ais_helicopter")
+        self.assertFalse(rows[0]["hull_available"])
+        self.assertEqual(rows[0]["course"],318)
+        self.assertEqual(rows[0]["shipclass"],10)
+        self.assertEqual(rows[0]["callsign"],"OO-NSV")
+        self.assertEqual(traffic_map.display_profile(
+            "CARGO",70,2),"cargo")
+
     def test_offshore_facilities_never_generate_normal_ship_hulls(self):
         raw = {"lat": 51.9, "lon": 4.3, "validated": 1, "heading": 15,
                "to_bow": 90, "to_stern": 20, "to_port": 6, "to_starboard": 6}
