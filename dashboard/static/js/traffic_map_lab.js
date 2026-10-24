@@ -618,8 +618,9 @@
                 .then(response => response.ok ? response.json() : null)
                 .then(data => {
                     for (const entry of Array.isArray(data?.photos) ? data.photos.slice(0,5) : []) {
-                        const src = entry?.thumbnail_large?.src || entry?.thumbnail?.src;
-                        if (!trusted(src)) continue;
+                        const src = [entry?.thumbnail_large?.src, entry?.thumbnail?.src]
+                            .find(trusted);
+                        if (!src) continue;
                         return {ok:true,image_url:src,source:"Planespotters.net",
                             source_url:trusted(entry.link) ? entry.link : "",
                             photographer:String(entry.photographer || "").slice(0,90)};
