@@ -9,7 +9,7 @@ import json
 import re
 import threading
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 _URL = "https://api.planespotters.net/pub/photos/hex/"
@@ -35,17 +35,23 @@ def _trusted_url(value: object, image: bool = False) -> str:
         return ""
 
 
-def lookup(hex_id: str) -> dict:
+def lookup(hex_id: str, registration: str = "", aircraft_type: str = "") -> dict:
     ident = str(hex_id or "").strip().lower()
     if not re.fullmatch(r"[0-9a-f]{6}", ident):
         return {"ok": False, "message": "No verified ICAO hexadecimal identifier"}
+    reg = str(registration or "").strip().upper()
+    kind = str(aircraft_type or "").strip().upper()
+    reg = reg if re.fullmatch(r"[A-Z0-9-]{2,12}", reg) else ""
+    kind = kind if re.fullmatch(r"[A-Z0-9]{2,8}", kind) else ""
+    key = (ident, reg, kind)
     with _LOCK:
-        cached = _CACHE.get(ident)
+        cached = _CACHE.get(key)
         if cached and cached[0] > time.monotonic():
             return dict(cached[1])
     result: dict = {"ok": False, "message": "No verified aircraft photograph available"}
     try:
-        request = Request(_URL + ident, headers={
+        hints = urlencode({"reg": reg, "icaoType": kind}) if reg or kind else ""
+        request = Request(_URL + ident + ("?" + hints if hints else ""), headers={
             "User-Agent": "SDRCC/0.68 (map-lab on-demand aircraft photo)",
             "Accept": "application/json",
         })
@@ -77,5 +83,5 @@ def lookup(hex_id: str) -> dict:
     with _LOCK:
         if len(_CACHE) >= _MAX_CACHE:
             _CACHE.pop(next(iter(_CACHE)))
-        _CACHE[ident] = (time.monotonic() + (21600 if result["ok"] else 1800), result)
+        _CACHE[key] = (time.monotonic() + (21600 if result["ok"] else 300), result)
     return dict(result)
