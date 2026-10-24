@@ -855,56 +855,42 @@
         return ctx.getImageData(0, 0, 96, 96);
     }
     function spriteHelicopter(unknownCourse = false, color = "#ffbd73") {
-        // Readable AIRCRAFT silhouette, not the previous thin cross.
-        // AIS-Catcher-style circular badge, with a helicopter SIDE profile:
-        // broad cockpit, tail boom, main rotor, tail rotor and skids.
+        // AIS-Catcher-inspired TOP-DOWN helicopter silhouette (nose points north).
+        // No round badge: rotor, fuselage, tail and skids remain identifiable.
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = 96;
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas 2D context is unavailable");
         ctx.scale(2, 2);
         ctx.lineJoin = "round"; ctx.lineCap = "round";
-        ctx.shadowColor = "rgba(3,13,27,.65)"; ctx.shadowBlur = 2.2;
-        ctx.fillStyle = "#102c40"; ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 1.25;
-        ctx.beginPath(); ctx.arc(24,24,22,0,Math.PI*2);
-        ctx.fill(); ctx.stroke();
-        ctx.shadowColor = "transparent";
+        ctx.shadowColor = "rgba(0,0,0,.8)"; ctx.shadowBlur = 2;
+        ctx.strokeStyle = "#11283b"; ctx.lineWidth = 2.8;
         ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(24,24,18.3,0,Math.PI*2); ctx.fill();
-        // Dark, recognizable silhouette inside the bright round marker.
-        ctx.strokeStyle = "#0b2030";
-        ctx.fillStyle = "#0b2030";
-        ctx.lineWidth = 2;
-        // Long main rotor above the cockpit, rotor shaft beneath it.
-        ctx.beginPath(); ctx.moveTo(6,13); ctx.lineTo(42,13);
-        ctx.moveTo(22,13); ctx.lineTo(22,18); ctx.stroke();
-        // Bulbous cockpit/nose pointing left, with short taper toward tail.
-        ctx.beginPath(); ctx.moveTo(10,23);
-        ctx.quadraticCurveTo(10,19,17,19);
-        ctx.lineTo(29,19); ctx.quadraticCurveTo(33,21,33,25);
-        ctx.lineTo(28,30); ctx.lineTo(18,30);
-        ctx.quadraticCurveTo(11,29,10,26);
-        ctx.closePath(); ctx.fill();
-        // Windscreen cutout to make the body read as helicopter, not a blob.
-        ctx.fillStyle = "#f5e2a6";
-        ctx.beginPath(); ctx.moveTo(13,23); ctx.lineTo(19,22);
-        ctx.lineTo(20,27); ctx.lineTo(15,27); ctx.closePath(); ctx.fill();
-        // Tail boom and unmistakable tail rotor.
-        ctx.strokeStyle = "#0b2030";ctx.lineWidth = 2.6;
-        ctx.beginPath();ctx.moveTo(32,24);ctx.lineTo(40,24);
-        ctx.moveTo(40,18);ctx.lineTo(40,30);ctx.stroke();
-        // Twin supports and thick skids below fuselage.
-        ctx.lineWidth=1.7;
-        ctx.beginPath();ctx.moveTo(18,30);ctx.lineTo(16,35);
-        ctx.moveTo(28,30);ctx.lineTo(29,35);ctx.stroke();
-        ctx.lineWidth=2.5;
-        ctx.beginPath();ctx.moveTo(11,36);ctx.lineTo(34,36);ctx.stroke();
+        // Tail boom, tail fins and tail rotor.
+        ctx.beginPath(); ctx.moveTo(22,28); ctx.lineTo(22,43);
+        ctx.moveTo(16,40); ctx.lineTo(28,40);
+        ctx.moveTo(18,35); ctx.lineTo(26,35); ctx.stroke();
+        // Fuselage and cockpit, with nose pointing up.
+        ctx.beginPath(); ctx.moveTo(22,6);
+        ctx.bezierCurveTo(13,10,13,20,17,27);
+        ctx.quadraticCurveTo(22,32,27,27);
+        ctx.bezierCurveTo(31,20,31,10,22,6);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // Main rotor spans the helicopter width.
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();ctx.moveTo(3,19);ctx.lineTo(41,19);ctx.stroke();
+        // Contrasting cockpit glazing.
+        ctx.shadowColor = "transparent";
+        ctx.fillStyle = "#14344c";
+        ctx.beginPath(); ctx.moveTo(22,9);
+        ctx.quadraticCurveTo(15,12,18,18);
+        ctx.lineTo(26,18); ctx.quadraticCurveTo(29,12,22,9);
+        ctx.fill();
         if (unknownCourse) {
             ctx.fillStyle="#122d40";ctx.strokeStyle="#fff";ctx.lineWidth=1;
-            ctx.beginPath();ctx.arc(38,38,5.7,0,Math.PI*2);ctx.fill();ctx.stroke();
+            ctx.beginPath();ctx.arc(39,39,6,0,Math.PI*2);ctx.fill();ctx.stroke();
             ctx.fillStyle="#fff";ctx.font="bold 10px system-ui,sans-serif";
-            ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("?",38,38);
+            ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("?",39,39);
         }
         return ctx.getImageData(0,0,96,96);
     }
@@ -1065,11 +1051,11 @@
             // remain recognizable instead of spinning into a thin cross.
             "icon-rotate": kind === "ais"
                 ? ["case", ["==", ["get", "render_profile"], "ais_helicopter"],
-                        ["-", ["coalesce", ["get", "course"], 270], 270],
+                        ["coalesce", ["get", "course"], 0],
                     ["get", "is_offshore_structure"], 0,
                     ["get", "is_moving"], ["coalesce", ["get", "course"], 0], 0]
                 : ["case", ["get", "is_helicopter"],
-                    ["-", ["coalesce", ["get", "course"], 270], 270],
+                    ["coalesce", ["get", "course"], 0],
                     ["coalesce", ["get", "course"], 0]],
             "icon-rotation-alignment": "map",
             "icon-pitch-alignment": "viewport",
@@ -1267,7 +1253,7 @@
             .filter(row => /^\d{9}$/.test(row.mmsi))
             .map(row => {
                 const ship = shipsByMmsi.get(row.mmsi);
-                // Follow received AIS positions, never pan or re-center the map.
+                // Prefer current AIS positions for alert rings and optional auto-center.
                 const latitude = ship?.lat ?? row.latitude;
                 const longitude = ship?.lon ?? row.longitude;
                 return {type:"Feature", geometry:{
@@ -1299,7 +1285,12 @@
         const eventKey = match.mmsi + ":" + String(match.atis_code || "");
         if (eventKey === lastFocusedAtisEvent) return;
         lastFocusedAtisEvent = eventKey;
-        map.easeTo({center:[match.lon, match.lat], zoom:atisFocusZoom, duration:1400});
+        // Highlight API uses longitude/latitude, unlike AIS traffic's lon/lat.
+        const ship = latestShips.find(row => String(row.id) === match.mmsi);
+        const lon = Number.isFinite(ship?.lon) ? ship.lon : match.longitude;
+        const lat = Number.isFinite(ship?.lat) ? ship.lat : match.latitude;
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+        map.easeTo({center:[lon, lat], zoom:atisFocusZoom, duration:1400});
     }
     async function refreshHighlights() {
         if (overlayBusy || document.hidden) return;
