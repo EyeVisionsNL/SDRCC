@@ -68,6 +68,21 @@
     let latestShips = [];
     let emergencyTargets = [];
     let atisTarget = null;
+    // Opt-in: move the camera only once for each new ATIS match event.
+    const atisFollowKey = "sdrcc.mapLab.atisAutoFocus";
+    const atisZoomKey = "sdrcc.mapLab.atisFocusZoom";
+    let atisAutoFocus = false;
+    let atisFocusZoom = 15;
+    let lastFocusedAtisEvent = "";
+    try {
+        atisAutoFocus = window.localStorage.getItem(atisFollowKey) === "1";
+        const savedZoom = Number(window.localStorage.getItem(atisZoomKey));
+        if (Number.isFinite(savedZoom) && savedZoom >= 11 && savedZoom <= 18)
+            atisFocusZoom = savedZoom;
+    } catch (_) { /* Browser storage can be disabled. */ }
+    el("atis-auto-focus").checked = atisAutoFocus;
+    el("atis-focus-zoom").value = String(atisFocusZoom);
+    el("atis-focus-zoom-value").textContent = String(atisFocusZoom);
     let previouslyDrawnEmergency = 0;
     let previouslyDrawnAtis = 0;
     let trackRequestSequence = 0;
@@ -1278,6 +1293,15 @@
             map.setPaintProperty("sdrcc-atis-ring","circle-radius", 12 + phase * 6);
         }
     }
+    function focusNewAtisMatch(match) {
+        if (!match || !atisAutoFocus || !el("layer-atis").checked || !loaded) return;
+        // Match identity includes its deadline, so a renewed transmission is a new event.
+        const eventKey = match.mmsi + ":" + String(match.atis_code || "")
+            + ":" + String(Math.round(match.expiresAt / 1000));
+        if (eventKey === lastFocusedAtisEvent) return;
+        lastFocusedAtisEvent = eventKey;
+        map.easeTo({center:[match.lon, match.lat], zoom:atisFocusZoom, duration:1400});
+    }
     async function refreshHighlights() {
         if (overlayBusy || document.hidden) return;
         overlayBusy = true;
@@ -1309,6 +1333,7 @@
         } finally {
             overlayBusy = false;
             tickHighlights();
+            focusNewAtisMatch(atisTarget);
         }
     }
     function addStationLayer() {
@@ -1516,6 +1541,22 @@
         setAuxVisibility("vts", el("layer-vts").checked));
     el("layer-emergency").addEventListener("change", setAlertVisibility);
     el("layer-atis").addEventListener("change", setAlertVisibility);
+    el("atis-auto-focus").addEventListener("change", () => {
+        atisAutoFocus = el("atis-auto-focus").checked;
+        try {window.localStorage.setItem(atisFollowKey, atisAutoFocus ? "1" : "0");}
+        catch (_) { /* Optional storage. */ }
+        if (atisAutoFocus) focusNewAtisMatch(atisTarget);
+    });
+    el("atis-focus-zoom").addEventListener("input", () => {
+        el("atis-focus-zoom-value").textContent = el("atis-focus-zoom").value;
+    });
+    el("atis-focus-zoom").addEventListener("change", () => {
+        atisFocusZoom = Math.max(11, Math.min(18, Number(el("atis-focus-zoom").value) || 15));
+        el("atis-focus-zoom").value = String(atisFocusZoom);
+        el("atis-focus-zoom-value").textContent = String(atisFocusZoom);
+        try {window.localStorage.setItem(atisZoomKey, String(atisFocusZoom));}
+        catch (_) { /* Optional storage. */ }
+    });
     el("show-names").addEventListener("change", () => {
         setLayerVisibility("ais", el("layer-ais").checked);
         setLayerVisibility("adsb", el("layer-adsb").checked);
