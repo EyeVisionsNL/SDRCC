@@ -353,6 +353,14 @@
         if (!Number.isFinite(length)) return 0.75;
         return length > 200 ? 1.1 : length >= 100 ? 0.9 : 0.75;
     }
+    // Decode HTML entities once and continue rendering with safe textContent.
+    function readableText(value) {
+        const raw = String(value ?? "");
+        if (!/&(?:#(?:x[0-9a-f]+|[0-9]+)|[a-z][a-z0-9]+);/i.test(raw)) return raw;
+        const node = document.createElement("textarea");
+        node.innerHTML = raw;
+        return node.value;
+    }
     function trafficProperties(item) {
         const isAIS = item.type === "ais";
         const shipclass = isAIS ? aisClass(item.shipclass) : null;
@@ -526,7 +534,7 @@
         const title = document.createElement("div");
         title.className = "popup-title";
         title.textContent = (props.render_profile === "ais_helicopter" || props.is_helicopter
-            ? "🚁 " : props.type === "ais" ? "🚢 " : "✈ ") + (props.name || props.id);
+            ? "🚁 " : props.type === "ais" ? "🚢 " : "✈ ") + readableText(props.name || props.id);
         box.appendChild(title);
         // Visible without scrolling: aviation photo used to be placed below
         // every aircraft detail (outside the 360px-high popup viewport).
@@ -545,7 +553,7 @@
             caption.textContent = label + ": ";
             row.appendChild(caption);
             const data = document.createElement("span");
-            data.textContent = String(value) + suffix;
+            data.textContent = readableText(value) + suffix;
             row.appendChild(data);
             box.appendChild(row);
         };
@@ -674,7 +682,21 @@
                     img.alt = "Aircraft photograph";
                     img.loading = "lazy";
                     img.referrerPolicy = "no-referrer";
-                    img.onerror = () => {img.remove(); photoUnavailable();};
+                    img.onerror = () => {
+                        img.remove();
+                        // Retry the official public API if the server's image URL fails.
+                        fallbackPhoto().catch(() => null).then(alternative => {
+                            if (!alternative?.ok || !trusted(alternative.image_url, true)
+                                    || alternative.image_url === result.image_url) {
+                                photo.textContent = "";
+                                photoUnavailable();
+                                return;
+                            }
+                            img.onerror = () => { photo.textContent = ""; photoUnavailable(); };
+                            img.src = alternative.image_url;
+                            photo.prepend(img);
+                        });
+                    };
                     photo.appendChild(img);
                     const sourceUrl = trusted(result.source_url) ? result.source_url : "";
                     const credit = document.createElement(sourceUrl ? "a" : "div");
@@ -1027,10 +1049,12 @@
             // Helicopter is a *side-on badge*, so keep it upright to
             // remain recognizable instead of spinning into a thin cross.
             "icon-rotate": kind === "ais"
-                ? ["case", ["==", ["get", "render_profile"], "ais_helicopter"], 0,
+                ? ["case", ["==", ["get", "render_profile"], "ais_helicopter"],
+                        ["-", ["coalesce", ["get", "course"], 270], 270],
                     ["get", "is_offshore_structure"], 0,
                     ["get", "is_moving"], ["coalesce", ["get", "course"], 0], 0]
-                : ["case", ["get", "is_helicopter"], 0,
+                : ["case", ["get", "is_helicopter"],
+                    ["-", ["coalesce", ["get", "course"], 270], 270],
                     ["coalesce", ["get", "course"], 0]],
             "icon-rotation-alignment": "map",
             "icon-pitch-alignment": "viewport",
