@@ -402,7 +402,9 @@ def aircraft(payload: Any) -> list[dict]:
             "lon": pos[0], "lat": pos[1],
             "course": _direction(item, ("track",)),
             "registration": _label(item, ("r", "registration"), 20),
-            "aircraft_type": _label(item, ("t", "type"), 20),
+            # readsb's "type" is the message/source kind ("adsb_icao"),
+            # never the ICAO aircraft designator. That is the "t" field.
+            "aircraft_type": _label(item, ("t",), 20),
             "description": _label(item, ("desc",), 80),
             "is_helicopter": _is_helicopter(item),
             "operator": _label(item, ("ownOp", "operator"), 80),
