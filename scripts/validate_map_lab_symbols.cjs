@@ -270,14 +270,14 @@ class FakeMap {
             : url.startsWith("https://api.planespotters.net/pub/photos/hex/")
             ? (directPhotoUrl=url, {ok:true, json:async () => ({
                 photos:url.includes("4ca125") ? [] : [{thumbnail_large:{src:"http://unsafe.invalid/photo.jpg"},
-                         thumbnail:{src:"https://cdn.planespotters.net/heli.jpg"},
+                         thumbnail:{src:"https://t.plnspttrs.net/heli.jpg"},
                          photographer:"Helicopter Photographer",
                          link:"https://www.planespotters.net/photo/124"}],
             })})
             : url.startsWith("/api/map-lab/aircraft-photo/")
             ? {ok:true, json:async () => (url.includes("4ca124")||url.includes("4ca125"))
                 ? {ok:false, message:"No server-side photo available"}
-                : {ok:true, image_url:"https://cdn.planespotters.net/mock.jpg",
+                : {ok:true, image_url:"https://t.plnspttrs.net/mock.jpg",
                     source_url:"https://www.planespotters.net/photo/123",
                     photographer:"Example Photographer", source:"Planespotters.net"}}
             : {ok:true, json:async () => data};
@@ -326,9 +326,11 @@ class FakeMap {
         assert.equal(layer.layout["icon-pitch-alignment"], "viewport");
         assert.deepEqual(JSON.parse(JSON.stringify(layer.layout["icon-rotate"])),
             kind === "ais"
-                ? ["case", ["get", "is_offshore_structure"], 0,
+                ? ["case", ["==", ["get", "render_profile"], "ais_helicopter"], 0,
+                    ["get", "is_offshore_structure"], 0,
                     ["get", "is_moving"], ["coalesce", ["get", "course"], 0], 0]
-                : ["coalesce", ["get", "course"], 0]);
+                : ["case", ["get", "is_helicopter"], 0,
+                    ["coalesce", ["get", "course"], 0]]);
         assert(instance.callbacks["click:sdrcc-" + kind + "-icons"]);
     }
     const boats = instance.sources["sdrcc-ais"].data.features;
@@ -341,6 +343,8 @@ class FakeMap {
     assert.equal(pilotHelo.properties.is_moving,true,
         "AIS helicopter needs course rotation even if ship speed is zero");
     assert.equal(pilotHelo.properties.hull_available,false);
+    assert.equal(pilotHelo.properties.icon_scale,1.45,
+        "AIS helicopter should have a clearly visible circular badge");
     for (const target of boats.slice(12,14)) {
         assert.equal(target.properties.render_profile,"pleasure");
         assert.equal(target.properties.hull_available,true);
@@ -596,7 +600,7 @@ class FakeMap {
     assert.equal(card.children[1],photo,
         "the aircraft photo must be visible directly below the title");
     assert(photo && photo.children.some(child =>
-        child.tag === "img" && child.src.startsWith("https://cdn.planespotters.net/")),
+        child.tag === "img" && child.src.startsWith("https://t.plnspttrs.net/")),
         "credited aircraft image must be rendered on click");
     assert(photo.children.some(child => child.textContent.includes("Example Photographer")));
     // Server may have no outgoing internet even when browser tar1090 has
@@ -609,7 +613,7 @@ class FakeMap {
     const heliCard=lastPopup.element;
     const heliPhoto=heliCard.children.find(child => child.className==="popup-photo");
     assert(heliPhoto.children.some(child =>
-        child.tag==="img" && child.src==="https://cdn.planespotters.net/heli.jpg"));
+        child.tag==="img" && child.src==="https://t.plnspttrs.net/heli.jpg"));
     assert(heliPhoto.children.some(child =>
         child.textContent.includes("Helicopter Photographer")));
     // If both server and browser API fail, never claim the aircraft has
