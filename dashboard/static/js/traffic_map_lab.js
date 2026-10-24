@@ -413,8 +413,9 @@
             icon_scale: isAIS
                 ? (profile === "offshore_wtg" ? 0.78
                     : profile === "offshore_platform" ? 0.9
+                    : profile === "ais_helicopter" ? 1.45
                     : iconScale(item.length_m))
-                : 1,
+                : (item.is_helicopter === true ? 1.3 : 1),
             hull_available: isAIS && !offshore && hullGeometry(item) !== null,
             shipclass,
             speed_knots: item.speed_knots,
@@ -627,8 +628,12 @@
             const hints = (props.registration ? "&reg=" + encodeURIComponent(props.registration) : "")
                 + (props.aircraft_type ? "&icaoType=" + encodeURIComponent(props.aircraft_type) : "");
             const suffix = hints ? "?" + hints.slice(1) : "";
-            const trusted = url => typeof url === "string"
-                && /^https:\/\/(?:[a-z0-9-]+\.)*planespotters\.net(?:\/|$)/i.test(url);
+            // The official Planespotters API often serves thumbnails from
+            // t.plnspttrs.net (NOT planespotters.net). Previously ALL those
+            // valid URLs were rejected, both server-side and in the browser.
+            const trusted = (url, isImage = false) => typeof url === "string"
+                && (/^https:\/\/(?:[a-z0-9-]+\.)*planespotters\.net(?:\/|$)/i.test(url)
+                    || (isImage && /^https:\/\/t\.plnspttrs\.net(?:\/|$)/i.test(url)));
             const photoPage = "https://www.planespotters.net/hex/" + props.id;
             const photoUnavailable = () => {
                 photo.textContent = "Photo cannot be loaded here. ";
@@ -645,7 +650,7 @@
                 .then(data => {
                     for (const entry of Array.isArray(data?.photos) ? data.photos.slice(0,5) : []) {
                         const src = [entry?.thumbnail_large?.src, entry?.thumbnail?.src]
-                            .find(trusted);
+                            .find(url => trusted(url, true));
                         if (!src) continue;
                         return {ok:true,image_url:src,source:"Planespotters.net",
                             source_url:trusted(entry.link) ? entry.link : "",
@@ -656,11 +661,11 @@
             void fetch("/api/map-lab/aircraft-photo/" + encodeURIComponent(props.id) + suffix)
                 .then(response => response.ok ? response.json() : null)
                 .catch(() => null)
-                .then(result => result?.ok && trusted(result.image_url)
+                .then(result => result?.ok && trusted(result.image_url,true)
                     ? result : fallbackPhoto().catch(() => null))
                 .then(result => {
                     photo.textContent = "";
-                    if (!result?.ok || !trusted(result.image_url)) {
+                    if (!result?.ok || !trusted(result.image_url,true)) {
                         photoUnavailable();
                         return;
                     }
@@ -813,34 +818,56 @@
         return ctx.getImageData(0, 0, 96, 96);
     }
     function spriteHelicopter(unknownCourse = false, color = "#ffbd73") {
+        // Readable AIRCRAFT silhouette, not the previous thin cross.
+        // AIS-Catcher-style circular badge, with a helicopter SIDE profile:
+        // broad cockpit, tail boom, main rotor, tail rotor and skids.
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = 96;
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas 2D context is unavailable");
-        ctx.scale(2,2);
-        ctx.lineJoin="round";ctx.lineCap="round";
-        ctx.shadowColor="rgba(1,15,29,0.75)";ctx.shadowBlur=3;
-        ctx.fillStyle=color;ctx.strokeStyle="#082439";ctx.lineWidth=2;
-        // Rotor, cockpit, tail boom and twin skids, viewed from above.
-        ctx.beginPath();
-        ctx.moveTo(24,9);ctx.quadraticCurveTo(31,13,31,21);
-        ctx.lineTo(30,32);ctx.lineTo(27,38);ctx.lineTo(21,38);
-        ctx.lineTo(18,32);ctx.lineTo(17,21);ctx.quadraticCurveTo(17,13,24,9);
-        ctx.closePath();ctx.fill();ctx.stroke();
-        ctx.beginPath();ctx.moveTo(24,29);ctx.lineTo(24,44);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(17,35);ctx.lineTo(17,41);
-        ctx.moveTo(31,35);ctx.lineTo(31,41);
-        ctx.moveTo(13,40);ctx.lineTo(19,40);
-        ctx.moveTo(29,40);ctx.lineTo(35,40);ctx.stroke();
-        ctx.lineWidth=3.7;
-        ctx.beginPath();ctx.moveTo(4,23);ctx.lineTo(44,23);
-        ctx.moveTo(24,4);ctx.lineTo(24,42);ctx.stroke();
-        ctx.fillStyle="#082439";ctx.beginPath();ctx.arc(24,23,3,0,Math.PI*2);ctx.fill();
+        ctx.scale(2, 2);
+        ctx.lineJoin = "round"; ctx.lineCap = "round";
+        ctx.shadowColor = "rgba(3,13,27,.65)"; ctx.shadowBlur = 2.2;
+        ctx.fillStyle = "#102c40"; ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.25;
+        ctx.beginPath(); ctx.arc(24,24,22,0,Math.PI*2);
+        ctx.fill(); ctx.stroke();
+        ctx.shadowColor = "transparent";
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(24,24,18.3,0,Math.PI*2); ctx.fill();
+        // Dark, recognizable silhouette inside the bright round marker.
+        ctx.strokeStyle = "#0b2030";
+        ctx.fillStyle = "#0b2030";
+        ctx.lineWidth = 2;
+        // Long main rotor above the cockpit, rotor shaft beneath it.
+        ctx.beginPath(); ctx.moveTo(6,13); ctx.lineTo(42,13);
+        ctx.moveTo(22,13); ctx.lineTo(22,18); ctx.stroke();
+        // Bulbous cockpit/nose pointing left, with short taper toward tail.
+        ctx.beginPath(); ctx.moveTo(10,23);
+        ctx.quadraticCurveTo(10,19,17,19);
+        ctx.lineTo(29,19); ctx.quadraticCurveTo(33,21,33,25);
+        ctx.lineTo(28,30); ctx.lineTo(18,30);
+        ctx.quadraticCurveTo(11,29,10,26);
+        ctx.closePath(); ctx.fill();
+        // Windscreen cutout to make the body read as helicopter, not a blob.
+        ctx.fillStyle = "#f5e2a6";
+        ctx.beginPath(); ctx.moveTo(13,23); ctx.lineTo(19,22);
+        ctx.lineTo(20,27); ctx.lineTo(15,27); ctx.closePath(); ctx.fill();
+        // Tail boom and unmistakable tail rotor.
+        ctx.strokeStyle = "#0b2030";ctx.lineWidth = 2.6;
+        ctx.beginPath();ctx.moveTo(32,24);ctx.lineTo(40,24);
+        ctx.moveTo(40,18);ctx.lineTo(40,30);ctx.stroke();
+        // Twin supports and thick skids below fuselage.
+        ctx.lineWidth=1.7;
+        ctx.beginPath();ctx.moveTo(18,30);ctx.lineTo(16,35);
+        ctx.moveTo(28,30);ctx.lineTo(29,35);ctx.stroke();
+        ctx.lineWidth=2.5;
+        ctx.beginPath();ctx.moveTo(11,36);ctx.lineTo(34,36);ctx.stroke();
         if (unknownCourse) {
-            ctx.fillStyle="#173449";ctx.strokeStyle="#eef7ff";ctx.lineWidth=1;
-            ctx.beginPath();ctx.arc(39,39,6,0,Math.PI*2);ctx.fill();ctx.stroke();
+            ctx.fillStyle="#122d40";ctx.strokeStyle="#fff";ctx.lineWidth=1;
+            ctx.beginPath();ctx.arc(38,38,5.7,0,Math.PI*2);ctx.fill();ctx.stroke();
             ctx.fillStyle="#fff";ctx.font="bold 10px system-ui,sans-serif";
-            ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("?",39,39);
+            ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("?",38,38);
         }
         return ctx.getImageData(0,0,96,96);
     }
@@ -997,10 +1024,14 @@
                 10, ["*", 0.53, ["get", "icon_scale"]],
                 13, ["*", 0.76, ["get", "icon_scale"]],
                 16, ["*", 0.91, ["get", "icon_scale"]]],
+            // Helicopter is a *side-on badge*, so keep it upright to
+            // remain recognizable instead of spinning into a thin cross.
             "icon-rotate": kind === "ais"
-                ? ["case", ["get", "is_offshore_structure"], 0,
+                ? ["case", ["==", ["get", "render_profile"], "ais_helicopter"], 0,
+                    ["get", "is_offshore_structure"], 0,
                     ["get", "is_moving"], ["coalesce", ["get", "course"], 0], 0]
-                : ["coalesce", ["get", "course"], 0],
+                : ["case", ["get", "is_helicopter"], 0,
+                    ["coalesce", ["get", "course"], 0]],
             "icon-rotation-alignment": "map",
             "icon-pitch-alignment": "viewport",
             "icon-allow-overlap": true,
