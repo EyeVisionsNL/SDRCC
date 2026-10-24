@@ -43,6 +43,22 @@ class AircraftPhotoTests(unittest.TestCase):
         self.assertNotIn("bad.example",get.call_args.args[0].full_url)
         self.assertNotIn("icaoType=",get.call_args.args[0].full_url)
 
+    def test_official_shortened_planespotters_cdn_is_accepted(self):
+        # Real official thumbnails use t.plnspttrs.net, NOT the longer
+        # planespotters.net domain; accepting only the latter caused no photos.
+        payload = (b'{"photos":[{"thumbnail_large":{"src":'
+                   b'"https://t.plnspttrs.net/43495/1864265_b4e8176cfe_280.jpg"},'
+                   b'"link":"https://www.planespotters.net/photo/123",'
+                   b'"photographer":"Photo Author"}]}')
+        with patch.object(photos, "urlopen", return_value=io.BytesIO(payload)):
+            result = photos.lookup("48520a")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["photographer"], "Photo Author")
+        self.assertTrue(result["image_url"].startswith("https://t.plnspttrs.net/"))
+        self.assertFalse(photos._trusted_url("https://t.plnspttrs.net.evil.test/a.jpg",image=True))
+        self.assertFalse(photos._trusted_url("https://t.plnspttrs.net/a.jpg",image=False))
+        self.assertFalse(photos._trusted_url("http://t.plnspttrs.net/a.jpg",image=True))
+
     def test_untrusted_image_or_photo_link_is_rejected(self):
         payload = b'{"photos":[{"thumbnail":{"src":"http://127.0.0.1/photo.jpg"},' \
                   b'"link":"https://evil.example/photo", "photographer":"Fraud"}]}'
