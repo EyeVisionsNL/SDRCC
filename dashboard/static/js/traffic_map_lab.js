@@ -211,7 +211,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "tug", "police", "watertaxi", "krve", "port_authority", "pleasure"].includes(profile)) continue;
+            if (!["tanker", "cargo", "passenger", "tug", "police", "watertaxi", "krve", "port_authority", "pleasure"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -290,6 +290,28 @@
                     -port*.73,-port*.65,"watertaxi-window",.4,.66);
                 add(from+length*.04,to-length*.04,
                     starboard*.65,starboard*.73,"watertaxi-window",.4,.66);
+                continue;
+            }
+            if (profile === "passenger") {
+                // Ferry / passenger vessel with long multi-deck superstructure.
+                // All dimensions derive from available AIS hull offsets.
+                const from=-stern+length*.18, to=-stern+length*.82;
+                add(from,to,-port*.79,starboard*.79,"passenger-lower-deck",2.5);
+                add(from+length*.04,to-length*.04,
+                    -port*.69,starboard*.69,"passenger-upper-deck",2.0,2.5);
+                add(from+length*.06,to-length*.06,
+                    -port*.71,starboard*.71,"passenger-roof",.25,4.5);
+                // Bright blue glazing on both sides and forward bridge.
+                for (const side of [-1,1]) {
+                    const near=side<0 ? -port*.82 : starboard*.69;
+                    const far=side<0 ? -port*.69 : starboard*.82;
+                    add(from+length*.04,to-length*.04,
+                        near,far,"passenger-windows",.75,1.05);
+                    add(from+length*.09,to-length*.09,
+                        near,far,"passenger-upper-windows",.55,3.25);
+                }
+                add(to-length*.075,to,
+                    -port*.58,starboard*.58,"passenger-bridge",1.0,4.5);
                 continue;
             }
             if (profile === "tug") {
@@ -595,6 +617,7 @@
                 add("AIS target", "Helicopter (not a marine vessel)");
             else if (props.render_profile === "tanker") add("3D deck", "Tanker pipes (illustrative)");
             else if (props.render_profile === "cargo") add("3D deck", "Cargo hatches (illustrative)");
+            else if (props.render_profile === "passenger") add("3D deck", "Passenger decks, bridge and windows (illustrative)");
             else if (props.render_profile === "tug") add("3D deck", "Tug wheelhouse / towing winch (illustrative)");
             else if (props.render_profile === "police") add("3D deck", "Police patrol cabin / blue markings (illustrative)");
             else if (props.render_profile === "watertaxi") add("3D deck", "Black/yellow MSTX fast water taxi (illustrative)");
@@ -997,6 +1020,12 @@
             paint:{
                 "fill-extrusion-color":["match",["get","part"],
                     "bridge","#c1d6df","cargo-hatch","#677e92",
+                    "passenger-lower-deck","#e9f0f5",
+                    "passenger-upper-deck","#f7f9fc",
+                    "passenger-roof","#d9e7ec",
+                    "passenger-windows","#338ab3",
+                    "passenger-upper-windows","#6ebdda",
+                    "passenger-bridge","#cde5ef",
                     "tanker-pipe","#91c5d0","tanker-cap","#d1d8d5",
                     "tug-wheelhouse","#dce4ed","tug-winch","#f5a46e",
                     "police-cabin","#ebf5fa","police-stripe","#1769b0",
