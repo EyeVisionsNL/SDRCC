@@ -1295,9 +1295,8 @@
     }
     function focusNewAtisMatch(match) {
         if (!match || !atisAutoFocus || !el("layer-atis").checked || !loaded) return;
-        // Match identity includes its deadline, so a renewed transmission is a new event.
-        const eventKey = match.mmsi + ":" + String(match.atis_code || "")
-            + ":" + String(Math.round(match.expiresAt / 1000));
+        // Identical matches in repeated polling must not move the camera again.
+        const eventKey = match.mmsi + ":" + String(match.atis_code || "");
         if (eventKey === lastFocusedAtisEvent) return;
         lastFocusedAtisEvent = eventKey;
         map.easeTo({center:[match.lon, match.lat], zoom:atisFocusZoom, duration:1400});
@@ -1333,6 +1332,7 @@
         } finally {
             overlayBusy = false;
             tickHighlights();
+            if (!atisTarget) lastFocusedAtisEvent = "";
             focusNewAtisMatch(atisTarget);
         }
     }
