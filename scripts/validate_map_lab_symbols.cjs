@@ -418,6 +418,10 @@ class FakeMap {
     assert.equal(polygons.length, 9,
         "existing seven 3D models plus two new Class B hulls only");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
+    // Passenger geometry is generated at high zoom only when AIS hull exists.
+    assert(source.includes('"passenger-lower-deck"'));
+    assert(source.includes('"passenger-upper-windows"'));
+    assert(source.includes('"passenger-bridge"'));
     assert.equal(decks.length,46,
         "existing 38 deck parts plus four for each Class B vessel");
     for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap","tug-wheelhouse","tug-winch",
