@@ -128,6 +128,10 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
         if shipclass == 5 and (_POLICE_P_NUMBER_RE.match(label)
                                or _POLICE_P_NUMBER_RE.match(callsign)):
             return "police"
+    # AIS-Catcher class 10 is an AIS helicopter/AIS-SART aircraft target,
+    # not a marine hull. MMSI 111205511 (PILOT SERVICES SV) reports this.
+    if shipclass == 10 and not fixed_evidence:
+        return "ais_helicopter"
     if fixed_evidence and _WTG_NAME_RE.search(label):
         return "offshore_wtg"
     if fixed_evidence and (_PLATFORM_CODE_RE.fullmatch(label)
@@ -272,7 +276,7 @@ def vessels(payload: Any) -> list[dict]:
             name, normalized_type, normalized_class, nav_status,
             mmsi=mmsi, callsign=callsign, speed_knots=speed,
             destination=destination or "")
-        if profile.startswith("offshore_"):
+        if profile.startswith("offshore_") or profile == "ais_helicopter":
             has_hull = False
         # When live AIS reports no full offsets, a verified fleet member may
         # use its OWN published length/beam for a clearly approximate 3D hull.
