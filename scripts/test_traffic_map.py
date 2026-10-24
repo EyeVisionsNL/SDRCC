@@ -298,7 +298,7 @@ class TrafficMapTests(unittest.TestCase):
             ("RPA 12",3,37,"port_authority"),
             ("MY BOAT",3,60,"vessel"),
             ("MY BOAT",2,37,"cargo"),
-            ("P15",12,37,"vessel"),
+            ("P15",12,37,"offshore_platform"),
         ]
         for name,cls,kind,expected in examples:
             with self.subTest(name=name,cls=cls,kind=kind):
