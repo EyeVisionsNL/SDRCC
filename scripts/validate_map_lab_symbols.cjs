@@ -326,10 +326,12 @@ class FakeMap {
         assert.equal(layer.layout["icon-pitch-alignment"], "viewport");
         assert.deepEqual(JSON.parse(JSON.stringify(layer.layout["icon-rotate"])),
             kind === "ais"
-                ? ["case", ["==", ["get", "render_profile"], "ais_helicopter"], 0,
+                ? ["case", ["==", ["get", "render_profile"], "ais_helicopter"],
+                    ["-", ["coalesce", ["get", "course"], 270], 270],
                     ["get", "is_offshore_structure"], 0,
                     ["get", "is_moving"], ["coalesce", ["get", "course"], 0], 0]
-                : ["case", ["get", "is_helicopter"], 0,
+                : ["case", ["get", "is_helicopter"],
+                    ["-", ["coalesce", ["get", "course"], 270], 270],
                     ["coalesce", ["get", "course"], 0]]);
         assert(instance.callbacks["click:sdrcc-" + kind + "-icons"]);
     }
