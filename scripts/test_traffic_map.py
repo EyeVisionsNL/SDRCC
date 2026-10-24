@@ -545,6 +545,23 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(result[0]["id"],"123456789")
         self.assertEqual(result[0]["speed_knots"],9.8)
 
+    def test_aircraft_helicopter_detection_is_from_metadata(self):
+        rows = traffic_map.aircraft({"aircraft": [
+            {"hex":"345107","lat":51.91,"lon":4.2,"seen_pos":0,
+             "flight":"VLG5ZH","t":"A320","desc":"L2J","category":"A3"},
+            {"hex":"4ca124","lat":51.92,"lon":4.3,"seen_pos":0,
+             "flight":"LIFELN","t":"H145","desc":"H2T","category":"A7"},
+            {"hex":"4ca125","lat":51.93,"lon":4.4,"seen_pos":0,
+             "t":"R44","desc":"H1P"},
+            {"hex":"4ca126","lat":51.94,"lon":4.5,"seen_pos":0,
+             "t":"B738","category":"A7"},
+            {"hex":"4ca127","lat":51.95,"lon":4.6,"seen_pos":0,
+             "t":"B738","desc":"L2J","category":"A3"},
+        ]})
+        self.assertEqual([r["is_helicopter"] for r in rows],
+                         [False, True, True, True, False])
+        self.assertEqual(rows[0]["aircraft_type"],"A320")
+
     def test_aircraft_position_freshness_and_altitude(self):
         items=[
             {"hex":"4ca123","flight":"KLM123 ","lat":51.91,"lon":4.31,
