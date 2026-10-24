@@ -520,7 +520,8 @@
     function popup(feature) {
         const props = feature.properties || {};
         const box = document.createElement("div");
-        box.className = "traffic-detail";
+        box.className = props.type === "adsb"
+            ? "traffic-detail traffic-detail--aircraft" : "traffic-detail";
         const title = document.createElement("div");
         title.className = "popup-title";
         title.textContent = (props.render_profile === "ais_helicopter" || props.is_helicopter
