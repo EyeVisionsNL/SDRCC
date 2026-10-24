@@ -56,6 +56,16 @@ _RPA_PUBLISHED_DIMENSIONS = {
     "244050469": (28.78, 8.20),
     "244757000": (31.33, 8.22),
 }
+# MAP-ONLY representative drawing sizes, not vessel specifications.
+# Never pass these values to AIS, alerts, SDR services or a vessel database.
+_ILLUSTRATIVE_HULL_METRES = {
+    "cargo": (110.0, 16.0), "tanker": (135.0, 20.0),
+    "tug": (27.0, 8.0), "police": (20.0, 5.0),
+    "port_authority": (29.0, 8.0), "watertaxi": (11.0, 3.2),
+    "krve": (11.0, 3.8), "passenger": (65.0, 13.0),
+    "fishing": (22.0, 6.0), "high_speed": (18.0, 5.0),
+    "small_craft": (14.0, 4.5), "vessel": (35.0, 8.0),
+}
 _POLICE_NAME_RE = re.compile(r"\b(?:WATERPOLITIE|POLITIE|POLICE)\b", re.I)
 _POLICE_P_NUMBER_RE = re.compile(r"^P[ -]?\d{1,2}(?:$|[ -])", re.I)
 # MSTX 12, MSTX12, MSTX-13 are local high-speed water taxis.
@@ -290,6 +300,46 @@ def vessels(payload: Any) -> list[dict]:
                     hull_geometry_source = (
                         "Published dimensions; approximate AIS position offset")
                 has_hull = True
+        # All real vessels need a recognizable close-up 3D hull, even when
+        # their static AIS antenna offsets are missing. This is *only* a map
+        # illustration. Fixed platforms, WTG, AtoNs and base stations keep
+        # their own non-vessel markers. Do not infer true size or heading.
+        is_fixed_target = (profile.startswith("offshore_")
+                           or normalized_class in (11, 12)
+                           or mmsi.startswith("99"))
+        if not has_hull and not is_fixed_target:
+            fallback_profile = profile
+            if profile == "vessel":
+                fallback_profile = {
+                    2: "cargo", 4: "passenger", 6: "tanker",
+                    7: "high_speed", 8: "fishing", 3: "small_craft",
+                }.get(normalized_class, "vessel")
+            fallback_length, fallback_beam = _ILLUSTRATIVE_HULL_METRES[fallback_profile]
+            # Where AIS reports a plausible overall length/beam, prefer it
+            # over the generic class drawing size. Still an approximate hull:
+            # there are no real antenna offsets available to locate its bow.
+            approximate_length = length if length is not None else fallback_length
+            approximate_beam = beam if beam is not None and 2 <= beam <= 90 else fallback_beam
+            to_bow = to_stern = approximate_length / 2
+            to_port = to_starboard = approximate_beam / 2
+            length, beam = approximate_length, approximate_beam
+            if hull_heading is None:
+                # North-up is deliberately a neutral illustration, never a
+                # claimed AIS heading, even for a vessel not reporting course.
+                hull_heading = 0.0
+            hull_bearing_approximate = heading is None
+            hull_geometry_source = (
+                "Illustrative class/type hull; not measured AIS dimensions"
+                if length == fallback_length and beam == fallback_beam
+                else "Illustrative hull using available AIS size; antenna offsets unknown")
+            has_hull = True
+        # Real AIS offsets without heading also get a neutral north-up drawing.
+        # Keep the authentic dimensions and make the orientation uncertainty explicit.
+        if to_bow is not None and not has_hull and not is_fixed_target:
+            hull_heading = 0.0
+            hull_bearing_approximate = True
+            hull_geometry_source = "AIS dimensions"
+            has_hull = True
         selected.append({
             "type": "ais", "id": mmsi, "name": name,
             "render_profile": profile,
