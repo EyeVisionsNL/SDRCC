@@ -2644,10 +2644,10 @@ def api_traffic_map_vts_sectors():
 
 @app.route("/api/map-lab/rws/<kind>", methods=["GET"])
 def api_traffic_map_rws(kind):
-    """Same-origin read-only tide/wind data from the installed local RWS relay.
+    """Same-origin, read-only RWS WaterWebservices measurements.
 
-    Only four predefined observations are permitted. Browser-origin requests
-    cannot choose a URL, process type, station or time range.
+    Only four predefined official observations are permitted; the browser
+    cannot choose an upstream URL, station, process or time range.
     """
     if kind not in traffic_map_rws.KINDS:
         return jsonify({"ok": False, "error": "unsupported_measurement"}), 404
