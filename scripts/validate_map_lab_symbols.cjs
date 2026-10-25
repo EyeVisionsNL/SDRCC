@@ -282,6 +282,12 @@ class FakeMap {
         ["sdrcc.mapLab.trackMinutes", "7"]]);
     let lastTrackUrl = "";
     let directPhotoUrl = "";
+    // Advance the map clock without waiting in real time for the 30s TTL.
+    let clockNow = Date.now();
+    class MockDate extends Date {
+        constructor(...args) { super(...(args.length ? args : [clockNow])); }
+        static now() { return clockNow; }
+    }
     const fakeWindow = {
         localStorage: {
             getItem(key) { return stored.get(key) ?? null; },
@@ -293,7 +299,7 @@ class FakeMap {
     node("layer-tracks").checked = false; // HTML default: tracks are opt-in
     const patched = source.replace(esm, "await Promise.resolve(window.__maplibreMock)");
     vm.runInNewContext(patched, {
-        document, window: fakeWindow, setInterval() {},
+        document, window: fakeWindow, setInterval() {}, Date: MockDate,
         fetch: async url => {
             if (url.startsWith("/api/map-lab/ais-tracks?")) lastTrackUrl = url;
             return url === "/api/map-lab/vts-sectors"
@@ -652,6 +658,41 @@ class FakeMap {
     assert(instance.paintChanges.some(p =>
         p.id === "sdrcc-atis-ring" && p.key === "circle-radius"),
         "rings should pulse without modifying camera");
+
+    // After the backend's strict 30s TTL ends, the last VALIDATED ring
+    // remains visible and pulsing, but no longer claims to be a live match.
+    // Re-polling the same event must NOT extend its live status.
+    const initialMatch = highlights.atis_match;
+    highlights.atis_match = null;
+    clockNow += 31000;
+    node("refresh-now").listeners.click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(instance.sources["sdrcc-atis"].data.features.length, 1,
+        "last validated green ring should persist without new ATIS");
+    assert.equal(node("atis-status").textContent, "Last ATIS match");
+    assert.equal(instance.sources["sdrcc-atis"].data.features[0].properties.mmsi,
+        "123456789");
+
+    highlights.atis_match = {...initialMatch, mmsi:"244555000",
+        latitude:51.94, longitude:4.42, remaining_seconds:25,
+        event_id:"9244050123|2026-10-25T18:01:00+01:00"};
+    node("refresh-now").listeners.click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(instance.sources["sdrcc-atis"].data.features.length,1,
+        "new match replaces rather than adds to the green ring");
+    assert.equal(instance.sources["sdrcc-atis"].data.features[0].properties.mmsi,
+        "244555000");
+    assert.equal(node("atis-status").textContent, "ATIS matched");
+    assert.deepEqual(JSON.parse(JSON.stringify(
+        instance.sources["sdrcc-atis"].data.features[0].geometry.coordinates)),
+        [4.42,51.94]);
+
+    clockNow += 31000;
+    node("refresh-now").listeners.click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(node("atis-status").textContent, "Last ATIS match",
+        "repeated API event must not renew the 30s live designation");
+    assert.equal(instance.sources["sdrcc-atis"].data.features.length, 1);
 
     assert.equal(instance.sources["sdrcc-vts"].data.features.length, 1);
     assert.equal(instance.sources["sdrcc-vts"].data.features[0].properties.color, "#e5007e");
