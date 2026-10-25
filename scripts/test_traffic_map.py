@@ -707,6 +707,33 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(targets[1]["validation_state"], "verified")
 
 
+    def test_snapshot_enriches_live_tanker_with_full_ais_dimensions(self):
+        live = {"ships": [{"mmsi": "244670789", "shipname": "IDUNA",
+                            "shiptype": 80, "shipclass": 6,
+                            "lat": 51.89398, "lon": 4.3483,
+                            "cog": 249, "speed": 9.6, "last_signal": 2}]}
+        full = {"ships": [{"mmsi": "244670789", "to_bow": 135,
+                            "to_stern": 0, "to_port": 8, "to_starboard": 7,
+                            "shiptype": 30, "lat": 50, "lon": 3}]}
+        # Static geometry only: never import an alternate type or position.
+        with patch.object(traffic_map.receiver_monitor, "_read_ais_ships",
+                          return_value=(live, "ships.json")), \
+             patch.object(traffic_map.receiver_monitor, "_read_json_url",
+                          return_value=(full, "ships_full.json")), \
+             patch.object(traffic_map.receiver_monitor, "_read_json_file",
+                          return_value=(None, None)), \
+             patch.object(traffic_map.config, "get_home_position",
+                          return_value={"configured": False}):
+            result = traffic_map.snapshot()
+        vessel = result["ais"]["targets"][0]
+        self.assertEqual(vessel["render_profile"], "tanker")
+        self.assertEqual(vessel["shiptype"], 80)
+        self.assertEqual(vessel["length_m"], 135)
+        self.assertEqual(vessel["beam_m"], 15)
+        self.assertTrue(vessel["hull_available"])
+        self.assertAlmostEqual(vessel["hull_heading"], 249)
+        self.assertEqual((vessel["lon"], vessel["lat"]), (4.3483, 51.89398))
+
     def test_real_ship_offsets_for_hull(self):
         ship = {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
                 "validated": 1, "heading": 175, "cog": 170,
