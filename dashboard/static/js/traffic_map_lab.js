@@ -211,8 +211,8 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow < 0 || stern < 0 || port < 0 || starboard < 0
-                || length < (["watertaxi","krve","pleasure","service"].includes(ship.render_profile) ? 5
-                    : ["tug","police","port_authority","passenger","cargo","tanker","service"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
+                || length < (["watertaxi","krve","pleasure","service","workboat","pushboat"].includes(ship.render_profile) ? 5
+                    : ["tug","police","port_authority","passenger","cargo","tanker","barge_cargo","barge_tanker","convoy_cargo","convoy_tanker"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -228,7 +228,18 @@
         // legible in a tilted MapLibre view and cheap for a thousand ships.
         const shoulder = bow - 0.3 * length;
         const midpoint = (starboard - port) / 2;
-        const pts = [
+        // Flat-ended barges and pushing craft stay within the reported
+        // overall AIS dimensions; do not invent individual barge positions.
+        const flatEnds = ["barge_cargo","barge_tanker","convoy_cargo",
+            "convoy_tanker","pushboat"].includes(ship.render_profile);
+        const pts = flatEnds ? [
+            at(-stern, -port*.83), at(-stern, starboard*.83),
+            at(-stern+length*.035, starboard),
+            at(bow-length*.035, starboard),
+            at(bow, starboard*.83), at(bow, -port*.83),
+            at(bow-length*.035, -port),
+            at(-stern+length*.035, -port),
+        ] : [
             at(-stern, -port), at(-stern, starboard),
             at(shoulder, starboard),
             at(shoulder + (bow - shoulder) * 0.55, starboard * 0.7 + midpoint * 0.3),
@@ -266,6 +277,7 @@
                     nav_status: ship.nav_status, shiptype: ship.shiptype,
                     inland_type_code: ship.inland_type_code,
                     inland_type_name: ship.inland_type_name,
+                    inland_convoy_barges: ship.inland_convoy_barges,
                     beam_m: ship.beam_m, draught_m: ship.draught_m,
                     heading: ship.heading,
                     display_height_m: ["watertaxi","krve","pleasure"].includes(ship.render_profile)
@@ -394,7 +406,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "passenger", "tug", "police", "watertaxi", "krve", "port_authority", "pleasure", "service"].includes(profile)) continue;
+            if (!["tanker", "cargo", "passenger", "tug", "police", "watertaxi", "krve", "port_authority", "pleasure", "service", "barge_cargo", "barge_tanker", "convoy_cargo", "convoy_tanker", "pushboat", "workboat"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -402,8 +414,8 @@
             if (![bow,stern,port,starboard,lon,lat,headingDeg].every(Number.isFinite)
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
-            if (length < (["watertaxi","krve","pleasure","service"].includes(profile) ? 5
-                    : ["tug","police","port_authority","passenger","cargo","tanker","service"].includes(profile) ? 12 : 30) || beam < 2) continue;
+            if (length < (["watertaxi","krve","pleasure","service","workboat","pushboat"].includes(profile) ? 5
+                    : ["tug","police","port_authority","passenger","cargo","tanker","barge_cargo","barge_tanker","convoy_cargo","convoy_tanker"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
@@ -435,8 +447,60 @@
                     -port*.48,starboard*.48,"pleasure-cockpit",.3);
                 continue;
             }
+            if (profile === "barge_cargo" || profile === "barge_tanker") {
+                // Unpowered barge: low deck, no speculative wheelhouse.
+                add(-stern+length*.04, bow-length*.04,
+                    -port*.94, starboard*.94, "barge-rim", .25);
+                if (profile === "barge_cargo") {
+                    for (let n=0;n<3;n++) {
+                        const from=-stern+length*(.11+n*.26);
+                        add(from,from+length*.21,
+                            -port*.77,starboard*.77,"barge-hatch",.55,.25);
+                    }
+                } else {
+                    for (const side of [-.2,.2]) {
+                        const center=side*beam;
+                        add(-stern+length*.12,bow-length*.12,
+                            center-beam*.045,center+beam*.045,"barge-pipe",.8,.25);
+                    }
+                }
+                continue;
+            }
+            if (profile === "convoy_cargo" || profile === "convoy_tanker") {
+                // Schematic segments, NOT actual individual barge placement.
+                const count=Math.min(4,Math.max(1,Math.round(Number(ship.inland_convoy_barges)||2)));
+                add(-stern+length*.03,-stern+length*.19,
+                    -port*.6,starboard*.6,"convoy-pusher-house",2.8);
+                add(-stern+length*.19,-stern+length*.23,
+                    -port*.78,starboard*.78,"convoy-coupling",.35);
+                for(let n=0;n<count;n++) {
+                    const from=-stern+length*(.26+n*.68/count);
+                    const end=-stern+length*(.26+(n+1)*.68/count-.025);
+                    add(from,end,-port*.84,starboard*.84,
+                        profile === "convoy_cargo" ? "convoy-cargo-bay" : "convoy-tank-bay",
+                        profile === "convoy_cargo" ? .85 : .62);
+                }
+                continue;
+            }
+            if (profile === "pushboat") {
+                add(-stern+length*.17,-stern+length*.59,
+                    -port*.72,starboard*.72,"pushboat-wheelhouse",3.0);
+                add(bow-length*.16,bow-length*.06,
+                    -port*.82,starboard*.82,"pushboat-push-knees",.75);
+                continue;
+            }
+            if (profile === "workboat") {
+                // Generic deck fixtures, NOT confirmed crane or dredger.
+                add(-stern+length*.08,bow-length*.08,
+                    -port*.88,starboard*.88,"workboat-deck",.25);
+                add(-stern+length*.48,-stern+length*.73,
+                    -port*.63,starboard*.63,"workboat-cabin",2.35);
+                add(-stern+length*.19,-stern+length*.27,
+                    -port*.29,starboard*.29,"workboat-equipment",.8,.25);
+                continue;
+            }
             if (profile === "service") {
-                // Neutral workboat for 8450/8451/8453/8454/8460: do not
+                // Neutral service craft for 8450/8451/8453/8454: do not
                 // imply Douane, police, fire/rescue or RPA ownership.
                 const cabinStart = -stern + length * .42;
                 const cabinEnd = -stern + length * .68;
@@ -646,6 +710,7 @@
             shiptype: item.shiptype,
             inland_type_code: item.inland_type_code,
             inland_type_name: item.inland_type_name,
+            inland_convoy_barges: item.inland_convoy_barges,
             imo: item.imo || "",
             eni: item.eni || "",
             beam_m: item.beam_m,
