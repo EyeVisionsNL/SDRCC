@@ -767,7 +767,8 @@
             if(!response.ok||!data.ok||!data.image_url)return;
             if(!recentPossibleSpeakers.includes(speaker))return;
             speaker.image=data.image_url;
-            speaker.credit=[data.source,data.artist].filter(Boolean).join(" · ");
+            // Show the photographer, not the photo provider, in this compact list.
+            speaker.credit=String(data.artist||"").trim();
             renderPossibleSpeakerHistory();
         }catch(_){/* No photo is not an error for matching history. */}
     }
