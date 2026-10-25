@@ -73,12 +73,12 @@ INLAND_AIS_TYPES: dict[int, tuple[str, str]] = {
     8446: ("Day-trip hydrofoil", "passenger"),
     8447: ("Sailing cruise vessel", "passenger"),
     8448: ("Sailing passenger vessel without accommodation", "passenger"),
-    8450: ("Service vessel, police patrol or port service (unspecified)", "vessel"),
-    8451: ("Service vessel", "vessel"),
+    8450: ("Service vessel, police patrol or port service (unspecified)", "service"),
+    8451: ("Service vessel", "service"),
     8452: ("Police patrol vessel", "police"),
-    8453: ("Port service vessel", "vessel"),
-    8454: ("Navigation surveillance vessel", "vessel"),
-    8460: ("Work/maintenance vessel, crane, dredger or buoy vessel", "vessel"),
+    8453: ("Port service vessel", "service"),
+    8454: ("Navigation surveillance vessel", "service"),
+    8460: ("Work/maintenance vessel, crane, dredger or buoy vessel", "service"),
     8470: ("Towed object unspecified", "vessel"),
     8480: ("Fishing vessel", "vessel"),
     8490: ("Bunker vessel", "tanker"),
@@ -215,10 +215,11 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
         if shipclass == 5 and (_POLICE_P_NUMBER_RE.match(label)
                                or _POLICE_P_NUMBER_RE.match(callsign)):
             return "police"
-    # Inland ERI codes describe the vessel *type*, not its authority identity.
-    # Preserve stronger explicit RPA/police/ATIS-independent matches above.
+    # Inland ERI codes describe hull/deck type, not operator identity.
+    # Fixed navigation marks must never become ships from a stray ERI code.
+    # Preserve explicit port-authority and police matches above.
     inland = inland_ais_type(shiptype)
-    if inland is not None:
+    if inland is not None and not fixed_evidence:
         return inland[1]
     # AIS-Catcher class 10 is an AIS helicopter/AIS-SART aircraft target,
     # not a marine hull. MMSI 111205511 (PILOT SERVICES SV) reports this.
@@ -423,6 +424,23 @@ def vessels(payload: Any) -> list[dict]:
                     "Illustrative Class B pleasure hull; antenna offsets unavailable")
             if hull_heading is None:
                 hull_heading = 0.0  # explicit neutral north-up drawing
+            hull_bearing_approximate = heading is None
+            has_hull = True
+        # Phase 1 ERI geometry: when AIS-Catcher reports overall dimensions
+        # but omits antenna offsets, preserve the real length/beam and place
+        # the antenna at an explicitly illustrative midship position.
+        # Only apply to a recognized inland vessel with a usable AIS bearing.
+        # Do not invent dimensions or north-up headings for other ships.
+        if (eri_code is not None and profile in
+                ("cargo", "tanker", "tug", "service", "police")
+                and not has_hull and to_bow is None
+                and length is not None and beam is not None
+                and 12 <= length <= 450 and 2 <= beam <= 90
+                and hull_heading is not None):
+            to_bow = to_stern = length / 2
+            to_port = to_starboard = beam / 2
+            hull_geometry_source = (
+                "Reported AIS length/beam; illustrative antenna position (ERI)")
             hull_bearing_approximate = heading is None
             has_hull = True
         # Passenger ferries sometimes provide a valid AIS class/type but no
