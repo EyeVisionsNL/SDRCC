@@ -40,7 +40,7 @@ class TrafficMapTests(unittest.TestCase):
         # usable; never manufacture length/beam or overwrite raw shiptype.
         for code, profile, length, beam in [
             (8010,"cargo",86,9), (8022,"tanker",110,11),
-            (8430,"tug",20,7), (8450,"service",9,3.5),
+            (8430,"pushboat",20,7), (8450,"service",9,3.5),
             (8452,"police",25,6), (8453,"service",18,5),
         ]:
             with self.subTest(code=code):
@@ -106,6 +106,70 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(item["beam_m"],6)
         self.assertTrue(item["hull_available"])
         self.assertEqual((item["lon"],item["lat"]),(4.3,51.9))
+
+    def test_eri_phase_two_specialized_profiles(self):
+        # ERI classifies the hull/deck kind, not individual AIS identities.
+        profiles = [
+            (8150,"barge_cargo"), (8160,"barge_tanker"),
+            (8161,"barge_tanker"), (8162,"barge_tanker"),
+            (8163,"barge_tanker"), (8170,"barge_cargo"),
+            (8180,"barge_tanker"), (8210,"convoy_cargo"),
+            (8230,"convoy_cargo"), (8290,"convoy_cargo"),
+            (8310,"convoy_tanker"), (8370,"convoy_tanker"),
+            (8390,"convoy_tanker"), (8430,"pushboat"),
+            (8460,"workboat"), (8450,"service"), (8452,"police"),
+            (8470,"vessel"),
+        ]
+        for code, profile in profiles:
+            with self.subTest(code=code):
+                self.assertEqual(traffic_map.display_profile(
+                    "GENERIC INLAND",code,None),profile)
+                row=traffic_map.vessels([{
+                    "mmsi":"244777777","shipname":"GENERIC INLAND",
+                    "lat":51.9,"lon":4.3,"shiptype":99,
+                    "inland_shiptype":code,"length":85,"width":11,
+                    "cog":110,"speed":6,"validated":1,
+                }])[0]
+                self.assertEqual(row["render_profile"],profile)
+                self.assertEqual(row["inland_type_code"],code)
+                self.assertEqual(row["shiptype"],99)
+                if profile != "vessel":
+                    self.assertTrue(row["hull_available"])
+                    self.assertEqual(row["to_bow"],42.5)
+                    self.assertEqual(row["hull_heading"],110)
+                    self.assertEqual(row["length_m"],85)
+                    self.assertEqual(row["beam_m"],11)
+                count=((code % 100)//10 if
+                       8210 <= code <= 8290 or 8310 <= code <= 8390
+                       else None)
+                self.assertEqual(row["inland_convoy_barges"],count)
+
+    def test_eri_phase_two_no_invented_convoy_geometry(self):
+        base={"mmsi":"244777777","shipname":"UNSPECIFIED PUSH TOW",
+              "lat":51.9,"lon":4.3,"inland_shiptype":8270,
+              "shiptype":99}
+        no_size=traffic_map.vessels([{**base,"speed":8,"cog":112}])[0]
+        self.assertFalse(no_size["hull_available"])
+        self.assertEqual(no_size["inland_convoy_barges"],7)
+        no_bearing=traffic_map.vessels([
+            {**base,"length":135,"width":21,"speed":0,"cog":112}])[0]
+        self.assertFalse(no_bearing["hull_available"])
+        # Real, asymmetric offsets must remain authoritative.
+        real=traffic_map.vessels([{
+            **base,"heading":220,"to_bow":125,"to_stern":40,
+            "to_port":12,"to_starboard":13}])[0]
+        self.assertTrue(real["hull_available"])
+        self.assertEqual(real["to_bow"],125)
+        self.assertEqual(real["to_stern"],40)
+        self.assertEqual(real["hull_geometry_source"],"AIS dimensions")
+        self.assertEqual(real["inland_convoy_barges"],7)
+        # Maritime AIS codes and unrecognized ERI remain unchanged.
+        other=traffic_map.vessels([{**base,"shiptype":70,
+              "inland_shiptype":0,"speed":5,"cog":120,
+              "length":90,"width":10}])[0]
+        self.assertEqual(other["render_profile"],"cargo")
+        self.assertFalse(other["hull_available"])
+        self.assertIsNone(other["inland_convoy_barges"])
 
     def test_passenger_3d_profile(self):
         self.assertEqual(traffic_map.display_profile("FERRY", 60, 4), "passenger")
