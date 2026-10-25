@@ -611,7 +611,31 @@ def snapshot() -> dict:
 
     ais_payload, _ = receiver_monitor._read_ais_ships()
     ais_rows = receiver_monitor._extract_list(ais_payload, ("ships", "vessels", "targets", "data"))
-    ships = vessels(ais_payload) if ais_payload is not None else []
+    # ships.json is a compact live-position feed. AIS-Catcher can provide
+    # static antenna offsets in ships_full.json that the compact feed omits.
+    # Enrich only matching MMSIs; keep the trusted live position/age from
+    # ships.json and never alter the receiver monitor or ATIS correlation.
+    full_payload, _ = receiver_monitor._read_json_url(
+        ("http://127.0.0.1:8119/api/ships_full.json",
+         "http://localhost:8119/api/ships_full.json"), timeout=0.75)
+    full_rows = receiver_monitor._extract_list(
+        full_payload, ("ships", "vessels", "targets", "data"))
+    static_by_mmsi = {
+        str(row.get("mmsi") or "").strip().removesuffix(".0"): row
+        for row in full_rows if isinstance(row, dict)
+    }
+    enriched_rows = []
+    for row in ais_rows:
+        identity = str(row.get("mmsi") or "").strip().removesuffix(".0")
+        details = static_by_mmsi.get(identity, {})
+        static_keys = ("to_bow", "to_stern", "to_port", "to_starboard",
+                       "length", "width", "heading")
+        enrich = {
+            key: details[key] for key in static_keys
+            if row.get(key) is None and details.get(key) is not None
+        }
+        enriched_rows.append({**row, **enrich} if enrich else row)
+    ships = vessels(enriched_rows) if ais_payload is not None else []
 
     adsb_payload, adsb_source = receiver_monitor._read_json_file(receiver_monitor.READSB_AIRCRAFT_FILES)
     adsb_live = isinstance(adsb_payload, dict) and _fresh_adsb_file(adsb_source)
