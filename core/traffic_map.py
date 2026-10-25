@@ -249,7 +249,7 @@ def vessels(payload: Any) -> list[dict]:
         length = _num(item.get("length"))
         if all(value is not None for value in raw_dims):
             bow, stern, port, starboard = raw_dims
-            if (bow > 0 and stern >= 0 and port >= 0 and starboard >= 0
+            if (bow >= 0 and stern >= 0 and port >= 0 and starboard >= 0
                     and 5 <= bow + stern <= 450
                     and 2 <= port + starboard <= 90):
                 to_bow, to_stern, to_port, to_starboard = (
