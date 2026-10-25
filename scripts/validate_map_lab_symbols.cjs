@@ -786,8 +786,15 @@ class FakeMap {
         child.children?.some(value => value.textContent.includes("Length"))));
     assert(lastPopup.element.children.some(child =>
         child.children?.some(value => value.textContent.includes("Emergency vessel"))));
+    // This ship made the FIRST ATIS match. The next received event must
+    // move the last-match indication rather than marking multiple ships.
+    assert(!lastPopup.element.children.some(child =>
+        child.children?.some(value => value.textContent.includes("Marine ATIS"))));
+    const latestAtisHull=polygons.find(f=>f.properties.id==="244555000");
+    assert(latestAtisHull,"second match requires an existing AIS hull");
+    instance.callbacks["click:sdrcc-ais-hull-3d"]({features:[latestAtisHull]});
     assert(lastPopup.element.children.some(child =>
-        child.children?.some(value => value.textContent.includes("Matched Marine ATIS"))));
+        child.children?.some(value => value.textContent.includes("Last matched Marine ATIS"))));
 
     node("mode-3d").listeners.click();
     assert.equal(instance.camera.pitch, 62);
