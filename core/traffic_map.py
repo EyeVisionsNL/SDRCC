@@ -276,6 +276,15 @@ def _num(value: Any) -> float | None:
     return parsed if math.isfinite(parsed) else None
 
 
+def _inland_code(item: dict) -> int | None:
+    """First *known* ERI field, ignoring unset zeros and invalid placeholders."""
+    for key in ("inland_shiptype", "eri_shiptype", "shiptype_eri", "inland_type"):
+        value = _num(item.get(key))
+        if value is not None and value.is_integer() and int(value) in INLAND_AIS_TYPES:
+            return int(value)
+    return None
+
+
 def _position(item: dict, latitude: tuple[str, ...], longitude: tuple[str, ...]):
     lat = next((n for key in latitude if (n := _num(item.get(key))) is not None), None)
     lon = next((n for key in longitude if (n := _num(item.get(key))) is not None), None)
@@ -367,9 +376,7 @@ def vessels(payload: Any) -> list[dict]:
         # Some AIS-Catcher builds expose the 4-digit ERI code separately.
         # A four-digit native shiptype is already an ERI code; never treat
         # maritime 0-99 codes as inland codes without explicit evidence.
-        eri_raw = next((n for key in ("inland_shiptype", "eri_shiptype", "shiptype_eri", "inland_type")
-                        if (n := _num(item.get(key))) is not None and n.is_integer()), None)
-        eri_code = int(eri_raw) if eri_raw is not None and int(eri_raw) in INLAND_AIS_TYPES else None
+        eri_code = _inland_code(item)
         normalized_type = int(shiptype) if shiptype is not None and 0 <= shiptype <= 9999 else None
         if eri_code is None and normalized_type in INLAND_AIS_TYPES:
             eri_code = normalized_type
@@ -760,9 +767,7 @@ def snapshot() -> dict:
         # Some receiver versions only carry the 4-digit ERI type in the full
         # record's "shiptype". Import it as separate inland metadata only for
         # a generic/unknown live maritime type; never overwrite live shiptype.
-        if not any(row.get(key) is not None or enrich.get(key) is not None
-                   for key in ("inland_shiptype", "eri_shiptype",
-                               "shiptype_eri", "inland_type")):
+        if _inland_code({**row, **enrich}) is None:
             detailed_type = _num(details.get("shiptype"))
             live_type = _num(row.get("shiptype"))
             if (detailed_type is not None and detailed_type.is_integer()
