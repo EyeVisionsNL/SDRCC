@@ -540,6 +540,14 @@ class FakeMap {
     assert(instance.layers["sdrcc-atis-ring"]);
     assert.equal(instance.layers["sdrcc-offshore-3d-structures"].type,
         "fill-extrusion", "offshore models use native MapLibre extrusions");
+    assert.equal(instance.layers["sdrcc-adsb-air-3d-models"].type, "fill-extrusion");
+    assert.equal(instance.layers["sdrcc-ais-air-3d-models"].layout.visibility, "none");
+    const air3d = instance.sources["sdrcc-adsb-air-3d"].data.features;
+    assert(air3d.some(x=>x.properties.part==="plane-wing"));
+    assert(air3d.some(x=>x.properties.part==="heli-rotor"));
+    const aisAir3d = instance.sources["sdrcc-ais-air-3d"].data.features;
+    assert(aisAir3d.some(x=>x.properties.part==="heli-body"));
+    assert(instance.callbacks["click:sdrcc-adsb-air-3d-models"]);
     const offshore = instance.sources["sdrcc-offshore-3d"].data.features;
     assert(offshore.some(x=>x.properties.part==="wind-tower"));
     assert(offshore.some(x=>x.properties.part==="wind-nacelle"));
