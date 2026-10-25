@@ -917,6 +917,12 @@
             else if (props.render_profile === "passenger") add("3D deck", "Passenger decks, bridge and windows (illustrative)");
             else if (props.render_profile === "tug") add("3D deck", "Tug wheelhouse / towing winch (illustrative)");
             else if (props.render_profile === "service") add("3D deck", "Neutral service craft cabin / work deck (illustrative)");
+            else if (props.render_profile === "workboat") add("3D deck", "Generic workboat deck / equipment (illustrative)");
+            else if (props.render_profile === "pushboat") add("3D deck", "Pushboat cabin / push knees (illustrative)");
+            else if (props.render_profile === "barge_cargo") add("3D deck", "Low freight barge / hatches (illustrative)");
+            else if (props.render_profile === "barge_tanker") add("3D deck", "Low tank barge / pipes (illustrative)");
+            else if (props.render_profile === "convoy_cargo" || props.render_profile === "convoy_tanker")
+                add("3D deck", "Push convoy sections (schematic; arrangement unknown)");
             else if (props.render_profile === "police") add("3D deck", "Police patrol cabin / blue markings (illustrative)");
             else if (props.render_profile === "watertaxi") add("3D deck", "Black/yellow MSTX fast water taxi (illustrative)");
             else if (props.render_profile === "krve") add("3D deck", "KRVE mooring / pilot-transport craft (illustrative)");
@@ -939,6 +945,8 @@
                 add("Ship type", props.shiptype);
                 if (props.inland_type_name) add("Inland AIS / ERI",
                     props.inland_type_code + " · " + props.inland_type_name);
+                if (Number.isInteger(props.inland_convoy_barges) && props.inland_convoy_barges > 0)
+                    add("ERI barges", props.inland_convoy_barges + " · exact arrangement unknown");
             add("Callsign", props.callsign);
             add("IMO", props.imo);
             add("ENI", props.eni);
@@ -1305,6 +1313,12 @@
                     ["==", ["get", "render_profile"], "port_authority"], "#1d4c79",
                     ["==", ["get", "render_profile"], "pleasure"], "#29475b",
                     ["==", ["get", "render_profile"], "service"], "#345368",
+                    ["==", ["get", "render_profile"], "workboat"], "#4a5b69",
+                    ["==", ["get", "render_profile"], "pushboat"], "#305366",
+                    ["==", ["get", "render_profile"], "barge_cargo"], "#3d5664",
+                    ["==", ["get", "render_profile"], "barge_tanker"], "#4c626a",
+                    ["==", ["get", "render_profile"], "convoy_cargo"], "#315164",
+                    ["==", ["get", "render_profile"], "convoy_tanker"], "#385963",
                     "#1b3243"],
                 // Illustrative depth only: actual ship height is not present in AIS.
                 "fill-extrusion-height": ["get", "display_height_m"],
@@ -1323,6 +1337,12 @@
                     "bridge","#c1d6df","cargo-hatch","#677e92",
                     "service-workdeck","#6d8694","service-cabin","#d7e4ed",
                     "service-roof","#a5bfca","service-windows","#4a9ac2",
+                    "barge-rim","#8aa1ad","barge-hatch","#7c939e","barge-pipe","#9ec5ca",
+                    "convoy-pusher-house","#b7c9d3","convoy-coupling","#dfad6c",
+                    "convoy-cargo-bay","#718b9d","convoy-tank-bay","#9db8c2",
+                    "pushboat-wheelhouse","#d7e7ee","pushboat-push-knees","#e9b867",
+                    "workboat-deck","#7e9b9c","workboat-cabin","#d9e2e2",
+                    "workboat-equipment","#c8ac75",
                     "passenger-lower-deck","#e9f0f5",
                     "passenger-upper-deck","#f7f9fc",
                     "passenger-roof","#d9e7ec",
