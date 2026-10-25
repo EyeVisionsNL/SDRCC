@@ -752,6 +752,8 @@
             if(now-time>3600000)speakerHistorySeen.delete(key);
         const speaker={mmsi,name:String(match.shipname||match.callsign||""),
             time:new Date().toLocaleTimeString(),image:"",credit:""};
+        const prior=recentPossibleSpeakers.findIndex(entry=>entry.mmsi===mmsi);
+        if(prior!==-1)recentPossibleSpeakers.splice(prior,1);
         recentPossibleSpeakers.unshift(speaker);
         if(recentPossibleSpeakers.length>4)recentPossibleSpeakers.length=4;
         renderPossibleSpeakerHistory();
