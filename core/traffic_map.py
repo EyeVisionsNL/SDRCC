@@ -325,6 +325,22 @@ def vessels(payload: Any) -> list[dict]:
                 hull_heading = 0.0  # explicit neutral north-up drawing
             hull_bearing_approximate = heading is None
             has_hull = True
+        # Passenger ferries sometimes provide a valid AIS class/type but no
+        # dimensions (for example SPES). Draw an explicitly illustrative hull
+        # instead of leaving only a small AIS arrow at close 3D zoom.
+        if profile == "passenger" and not has_hull:
+            if to_bow is None:
+                sketch_length = length if length is not None and 12 <= length <= 120 else 26.0
+                sketch_beam = beam if beam is not None and 3 <= beam <= 24 else 7.0
+                to_bow = to_stern = sketch_length / 2
+                to_port = to_starboard = sketch_beam / 2
+                length, beam = sketch_length, sketch_beam
+                hull_geometry_source = (
+                    "Illustrative passenger hull; AIS antenna offsets unavailable")
+            if hull_heading is None:
+                hull_heading = course if course is not None else 0.0
+            hull_bearing_approximate = heading is None
+            has_hull = True
         selected.append({
             "type": "ais", "id": mmsi, "name": name,
             "render_profile": profile,
