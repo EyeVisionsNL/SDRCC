@@ -749,11 +749,25 @@ def snapshot() -> dict:
         identity = str(row.get("mmsi") or "").strip().removesuffix(".0")
         details = static_by_mmsi.get(identity, {})
         static_keys = ("to_bow", "to_stern", "to_port", "to_starboard",
-                       "length", "width", "heading")
+                       "length", "width", "heading",
+                       "inland_shiptype", "eri_shiptype", "shiptype_eri",
+                       "inland_type")
         enrich = {
             key: details[key] for key in static_keys
             if row.get(key) is None and details.get(key) is not None
         }
+        # Some receiver versions only carry the 4-digit ERI type in the full
+        # record's "shiptype". Import it as separate inland metadata only for
+        # a generic/unknown live maritime type; never overwrite live shiptype.
+        if not any(row.get(key) is not None or enrich.get(key) is not None
+                   for key in ("inland_shiptype", "eri_shiptype",
+                               "shiptype_eri", "inland_type")):
+            detailed_type = _num(details.get("shiptype"))
+            live_type = _num(row.get("shiptype"))
+            if (detailed_type is not None and detailed_type.is_integer()
+                    and int(detailed_type) in INLAND_AIS_TYPES
+                    and live_type in (None, 0, 1, 99)):
+                enrich["inland_shiptype"] = int(detailed_type)
         enriched_rows.append({**row, **enrich} if enrich else row)
     ships = vessels(enriched_rows) if ais_payload is not None else []
 
