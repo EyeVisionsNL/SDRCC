@@ -258,9 +258,17 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
             54: "oil_response",
         }
         if shiptype in maritime_special:
-            if shiptype == 33 and _DREDGER_NAME_RE.search(label):
+            # A mis-set "sailing" type must never turn a recognized KRVE
+            # service craft or P-number patrol identifier into a yacht.
+            if shiptype == 36 and (
+                    _KRVE_NAME_RE.match(label) or _KRVE_NAME_RE.match(callsign)
+                    or _POLICE_P_NUMBER_RE.match(label)
+                    or _POLICE_P_NUMBER_RE.match(callsign)):
+                pass
+            elif shiptype == 33 and _DREDGER_NAME_RE.search(label):
                 return "dredger"
-            return maritime_special[shiptype]
+            else:
+                return maritime_special[shiptype]
     if (shiptype in (31, 32, 52) or _TUG_NAME_RE.search(label)
             or status in ("11", "12") or _TUG_STATUS_RE.search(status)):
         return "tug"
@@ -438,7 +446,7 @@ def vessels(payload: Any) -> list[dict]:
                 has_hull = True
         # Scoped Class B pleasure-craft illustration. Other ship types
         # retain precisely their pre-existing geometry and fallback rules.
-        if profile == "pleasure" and not has_hull:
+        if profile in ("pleasure", "sailing") and not has_hull:
             if to_bow is None:
                 # Overall length/beam may be reported even without the
                 # four antenna offsets; preserve plausible figures.
@@ -448,7 +456,7 @@ def vessels(payload: Any) -> list[dict]:
                 to_port = to_starboard = sketch_beam / 2
                 length, beam = sketch_length, sketch_beam
                 hull_geometry_source = (
-                    "Illustrative Class B pleasure hull; antenna offsets unavailable")
+                    "Illustrative Class B leisure/sailing hull; antenna offsets unavailable")
             if hull_heading is None:
                 hull_heading = 0.0  # explicit neutral north-up drawing
             hull_bearing_approximate = heading is None
