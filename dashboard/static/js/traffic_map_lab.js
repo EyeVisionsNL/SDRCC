@@ -212,7 +212,7 @@
         const length = bow + stern, beam = port + starboard;
         if (bow < 0 || stern < 0 || port < 0 || starboard < 0
                 || length < (["watertaxi","krve","pleasure"].includes(ship.render_profile) ? 5
-                    : ["tug","police","port_authority","passenger","cargo","tanker"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
+                    : ["tug","police","port_authority","passenger","cargo","tanker","service"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -394,7 +394,7 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "passenger", "tug", "police", "watertaxi", "krve", "port_authority", "pleasure"].includes(profile)) continue;
+            if (!["tanker", "cargo", "passenger", "tug", "police", "watertaxi", "krve", "port_authority", "pleasure", "service"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -403,7 +403,7 @@
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
             if (length < (["watertaxi","krve","pleasure"].includes(profile) ? 5
-                    : ["tug","police","port_authority","passenger","cargo","tanker"].includes(profile) ? 12 : 30) || beam < 2) continue;
+                    : ["tug","police","port_authority","passenger","cargo","tanker","service"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
@@ -433,6 +433,25 @@
                     -port*.64,starboard*.64,"pleasure-windshield",.48,.52);
                 add(-stern+length*.13,-stern+length*.29,
                     -port*.48,starboard*.48,"pleasure-cockpit",.3);
+                continue;
+            }
+            if (profile === "service") {
+                // Neutral workboat for 8450/8451/8453/8454/8460: do not
+                // imply Douane, police, fire/rescue or RPA ownership.
+                const cabinStart = -stern + length * .42;
+                const cabinEnd = -stern + length * .68;
+                add(-stern + length * .08, -stern + length * .38,
+                    -port * .76, starboard * .76, "service-workdeck", .28);
+                add(cabinStart, cabinEnd, -port * .65, starboard * .65,
+                    "service-cabin", 2.3);
+                add(cabinStart + length*.02, cabinEnd - length*.02,
+                    -port * .7, starboard * .7, "service-roof", .22, 2.3);
+                for (const side of [-1,1]) {
+                    const near = side < 0 ? -port*.72 : starboard*.58;
+                    const far = side < 0 ? -port*.58 : starboard*.72;
+                    add(cabinStart + length*.04, cabinEnd - length*.04,
+                        near, far, "service-windows", .7, .75);
+                }
                 continue;
             }
             if (profile === "krve") {
@@ -832,6 +851,7 @@
             else if (props.render_profile === "cargo") add("3D deck", "Cargo hatches (illustrative)");
             else if (props.render_profile === "passenger") add("3D deck", "Passenger decks, bridge and windows (illustrative)");
             else if (props.render_profile === "tug") add("3D deck", "Tug wheelhouse / towing winch (illustrative)");
+            else if (props.render_profile === "service") add("3D deck", "Neutral service craft cabin / work deck (illustrative)");
             else if (props.render_profile === "police") add("3D deck", "Police patrol cabin / blue markings (illustrative)");
             else if (props.render_profile === "watertaxi") add("3D deck", "Black/yellow MSTX fast water taxi (illustrative)");
             else if (props.render_profile === "krve") add("3D deck", "KRVE mooring / pilot-transport craft (illustrative)");
@@ -1219,6 +1239,7 @@
                     ["==", ["get", "render_profile"], "krve"], "#20272e",
                     ["==", ["get", "render_profile"], "port_authority"], "#1d4c79",
                     ["==", ["get", "render_profile"], "pleasure"], "#29475b",
+                    ["==", ["get", "render_profile"], "service"], "#345368",
                     "#1b3243"],
                 // Illustrative depth only: actual ship height is not present in AIS.
                 "fill-extrusion-height": ["get", "display_height_m"],
@@ -1235,6 +1256,8 @@
             paint:{
                 "fill-extrusion-color":["match",["get","part"],
                     "bridge","#c1d6df","cargo-hatch","#677e92",
+                    "service-workdeck","#6d8694","service-cabin","#d7e4ed",
+                    "service-roof","#a5bfca","service-windows","#4a9ac2",
                     "passenger-lower-deck","#e9f0f5",
                     "passenger-upper-deck","#f7f9fc",
                     "passenger-roof","#d9e7ec",
