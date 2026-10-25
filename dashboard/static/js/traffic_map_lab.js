@@ -661,6 +661,12 @@
         if(map.getLayer("sdrcc-"+kind+"-air-3d-models"))
             map.setLayoutProperty("sdrcc-"+kind+"-air-3d-models","visibility",
                 visible && mode3d ? "visible" : "none");
+        // ADS-B nameplates also carry the 2D aircraft icon; suppress only that
+        // duplicate at close 3D zoom while preserving the text label.
+        if(kind==="adsb" && map.getLayer("sdrcc-adsb-labels"))
+            map.setLayoutProperty("sdrcc-adsb-labels","icon-image",
+                mode3d ? ["step",["zoom"],["get","icon_name"],15,""]
+                    : ["get","icon_name"]);
         if(kind==="adsb" && map.getLayer("sdrcc-adsb-icons"))
             map.setPaintProperty("sdrcc-adsb-icons","icon-opacity",
                 ["interpolate",["linear"],["zoom"],14.99,1,15,mode3d?0:1]);
