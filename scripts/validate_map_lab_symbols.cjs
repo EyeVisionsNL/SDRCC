@@ -538,6 +538,16 @@ class FakeMap {
     for (let i = 0; i < 8; i++) await Promise.resolve();
     assert(instance.layers["sdrcc-emergency-ring"]);
     assert(instance.layers["sdrcc-atis-ring"]);
+    assert.equal(instance.layers["sdrcc-offshore-3d-structures"].type,
+        "fill-extrusion", "offshore models use native MapLibre extrusions");
+    const offshore = instance.sources["sdrcc-offshore-3d"].data.features;
+    assert(offshore.some(x=>x.properties.part==="wind-tower"));
+    assert(offshore.some(x=>x.properties.part==="wind-nacelle"));
+    assert(offshore.some(x=>x.properties.part==="wind-rotor"));
+    assert(offshore.some(x=>x.properties.part==="platform-leg"));
+    assert(offshore.some(x=>x.properties.part==="platform-deck"));
+    assert(offshore.some(x=>x.properties.part==="platform-building"));
+
     assert.deepEqual(JSON.parse(JSON.stringify(
         instance.layers["sdrcc-emergency-ring"].paint["circle-stroke-color"])),
         ["match",["get","category"],"knrm","#ffffff","waterpolitie","#2499ff","#ffffff"]);
