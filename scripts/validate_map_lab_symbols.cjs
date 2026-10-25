@@ -141,7 +141,7 @@ class FakeMap {
     const data = {
         ok: true, center: [4.28, 51.93],
         station: {name:"EyeVisions Home", lon:4.28, lat:51.93, altitude_m:12},
-        ais: {available: true, source_count: 16, count: 16, unverified_count: 1,
+        ais: {available: true, source_count: 22, count: 22, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
                     lon:4.3, lat:51.9, course:132, hull_heading:134, speed_knots:6,
@@ -212,6 +212,42 @@ class FakeMap {
                     length_m:9,beam_m:3.5,to_bow:4.5,to_stern:4.5,
                     to_port:1.75,to_starboard:1.75,hull_available:true,
                     hull_geometry_source:"Reported AIS length/beam; illustrative antenna position (ERI)"},
+                {type:"ais",id:"244888001",name:"FREIGHT BARGE",
+                    lon:4.51,lat:51.95,shiptype:8150,
+                    inland_type_code:8150,render_profile:"barge_cargo",
+                    course:93,hull_heading:93,beam_m:11,
+                    to_bow:50,to_stern:30,to_port:5.5,to_starboard:5.5,
+                    hull_available:true},
+                {type:"ais",id:"244888002",name:"TANK BARGE",
+                    lon:4.52,lat:51.95,shiptype:8162,
+                    inland_type_code:8162,render_profile:"barge_tanker",
+                    course:80,hull_heading:80,beam_m:9,
+                    to_bow:55,to_stern:20,to_port:4.5,to_starboard:4.5,
+                    hull_available:true},
+                {type:"ais",id:"244888003",name:"PUSH TOW CARGO",
+                    lon:4.53,lat:51.95,shiptype:8230,
+                    inland_type_code:8230,inland_convoy_barges:3,
+                    render_profile:"convoy_cargo",course:45,hull_heading:45,
+                    beam_m:21,to_bow:90,to_stern:30,to_port:10,to_starboard:11,
+                    hull_available:true},
+                {type:"ais",id:"244888004",name:"PUSH TOW TANKER",
+                    lon:4.54,lat:51.95,shiptype:8320,
+                    inland_type_code:8320,inland_convoy_barges:2,
+                    render_profile:"convoy_tanker",course:75,hull_heading:75,
+                    beam_m:20,to_bow:100,to_stern:40,to_port:10,to_starboard:10,
+                    hull_available:true},
+                {type:"ais",id:"244888005",name:"PUSH BOAT",
+                    lon:4.55,lat:51.95,shiptype:8430,
+                    inland_type_code:8430,render_profile:"pushboat",
+                    course:180,hull_heading:180,beam_m:5,
+                    to_bow:12,to_stern:5,to_port:2.5,to_starboard:2.5,
+                    hull_available:true},
+                {type:"ais",id:"244888006",name:"WORK BOAT",
+                    lon:4.56,lat:51.95,shiptype:8460,
+                    inland_type_code:8460,render_profile:"workboat",
+                    course:120,hull_heading:120,beam_m:8,
+                    to_bow:23,to_stern:7,to_port:4,to_starboard:4,
+                    hull_available:true},
             ]},
         adsb: {available: true, source_count: 3, count: 3, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
@@ -346,7 +382,7 @@ class FakeMap {
     }
     const boats = instance.sources["sdrcc-ais"].data.features;
     const planes = instance.sources["sdrcc-adsb"].data.features;
-    assert.equal(boats.length, 16);
+    assert.equal(boats.length, 22);
     const pilotHelo=boats[14];
     assert.equal(pilotHelo.properties.render_profile,"ais_helicopter");
     assert.equal(pilotHelo.properties.icon_name,"sdrcc-ais-helicopter");
@@ -422,15 +458,15 @@ class FakeMap {
     assert(instance.layers["sdrcc-adsb-labels"].layout["icon-image"][0]==="get");
 
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
-    assert.equal(polygons.length, 10,
-        "existing hulls and a measured 9m ERI service craft");
+    assert.equal(polygons.length, 16,
+        "existing ten hulls and six distinct ERI phase-two hulls");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
     // Passenger geometry is generated at high zoom only when AIS hull exists.
     assert(source.includes('"passenger-lower-deck"'));
     assert(source.includes('"passenger-upper-windows"'));
     assert(source.includes('"passenger-bridge"'));
-    assert.equal(decks.length,51,
-        "existing 46 parts plus five neutral service craft parts");
+    assert.equal(decks.length,72,
+        "existing 51 deck parts plus 21 special ERI barge, convoy and workboat parts");
     for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap","tug-wheelhouse","tug-winch",
                        "police-cabin","police-stripe","police-lightbar",
                        "watertaxi-cabin","watertaxi-roof","watertaxi-stripe","watertaxi-window",
@@ -438,15 +474,37 @@ class FakeMap {
                        "krve-windows","krve-mooring-gear","rpa-cabin","rpa-roof",
                        "rpa-yellow-stripe","rpa-windows","rpa-fire-monitor",
                        "pleasure-deck","pleasure-cabin","pleasure-windshield","pleasure-cockpit",
-                        "service-workdeck","service-cabin","service-roof","service-windows"])
+                        "service-workdeck","service-cabin","service-roof","service-windows",
+                        "barge-rim","barge-hatch","barge-pipe","convoy-pusher-house",
+                        "convoy-coupling","convoy-cargo-bay","convoy-tank-bay",
+                        "pushboat-wheelhouse","pushboat-push-knees","workboat-deck",
+                        "workboat-cabin","workboat-equipment"])
         assert(decks.some(f=>f.properties.part===part), "missing deck part "+part);
     assert(decks.every(f=>["123456789","244123999","244555000",
         "244600015","244020742","244456065","244050469",
-        "244901101","244901102","244777777"].includes(f.properties.id)));
+        "244901101","244901102","244777777",
+         "244888001","244888002","244888003","244888004",
+         "244888005","244888006"].includes(f.properties.id)));
     assert.equal(decks.filter(f=>f.properties.id==="244901101").length,4);
     assert.equal(decks.filter(f=>f.properties.id==="244901102").length,4);
     const serviceParts=decks.filter(f=>f.properties.id==="244777777");
     assert.equal(serviceParts.length,5,"ERI service craft needs deck, cabin, roof and windows");
+    for(const [id,expected] of [
+        ["244888001",4],["244888002",3],["244888003",5],
+        ["244888004",4],["244888005",2],["244888006",3]]) {
+        assert.equal(decks.filter(f=>f.properties.id===id).length,expected,
+            "wrong number of illustrative 3D parts for "+id);
+        const hull=polygons.find(f=>f.properties.id===id);
+        assert(hull,"missing ERI hull "+id);
+        if (["244888001","244888002","244888003","244888004","244888005"].includes(id))
+            assert.equal(hull.geometry.coordinates[0].length,9,"ERI barge/push hull needs flat ends");
+    }
+    assert.equal(boats[18].properties.inland_convoy_barges,3);
+    assert.equal(boats[19].properties.inland_convoy_barges,2);
+    const lowBarge=polygons.find(f=>f.properties.id==="244888001").properties;
+    assert(lowBarge.display_height_m < 2.6,"unpowered cargo barge must stay low");
+    assert(source.includes('"convoy-cargo-bay"'));
+    assert(source.includes('"workboat-equipment"'));
     assert(boats[15].properties.render_profile==="service");
     assert(boats[15].properties.hull_available);
     assert.equal(boats[15].properties.inland_type_code,8450);
@@ -538,9 +596,9 @@ class FakeMap {
     assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
-    assert.equal(node("count-ais").textContent, 16);
+    assert.equal(node("count-ais").textContent, 22);
     assert.equal(node("count-adsb").textContent, 3);
-    assert.equal(node("legend-mini-status").textContent, "AIS 16 · ADS-B 3",
+    assert.equal(node("legend-mini-status").textContent, "AIS 22 · ADS-B 3",
         "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];
