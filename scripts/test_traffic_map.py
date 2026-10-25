@@ -734,6 +734,22 @@ class TrafficMapTests(unittest.TestCase):
         self.assertAlmostEqual(vessel["hull_heading"], 249)
         self.assertEqual((vessel["lon"], vessel["lat"]), (4.3483, 51.89398))
 
+    def test_ais_antenna_on_bow_is_valid_geometry(self):
+        # IDUNA transmits 0m bow / 135m stern: this is valid Class A AIS,
+        # not missing dimensions. Keep the transmitted type unchanged.
+        ship = {"mmsi":"244670789","shipname":"IDUNA",
+                "lat":51.877171,"lon":4.327505,
+                "to_bow":0,"to_stern":135,"to_port":8,"to_starboard":7,
+                "shiptype":1,"shipclass":0,"cog":163.5,"speed":11.7}
+        row = traffic_map.vessels([ship])[0]
+        self.assertTrue(row["hull_available"])
+        self.assertEqual(row["length_m"], 135)
+        self.assertEqual(row["beam_m"], 15)
+        self.assertEqual(row["render_profile"], "vessel")
+        self.assertEqual(row["shiptype"], 1)
+        self.assertEqual(row["hull_heading"], 163.5)
+        self.assertEqual(row["to_bow"], 0)
+
     def test_real_ship_offsets_for_hull(self):
         ship = {"mmsi": "123456789", "lat": 51.9, "lon": 4.3,
                 "validated": 1, "heading": 175, "cog": 170,
