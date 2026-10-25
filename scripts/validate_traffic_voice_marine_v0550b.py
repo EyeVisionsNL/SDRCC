@@ -47,6 +47,11 @@ class FakeServices:
 
 
 def static_validation():
+    # A double-escaped regex rejected every valid 9-digit MMSI and left the
+    # new Recent Possible Speakers list permanently empty.
+    history_js = (ROOT / "dashboard/static/js/traffic_voice.js").read_text()
+    check('!/^\\d{9}$/.test(String(match.mmsi||""))' in history_js,
+          "recent possible speakers accept nine-digit AIS MMSI")
     required = [
         "config/traffic_voice.yaml",
         "core/traffic_voice.py",
