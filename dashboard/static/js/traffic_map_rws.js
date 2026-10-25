@@ -1,6 +1,6 @@
 /* SDRCC Map Lab — read-only Hoek van Holland tide and wind.
- * Uses the SAME localhost Rijkswaterstaat relay and AQO requests as the
- * AIS-Catcher Rijnmond VTS block layer. Never controls AIS/SDR receivers.
+ * Uses the same official RWS WaterWebservices and AQO request shapes as the
+ * AIS-Catcher Rijnmond VTS layer, via SDRCC's own origin. Receiver-safe.
  */
 (() => {
     "use strict";
@@ -15,8 +15,8 @@
     const windLabel = el("rws-wind-value");
     const windMeta = el("rws-wind-meta");
     const windArrow = el("rws-wind-arrow");
-    // Requests use SDRCC's own origin, avoiding the AIS-Catcher-only browser
-    // CORS allowance on the local Rijkswaterstaat relay at port 8120.
+    // RWS requests are made server-side by SDRCC, not via the AIS-Catcher
+    // browser relay, whose origin policy only allows port 8119.
     const rwsApi = "/api/map-lab/rws/";
     const intervalMs = 10 * 60 * 1000;
     let interval = null;
@@ -227,14 +227,14 @@
             const hasData=parsed.some(list=>list.length>0);
             status.textContent=hasData?"Bron: Rijkswaterstaat · "+clock(Date.now())
                 +(failures?" · "+failures+" gegevensbron(nen) tijdelijk niet bereikbaar":"")
-                : "RWS-relay of meetgegevens niet beschikbaar";
+                : "Rijkswaterstaat of meetgegevens niet beschikbaar";
             lastRequest=Date.now();
         }catch(_){
             tideLabel.textContent="Getijgegevens niet beschikbaar";
             highLabel.textContent="Tijd volgend hoogwater niet beschikbaar";
             renderChart([],[]);
             renderWind(null,null);
-            status.textContent="RWS-relay niet bereikbaar; kaart blijft werken";
+            status.textContent="Rijkswaterstaat tijdelijk niet bereikbaar; kaart blijft werken";
         }finally{busy=false;refreshButton.disabled=false;}
     }
     function sync() {
