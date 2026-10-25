@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline tests for the limited, same-origin Rijnmond tide/wind adapter."""
+"""Offline tests for the limited official-RWS tide/wind adapter."""
 import json
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -63,7 +63,7 @@ class RwsAdapterTests(unittest.TestCase):
                     meta["WaarnemingMetadata"]["OpdrachtgevendeInstantieLijst"],
                     ["RIKZ_METEO"])
 
-    def test_no_open_proxy_and_fixed_loopback_destination(self):
+    def test_no_open_proxy_and_fixed_official_rws_destination(self):
         calls = []
         payload = {"Waarnemingen": [{"Tijdstip": "2026-10-25T18:35:00+01:00",
                                     "Meetwaarde": {"Waarde_Numeriek": 87}}]}
@@ -76,7 +76,8 @@ class RwsAdapterTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         request, timeout = calls[0]
         self.assertEqual(request.full_url,
-                         "http://127.0.0.1:8120/ONLINEWAARNEMINGENSERVICES/"
+                         "https://ddapi20-waterwebservices.rijkswaterstaat.nl/"
+                         "ONLINEWAARNEMINGENSERVICES/"
                          "OphalenLaatsteWaarnemingen")
         self.assertEqual(request.get_method(), "POST")
         self.assertEqual(timeout, rws.TIMEOUT_SECONDS)
@@ -91,7 +92,7 @@ class RwsAdapterTests(unittest.TestCase):
         def unreachable(*args, **kwargs):
             raise ConnectionRefusedError("no relay")
         self.assertEqual(rws.fetch("tide-measured", unreachable)["error"],
-                         "local_rws_relay_unavailable")
+                         "rws_service_unavailable")
         def invalid_response(*args, **kwargs):
             return FakeResponse({"sample": []})
         self.assertTrue(rws.fetch("tide-measured", invalid_response)["ok"])
