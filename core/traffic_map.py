@@ -13,6 +13,93 @@ from typing import Any
 
 from core import config, receiver_monitor
 
+# European inland ERI vessel/convoy type list (ES-RIS Annex 6 / EU 2019/838).
+# Values: (human-readable type, visual profile). 8450 is deliberately generic;
+# this is NOT proof of Customs, police, emergency or port-authority identity.
+INLAND_AIS_TYPES: dict[int, tuple[str, str]] = {
+    8000: ("Vessel type unknown", "vessel"),
+    8010: ("Motor freighter", "cargo"),
+    8020: ("Motor tanker", "tanker"),
+    8021: ("Motor tanker liquid cargo type N", "tanker"),
+    8022: ("Motor tanker liquid cargo type C", "tanker"),
+    8023: ("Motor tanker dry bulk as liquid", "tanker"),
+    8030: ("Container vessel", "cargo"),
+    8040: ("Gas tanker", "tanker"),
+    8050: ("Motor freighter tug", "cargo"),
+    8060: ("Motor tanker tug", "tanker"),
+    8070: ("Motor freighter with vessels alongside", "cargo"),
+    8080: ("Motor freighter with tanker", "tanker"),
+    8090: ("Motor freighter pushing freighters", "cargo"),
+    8100: ("Motor freighter pushing tank vessels", "tanker"),
+    8110: ("Tug freighter", "tug"),
+    8120: ("Tug tanker", "tug"),
+    8130: ("Tug freighter coupled", "tug"),
+    8140: ("Tug freighter/tanker coupled", "tug"),
+    8150: ("Freight barge", "cargo"),
+    8160: ("Tank barge", "tanker"),
+    8161: ("Tank barge liquid cargo type N", "tanker"),
+    8162: ("Tank barge liquid cargo type C", "tanker"),
+    8163: ("Tank barge dry bulk as liquid", "tanker"),
+    8170: ("Freight barge with containers", "cargo"),
+    8180: ("Gas tank barge", "tanker"),
+    8210: ("Push convoy 1 cargo barges", "cargo"),
+    8220: ("Push convoy 2 cargo barges", "cargo"),
+    8230: ("Push convoy 3 cargo barges", "cargo"),
+    8240: ("Push convoy 4 cargo barges", "cargo"),
+    8250: ("Push convoy 5 cargo barges", "cargo"),
+    8260: ("Push convoy 6 cargo barges", "cargo"),
+    8270: ("Push convoy 7 cargo barges", "cargo"),
+    8280: ("Push convoy 8 cargo barges", "cargo"),
+    8290: ("Push convoy 9 cargo barges", "cargo"),
+    8310: ("Push convoy 1 barges including tanker/gas barge", "tanker"),
+    8320: ("Push convoy 2 barges including tanker/gas barge", "tanker"),
+    8330: ("Push convoy 3 barges including tanker/gas barge", "tanker"),
+    8340: ("Push convoy 4 barges including tanker/gas barge", "tanker"),
+    8350: ("Push convoy 5 barges including tanker/gas barge", "tanker"),
+    8360: ("Push convoy 6 barges including tanker/gas barge", "tanker"),
+    8370: ("Push convoy 7 barges including tanker/gas barge", "tanker"),
+    8380: ("Push convoy 8 barges including tanker/gas barge", "tanker"),
+    8390: ("Push convoy 9 barges including tanker/gas barge", "tanker"),
+    8400: ("Single tug", "tug"),
+    8410: ("Tug with tow", "tug"),
+    8420: ("Assisting tug", "tug"),
+    8430: ("Pushboat", "tug"),
+    8440: ("Passenger vessel, ferry or cruise ship", "passenger"),
+    8441: ("Ferry", "passenger"),
+    8442: ("Red Cross vessel", "passenger"),
+    8443: ("Cruise vessel", "passenger"),
+    8444: ("Passenger vessel without accommodation", "passenger"),
+    8445: ("Day-trip high-speed vessel", "passenger"),
+    8446: ("Day-trip hydrofoil", "passenger"),
+    8447: ("Sailing cruise vessel", "passenger"),
+    8448: ("Sailing passenger vessel without accommodation", "passenger"),
+    8450: ("Service vessel, police patrol or port service (unspecified)", "vessel"),
+    8451: ("Service vessel", "vessel"),
+    8452: ("Police patrol vessel", "police"),
+    8453: ("Port service vessel", "vessel"),
+    8454: ("Navigation surveillance vessel", "vessel"),
+    8460: ("Work/maintenance vessel, crane, dredger or buoy vessel", "vessel"),
+    8470: ("Towed object unspecified", "vessel"),
+    8480: ("Fishing vessel", "vessel"),
+    8490: ("Bunker vessel", "tanker"),
+    8500: ("Chemical tank barge", "tanker"),
+    8510: ("Object unspecified", "vessel"),
+    1500: ("Sea-going cargo vessel", "cargo"),
+    1510: ("Sea-going container vessel", "cargo"),
+    1520: ("Sea-going bulk carrier", "cargo"),
+    1530: ("Sea-going tanker", "tanker"),
+    1540: ("Sea-going gas tanker", "tanker"),
+    1850: ("Pleasure craft over 20m", "pleasure"),
+    1900: ("High-speed craft", "vessel"),
+    1910: ("Hydrofoil", "vessel"),
+    1920: ("Fast catamaran", "vessel"),
+}
+
+
+def inland_ais_type(code: int | None) -> tuple[str, str] | None:
+    return INLAND_AIS_TYPES.get(code) if isinstance(code, int) else None
+
+
 MAX_TARGETS = 2000
 # AIS-Catcher retains moored vessel positions beyond the live correlation window.
 # Keep bounded historical positions on the MAP ONLY; Emergency Monitor/ATIS
@@ -128,6 +215,11 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
         if shipclass == 5 and (_POLICE_P_NUMBER_RE.match(label)
                                or _POLICE_P_NUMBER_RE.match(callsign)):
             return "police"
+    # Inland ERI codes describe the vessel *type*, not its authority identity.
+    # Preserve stronger explicit RPA/police/ATIS-independent matches above.
+    inland = inland_ais_type(shiptype)
+    if inland is not None:
+        return inland[1]
     # AIS-Catcher class 10 is an AIS helicopter/AIS-SART aircraft target,
     # not a marine hull. MMSI 111205511 (PILOT SERVICES SV) reports this.
     if shipclass == 10 and not fixed_evidence:
@@ -271,13 +363,21 @@ def vessels(payload: Any) -> list[dict]:
         if draught is not None and not 0 <= draught <= 25:
             draught = None
         name = _label(item, ("shipname", "name"), 70) or mmsi
+        # Some AIS-Catcher builds expose the 4-digit ERI code separately.
+        # A four-digit native shiptype is already an ERI code; never treat
+        # maritime 0-99 codes as inland codes without explicit evidence.
+        eri_raw = next((n for key in ("inland_shiptype", "eri_shiptype", "shiptype_eri", "inland_type")
+                        if (n := _num(item.get(key))) is not None and n.is_integer()), None)
+        eri_code = int(eri_raw) if eri_raw is not None and int(eri_raw) in INLAND_AIS_TYPES else None
         normalized_type = int(shiptype) if shiptype is not None and 0 <= shiptype <= 9999 else None
+        if eri_code is None and normalized_type in INLAND_AIS_TYPES:
+            eri_code = normalized_type
         normalized_class = int(shipclass) if shipclass is not None and 0 <= shipclass <= 13 else None
         nav_status = _label(item, ("status","nav_status","navigation_status"), 40)
         callsign = _label(item, ("callsign",), 24)
         destination = _label(item, ("destination",), 90)
         profile = display_profile(
-            name, normalized_type, normalized_class, nav_status,
+            name, eri_code if eri_code is not None else normalized_type, normalized_class, nav_status,
             mmsi=mmsi, callsign=callsign, speed_knots=speed,
             destination=destination or "")
         if profile.startswith("offshore_") or profile == "ais_helicopter":
@@ -359,6 +459,8 @@ def vessels(payload: Any) -> list[dict]:
             "length_m": round(length, 1) if length is not None else None,
             "shipclass": normalized_class,
             "shiptype": normalized_type,
+            "inland_type_code": eri_code,
+            "inland_type_name": INLAND_AIS_TYPES[eri_code][0] if eri_code is not None else None,
             "imo": _label(item, ("imo",), 15),
             "eni": _label(item, ("eni",), 15),
             "destination": destination,
