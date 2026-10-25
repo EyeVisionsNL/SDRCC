@@ -210,7 +210,7 @@
         const port = ship.to_port, starboard = ship.to_starboard;
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
-        if (bow <= 0 || stern < 0 || port < 0 || starboard < 0
+        if (bow < 0 || stern < 0 || port < 0 || starboard < 0
                 || length < (["watertaxi","krve","pleasure"].includes(ship.render_profile) ? 5
                     : ["tug","police","port_authority","passenger","cargo","tanker"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
