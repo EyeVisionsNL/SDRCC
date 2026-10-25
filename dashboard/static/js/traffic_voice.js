@@ -739,7 +739,7 @@
     async function addPossibleSpeakerHistory(payload){
         const match=payload.ais_match||{};
         if(payload.selected_mode!=="marine_ais" || !payload.service?.active
-                || !match.matched || !/^\\d{9}$/.test(String(match.mmsi||"")))return;
+                || !match.matched || !/^\d{9}$/.test(String(match.mmsi||"")))return;
         const mmsi=String(match.mmsi);
         const identity=String(payload.atis?.atis_code||payload.atis?.code||"")
             +"|"+mmsi;
