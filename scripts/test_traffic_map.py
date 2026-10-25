@@ -27,6 +27,12 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(rows[0]["inland_type_code"],8450)
         self.assertIn("Service vessel",rows[0]["inland_type_name"])
         self.assertEqual(rows[0]["render_profile"],"service")
+        # A placeholder zero must not mask a later valid ERI field.
+        row=traffic_map.vessels([{
+            "mmsi":"244777777","shipname":"TEST","lat":51.9,"lon":4.3,
+            "shiptype":99,"inland_shiptype":0,"eri_shiptype":8453}])[0]
+        self.assertEqual(row["inland_type_code"],8453)
+        self.assertEqual(row["render_profile"],"service")
 
     def test_eri_measured_hulls_without_antenna_offsets(self):
         # AIS-Catcher may know length/beam but not individual antenna offsets.
@@ -80,7 +86,7 @@ class TrafficMapTests(unittest.TestCase):
 
     def test_snapshot_recovers_eri_type_from_full_feed_safely(self):
         live={"ships":[{"mmsi":"244777777","shipname":"TEST ERI",
-              "shiptype":99,"lat":51.9,"lon":4.3,"speed":5,"cog":80}]}
+              "shiptype":99,"inland_shiptype":0,"lat":51.9,"lon":4.3,"speed":5,"cog":80}]}
         full={"ships":[{"mmsi":"244777777","shiptype":8453,
               "length":28,"width":6,"lat":50.1,"lon":3.0}]}
         with patch.object(traffic_map.receiver_monitor,"_read_ais_ships",
