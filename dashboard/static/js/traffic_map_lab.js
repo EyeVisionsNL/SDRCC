@@ -317,7 +317,7 @@
     function addOffshore3dLayer() {
         map.addSource("sdrcc-offshore-3d", {type:"geojson",data:empty});
         map.addLayer({id:"sdrcc-offshore-3d-structures",type:"fill-extrusion",
-            source:"sdrcc-offshore-3d",minzoom:15,
+            source:"sdrcc-offshore-3d",minzoom:14,
             layout:{visibility:"none"},
             paint:{"fill-extrusion-color":["match",["get","part"],
                 "wind-tower","#e1e9ed","wind-nacelle","#ccdce1",
@@ -367,7 +367,7 @@
         for(const kind of ["ais","adsb"]){
             const source="sdrcc-"+kind+"-air-3d", layer=source+"-models";
             map.addSource(source,{type:"geojson",data:empty});
-            map.addLayer({id:layer,type:"fill-extrusion",source,minzoom:15,
+            map.addLayer({id:layer,type:"fill-extrusion",source,minzoom:14,
                 layout:{visibility:"none"},
                 paint:{"fill-extrusion-color":["match",["get","part"],
                     "heli-body","#e6ae63","heli-tail","#c9924e",
@@ -736,18 +736,18 @@
         // duplicate at close 3D zoom while preserving the text label.
         if(kind==="adsb" && map.getLayer("sdrcc-adsb-labels"))
             map.setLayoutProperty("sdrcc-adsb-labels","icon-image",
-                mode3d ? ["step",["zoom"],["get","icon_name"],15,""]
+                mode3d ? ["step",["zoom"],["get","icon_name"],14,""]
                     : ["get","icon_name"]);
         if(kind==="adsb" && map.getLayer("sdrcc-adsb-icons"))
             map.setPaintProperty("sdrcc-adsb-icons","icon-opacity",
-                ["interpolate",["linear"],["zoom"],14.99,1,15,mode3d?0:1]);
+                ["interpolate",["linear"],["zoom"],13.99,1,14,mode3d?0:1]);
         if (kind === "ais") {
             if (map.getLayer("sdrcc-offshore-3d-structures"))
                 map.setLayoutProperty("sdrcc-offshore-3d-structures","visibility",
                     visible && mode3d ? "visible" : "none");
             const opacity = ["interpolate", ["linear"], ["zoom"],
-                14.99, ["case", ["get", "position_stale"], 0.65, 1],
-                15, ["case", ["any", ["get", "is_offshore_structure"],
+                13.99, ["case", ["get", "position_stale"], 0.65, 1],
+                14, ["case", ["any", ["get", "is_offshore_structure"],
                     ["get", "air_3d"]], mode3d ? 0 : 1,
                     ["get", "position_stale"], 0.65, 1]];
             for (const id of ["sdrcc-ais-icons","sdrcc-ais-fallback-icons"]) {
