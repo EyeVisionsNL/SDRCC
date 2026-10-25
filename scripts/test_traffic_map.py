@@ -260,7 +260,7 @@ class TrafficMapTests(unittest.TestCase):
             "port_service", "oil_response", "dredger", "crane_workboat",
         ):
             with self.subTest(profile=profile):
-                self.assertIn('"' + profile + '":', js)
+                self.assertIn('        ' + profile + ':"', js)
         self.assertIn("actual arrangement unknown", js)
 
     def test_passenger_3d_profile(self):
