@@ -617,7 +617,7 @@ def snapshot() -> dict:
     # ships.json and never alter the receiver monitor or ATIS correlation.
     full_payload, _ = receiver_monitor._read_json_url(
         ("http://127.0.0.1:8119/api/ships_full.json",
-         "http://localhost:8119/api/ships_full.json"), timeout=0.75)
+         "http://localhost:8119/api/ships_full.json"), timeout=0.75) if ais_payload is not None else (None, None)
     full_rows = receiver_monitor._extract_list(
         full_payload, ("ships", "vessels", "targets", "data"))
     static_by_mmsi = {
