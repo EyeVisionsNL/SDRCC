@@ -51,6 +51,7 @@ from core import receiver_monitor
 from core import traffic_map as traffic_map_core
 from core import traffic_map_highlights
 from core import traffic_map_sectors
+from core import traffic_map_rws
 from core import traffic_map_aircraft_photo
 from core import emergency_monitor
 from core import state
@@ -2640,6 +2641,21 @@ def api_traffic_map_highlights():
 def api_traffic_map_vts_sectors():
     """Optional read-only local Rijnmond sector overlay from AIS-Catcher plugin."""
     return jsonify(traffic_map_sectors.snapshot())
+
+@app.route("/api/map-lab/rws/<kind>", methods=["GET"])
+def api_traffic_map_rws(kind):
+    """Same-origin read-only tide/wind data from the installed local RWS relay.
+
+    Only four predefined observations are permitted. Browser-origin requests
+    cannot choose a URL, process type, station or time range.
+    """
+    if kind not in traffic_map_rws.KINDS:
+        return jsonify({"ok": False, "error": "unsupported_measurement"}), 404
+    result = traffic_map_rws.fetch(kind)
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response, (200 if result["ok"] else 503)
+
 
 @app.route("/api/map-lab/aircraft-photo/<hex_id>")
 def api_traffic_map_aircraft_photo(hex_id):
