@@ -10,23 +10,96 @@ class TrafficMapTests(unittest.TestCase):
     def test_inland_eri_table_and_safe_profiles(self):
         self.assertGreaterEqual(len(traffic_map.INLAND_AIS_TYPES), 70)
         for code, expected in [(8022,"tanker"), (8030,"cargo"),
-                               (8441,"passenger"), (8450,"vessel"),
-                               (8451,"vessel"), (8452,"police"),
-                               (8453,"vessel"), (8454,"vessel"),
+                               (8441,"passenger"), (8450,"service"),
+                               (8451,"service"), (8452,"police"),
+                               (8453,"service"), (8454,"service"),
                                (8490,"tanker")]:
             with self.subTest(code=code):
                 self.assertEqual(traffic_map.display_profile(
                     "TEST", code, None), expected)
         self.assertIsNone(traffic_map.inland_ais_type(55))
         self.assertEqual(traffic_map.display_profile("OTHER",55,None),"police")
-        self.assertEqual(traffic_map.display_profile("TEST",8450,None),"vessel")
+        self.assertEqual(traffic_map.display_profile("TEST",8450,None),"service")
         rows = traffic_map.vessels([{
             "mmsi":"244777777","shipname":"TEST","lat":51.9,"lon":4.3,
             "shiptype":99,"inland_shiptype":8450,"speed":2,"cog":90}])
         self.assertEqual(rows[0]["shiptype"],99)
         self.assertEqual(rows[0]["inland_type_code"],8450)
         self.assertIn("Service vessel",rows[0]["inland_type_name"])
-        self.assertEqual(rows[0]["render_profile"],"vessel")
+        self.assertEqual(rows[0]["render_profile"],"service")
+
+    def test_eri_measured_hulls_without_antenna_offsets(self):
+        # AIS-Catcher may know length/beam but not individual antenna offsets.
+        # ERI profiles can reuse those *measured* dimensions when a bearing is
+        # usable; never manufacture length/beam or overwrite raw shiptype.
+        for code, profile, length, beam in [
+            (8010,"cargo",86,9), (8022,"tanker",110,11),
+            (8430,"tug",20,7), (8450,"service",9,3.5),
+            (8452,"police",25,6), (8453,"service",18,5),
+        ]:
+            with self.subTest(code=code):
+                rows = traffic_map.vessels([{
+                    "mmsi":"244777777","shipname":"TEST ERI",
+                    "lat":51.9,"lon":4.3,
+                    "shiptype":99,"inland_shiptype":code,
+                    "length":length,"width":beam,
+                    "speed":5,"cog":72,"validated":1,
+                }])
+                item = rows[0]
+                self.assertEqual(item["render_profile"],profile)
+                self.assertEqual(item["shiptype"],99)
+                self.assertEqual(item["inland_type_code"],code)
+                self.assertTrue(item["hull_available"])
+                self.assertEqual(item["length_m"],length)
+                self.assertEqual(item["beam_m"],beam)
+                self.assertEqual(item["to_bow"],length/2)
+                self.assertIn("illustrative antenna",item["hull_geometry_source"])
+                self.assertTrue(item["hull_bearing_approximate"])
+
+    def test_eri_uses_real_offsets_and_does_not_invent_hulls(self):
+        base={"mmsi":"244777777","shipname":"TEST ERI",
+              "lat":51.9,"lon":4.3,"shiptype":8450}
+        # Real AIS offsets take precedence even when asymmetric.
+        real=traffic_map.vessels([{**base,"heading":90,
+            "to_bow":4,"to_stern":5,"to_port":2,"to_starboard":2}])[0]
+        self.assertTrue(real["hull_available"])
+        self.assertEqual(real["hull_geometry_source"],"AIS dimensions")
+        self.assertEqual(real["to_bow"],4)
+        self.assertEqual(real["render_profile"],"service")
+        # No measured beam or no true bearing for a moored craft: no 3D hull.
+        for update in ({"length":23,"speed":4,"cog":72},
+                       {"length":23,"width":5,"speed":0,"cog":72}):
+            item=traffic_map.vessels([{**base,**update}])[0]
+            self.assertFalse(item["hull_available"])
+        # ERI cannot make ordinary maritime/unknown ships synthetic hulls.
+        generic=traffic_map.vessels([{**base,"shiptype":99,
+            "length":23,"width":5,"speed":4,"cog":72}])[0]
+        self.assertFalse(generic["hull_available"])
+        # Code 8450 alone is not evidence of police, Douane or emergencies.
+        self.assertEqual(traffic_map.display_profile("TEST",8450,None),"service")
+
+    def test_snapshot_recovers_eri_type_from_full_feed_safely(self):
+        live={"ships":[{"mmsi":"244777777","shipname":"TEST ERI",
+              "shiptype":99,"lat":51.9,"lon":4.3,"speed":5,"cog":80}]}
+        full={"ships":[{"mmsi":"244777777","shiptype":8453,
+              "length":28,"width":6,"lat":50.1,"lon":3.0}]}
+        with patch.object(traffic_map.receiver_monitor,"_read_ais_ships",
+                          return_value=(live,"ships.json")), \\
+             patch.object(traffic_map.receiver_monitor,"_read_json_url",
+                          return_value=(full,"ships_full.json")), \\
+             patch.object(traffic_map.receiver_monitor,"_read_json_file",
+                          return_value=(None,None)), \\
+             patch.object(traffic_map.config,"get_home_position",
+                          return_value={"configured":False}):
+            result=traffic_map.snapshot()
+        item=result["ais"]["targets"][0]
+        self.assertEqual(item["shiptype"],99)
+        self.assertEqual(item["inland_type_code"],8453)
+        self.assertEqual(item["render_profile"],"service")
+        self.assertEqual(item["length_m"],28)
+        self.assertEqual(item["beam_m"],6)
+        self.assertTrue(item["hull_available"])
+        self.assertEqual((item["lon"],item["lat"]),(4.3,51.9))
 
     def test_passenger_3d_profile(self):
         self.assertEqual(traffic_map.display_profile("FERRY", 60, 4), "passenger")
