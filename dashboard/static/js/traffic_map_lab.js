@@ -205,6 +205,58 @@
         }
         return {type: "FeatureCollection", features};
     }
+    // Compact native MapLibre extrusions for AIS offshore structures. Geometry is
+    // illustrative, not a measurement of the installation. No new libraries.
+    function offshore3dCollection(ships) {
+        const features = [];
+        for (const ship of ships) {
+            const wind = ship.render_profile === "offshore_wtg";
+            if (!wind && ship.render_profile !== "offshore_platform") continue;
+            const lon = ship.lon, lat = ship.lat;
+            if (![lon,lat].every(Number.isFinite) || Math.abs(lat)>85) continue;
+            const metresLon = 111320 * Math.cos(lat*Math.PI/180);
+            const rectangle = (x,y,dx,dy,part,base,top) => {
+                const corners = [[x-dx/2,y-dy/2],[x+dx/2,y-dy/2],
+                    [x+dx/2,y+dy/2],[x-dx/2,y+dy/2]];
+                const ring = corners.map(([east,north]) =>
+                    [lon+east/metresLon,lat+north/111320]);
+                ring.push(ring[0]);
+                features.push({type:"Feature",geometry:{type:"Polygon",coordinates:[ring]},
+                    properties:{id:String(ship.id),part,base_height_m:base,
+                        top_height_m:top,render_profile:ship.render_profile}});
+            };
+            if (wind) {
+                rectangle(0,0,3.5,3.5,"wind-tower",0,55);
+                rectangle(3,0,11,3.5,"wind-nacelle",55,60);
+                // Three recognizable stationary blades at hub height.
+                rectangle(7,0,2.4,36,"wind-rotor",60,61);
+                rectangle(-1,-9,2.4,18,"wind-rotor",60,61);
+                rectangle(-1,9,2.4,18,"wind-rotor",60,61);
+            } else {
+                for(const x of [-12,12]) for(const y of [-9,9])
+                    rectangle(x,y,3.5,3.5,"platform-leg",0,18);
+                rectangle(0,0,32,25,"platform-deck",18,23);
+                rectangle(-5,0,13,11,"platform-building",23,34);
+                rectangle(9,4,7,7,"platform-plant",23,29);
+                rectangle(13,-8,2,2,"platform-mast",23,46);
+            }
+        }
+        return {type:"FeatureCollection",features};
+    }
+    function addOffshore3dLayer() {
+        map.addSource("sdrcc-offshore-3d", {type:"geojson",data:empty});
+        map.addLayer({id:"sdrcc-offshore-3d-structures",type:"fill-extrusion",
+            source:"sdrcc-offshore-3d",minzoom:15,
+            layout:{visibility:"none"},
+            paint:{"fill-extrusion-color":["match",["get","part"],
+                "wind-tower","#e1e9ed","wind-nacelle","#ccdce1",
+                "wind-rotor","#f4f9fa","platform-leg","#71899c",
+                "platform-deck","#c0a66e","platform-building","#cbd6de",
+                "platform-plant","#6d8293","platform-mast","#cfdbe2","#8299a7"],
+                "fill-extrusion-base":["get","base_height_m"],
+                "fill-extrusion-height":["get","top_height_m"],
+                "fill-extrusion-opacity":0.96}});
+    }
     function deckCollection(ships, hulls) {
         // Native MapLibre prisms: illustration only, not measured AIS equipment.
         const features = [];
@@ -546,7 +598,20 @@
                 && (!["hull-3d","hull-decks"].includes(suffix) || mode3d);
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", enabled ? "visible" : "none");
         }
-        if (kind === "ais") setTrackVisibility();
+        if (kind === "ais") {
+            if (map.getLayer("sdrcc-offshore-3d-structures"))
+                map.setLayoutProperty("sdrcc-offshore-3d-structures","visibility",
+                    visible && mode3d ? "visible" : "none");
+            const opacity = ["case",
+                ["all", ["==", ["get", "is_offshore_structure"], true],
+                    [">=", ["zoom"], 15]],
+                mode3d ? 0 : 1,
+                ["get", "position_stale"], 0.65, 1];
+            for (const id of ["sdrcc-ais-icons","sdrcc-ais-fallback-icons"]) {
+                if (map.getLayer(id)) map.setPaintProperty(id,"icon-opacity",opacity);
+            }
+            setTrackVisibility();
+        }
     }
     function setMode(three) {
         mode3d = three;
@@ -1480,6 +1545,7 @@
                 const hulls=hullCollection(ships);
                 map.getSource("sdrcc-ais-hulls").setData(hulls);
                 map.getSource("sdrcc-ais-decks").setData(deckCollection(ships,hulls));
+                map.getSource("sdrcc-offshore-3d").setData(offshore3dCollection(ships));
                 map.getSource("sdrcc-adsb").setData(makeGeoJson(planes));
                 if (el("layer-tracks").checked && Date.now()-lastTrackFetchAt > 30000)
                     void loadAllTracks();
@@ -1501,6 +1567,7 @@
         registerSprites();
         addTrackLayer();
         addHullLayer();
+        addOffshore3dLayer();
         addPoints("ais");
         addPoints("adsb");
         addAlertLayers();
