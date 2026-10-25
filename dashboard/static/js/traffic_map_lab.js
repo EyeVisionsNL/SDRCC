@@ -257,6 +257,64 @@
                 "fill-extrusion-height":["get","top_height_m"],
                 "fill-extrusion-opacity":0.96}});
     }
+
+    // Illustrative above-ground miniatures, not physical ADS-B altitude.
+    function aircraft3dCollection(items,kind) {
+        const features=[];
+        for(const item of items) {
+            const heli=kind==="ais" ? item.render_profile==="ais_helicopter" : item.is_helicopter===true;
+            if(kind==="ais" && !heli) continue;
+            if(![item.lon,item.lat].every(Number.isFinite) || Math.abs(item.lat)>85) continue;
+            const heading=(Number.isFinite(item.course)?item.course:0)*Math.PI/180;
+            const sn=Math.sin(heading),cs=Math.cos(heading);
+            const lonFactor=111320*Math.cos(item.lat*Math.PI/180);
+            const size=heli?.65:1,props=trafficProperties(item);
+            const piece=(poly,part,base,height)=>{
+                const ring=poly.map(([f,r])=>[
+                    item.lon+(f*sn+r*cs)*size/lonFactor,
+                    item.lat+(f*cs-r*sn)*size/111320]);
+                ring.push(ring[0]);
+                features.push({type:"Feature",geometry:{type:"Polygon",coordinates:[ring]},
+                    properties:{...props,part,base_height_m:base,top_height_m:height}});
+            };
+            if(heli){
+                piece([[8,0],[4,-2],[-4,-2],[-5,0],[-4,2],[4,2]],"heli-body",0,2.5);
+                piece([[-4,-.6],[-11,-.6],[-11,.6],[-4,.6]],"heli-tail",1,2);
+                piece([[-1,-11],[1,-11],[1,11],[-1,11]],"heli-rotor",3,3.3);
+                piece([[-12,-2],[-11,-2],[-11,2],[-12,2]],"heli-tailrotor",2,2.4);
+            }else{
+                piece([[16,0],[9,-1.5],[-12,-1.5],[-16,0],[-12,1.5],[9,1.5]],"plane-body",0,2.4);
+                piece([[4,-2],[-8,-15],[-10,-15],[-6,-1]],"plane-wing",1,1.8);
+                piece([[4,2],[-6,1],[-10,15],[-8,15]],"plane-wing",1,1.8);
+                piece([[-10,-1],[-15,-6],[-16,-6],[-14,1]],"plane-tail",1.4,2.1);
+                piece([[-10,1],[-14,-1],[-16,6],[-15,6]],"plane-tail",1.4,2.1);
+            }
+        }
+        return {type:"FeatureCollection",features};
+    }
+    function addAircraft3dLayers() {
+        for(const kind of ["ais","adsb"]){
+            const source="sdrcc-"+kind+"-air-3d", layer=source+"-models";
+            map.addSource(source,{type:"geojson",data:empty});
+            map.addLayer({id:layer,type:"fill-extrusion",source,minzoom:15,
+                layout:{visibility:"none"},
+                paint:{"fill-extrusion-color":["match",["get","part"],
+                    "heli-body","#e6ae63","heli-tail","#c9924e",
+                    "heli-rotor","#c9d9e0","heli-tailrotor","#b7c8d2",
+                    "plane-body","#e0e9f0","plane-wing","#87b5d1",
+                    "plane-tail","#789bb4","#b9cad6"],
+                    "fill-extrusion-base":["get","base_height_m"],
+                    "fill-extrusion-height":["get","top_height_m"],
+                    "fill-extrusion-opacity":.95}});
+            map.on("click",layer,event=>{
+                const feature=event.features?.[0];
+                if(!feature) return;
+                new maplibregl.Popup({maxWidth:"360px"})
+                    .setLngLat([feature.properties.lon,feature.properties.lat])
+                    .setDOMContent(popup(feature)).addTo(map);
+            });
+        }
+    }
     function deckCollection(ships, hulls) {
         // Native MapLibre prisms: illustration only, not measured AIS equipment.
         const features = [];
@@ -482,6 +540,8 @@
             aircraft_type: item.aircraft_type || "",
             description: item.description || "",
             is_helicopter: item.is_helicopter === true,
+            air_3d: isAIS ? profile === "ais_helicopter" : true,
+            lon:item.lon, lat:item.lat,
             altitude_band: band,
             altitude_color: AIR_ALTITUDE_COLORS[band],
             operator: item.operator || "",
@@ -598,14 +658,20 @@
                 && (!["hull-3d","hull-decks"].includes(suffix) || mode3d);
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", enabled ? "visible" : "none");
         }
+        if(map.getLayer("sdrcc-"+kind+"-air-3d-models"))
+            map.setLayoutProperty("sdrcc-"+kind+"-air-3d-models","visibility",
+                visible && mode3d ? "visible" : "none");
+        if(kind==="adsb" && map.getLayer("sdrcc-adsb-icons"))
+            map.setPaintProperty("sdrcc-adsb-icons","icon-opacity",
+                ["interpolate",["linear"],["zoom"],14.99,1,15,mode3d?0:1]);
         if (kind === "ais") {
             if (map.getLayer("sdrcc-offshore-3d-structures"))
                 map.setLayoutProperty("sdrcc-offshore-3d-structures","visibility",
                     visible && mode3d ? "visible" : "none");
             const opacity = ["interpolate", ["linear"], ["zoom"],
                 14.99, ["case", ["get", "position_stale"], 0.65, 1],
-                15, ["case", ["get", "is_offshore_structure"],
-                    mode3d ? 0 : 1,
+                15, ["case", ["any", ["get", "is_offshore_structure"],
+                    ["get", "air_3d"]], mode3d ? 0 : 1,
                     ["get", "position_stale"], 0.65, 1]];
             for (const id of ["sdrcc-ais-icons","sdrcc-ais-fallback-icons"]) {
                 if (map.getLayer(id)) map.setPaintProperty(id,"icon-opacity",opacity);
@@ -627,6 +693,7 @@
             map.setLayoutProperty("sdrcc-buildings", "visibility", three ? "visible" : "none");
         }
         setLayerVisibility("ais", el("layer-ais").checked);
+        setLayerVisibility("adsb", el("layer-adsb").checked);
     }
     function popup(feature) {
         const props = feature.properties || {};
@@ -1547,6 +1614,8 @@
                 map.getSource("sdrcc-ais-decks").setData(deckCollection(ships,hulls));
                 map.getSource("sdrcc-offshore-3d").setData(offshore3dCollection(ships));
                 map.getSource("sdrcc-adsb").setData(makeGeoJson(planes));
+                map.getSource("sdrcc-adsb-air-3d").setData(aircraft3dCollection(planes,"adsb"));
+                map.getSource("sdrcc-ais-air-3d").setData(aircraft3dCollection(ships,"ais"));
                 if (el("layer-tracks").checked && Date.now()-lastTrackFetchAt > 30000)
                     void loadAllTracks();
                 refreshStation(data.station);
@@ -1570,6 +1639,7 @@
         addOffshore3dLayer();
         addPoints("ais");
         addPoints("adsb");
+        addAircraft3dLayers();
         addAlertLayers();
         addStationLayer();
         loaded = true;
