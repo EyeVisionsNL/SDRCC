@@ -232,6 +232,29 @@
     ]);
     const hullMinLength = profile => smallHullProfiles.has(profile) ? 5
         : mediumHullProfiles.has(profile) ? 12 : 30;
+    const specialDeckHints = Object.freeze({
+        container:"Container stacks and aft bridge (illustrative; actual load unknown)",
+        container_barge:"Low container barge with stacks (illustrative)",
+        gas_tanker:"Gas tank modules (schematic; tank geometry unknown)",
+        gas_barge:"Unpowered gas barge with tank modules (schematic)",
+        powder_tanker:"Dry bulk / powder tanker silos (schematic; cargo unknown)",
+        powder_barge:"Dry bulk / powder tank barge silos (schematic)",
+        chemical_tanker:"Chemical tanker valves and tank deck (illustrative)",
+        chemical_barge:"Chemical tank barge deck (illustrative)",
+        bunker:"Bunkering tanker pumps and hose deck (illustrative)",
+        bulk:"Bulk carrier hatch covers (illustrative)",
+        ferry:"Low vehicle/passenger ferry deck (illustrative)",
+        cruise:"Multi-deck river cruise ship with windows (illustrative)",
+        catamaran:"Twin-sponson fast catamaran (illustrative)",
+        fishing:"Fishing boat deck, gantry and wheelhouse (illustrative)",
+        sailing:"Sailing craft with simplified mast and sail (illustrative)",
+        pilot:"Pilot boat cabin and coloured stripe (illustrative)",
+        rescue:"Search-and-rescue craft markings (illustrative; not dispatch-confirmed)",
+        port_service:"Port service craft stripe and cabin (illustrative)",
+        oil_response:"Pollution-response craft with deck gear (illustrative)",
+        dredger:"Work/dredging vessel hopper and pipe (illustrative)",
+        crane_workboat:"Work vessel with schematic deck crane (illustrative)",
+    });
     function hullGeometry(ship) {
         if (ship.is_offshore_structure ||
                 ["offshore_wtg", "offshore_platform", "ais_helicopter"]
@@ -484,7 +507,7 @@
                     -port*.94,starboard*.94,"barge-rim",.22);
                 else add(-stern+length*.045,-stern+length*.17,
                     -port*.56,starboard*.56,"container-bridge",4.3);
-                const start=barge?.10:.21, end=.91;
+                const start=barge ? .10 : .21, end=.91;
                 const bays=length>170?6:length>80?4:2;
                 for(let n=0;n<bays;n++){
                     const from=-stern+length*(start+(end-start)*(n+.06)/bays);
@@ -494,7 +517,7 @@
                         const right=side===0?0:starboard*.86;
                         const kind=["container-blue","container-rust","container-white"][n%3];
                         add(from,to,left+(right-left)*.05,right-(right-left)*.05,
-                            kind,barge?1.65:2.4,.15);
+                            kind,barge ? 1.65 : 2.4,.15);
                         // Second tier is illustrative, not proof of loaded boxes.
                         if(!barge && length>65)
                             add(from,to,left+(right-left)*.05,right-(right-left)*.05,
@@ -516,12 +539,13 @@
                 const kind=gas?"gas-vessel-tank":powder?"powder-silo":
                     chemical?"chemical-tank":"bunker-tank";
                 const tankCount=gas?3:powder?4:chemical?5:3;
-                const start=barge?.10:.25;
+                const start=barge ? .10 : .25;
                 for(let n=0;n<tankCount;n++){
                     const from=-stern+length*(start+(.89-start)*(n+.13)/tankCount);
                     const to=-stern+length*(start+(.89-start)*(n+.85)/tankCount);
-                    add(from,to,-port*.72,starboard*.72,kind,gas?2.65:
-                        powder?2.25:chemical?1.25:1.5,barge?.2:.35);
+                    add(from,to,-port*.72,starboard*.72,kind,gas ? 2.65 :
+                        powder ? 2.25 : chemical ? 1.25 : 1.5,
+                        barge ? .2 : .35);
                     if(chemical||profile==="bunker")
                         add(from+length*.004,to-length*.004,
                             -port*.15,starboard*.15,"chemical-valve",.28,1.5);
@@ -1136,6 +1160,8 @@
             else if (props.render_profile === "offshore_platform") add("Structure", "Offshore platform (name-based)");
             else if (props.render_profile === "ais_helicopter")
                 add("AIS target", "Helicopter (not a marine vessel)");
+            else if (specialDeckHints[props.render_profile])
+                add("3D deck", specialDeckHints[props.render_profile]);
             else if (props.render_profile === "tanker") add("3D deck", "Tanker pipes (illustrative)");
             else if (props.render_profile === "cargo") add("3D deck", "Cargo hatches (illustrative)");
             else if (props.render_profile === "passenger") add("3D deck", "Passenger decks, bridge and windows (illustrative)");
@@ -1170,7 +1196,10 @@
                 if (props.inland_type_name) add("Inland AIS / ERI",
                     props.inland_type_code + " · " + props.inland_type_name);
                 if (Number.isInteger(props.inland_convoy_barges) && props.inland_convoy_barges > 0)
-                    add("ERI barges", props.inland_convoy_barges + " · exact arrangement unknown");
+                    add("ERI barges", (props.inland_type_code === 8290
+                        || props.inland_type_code === 8390 ? "9 or more"
+                        : String(props.inland_convoy_barges))
+                        + " · actual arrangement unknown; 3D is schematic");
             add("Callsign", props.callsign);
             add("IMO", props.imo);
             add("ENI", props.eni);
@@ -1539,6 +1568,27 @@
                     ["==", ["get", "render_profile"], "service"], "#345368",
                     ["==", ["get", "render_profile"], "workboat"], "#4a5b69",
                     ["==", ["get", "render_profile"], "pushboat"], "#305366",
+                    ["==", ["get", "render_profile"], "container"], "#244d68",
+                    ["==", ["get", "render_profile"], "container_barge"], "#3b5b69",
+                    ["==", ["get", "render_profile"], "bulk"], "#516171",
+                    ["==", ["get", "render_profile"], "gas_tanker"], "#527c89",
+                    ["==", ["get", "render_profile"], "gas_barge"], "#647b83",
+                    ["==", ["get", "render_profile"], "powder_tanker"], "#6a7a82",
+                    ["==", ["get", "render_profile"], "powder_barge"], "#778187",
+                    ["==", ["get", "render_profile"], "chemical_tanker"], "#306376",
+                    ["==", ["get", "render_profile"], "chemical_barge"], "#55737b",
+                    ["==", ["get", "render_profile"], "bunker"], "#2e5d65",
+                    ["==", ["get", "render_profile"], "ferry"], "#3c6482",
+                    ["==", ["get", "render_profile"], "cruise"], "#e2e4e0",
+                    ["==", ["get", "render_profile"], "catamaran"], "#305573",
+                    ["==", ["get", "render_profile"], "fishing"], "#4c6373",
+                    ["==", ["get", "render_profile"], "sailing"], "#2b6670",
+                    ["==", ["get", "render_profile"], "pilot"], "#294b69",
+                    ["==", ["get", "render_profile"], "rescue"], "#d06e28",
+                    ["==", ["get", "render_profile"], "port_service"], "#2c5673",
+                    ["==", ["get", "render_profile"], "oil_response"], "#486b66",
+                    ["==", ["get", "render_profile"], "dredger"], "#696653",
+                    ["==", ["get", "render_profile"], "crane_workboat"], "#5c6470",
                     ["==", ["get", "render_profile"], "barge_cargo"], "#3d5664",
                     ["==", ["get", "render_profile"], "barge_tanker"], "#4c626a",
                     ["==", ["get", "render_profile"], "convoy_cargo"], "#315164",
@@ -1559,6 +1609,31 @@
             paint:{
                 "fill-extrusion-color":["match",["get","part"],
                     "bridge","#c1d6df","cargo-hatch","#677e92",
+                    "container-bridge","#e3e7dd",
+                    "container-blue","#376d91","container-rust","#bb694e",
+                    "container-white","#dce7e4","container-top","#6a9cac",
+                    "tanker-bridge","#dbe8ec",
+                    "gas-vessel-tank","#c9e0e4","powder-silo","#d9d4c6",
+                    "chemical-tank","#b4d6d5","chemical-valve","#e3a95e",
+                    "bunker-tank","#9eb8b7","bunker-hose","#c7b36a",
+                    "bunker-pump","#d8cb9d",
+                    "bulk-bridge","#e7e4de","bulk-hatch","#8fa2a8",
+                    "ferry-car-deck","#a3c2cf","ferry-passenger-cabin","#e8f4f5",
+                    "ferry-roof","#d8edf0","ferry-rail","#f2c752",
+                    "cruise-deck","#d8e6ed","cruise-hotel","#faf7f0",
+                    "cruise-sundeck","#e8cc9e","cruise-windows","#5f9da9",
+                    "cruise-upper-windows","#87c0d4",
+                    "catamaran-sponson","#527c92","catamaran-deck","#dbe6e9",
+                    "catamaran-cabin","#f5f8fa",
+                    "sailing-cabin","#f3eee3","sailing-mast","#b3bec8",
+                    "sailing-sail","#f9faf5",
+                    "fishing-wheelhouse","#dce6ed","fishing-workdeck","#788e92",
+                    "fishing-gantry","#c8aa76",
+                    "crane-tower","#e3b453","crane-boom","#e6b95d",
+                    "dredger-hopper","#878b7d","dredger-pipe","#aeb9ae",
+                    "pilot-band","#f5c63d","rescue-band","#ed802e",
+                    "rescue-beacon","#eaf3fe","port-service-band","#f4bf47",
+                    "oil-response-band","#77b29e","oil-response-gear","#c8a874",
                     "service-workdeck","#6d8694","service-cabin","#d7e4ed",
                     "service-roof","#a5bfca","service-windows","#4a9ac2",
                     "barge-rim","#8aa1ad","barge-hatch","#7c939e","barge-pipe","#9ec5ca",
