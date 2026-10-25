@@ -283,8 +283,11 @@
                     display_height_m: ["watertaxi","krve","pleasure"].includes(ship.render_profile)
                         ? Math.min(1.8, Math.max(.9,
                             (Number(ship.to_port) + Number(ship.to_starboard)) * .45))
-                        : Math.min(9, Math.max(2.5,
-                            (Number(ship.to_port) + Number(ship.to_starboard)) * 0.38)),
+                        : ["barge_cargo","barge_tanker"].includes(ship.render_profile)
+                            ? Math.min(2.5, Math.max(1.1,
+                                (Number(ship.to_port) + Number(ship.to_starboard)) * .22))
+                            : Math.min(9, Math.max(2.5,
+                                (Number(ship.to_port) + Number(ship.to_starboard)) * .38)),
                 },
             });
         }
