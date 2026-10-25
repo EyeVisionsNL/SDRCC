@@ -12,6 +12,21 @@
     } catch (_) { /* Local storage is optional. */ }
     el("track-duration").value = String(trackMinutes);
     el("track-duration-value").textContent = trackMinutes + " min";
+    const trackEnabledKey = "sdrcc.mapLab.tracksEnabled";
+    // Remember whether the operator enabled ALL vessel tracks (not just
+    // their existing 1–60 min history length).
+    try { el("layer-tracks").checked = window.localStorage.getItem(trackEnabledKey) === "1"; }
+    catch (_) { el("layer-tracks").checked = false; }
+    const trafficGroup=el("traffic-layer-settings");
+    const trafficGroupKey="sdrcc.mapLab.trafficLayersOpen";
+    if(trafficGroup){
+        try { trafficGroup.open=window.localStorage.getItem(trafficGroupKey)!=="0"; }
+        catch (_) { trafficGroup.open=true; }
+        trafficGroup.addEventListener("toggle",()=>{
+            try {window.localStorage.setItem(trafficGroupKey,trafficGroup.open?"1":"0");}
+            catch (_) { /* Map layer controls remain operable without storage. */ }
+        });
+    }
     // Match the existing collapsible Rijnmond VTS legend behaviour:
     // a small default-closed panel that remembers the user's preference.
     const legend = el("map-lab-legend");
@@ -1894,6 +1909,9 @@
             void loadAllTracks();
     });
     el("layer-tracks").addEventListener("change", () => {
+        try { window.localStorage.setItem(trackEnabledKey,
+            el("layer-tracks").checked ? "1" : "0"); }
+        catch (_) { /* Browser storage is optional. */ }
         trackRequestSequence++;
         setTrackVisibility();
         if (!el("layer-tracks").checked) {
