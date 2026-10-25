@@ -13,6 +13,17 @@ const source = fs.readFileSync(
     path.join(__dirname, "../dashboard/static/js/traffic_map_lab.js"), "utf8");
 const markup = fs.readFileSync(
     path.join(__dirname, "../dashboard/templates/traffic_map_lab.html"), "utf8");
+const rwsWidget = fs.readFileSync(
+    path.join(__dirname, "../dashboard/static/js/traffic_map_rws.js"), "utf8");
+for (const required of ["hoekvanholland", "OphalenWaarnemingen",
+                        "OphalenLaatsteWaarnemingen", "WINDSHD", "WINDRTG",
+                        "astronomisch", "rws-tide-chart", "rws-wind-value"]) {
+    assert(rwsWidget.includes(required), "RWS tide/wind widget missing " + required);
+}
+assert(rwsWidget.includes(":8120/"),
+    "RWS widget should reuse the Rijnmond VTS block-layer localhost relay");
+assert(!rwsWidget.includes("api.openweathermap"),
+    "RWS data must not be silently substituted with unrelated weather providers");
 // The expanded map must not compete with a permanent 280px right sidebar.
 assert(markup.includes('<details id="map-lab-legend" class="map-legend"'),
     "layer controls must live in a floating native details legend");
