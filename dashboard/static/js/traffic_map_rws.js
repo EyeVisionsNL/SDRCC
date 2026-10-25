@@ -15,7 +15,9 @@
     const windLabel = el("rws-wind-value");
     const windMeta = el("rws-wind-meta");
     const windArrow = el("rws-wind-arrow");
-    const relay = window.location.protocol + "//" + window.location.hostname + ":8120/";
+    // Requests use SDRCC's own origin, avoiding the AIS-Catcher-only browser
+    // CORS allowance on the local Rijkswaterstaat relay at port 8120.
+    const rwsApi = "/api/map-lab/rws/";
     const intervalMs = 10 * 60 * 1000;
     let interval = null;
     let busy = false;
@@ -51,13 +53,24 @@
         };
     }
     async function post(endpoint, body) {
-        const response = await fetch(relay + "ONLINEWAARNEMINGENSERVICES/" + endpoint, {
-            method:"POST", mode:"cors", cache:"no-store",
-            headers:{"Content-Type":"application/json"}, body:JSON.stringify(body),
-        });
-        if (response.status === 204) return null;
-        if (!response.ok) throw new Error("RWS HTTP " + response.status);
-        return response.json();
+        // The server independently constructs the exact RWS request. The
+        // browser can select only these four predefined tide/wind readings.
+        let kind = "";
+        if (endpoint === "OphalenWaarnemingen") {
+            const process = body?.AquoPlusWaarnemingMetadata?.AquoMetadata?.ProcesType;
+            kind = process === "meting" ? "tide-measured"
+                : process === "astronomisch" ? "tide-forecast" : "";
+        } else if (endpoint === "OphalenLaatsteWaarnemingen") {
+            const code = body?.AquoPlusWaarnemingMetadataLijst?.[0]?.AquoMetadata?.Grootheid?.Code;
+            kind = code === "WINDSHD" ? "wind-speed"
+                : code === "WINDRTG" ? "wind-direction" : "";
+        }
+        if (!kind) throw new Error("Unsupported RWS observation");
+        const response = await fetch(rwsApi + kind, {cache:"no-store"});
+        if (!response.ok) throw new Error("SDRCC RWS relay HTTP " + response.status);
+        const result = await response.json();
+        if (!result || result.ok !== true) throw new Error("RWS observation unavailable");
+        return result.payload;
     }
     function samples(payload) {
         const result = [];
@@ -214,14 +227,14 @@
             const hasData=parsed.some(list=>list.length>0);
             status.textContent=hasData?"Bron: Rijkswaterstaat · "+clock(Date.now())
                 +(failures?" · "+failures+" gegevensbron(nen) tijdelijk niet bereikbaar":"")
-                : "RWS-relay (:8120) of meetgegevens niet beschikbaar";
+                : "RWS-relay of meetgegevens niet beschikbaar";
             lastRequest=Date.now();
         }catch(_){
             tideLabel.textContent="Getijgegevens niet beschikbaar";
             highLabel.textContent="Tijd volgend hoogwater niet beschikbaar";
             renderChart([],[]);
             renderWind(null,null);
-            status.textContent="RWS-relay (:8120) niet bereikbaar; kaart blijft werken";
+            status.textContent="RWS-relay niet bereikbaar; kaart blijft werken";
         }finally{busy=false;refreshButton.disabled=false;}
     }
     function sync() {
