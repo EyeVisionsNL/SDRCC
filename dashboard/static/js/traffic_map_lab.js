@@ -264,6 +264,8 @@
                     imo: ship.imo, eni: ship.eni, callsign: ship.callsign,
                     destination: ship.destination, country: ship.country,
                     nav_status: ship.nav_status, shiptype: ship.shiptype,
+                    inland_type_code: ship.inland_type_code,
+                    inland_type_name: ship.inland_type_name,
                     beam_m: ship.beam_m, draught_m: ship.draught_m,
                     heading: ship.heading,
                     display_height_m: ["watertaxi","krve","pleasure"].includes(ship.render_profile)
@@ -623,6 +625,8 @@
             country: item.country || "",
             nav_status: item.nav_status || "",
             shiptype: item.shiptype,
+            inland_type_code: item.inland_type_code,
+            inland_type_name: item.inland_type_name,
             imo: item.imo || "",
             eni: item.eni || "",
             beam_m: item.beam_m,
@@ -848,6 +852,8 @@
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             if (props.render_profile !== "ais_helicopter")
                 add("Ship type", props.shiptype);
+                if (props.inland_type_name) add("Inland AIS / ERI",
+                    props.inland_type_code + " · " + props.inland_type_name);
             add("Callsign", props.callsign);
             add("IMO", props.imo);
             add("ENI", props.eni);
