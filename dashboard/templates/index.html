@@ -917,6 +917,7 @@
                 <span id="traffic-voice-audio-detail">Waiting for Voice.</span>
                 <audio id="traffic-voice-audio" preload="none"></audio>
             </div>
+            <div id="traffic-voice-marine-history" class="traffic-voice-marine-history" hidden>
             <section id="traffic-voice-recordings" class="traffic-voice-recordings" aria-label="Recent Marine transmissions" hidden>
                 <div class="traffic-voice-recordings-heading">
                     <div>
@@ -929,6 +930,15 @@
                 <div id="traffic-voice-recordings-list" class="traffic-voice-recordings-list" role="list"></div>
                 <audio id="traffic-voice-replay-audio" class="traffic-voice-replay-audio" preload="none"></audio>
             </section>
+              <section class="traffic-voice-speaker-history" aria-label="Latest four possible speakers">
+                <div class="traffic-voice-recordings-heading">
+                  <div><span>MARINE ATIS · AIS</span><h3>🚢 Recent possible speakers</h3></div>
+                  <small>Last 4 matched vessels</small>
+                </div>
+                <p id="traffic-voice-speaker-history-status" class="traffic-voice-recordings-status">Waiting for validated Marine ATIS.</p>
+                <div id="traffic-voice-speaker-history-list" class="traffic-voice-speaker-history-list" role="list"></div>
+              </section>
+            </div>
             <div class="traffic-voice-signal-metrics">
                 <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🔊</span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
                 <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🎚️</span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
