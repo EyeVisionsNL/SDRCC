@@ -7,6 +7,27 @@ from core import traffic_map
 
 
 class TrafficMapTests(unittest.TestCase):
+    def test_inland_eri_table_and_safe_profiles(self):
+        self.assertGreaterEqual(len(traffic_map.INLAND_AIS_TYPES), 70)
+        for code, expected in [(8022,"tanker"), (8030,"cargo"),
+                               (8441,"passenger"), (8450,"vessel"),
+                               (8451,"vessel"), (8452,"police"),
+                               (8453,"vessel"), (8454,"vessel"),
+                               (8490,"tanker")]:
+            with self.subTest(code=code):
+                self.assertEqual(traffic_map.display_profile(
+                    "TEST", code, None), expected)
+        self.assertIsNone(traffic_map.inland_ais_type(55))
+        self.assertEqual(traffic_map.display_profile("OTHER",55,None),"police")
+        self.assertEqual(traffic_map.display_profile("TEST",8450,None),"vessel")
+        rows = traffic_map.vessels([{
+            "mmsi":"244777777","shipname":"TEST","lat":51.9,"lon":4.3,
+            "shiptype":99,"inland_shiptype":8450,"speed":2,"cog":90}])
+        self.assertEqual(rows[0]["shiptype"],99)
+        self.assertEqual(rows[0]["inland_type_code"],8450)
+        self.assertIn("Service vessel",rows[0]["inland_type_name"])
+        self.assertEqual(rows[0]["render_profile"],"vessel")
+
     def test_passenger_3d_profile(self):
         self.assertEqual(traffic_map.display_profile("FERRY", 60, 4), "passenger")
         self.assertEqual(traffic_map.display_profile("WATERBUS", 69, None), "passenger")
