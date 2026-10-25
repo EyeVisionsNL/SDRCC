@@ -35,35 +35,35 @@ INLAND_AIS_TYPES: dict[int, tuple[str, str]] = {
     8120: ("Tug tanker", "tug"),
     8130: ("Tug freighter coupled", "tug"),
     8140: ("Tug freighter/tanker coupled", "tug"),
-    8150: ("Freight barge", "cargo"),
-    8160: ("Tank barge", "tanker"),
-    8161: ("Tank barge liquid cargo type N", "tanker"),
-    8162: ("Tank barge liquid cargo type C", "tanker"),
-    8163: ("Tank barge dry bulk as liquid", "tanker"),
-    8170: ("Freight barge with containers", "cargo"),
-    8180: ("Gas tank barge", "tanker"),
-    8210: ("Push convoy 1 cargo barges", "cargo"),
-    8220: ("Push convoy 2 cargo barges", "cargo"),
-    8230: ("Push convoy 3 cargo barges", "cargo"),
-    8240: ("Push convoy 4 cargo barges", "cargo"),
-    8250: ("Push convoy 5 cargo barges", "cargo"),
-    8260: ("Push convoy 6 cargo barges", "cargo"),
-    8270: ("Push convoy 7 cargo barges", "cargo"),
-    8280: ("Push convoy 8 cargo barges", "cargo"),
-    8290: ("Push convoy 9 cargo barges", "cargo"),
-    8310: ("Push convoy 1 barges including tanker/gas barge", "tanker"),
-    8320: ("Push convoy 2 barges including tanker/gas barge", "tanker"),
-    8330: ("Push convoy 3 barges including tanker/gas barge", "tanker"),
-    8340: ("Push convoy 4 barges including tanker/gas barge", "tanker"),
-    8350: ("Push convoy 5 barges including tanker/gas barge", "tanker"),
-    8360: ("Push convoy 6 barges including tanker/gas barge", "tanker"),
-    8370: ("Push convoy 7 barges including tanker/gas barge", "tanker"),
-    8380: ("Push convoy 8 barges including tanker/gas barge", "tanker"),
-    8390: ("Push convoy 9 barges including tanker/gas barge", "tanker"),
+    8150: ("Freight barge", "barge_cargo"),
+    8160: ("Tank barge", "barge_tanker"),
+    8161: ("Tank barge liquid cargo type N", "barge_tanker"),
+    8162: ("Tank barge liquid cargo type C", "barge_tanker"),
+    8163: ("Tank barge dry bulk as liquid", "barge_tanker"),
+    8170: ("Freight barge with containers", "barge_cargo"),
+    8180: ("Gas tank barge", "barge_tanker"),
+    8210: ("Push convoy 1 cargo barges", "convoy_cargo"),
+    8220: ("Push convoy 2 cargo barges", "convoy_cargo"),
+    8230: ("Push convoy 3 cargo barges", "convoy_cargo"),
+    8240: ("Push convoy 4 cargo barges", "convoy_cargo"),
+    8250: ("Push convoy 5 cargo barges", "convoy_cargo"),
+    8260: ("Push convoy 6 cargo barges", "convoy_cargo"),
+    8270: ("Push convoy 7 cargo barges", "convoy_cargo"),
+    8280: ("Push convoy 8 cargo barges", "convoy_cargo"),
+    8290: ("Push convoy 9 cargo barges", "convoy_cargo"),
+    8310: ("Push convoy 1 barges including tanker/gas barge", "convoy_tanker"),
+    8320: ("Push convoy 2 barges including tanker/gas barge", "convoy_tanker"),
+    8330: ("Push convoy 3 barges including tanker/gas barge", "convoy_tanker"),
+    8340: ("Push convoy 4 barges including tanker/gas barge", "convoy_tanker"),
+    8350: ("Push convoy 5 barges including tanker/gas barge", "convoy_tanker"),
+    8360: ("Push convoy 6 barges including tanker/gas barge", "convoy_tanker"),
+    8370: ("Push convoy 7 barges including tanker/gas barge", "convoy_tanker"),
+    8380: ("Push convoy 8 barges including tanker/gas barge", "convoy_tanker"),
+    8390: ("Push convoy 9 barges including tanker/gas barge", "convoy_tanker"),
     8400: ("Single tug", "tug"),
     8410: ("Tug with tow", "tug"),
     8420: ("Assisting tug", "tug"),
-    8430: ("Pushboat", "tug"),
+    8430: ("Pushboat", "pushboat"),
     8440: ("Passenger vessel, ferry or cruise ship", "passenger"),
     8441: ("Ferry", "passenger"),
     8442: ("Red Cross vessel", "passenger"),
@@ -78,7 +78,7 @@ INLAND_AIS_TYPES: dict[int, tuple[str, str]] = {
     8452: ("Police patrol vessel", "police"),
     8453: ("Port service vessel", "service"),
     8454: ("Navigation surveillance vessel", "service"),
-    8460: ("Work/maintenance vessel, crane, dredger or buoy vessel", "service"),
+    8460: ("Work/maintenance vessel, crane, dredger or buoy vessel", "workboat"),
     8470: ("Towed object unspecified", "vessel"),
     8480: ("Fishing vessel", "vessel"),
     8490: ("Bunker vessel", "tanker"),
@@ -439,10 +439,12 @@ def vessels(payload: Any) -> list[dict]:
         # Only apply to a recognized inland vessel with a usable AIS bearing.
         # Do not invent dimensions or north-up headings for other ships.
         if (eri_code is not None and profile in
-                ("cargo", "tanker", "tug", "service", "police")
+                ("cargo", "tanker", "tug", "service", "police",
+                 "barge_cargo", "barge_tanker", "convoy_cargo",
+                 "convoy_tanker", "pushboat", "workboat")
                 and not has_hull and to_bow is None
                 and length is not None and beam is not None
-                and (5 if profile == "service" else 12) <= length <= 450
+                and (5 if profile in ("service", "pushboat", "workboat") else 12) <= length <= 450
                 and 2 <= beam <= 90
                 and hull_heading is not None):
             to_bow = to_stern = length / 2
@@ -487,6 +489,13 @@ def vessels(payload: Any) -> list[dict]:
             "shiptype": normalized_type,
             "inland_type_code": eri_code,
             "inland_type_name": INLAND_AIS_TYPES[eri_code][0] if eri_code is not None else None,
+            # Only the count is defined by these ERI codes. The physical
+            # arrangement, individual barge dimensions and coupling are not.
+            "inland_convoy_barges": ((eri_code % 100) // 10
+                                    if eri_code is not None and
+                                    (8210 <= eri_code <= 8290
+                                     or 8310 <= eri_code <= 8390)
+                                    else None),
             "imo": _label(item, ("imo",), 15),
             "eni": _label(item, ("eni",), 15),
             "destination": destination,
