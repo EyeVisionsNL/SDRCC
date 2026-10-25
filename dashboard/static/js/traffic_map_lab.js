@@ -602,11 +602,11 @@
             if (map.getLayer("sdrcc-offshore-3d-structures"))
                 map.setLayoutProperty("sdrcc-offshore-3d-structures","visibility",
                     visible && mode3d ? "visible" : "none");
-            const opacity = ["case",
-                ["all", ["==", ["get", "is_offshore_structure"], true],
-                    [">=", ["zoom"], 15]],
-                mode3d ? 0 : 1,
-                ["get", "position_stale"], 0.65, 1];
+            const opacity = ["interpolate", ["linear"], ["zoom"],
+                14.99, ["case", ["get", "position_stale"], 0.65, 1],
+                15, ["case", ["get", "is_offshore_structure"],
+                    mode3d ? 0 : 1,
+                    ["get", "position_stale"], 0.65, 1]];
             for (const id of ["sdrcc-ais-icons","sdrcc-ais-fallback-icons"]) {
                 if (map.getLayer(id)) map.setPaintProperty(id,"icon-opacity",opacity);
             }
