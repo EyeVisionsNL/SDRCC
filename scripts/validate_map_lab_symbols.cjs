@@ -20,8 +20,10 @@ for (const required of ["hoekvanholland", "OphalenWaarnemingen",
                         "astronomisch", "rws-tide-chart", "rws-wind-value"]) {
     assert(rwsWidget.includes(required), "RWS tide/wind widget missing " + required);
 }
-assert(rwsWidget.includes(":8120/"),
-    "RWS widget should reuse the Rijnmond VTS block-layer localhost relay");
+assert(rwsWidget.includes('"/api/map-lab/rws/"'),
+    "RWS widget must call SDRCC's same-origin relay adapter");
+assert(!rwsWidget.includes('window.location.hostname + ":8120/"'),
+    "browser must not call the AIS-Catcher-only port 8120 origin directly");
 assert(!rwsWidget.includes("api.openweathermap"),
     "RWS data must not be silently substituted with unrelated weather providers");
 // The expanded map must not compete with a permanent 280px right sidebar.
