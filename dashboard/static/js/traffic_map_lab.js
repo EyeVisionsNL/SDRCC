@@ -56,7 +56,7 @@
         const imo=String(ship?.imo||match?.imo||"").trim();
         const eni=String(ship?.eni||match?.eni||"").trim();
         const identity=[mmsi,shipname.toUpperCase(),imo,eni].join("|");
-        if(!/^\d{9}$/.test(mmsi) || !match || Date.now()>=match.expiresAt) {
+        if(!/^\d{9}$/.test(mmsi) || !match) {
             ++speakerRequest; speakerIdentity="";
             image.hidden=true;image.removeAttribute("src");link.removeAttribute("href");
             name.textContent="Waiting for validated Marine ATIS…";credit.textContent="";
@@ -900,9 +900,10 @@
                 item.mmsi === String(props.id) && item.expiresAt > Date.now());
             if (activeEmergency) add("Emergency vessel",
                 activeEmergency.category === "knrm" ? "KNRM" : "Water police");
-            if (atisTarget?.mmsi === String(props.id)
-                    && atisTarget.expiresAt > Date.now()) {
-                add("Matched Marine ATIS", atisTarget.atis_code);
+            if (atisTarget?.mmsi === String(props.id)) {
+                add(atisTarget.expiresAt > Date.now()
+                    ? "Matched Marine ATIS" : "Last matched Marine ATIS",
+                    atisTarget.atis_code);
             }
             if (Number.isFinite(props.age_seconds)) {
                 const ageText = props.age_seconds >= 60
@@ -1595,16 +1596,20 @@
         if (!loaded) return;
         const now = Date.now();
         const emergencyActive = emergencyTargets.some(row => now < row.expiresAt);
-        const atisActive = atisTarget && now < atisTarget.expiresAt;
+        const atisRetained = Boolean(atisTarget);
+        // The last validated ATIS match is intentionally kept on this map
+        // until another verified ATIS/AIS match replaces it. The original
+        // 30-second deadline still distinguishes live from historical state.
         // Avoid re-uploading empty GeoJSON or repainting an idle map every 650 ms.
-        if (!emergencyActive && !atisActive
+        if (!emergencyActive && !atisRetained
                 && !previouslyDrawnEmergency && !previouslyDrawnAtis) {
             el("emergency-status").textContent = "None active";
             el("atis-status").textContent = "No active match";
             return;
         }
         const shipsByMmsi = new Map(latestShips.map(ship => [String(ship.id), ship]));
-        const points = (rows, category) => rows.filter(row => now < row.expiresAt)
+        const points = (rows, category, retainLast = false) => rows.filter(row =>
+            retainLast || now < row.expiresAt)
             .filter(row => /^\d{9}$/.test(row.mmsi))
             .map(row => {
                 const ship = shipsByMmsi.get(row.mmsi);
@@ -1616,7 +1621,7 @@
                 }, properties:{mmsi:row.mmsi, category:row.category || category}};
             });
         const emergencies = points(emergencyTargets, "emergency");
-        const atis = points(atisTarget ? [atisTarget] : [], "atis");
+        const atis = points(atisTarget ? [atisTarget] : [], "atis", true);
         previouslyDrawnEmergency = emergencies.length;
         previouslyDrawnAtis = atis.length;
         map.getSource("sdrcc-emergency").setData({type:"FeatureCollection",features:emergencies});
@@ -1624,7 +1629,8 @@
         el("emergency-status").textContent = emergencies.length
             ? emergencies.length + " highlighted" : "None active";
         el("atis-status").textContent = atis.length
-            ? "ATIS matched" : "No active match";
+            ? (now < atisTarget.expiresAt ? "ATIS matched" : "Last ATIS match")
+            : "No active match";
         // Subtle pulse, matching AIS-Catcher emergency and ATIS colours.
         const phase = (Math.sin(now / 1350 * Math.PI * 2) + 1) / 2;
         if (emergencies.length && el("layer-emergency").checked) {
@@ -1635,9 +1641,12 @@
         }
     }
     function focusNewAtisMatch(match) {
-        if (!match || !atisAutoFocus || !el("layer-atis").checked || !loaded) return;
-        // Identical matches in repeated polling must not move the camera again.
-        const eventKey = match.mmsi + ":" + String(match.atis_code || "");
+        if (!match || !atisAutoFocus || !el("layer-atis").checked || !loaded
+                || Date.now() >= match.expiresAt) return;
+        // Focus once per received ATIS event, even if the same vessel speaks
+        // again; do not refocus old retained highlights or repeated polls.
+        const eventKey = String(match.event_id || (match.mmsi + ":" +
+            String(match.atis_code || "")));
         if (eventKey === lastFocusedAtisEvent) return;
         lastFocusedAtisEvent = eventKey;
         // Highlight API uses longitude/latitude, unlike AIS traffic's lon/lat.
@@ -1666,19 +1675,26 @@
                 .map(row => ({...row, mmsi:String(row.mmsi),
                     expiresAt:now + row.remaining_seconds * 1000}));
             const match = data.atis_match;
-            atisTarget = match && /^\d{9}$/.test(String(match.mmsi || ""))
-                && validHighlightLocation(match)
-                && Number.isFinite(match.remaining_seconds)
-                && match.remaining_seconds > 0 && match.remaining_seconds <= 30
-                ? {...match, mmsi:String(match.mmsi),
-                    expiresAt:now + match.remaining_seconds * 1000} : null;
+            // API only reports fresh, validated Marine ATIS/AIS matches.
+            // Do not erase the last match when the backend's 30s TTL ends.
+            // The last known matched vessel remains ringed (and pulsing) until
+            // a different reception event passes the same strict validation.
+            if (match && /^\d{9}$/.test(String(match.mmsi || ""))
+                    && typeof match.event_id === "string" && match.event_id.length > 0
+                    && validHighlightLocation(match)
+                    && Number.isFinite(match.remaining_seconds)
+                    && match.remaining_seconds > 0 && match.remaining_seconds <= 30
+                    && match.event_id !== atisTarget?.event_id) {
+                atisTarget = {...match, mmsi:String(match.mmsi),
+                    expiresAt:now + match.remaining_seconds * 1000};
+            }
         } catch (_) {
-            // No stale rings are created if the optional overlay is unavailable.
-            // Previously approved highlights expire naturally on their deadlines.
+            // Never create an unverified highlight during an API failure.
+            // Emergency deadlines still expire; an already validated last
+            // ATIS ring remains as historical map context.
         } finally {
             overlayBusy = false;
             tickHighlights();
-            if (!atisTarget) lastFocusedAtisEvent = "";
             focusNewAtisMatch(atisTarget);
             void refreshSpeakerPhoto(atisTarget);
         }
