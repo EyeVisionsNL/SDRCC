@@ -24,6 +24,77 @@
             catch (_) { /* Browser storage may be disabled. */ }
         });
     }
+    // Independent visibility preference for the Possible Speaker photo.
+    const speakerPanel = el("speaker-photo-panel");
+    const speakerShow = el("speaker-photo-show");
+    const speakerPhotoKey = "sdrcc.mapLab.speakerPhotoVisible";
+    let speakerVisible = true, speakerIdentity = "", speakerRetryAt = 0;
+    let speakerRequest = 0;
+    try { speakerVisible = window.localStorage.getItem(speakerPhotoKey) !== "0"; }
+    catch (_) { /* optional storage */ }
+    function showSpeakerPanel() {
+        speakerPanel.hidden = !speakerVisible;
+        speakerShow.hidden = speakerVisible;
+    }
+    function setSpeakerVisible(value) {
+        speakerVisible = value;
+        ++speakerRequest; speakerIdentity = ""; speakerRetryAt = 0;
+        try { window.localStorage.setItem(speakerPhotoKey,value?"1":"0"); } catch (_) {}
+        showSpeakerPanel();
+        if (value) void refreshSpeakerPhoto(atisTarget);
+    }
+    el("speaker-photo-hide").addEventListener("click",()=>setSpeakerVisible(false));
+    speakerShow.addEventListener("click",()=>setSpeakerVisible(true));
+    showSpeakerPanel();
+    async function refreshSpeakerPhoto(match) {
+        if(!speakerVisible) return;
+        const image=el("speaker-photo-image"),link=el("speaker-photo-link");
+        const name=el("speaker-photo-name"),credit=el("speaker-photo-credit");
+        const mmsi=String(match?.mmsi||"");
+        const ship=latestShips.find(row=>String(row.id)===mmsi);
+        const shipname=String(ship?.name||match?.shipname||match?.callsign||"").trim();
+        const imo=String(ship?.imo||match?.imo||"").trim();
+        const eni=String(ship?.eni||match?.eni||"").trim();
+        const identity=[mmsi,shipname.toUpperCase(),imo,eni].join("|");
+        if(!/^\d{9}$/.test(mmsi) || !match || Date.now()>=match.expiresAt) {
+            ++speakerRequest; speakerIdentity="";
+            image.hidden=true;image.removeAttribute("src");link.removeAttribute("href");
+            name.textContent="Waiting for validated Marine ATIS…";credit.textContent="";
+            return;
+        }
+        if(identity===speakerIdentity && Date.now()<speakerRetryAt) return;
+        speakerIdentity=identity;speakerRetryAt=Date.now()+30*60*1000;
+        const request=++speakerRequest;
+        image.hidden=true;image.removeAttribute("src");link.removeAttribute("href");
+        name.textContent=shipname||("MMSI "+mmsi);credit.textContent="Searching vessel photo…";
+        try {
+            const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(mmsi)
+                +"&shipname="+encodeURIComponent(shipname)
+                +"&imo="+encodeURIComponent(imo)+"&eni="+encodeURIComponent(eni);
+            const response=await fetch(url,{cache:"no-store"});
+            const result=await response.json();
+            if(request!==speakerRequest || !speakerVisible) return;
+            if(!response.ok || !result.ok || !result.image_url) {
+                credit.textContent="No vessel photo available."; return;
+            }
+            image.onload=()=>{if(request===speakerRequest) image.hidden=false;};
+            image.onerror=()=>{
+                if(request!==speakerRequest)return;
+                image.hidden=true;credit.textContent="Photo could not be loaded.";
+            };
+            image.alt="Photo of "+(shipname||"matched vessel");
+            image.style.objectFit=result.source==="De Binnenvaart"?"contain":"";
+            image.src=result.image_url;
+            if(result.page_url && /^https:\/\//.test(result.page_url))
+                link.href=result.page_url;
+            const sourceLabel=result.source==="Rensen-Driessen" && result.artist?"":result.source;
+            credit.textContent=result.source==="De Binnenvaart" && result.artist
+                ?"Foto: © "+result.artist
+                :[sourceLabel,result.artist,result.license].filter(Boolean).join(" · ");
+        } catch (_) {
+            if(request===speakerRequest) credit.textContent="Photo lookup unavailable.";
+        }
+    }
     const errorBox = el("map-error");
     const setError = message => {
         errorBox.textContent = message;
@@ -1492,6 +1563,7 @@
             tickHighlights();
             if (!atisTarget) lastFocusedAtisEvent = "";
             focusNewAtisMatch(atisTarget);
+            void refreshSpeakerPhoto(atisTarget);
         }
     }
     function addStationLayer() {
@@ -1626,6 +1698,7 @@
                     void loadAllTracks();
                 refreshStation(data.station);
                 latestShips = ships;
+                if (atisTarget && speakerVisible) void refreshSpeakerPhoto(atisTarget);
                 tickHighlights();
             }
         } catch (error) {
