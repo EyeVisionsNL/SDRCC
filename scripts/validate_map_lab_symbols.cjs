@@ -44,6 +44,15 @@ const esm = 'await import("https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl
 assert(source.includes(esm), "MapLibre 6 import unexpectedly changed");
 assert(markup.includes('id="track-duration" type="range" min="1" max="60" step="1" value="15"'),
     "AIS track duration must be adjustable from 1 to 60 minutes");
+for(const id of ["rws-conditions","rws-tide-chart","rws-next-high","rws-wind-value",
+                 "rws-refresh","traffic-layer-settings"]) {
+    assert(markup.includes('id="' + id + '"'),"missing Rijnmond legend widget "+id);
+}
+assert(markup.indexOf('id="rws-conditions"') < markup.indexOf('id="traffic-layer-settings"'),
+    "Hoek van Holland tide and wind must appear above collapsible Live Traffic Layers");
+assert(markup.includes("js/traffic_map_rws.js"),"RWS widget script must load separately");
+assert(source.includes('sdrcc.mapLab.tracksEnabled'),
+    "AIS track visibility preference must be remembered independently of track length");
 
 const nodes = {};
 const node = id => nodes[id] ||= {
@@ -341,6 +350,14 @@ class FakeMap {
         "collapsing the legend must be persisted");
     assert.equal(node("track-duration").value, "7", "saved track duration ignored");
     assert.equal(node("track-duration-value").textContent, "7 min");
+    assert.equal(node("layer-tracks").checked,false,"AIS tracks off by default unless saved");
+    assert.equal(node("traffic-layer-settings").open,true,
+        "Live Traffic Layers initially expanded");
+    node("traffic-layer-settings").open=false;
+    node("traffic-layer-settings").listeners.toggle();
+    assert.equal(stored.get("sdrcc.mapLab.trafficLayersOpen"),"0");
+    node("traffic-layer-settings").open=true;
+    node("traffic-layer-settings").listeners.toggle();
     assert.equal(node("atis-auto-focus").checked, false,
         "ATIS camera follow must default to off");
     instance.callbacks.load();
@@ -709,6 +726,8 @@ class FakeMap {
     assert.equal(instance.layers["sdrcc-ais-track"].layout.visibility,"none");
     node("layer-tracks").checked = true;
     node("layer-tracks").listeners.change();
+    assert.equal(stored.get("sdrcc.mapLab.tracksEnabled"),"1",
+        "enabling AIS track overlay must be saved");
     assert(instance.layoutChanges.some(x=>x.id==="sdrcc-ais-track"&&x.value==="visible"));
     for(let i=0;i<8;i++) await Promise.resolve();
     assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,2);
@@ -829,6 +848,8 @@ class FakeMap {
     assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,2);
     node("layer-tracks").checked=false;
     node("layer-tracks").listeners.change();
+    assert.equal(stored.get("sdrcc.mapLab.tracksEnabled"),"0",
+        "disabling AIS track overlay must also be saved");
     assert.equal(instance.sources["sdrcc-ais-track"].data.features.length,0);
     assert(instance.layoutChanges.some(x=>x.id==="sdrcc-ais-track"&&x.value==="none"));
     node("layer-ais").checked = false;
