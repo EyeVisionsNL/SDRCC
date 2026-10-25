@@ -216,6 +216,22 @@
         9:"Aircraft", 10:"Helicopter", 11:"Station", 12:"Aid to navigation",
         13:"Search and rescue",
     });
+    // Distinct display types share the existing bounded, AIS-sized hulls.
+    // 3D superstructures are illustrative; they are not reported deck plans.
+    const smallHullProfiles = new Set([
+        "watertaxi","krve","pleasure","sailing","catamaran","fishing",
+        "service","workboat","dredger","crane_workboat","pushboat",
+        "pilot","rescue","port_service","oil_response","ferry"
+    ]);
+    const mediumHullProfiles = new Set([
+        "tug","police","port_authority","passenger","cruise","cargo",
+        "container","bulk","tanker","gas_tanker","powder_tanker",
+        "chemical_tanker","bunker","barge_cargo","barge_tanker",
+        "container_barge","gas_barge","chemical_barge","powder_barge",
+        "convoy_cargo","convoy_tanker"
+    ]);
+    const hullMinLength = profile => smallHullProfiles.has(profile) ? 5
+        : mediumHullProfiles.has(profile) ? 12 : 30;
     function hullGeometry(ship) {
         if (ship.is_offshore_structure ||
                 ["offshore_wtg", "offshore_platform", "ais_helicopter"]
@@ -226,8 +242,7 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow < 0 || stern < 0 || port < 0 || starboard < 0
-                || length < (["watertaxi","krve","pleasure","service","workboat","pushboat"].includes(ship.render_profile) ? 5
-                    : ["tug","police","port_authority","passenger","cargo","tanker","barge_cargo","barge_tanker","convoy_cargo","convoy_tanker"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
+                || length < hullMinLength(ship.render_profile) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
         const heading = ship.hull_heading * Math.PI / 180;
@@ -245,7 +260,8 @@
         const midpoint = (starboard - port) / 2;
         // Flat-ended barges and pushing craft stay within the reported
         // overall AIS dimensions; do not invent individual barge positions.
-        const flatEnds = ["barge_cargo","barge_tanker","convoy_cargo",
+        const flatEnds = ["barge_cargo","barge_tanker","container_barge","gas_barge",
+            "chemical_barge","powder_barge","convoy_cargo",
             "convoy_tanker","pushboat"].includes(ship.render_profile);
         const pts = flatEnds ? [
             at(-stern, -port*.83), at(-stern, starboard*.83),
@@ -295,10 +311,11 @@
                     inland_convoy_barges: ship.inland_convoy_barges,
                     beam_m: ship.beam_m, draught_m: ship.draught_m,
                     heading: ship.heading,
-                    display_height_m: ["watertaxi","krve","pleasure"].includes(ship.render_profile)
+                    display_height_m: ["watertaxi","krve","pleasure","sailing","catamaran","fishing"].includes(ship.render_profile)
                         ? Math.min(1.8, Math.max(.9,
                             (Number(ship.to_port) + Number(ship.to_starboard)) * .45))
-                        : ["barge_cargo","barge_tanker"].includes(ship.render_profile)
+                        : ["barge_cargo","barge_tanker","container_barge","gas_barge",
+                            "chemical_barge","powder_barge"].includes(ship.render_profile)
                             ? Math.min(2.5, Math.max(1.1,
                                 (Number(ship.to_port) + Number(ship.to_starboard)) * .22))
                             : Math.min(9, Math.max(2.5,
@@ -424,7 +441,14 @@
         const detailsById = new Map(hulls.features.map(f => [f.properties.id, f.properties]));
         for (const ship of ships) {
             const profile = ship.render_profile;
-            if (!["tanker", "cargo", "passenger", "tug", "police", "watertaxi", "krve", "port_authority", "pleasure", "service", "barge_cargo", "barge_tanker", "convoy_cargo", "convoy_tanker", "pushboat", "workboat"].includes(profile)) continue;
+            if (!["tanker", "cargo", "passenger", "tug", "police", "watertaxi",
+                "krve", "port_authority", "pleasure", "service",
+                "barge_cargo", "barge_tanker", "convoy_cargo", "convoy_tanker",
+                "pushboat", "workboat", "container", "container_barge", "bulk",
+                "gas_tanker", "gas_barge", "chemical_tanker", "chemical_barge",
+                "powder_tanker", "powder_barge", "bunker", "ferry", "cruise",
+                "catamaran", "fishing", "sailing", "dredger", "crane_workboat",
+                "pilot", "rescue", "port_service", "oil_response"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -432,8 +456,7 @@
             if (![bow,stern,port,starboard,lon,lat,headingDeg].every(Number.isFinite)
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
-            if (length < (["watertaxi","krve","pleasure","service","workboat","pushboat"].includes(profile) ? 5
-                    : ["tug","police","port_authority","passenger","cargo","tanker","barge_cargo","barge_tanker","convoy_cargo","convoy_tanker"].includes(profile) ? 12 : 30) || beam < 2) continue;
+            if (length < hullMinLength(profile) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
             const metresPerLon = 111320 * Math.cos(lat * Math.PI / 180);
@@ -452,6 +475,185 @@
                         top_height_m:info.display_height_m+baseOffset+above,
                         center_lon:lon,center_lat:lat}});
             };
+
+            // Added model families use real AIS dimensions and orientation only.
+            // Cargo/loading state, deck equipment and superstructure are schematic.
+            if (profile === "container" || profile === "container_barge") {
+                const barge = profile === "container_barge";
+                if (barge) add(-stern+length*.035,bow-length*.035,
+                    -port*.94,starboard*.94,"barge-rim",.22);
+                else add(-stern+length*.045,-stern+length*.17,
+                    -port*.56,starboard*.56,"container-bridge",4.3);
+                const start=barge?.10:.21, end=.91;
+                const bays=length>170?6:length>80?4:2;
+                for(let n=0;n<bays;n++){
+                    const from=-stern+length*(start+(end-start)*(n+.06)/bays);
+                    const to=-stern+length*(start+(end-start)*(n+.92)/bays);
+                    for(let side=0;side<2;side++){
+                        const left=side===0?-port*.86:0;
+                        const right=side===0?0:starboard*.86;
+                        const kind=["container-blue","container-rust","container-white"][n%3];
+                        add(from,to,left+(right-left)*.05,right-(right-left)*.05,
+                            kind,barge?1.65:2.4,.15);
+                        // Second tier is illustrative, not proof of loaded boxes.
+                        if(!barge && length>65)
+                            add(from,to,left+(right-left)*.05,right-(right-left)*.05,
+                                "container-top",2.2,2.55);
+                    }
+                }
+                continue;
+            }
+            if (["gas_tanker","gas_barge","chemical_tanker","chemical_barge",
+                 "powder_tanker","powder_barge","bunker"].includes(profile)) {
+                const barge=profile.endsWith("_barge");
+                if (barge) add(-stern+length*.04,bow-length*.04,
+                    -port*.91,starboard*.91,"barge-rim",.22);
+                else add(-stern+length*.055,-stern+length*.20,
+                    -port*.60,starboard*.60,"tanker-bridge",3.7);
+                const gas=profile==="gas_tanker"||profile==="gas_barge";
+                const powder=profile==="powder_tanker"||profile==="powder_barge";
+                const chemical=profile==="chemical_tanker"||profile==="chemical_barge";
+                const kind=gas?"gas-vessel-tank":powder?"powder-silo":
+                    chemical?"chemical-tank":"bunker-tank";
+                const tankCount=gas?3:powder?4:chemical?5:3;
+                const start=barge?.10:.25;
+                for(let n=0;n<tankCount;n++){
+                    const from=-stern+length*(start+(.89-start)*(n+.13)/tankCount);
+                    const to=-stern+length*(start+(.89-start)*(n+.85)/tankCount);
+                    add(from,to,-port*.72,starboard*.72,kind,gas?2.65:
+                        powder?2.25:chemical?1.25:1.5,barge?.2:.35);
+                    if(chemical||profile==="bunker")
+                        add(from+length*.004,to-length*.004,
+                            -port*.15,starboard*.15,"chemical-valve",.28,1.5);
+                }
+                if(profile==="bunker"){
+                    add(-stern+length*.68,bow-length*.09,
+                        -port*.10,starboard*.10,"bunker-hose",.8,1.2);
+                    add(-stern+length*.73,-stern+length*.80,
+                        -port*.22,starboard*.22,"bunker-pump",1.1,.3);
+                }
+                continue;
+            }
+            if (profile === "bulk") {
+                add(-stern+length*.035,-stern+length*.16,
+                    -port*.68,starboard*.68,"bulk-bridge",5.4);
+                for(let n=0;n<5;n++){
+                    const from=-stern+length*(.23+n*.137);
+                    add(from,from+length*.105,
+                        -port*.83,starboard*.83,"bulk-hatch",.66);
+                }
+                continue;
+            }
+            if (profile === "ferry") {
+                add(-stern+length*.05,bow-length*.05,
+                    -port*.89,starboard*.89,"ferry-car-deck",.65);
+                add(-stern+length*.25,-stern+length*.76,
+                    -port*.43,starboard*.43,"ferry-passenger-cabin",2.2,.65);
+                add(-stern+length*.25,-stern+length*.76,
+                    -port*.45,starboard*.45,"ferry-roof",.25,2.85);
+                for(const side of [-1,1]){
+                    const left=side<0?-port*.83:starboard*.74;
+                    const right=side<0?-port*.74:starboard*.83;
+                    add(-stern+length*.07,bow-length*.07,
+                        left,right,"ferry-rail",.65,.65);
+                }
+                continue;
+            }
+            if (profile === "cruise") {
+                const a=-stern+length*.12,b=-stern+length*.89;
+                add(a,b,-port*.83,starboard*.83,"cruise-deck",2.4);
+                add(a+length*.03,b-length*.04,
+                    -port*.75,starboard*.75,"cruise-hotel",2.6,2.4);
+                add(a+length*.07,b-length*.10,
+                    -port*.69,starboard*.69,"cruise-sundeck",.30,5.0);
+                for(const side of [-1,1]){
+                    const left=side<0?-port*.86:starboard*.73;
+                    const right=side<0?-port*.73:starboard*.86;
+                    add(a+length*.05,b-length*.05,left,right,
+                        "cruise-windows",.55,1.1);
+                    add(a+length*.08,b-length*.09,left,right,
+                        "cruise-upper-windows",.5,3.45);
+                }
+                continue;
+            }
+            if (profile === "catamaran") {
+                // Twin side sponsons are schematic, NOT additional AIS targets.
+                for(const side of [-1,1]){
+                    const left=side<0?-port*.92:starboard*.48;
+                    const right=side<0?-port*.48:starboard*.92;
+                    add(-stern+length*.04,bow-length*.08,
+                        left,right,"catamaran-sponson",1.2);
+                }
+                add(-stern+length*.14,bow-length*.20,
+                    -port*.87,starboard*.87,"catamaran-deck",.5,1.2);
+                add(-stern+length*.28,-stern+length*.70,
+                    -port*.61,starboard*.61,"catamaran-cabin",1.9,1.7);
+                continue;
+            }
+            if (profile === "sailing") {
+                add(-stern+length*.28,-stern+length*.73,
+                    -port*.67,starboard*.67,"sailing-cabin",.9);
+                const middle=-stern+length*.54;
+                add(middle-length*.009,middle+length*.009,
+                    -port*.08,starboard*.08,"sailing-mast",7.5,.5);
+                // Pale rectangular extrusion represents a sail silhouette.
+                add(middle-length*.21,middle-length*.013,
+                    -port*.12,starboard*.12,"sailing-sail",4.0,2.0);
+                continue;
+            }
+            if (profile === "fishing") {
+                add(-stern+length*.55,-stern+length*.84,
+                    -port*.67,starboard*.67,"fishing-wheelhouse",2.45);
+                add(-stern+length*.08,-stern+length*.47,
+                    -port*.74,starboard*.74,"fishing-workdeck",.26);
+                for(const side of [-1,1]){
+                    const left=side<0?-port*.82:starboard*.67;
+                    const right=side<0?-port*.67:starboard*.82;
+                    add(-stern+length*.20,-stern+length*.31,
+                        left,right,"fishing-gantry",3.2);
+                }
+                continue;
+            }
+            if (profile === "dredger" || profile === "crane_workboat") {
+                add(-stern+length*.05,bow-length*.05,
+                    -port*.90,starboard*.90,"workboat-deck",.30);
+                add(-stern+length*.61,-stern+length*.86,
+                    -port*.63,starboard*.63,"workboat-cabin",2.3);
+                if(profile==="crane_workboat"){
+                    add(-stern+length*.31,-stern+length*.40,
+                        -port*.22,starboard*.22,"crane-tower",6.3,.3);
+                    add(-stern+length*.18,-stern+length*.61,
+                        -port*.13,starboard*.13,"crane-boom",.65,5.8);
+                } else {
+                    add(-stern+length*.16,-stern+length*.51,
+                        -port*.68,starboard*.68,"dredger-hopper",1.2,.3);
+                    add(-stern+length*.39,-stern+length*.52,
+                        -port*.16,starboard*.16,"dredger-pipe",1.25,1.5);
+                }
+                continue;
+            }
+            if (["pilot","rescue","port_service","oil_response"].includes(profile)) {
+                add(-stern+length*.33,-stern+length*.71,
+                    -port*.66,starboard*.66,"service-cabin",2.3);
+                add(-stern+length*.35,-stern+length*.69,
+                    -port*.71,starboard*.71,"service-roof",.24,2.3);
+                const accent=profile==="pilot"?"pilot-band":
+                    profile==="rescue"?"rescue-band":
+                    profile==="oil_response"?"oil-response-band":"port-service-band";
+                for(const side of [-1,1]){
+                    const left=side<0?-port*.95:starboard*.78;
+                    const right=side<0?-port*.78:starboard*.95;
+                    add(-stern+length*.10,bow-length*.12,left,right,
+                        accent,.36);
+                }
+                if(profile==="oil_response")
+                    add(-stern+length*.13,-stern+length*.30,
+                        -port*.40,starboard*.40,"oil-response-gear",.9,.3);
+                if(profile==="rescue")
+                    add(-stern+length*.51,-stern+length*.56,
+                        -port*.17,starboard*.17,"rescue-beacon",.6,2.54);
+                continue;
+            }
             if (profile === "pleasure") {
                 // Small recreation craft: pale deck, compact cockpit and
                 // low windshield; nothing here changes other vessel decks.
@@ -486,7 +688,10 @@
             }
             if (profile === "convoy_cargo" || profile === "convoy_tanker") {
                 // Schematic segments, NOT actual individual barge placement.
-                const count=Math.min(4,Math.max(1,Math.round(Number(ship.inland_convoy_barges)||2)));
+                // Up to six schematic deck bays, NOT a claim about actual
+                // lateral layout. ERI 8290/8390 is "nine or more".
+                const count=Math.min(6,Math.max(1,
+                    Math.round(Number(ship.inland_convoy_barges)||2)));
                 add(-stern+length*.03,-stern+length*.19,
                     -port*.6,starboard*.6,"convoy-pusher-house",2.8);
                 add(-stern+length*.19,-stern+length*.23,
