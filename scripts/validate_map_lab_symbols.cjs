@@ -141,7 +141,7 @@ class FakeMap {
     const data = {
         ok: true, center: [4.28, 51.93],
         station: {name:"EyeVisions Home", lon:4.28, lat:51.93, altitude_m:12},
-        ais: {available: true, source_count: 15, count: 15, unverified_count: 1,
+        ais: {available: true, source_count: 16, count: 16, unverified_count: 1,
             targets: [
                 {type:"ais", id:"123456789", name:"Known ship",
                     lon:4.3, lat:51.9, course:132, hull_heading:134, speed_knots:6,
@@ -205,6 +205,13 @@ class FakeMap {
                     callsign:"OO-NSV",render_profile:"ais_helicopter",
                     course:318,speed_knots:0,hull_available:false,
                     age_seconds:71},
+                {type:"ais",id:"244777777",name:"INLAND SERVICE",
+                    lon:4.36,lat:51.95,shipclass:0,shiptype:99,
+                    inland_type_code:8450,inland_type_name:"Service vessel",
+                    render_profile:"service",course:72,hull_heading:72,
+                    length_m:9,beam_m:3.5,to_bow:4.5,to_stern:4.5,
+                    to_port:1.75,to_starboard:1.75,hull_available:true,
+                    hull_geometry_source:"Reported AIS length/beam; illustrative antenna position (ERI)"},
             ]},
         adsb: {available: true, source_count: 3, count: 3, targets:[
             {type:"adsb", id:"4ca123", name:"TEST123",
@@ -339,7 +346,7 @@ class FakeMap {
     }
     const boats = instance.sources["sdrcc-ais"].data.features;
     const planes = instance.sources["sdrcc-adsb"].data.features;
-    assert.equal(boats.length, 15);
+    assert.equal(boats.length, 16);
     const pilotHelo=boats[14];
     assert.equal(pilotHelo.properties.render_profile,"ais_helicopter");
     assert.equal(pilotHelo.properties.icon_name,"sdrcc-ais-helicopter");
@@ -415,28 +422,36 @@ class FakeMap {
     assert(instance.layers["sdrcc-adsb-labels"].layout["icon-image"][0]==="get");
 
     const polygons = instance.sources["sdrcc-ais-hulls"].data.features;
-    assert.equal(polygons.length, 9,
-        "existing seven 3D models plus two new Class B hulls only");
+    assert.equal(polygons.length, 10,
+        "existing hulls and a measured 9m ERI service craft");
     const decks=instance.sources["sdrcc-ais-decks"].data.features;
     // Passenger geometry is generated at high zoom only when AIS hull exists.
     assert(source.includes('"passenger-lower-deck"'));
     assert(source.includes('"passenger-upper-windows"'));
     assert(source.includes('"passenger-bridge"'));
-    assert.equal(decks.length,46,
-        "existing 38 deck parts plus four for each Class B vessel");
+    assert.equal(decks.length,51,
+        "existing 46 parts plus five neutral service craft parts");
     for(const part of ["bridge","cargo-hatch","tanker-pipe","tanker-cap","tug-wheelhouse","tug-winch",
                        "police-cabin","police-stripe","police-lightbar",
                        "watertaxi-cabin","watertaxi-roof","watertaxi-stripe","watertaxi-window",
                        "krve-workdeck","krve-cabin","krve-roof","krve-fender",
                        "krve-windows","krve-mooring-gear","rpa-cabin","rpa-roof",
                        "rpa-yellow-stripe","rpa-windows","rpa-fire-monitor",
-                       "pleasure-deck","pleasure-cabin","pleasure-windshield","pleasure-cockpit"])
+                       "pleasure-deck","pleasure-cabin","pleasure-windshield","pleasure-cockpit",
+                        "service-workdeck","service-cabin","service-roof","service-windows"])
         assert(decks.some(f=>f.properties.part===part), "missing deck part "+part);
     assert(decks.every(f=>["123456789","244123999","244555000",
         "244600015","244020742","244456065","244050469",
-        "244901101","244901102"].includes(f.properties.id)));
+        "244901101","244901102","244777777"].includes(f.properties.id)));
     assert.equal(decks.filter(f=>f.properties.id==="244901101").length,4);
     assert.equal(decks.filter(f=>f.properties.id==="244901102").length,4);
+    const serviceParts=decks.filter(f=>f.properties.id==="244777777");
+    assert.equal(serviceParts.length,5,"ERI service craft needs deck, cabin, roof and windows");
+    assert(boats[15].properties.render_profile==="service");
+    assert(boats[15].properties.hull_available);
+    assert.equal(boats[15].properties.inland_type_code,8450);
+    assert(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"]
+        .includes("#345368"),"Neutral service hull needs its own colour");
     assert(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"]
         .includes("#29475b"),"Class B boat hull is dark blue");
     assert(instance.layers["sdrcc-ais-hull-decks"].paint["fill-extrusion-color"]
@@ -523,9 +538,9 @@ class FakeMap {
     assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
 
-    assert.equal(node("count-ais").textContent, 15);
+    assert.equal(node("count-ais").textContent, 16);
     assert.equal(node("count-adsb").textContent, 3);
-    assert.equal(node("legend-mini-status").textContent, "AIS 15 · ADS-B 3",
+    assert.equal(node("legend-mini-status").textContent, "AIS 16 · ADS-B 3",
         "compact legend must still show live receiver target counts");
     assert.equal(instance.sources["sdrcc-home"].data.features.length, 1);
     const home = instance.sources["sdrcc-home"].data.features[0];
