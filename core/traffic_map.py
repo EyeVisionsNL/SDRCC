@@ -435,7 +435,8 @@ def vessels(payload: Any) -> list[dict]:
                 ("cargo", "tanker", "tug", "service", "police")
                 and not has_hull and to_bow is None
                 and length is not None and beam is not None
-                and 12 <= length <= 450 and 2 <= beam <= 90
+                and (5 if profile == "service" else 12) <= length <= 450
+                and 2 <= beam <= 90
                 and hull_heading is not None):
             to_bow = to_stern = length / 2
             to_port = to_starboard = beam / 2
