@@ -211,7 +211,7 @@
         if (![bow, stern, port, starboard, ship.lon, ship.lat].every(Number.isFinite)) return null;
         const length = bow + stern, beam = port + starboard;
         if (bow < 0 || stern < 0 || port < 0 || starboard < 0
-                || length < (["watertaxi","krve","pleasure"].includes(ship.render_profile) ? 5
+                || length < (["watertaxi","krve","pleasure","service"].includes(ship.render_profile) ? 5
                     : ["tug","police","port_authority","passenger","cargo","tanker","service"].includes(ship.render_profile) ? 12 : 30) || length > 450 || beam < 2 || beam > 90
                 || Math.abs(ship.lat) > 85) return null;
 
@@ -402,7 +402,7 @@
             if (![bow,stern,port,starboard,lon,lat,headingDeg].every(Number.isFinite)
                     || Math.abs(lat) > 85) continue;
             const length = bow+stern, beam = port+starboard;
-            if (length < (["watertaxi","krve","pleasure"].includes(profile) ? 5
+            if (length < (["watertaxi","krve","pleasure","service"].includes(profile) ? 5
                     : ["tug","police","port_authority","passenger","cargo","tanker","service"].includes(profile) ? 12 : 30) || beam < 2) continue;
             const heading = headingDeg * Math.PI / 180;
             const cos = Math.cos(heading), sin = Math.sin(heading);
