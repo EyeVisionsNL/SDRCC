@@ -827,6 +827,35 @@ class TrafficMapTests(unittest.TestCase):
         self.assertEqual(result[0]["id"],"123456789")
         self.assertEqual(result[0]["speed_knots"],9.8)
 
+    def test_aircraft_3d_visual_clearance_and_icon_handoff(self):
+        # Regression: the previous miniatures sat at 0-3.3 m (inside map
+        # buildings) and had the same blue tone as those buildings. Height
+        # here is only a *visual marker*, never an ADS-B altitude conversion.
+        js = (Path(__file__).resolve().parent.parent
+              / "dashboard/static/js/traffic_map_lab.js").read_text()
+        for fragment in (
+            "const AIRCRAFT_3D_MIN_ZOOM = 15;",
+            "const AIRCRAFT_3D_PLANE_BASE_M = 62;",
+            "const AIRCRAFT_3D_HELI_BASE_M = 52;",
+            "const AIRCRAFT_ICON_FADE_START = 15.6;",
+            "const AIRCRAFT_ICON_FADE_END = 16.6;",
+            "base_height_m:visualBase+base",
+            "top_height_m:visualBase+height",
+            "minzoom:AIRCRAFT_3D_MIN_ZOOM",
+            '"plane-body","#ffd344"',
+            '"plane-wing","#ff812b"',
+            '"heli-body","#ff942e"',
+            '"heli-rotor","#ffe66d"',
+            "AIRCRAFT_ICON_FADE_START,1,AIRCRAFT_ICON_FADE_END,0",
+            "Aircraft raised for visibility; height is illustrative",
+        ):
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, js)
+        # ADS-B 2D sprites remain enabled when switching back to 2D.
+        self.assertIn("AIRCRAFT_ICON_FADE_END,0] : 1", js)
+        # The AIS helicopter sprite must not disappear at zoom 14.
+        self.assertIn('["get","air_3d"],defaultOpacity', js)
+
     def test_aircraft_helicopter_detection_is_from_metadata(self):
         rows = traffic_map.aircraft({"aircraft": [
             {"hex":"345107","lat":51.91,"lon":4.2,"seen_pos":0,
