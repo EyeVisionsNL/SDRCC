@@ -8,6 +8,165 @@ from core import traffic_map
 
 
 class TrafficMapTests(unittest.TestCase):
+    def test_ais_90_99_verified_special_ship_registry(self):
+        # DOF identifies SKANDI CALEDONIA as a platform supply vessel.
+        self.assertEqual(traffic_map.special_ship_match(
+            "SKANDI CALEDONIA", 99, None,
+            imo="9281657", mmsi="258765000")[0], "offshore_supply")
+        self.assertEqual(traffic_map.display_profile(
+            "SKANDI CALEDONIA", 99, None,
+            imo="9281657", mmsi="258765000"), "offshore_supply")
+        # Two pieces of consistent evidence; no name-only guess.
+        self.assertEqual(traffic_map.display_profile(
+            "SKANDI CALEDONIA", 90, None, imo="9281657"), "offshore_supply")
+        self.assertEqual(traffic_map.display_profile(
+            "SKANDI CALEDONIA", 99, None, mmsi="258765000"), "offshore_supply")
+        self.assertEqual(traffic_map.display_profile(
+            "UNKNOWN", 99, None, imo="9281657", mmsi="258765000"),
+            "offshore_supply")
+        self.assertEqual(traffic_map.display_profile(
+            "SKANDI CALEDONIA", 99, None), "vessel")
+        # An IMO contradiction overrides MMSI+name; never invent identity.
+        self.assertIsNone(traffic_map.special_ship_match(
+            "SKANDI CALEDONIA", 99, None,
+            imo="1111111", mmsi="258765000"))
+        for kind in (70, 80, 89, 91, 95, 98, None):
+            with self.subTest(shiptype=kind):
+                self.assertIsNone(traffic_map.special_ship_match(
+                    "SKANDI CALEDONIA", kind, None,
+                    imo="9281657", mmsi="258765000"))
+        for kind in (11, 12, 10):
+            with self.subTest(shipclass=kind):
+                self.assertIsNone(traffic_map.special_ship_match(
+                    "SKANDI CALEDONIA", 99, kind,
+                    imo="9281657", mmsi="258765000"))
+        self.assertIsNone(traffic_map.special_ship_match(
+            "SKANDI CALEDONIA", 99, 12, mmsi="992587650"))
+
+    def test_ais_90_99_special_descriptive_names_and_false_positives(self):
+        recognized = (
+            ("PSV NORTH", "offshore_supply"),
+            ("PLATFORM SUPPLY VESSEL 3", "offshore_supply"),
+            ("OFFSHORE SUPPLY VESSEL 10", "offshore_supply"),
+            ("ARCTIC RESEARCH VESSEL", "research_vessel"),
+            ("SURVEY SHIP 5", "research_vessel"),
+            ("CABLE LAYER 9", "cable_vessel"),
+            ("KABELLEGGER 12", "cable_vessel"),
+            ("OFFSHORE CONSTRUCTION VESSEL 4", "offshore_construction"),
+            ("SUBSEA CONSTRUCTION VESSEL 4", "offshore_construction"),
+            ("HEAVY LIFT VESSEL 4", "crane_ship"),
+            ("KRAANSCHIP 4", "crane_ship"),
+            ("HOPPER DREDGER 4", "dredger"),
+        )
+        for name, profile in recognized:
+            with self.subTest(name=name):
+                match = traffic_map.special_ship_match(name, 99, None)
+                self.assertEqual(match[0], profile)
+                self.assertIn("name only", match[1])
+                self.assertEqual(traffic_map.display_profile(
+                    name, 90, None), profile)
+        for name in (
+            "SKANDI CALEDONIA", "PLATFORM SUPPLY", "SUPPLY", "OFFSHORE",
+            "CABLE", "SURVEY", "RESEARCH", "CRANE", "PLATFORM P15",
+            "TUG SUPPLY", "DELTA", "RPA12",
+        ):
+            with self.subTest(unknown_name=name):
+                self.assertIsNone(traffic_map.special_ship_match(
+                    name, 99, None))
+        # Explicit type 70/80 takes precedence over a suggestive name.
+        self.assertEqual(traffic_map.display_profile(
+            "PLATFORM SUPPLY VESSEL", 70, 2), "cargo")
+        self.assertEqual(traffic_map.display_profile(
+            "CABLE LAYER", 80, 6), "tanker")
+        self.assertEqual(traffic_map.display_profile(
+            "PLATFORM SUPPLY VESSEL", 99, None,
+            nav_status=5, speed_knots=0), "offshore_supply")
+        self.assertEqual(traffic_map.display_profile(
+            "PLATFORM P15 C", 99, None,
+            nav_status=6, speed_knots=0), "offshore_platform")
+        self.assertEqual(traffic_map.display_profile(
+            "WTG 19", 99, 12), "offshore_wtg")
+        self.assertEqual(traffic_map.display_profile(
+            "RPA12", 99, None), "port_authority")
+
+    def test_ais_offshore_supply_hull_keeps_true_offsets(self):
+        base = {
+            "mmsi": "258765000", "shipname": "SKANDI CALEDONIA",
+            "imo": "9281657", "shiptype": 99,
+            "lat": 51.925, "lon": 4.29,
+            "heading": 90, "to_bow": 72, "to_stern": 12,
+            "to_port": 10, "to_starboard": 10,
+            "status": 5, "speed": 0,
+        }
+        ship = traffic_map.vessels([base])[0]
+        self.assertEqual(ship["render_profile"], "offshore_supply")
+        self.assertFalse(ship["is_offshore_structure"])
+        self.assertTrue(ship["hull_available"])
+        self.assertEqual(ship["hull_geometry_source"], "AIS dimensions")
+        self.assertEqual(ship["to_bow"], 72)
+        self.assertEqual(ship["to_stern"], 12)
+        self.assertEqual(ship["imo"], "9281657")
+        self.assertIn("Verified vessel registry", ship["special_profile_evidence"])
+        # A moored vessel without a heading cannot invent its bearing.
+        missing = traffic_map.vessels([{**base, "heading": 511}])[0]
+        self.assertFalse(missing["hull_available"])
+        # A clearly descriptive name is visibly weaker than registry evidence.
+        named = traffic_map.vessels([{**base,
+            "mmsi": "258000001", "imo": "", "shipname": "PSV TANGO"}])[0]
+        self.assertEqual(named["render_profile"], "offshore_supply")
+        self.assertIn("name only", named["special_profile_evidence"])
+        # The same AIS identity without any identifying data stays generic.
+        generic = traffic_map.vessels([{**base,
+            "mmsi": "258000002", "imo": "", "shipname": "GENERIC"}])[0]
+        self.assertEqual(generic["render_profile"], "vessel")
+        self.assertFalse(generic["is_offshore_structure"])
+        self.assertIsNone(generic["special_profile_evidence"])
+
+    def test_special_imo_enrichment_preserves_live_ais_position(self):
+        live = {"ships": [{
+            "mmsi": "258765000", "shipname": "SKANDI CALEDONIA",
+            "shiptype": 99, "lat": 51.92, "lon": 4.29,
+            "heading": 52, "to_bow": 73, "to_stern": 11,
+            "to_port": 10, "to_starboard": 10,
+        }]}
+        full = {"ships": [{
+            "mmsi": "258765000", "imo": "9281657",
+            "lat": 40.0, "lon": 3.2, "eni": "",
+        }]}
+        with patch.object(traffic_map.receiver_monitor, "_read_ais_ships",
+                          return_value=(live, "ships.json")), \\
+             patch.object(traffic_map.receiver_monitor, "_read_json_url",
+                          return_value=(full, "ships_full.json")), \\
+             patch.object(traffic_map.receiver_monitor, "_read_json_file",
+                          return_value=(None, None)), \\
+             patch.object(traffic_map.config, "get_home_position",
+                          return_value={"configured": False}):
+            result = traffic_map.snapshot()
+        ship = result["ais"]["targets"][0]
+        self.assertEqual(ship["imo"], "9281657")
+        self.assertEqual(ship["render_profile"], "offshore_supply")
+        self.assertEqual((ship["lon"], ship["lat"]), (4.29, 51.92))
+        self.assertFalse(ship["is_offshore_structure"])
+
+    def test_special_models_have_popup_and_3d_deck_geometry(self):
+        js = (Path(__file__).resolve().parent.parent
+              / "dashboard/static/js/traffic_map_lab.js").read_text()
+        for profile in (
+            "offshore_supply", "research_vessel", "cable_vessel",
+            "offshore_construction", "crane_ship"
+        ):
+            with self.subTest(profile=profile):
+                self.assertIn('        ' + profile + ':"', js)
+                self.assertIn('"' + profile + '"', js)
+        for part in (
+            "psv-workdeck", "psv-wheelhouse", "psv-bridge-glass",
+            "research-laboratory", "research-mast",
+            "cable-reel", "cable-stern-chute",
+            "construction-crane-tower", "construction-crane-boom",
+            "special_profile_evidence",
+        ):
+            self.assertIn(part, js)
+
     def test_inland_eri_table_and_safe_profiles(self):
         self.assertGreaterEqual(len(traffic_map.INLAND_AIS_TYPES), 70)
         for code, expected in [(8022,"chemical_tanker"), (8030,"container"),
