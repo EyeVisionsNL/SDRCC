@@ -187,6 +187,15 @@
     // In a harbour we want geographic-scale hulls, not a fixed pixel-length emoji.
     const HULL_MIN_ZOOM = 14;
     const AIS_NAME_MIN_ZOOM = 12.5;
+    // 3D aircraft are intentionally elevated map miniatures, NOT ADS-B
+    // altitude-to-metres conversions. ADS-B flight levels remain in popups.
+    // Keep 2D aircraft silhouettes visible until models have enough pixels
+    // to be recognizable; buildings already appear from zoom 15.
+    const AIRCRAFT_3D_MIN_ZOOM = 15;
+    const AIRCRAFT_ICON_FADE_START = 15.6;
+    const AIRCRAFT_ICON_FADE_END = 16.6;
+    const AIRCRAFT_3D_PLANE_BASE_M = 62;
+    const AIRCRAFT_3D_HELI_BASE_M = 52;
     // Mirror AIS-catcher's class palette (shipclass from the AIS JSON).
     // A matching colour is used for compact arrows/dots, hull edges and names.
     const AIS_CLASS_COLORS = Object.freeze({
@@ -401,7 +410,9 @@
                 "fill-extrusion-opacity":0.96}});
     }
 
-    // Illustrative above-ground miniatures, not physical ADS-B altitude.
+    // Bright elevated miniatures ensure aircraft don't disappear into 3D
+    // buildings. Height and enlarged footprint are purely visual: never
+    // replace actual ADS-B altitude or change the 2D map.
     function aircraft3dCollection(items,kind) {
         const features=[];
         for(const item of items) {
@@ -411,14 +422,18 @@
             const heading=(Number.isFinite(item.course)?item.course:0)*Math.PI/180;
             const sn=Math.sin(heading),cs=Math.cos(heading);
             const lonFactor=111320*Math.cos(item.lat*Math.PI/180);
-            const size=heli?.65:1,props=trafficProperties(item);
+            const size=heli ? .9 : 1.4,props=trafficProperties(item);
+            const visualBase = heli ? AIRCRAFT_3D_HELI_BASE_M
+                : AIRCRAFT_3D_PLANE_BASE_M;
             const piece=(poly,part,base,height)=>{
                 const ring=poly.map(([f,r])=>[
                     item.lon+(f*sn+r*cs)*size/lonFactor,
                     item.lat+(f*cs-r*sn)*size/111320]);
                 ring.push(ring[0]);
                 features.push({type:"Feature",geometry:{type:"Polygon",coordinates:[ring]},
-                    properties:{...props,part,base_height_m:base,top_height_m:height}});
+                    properties:{...props,part,
+                        base_height_m:visualBase+base,
+                        top_height_m:visualBase+height}});
             };
             if(heli){
                 piece([[8,0],[4,-2],[-4,-2],[-5,0],[-4,2],[4,2]],"heli-body",0,2.5);
@@ -439,16 +454,18 @@
         for(const kind of ["ais","adsb"]){
             const source="sdrcc-"+kind+"-air-3d", layer=source+"-models";
             map.addSource(source,{type:"geojson",data:empty});
-            map.addLayer({id:layer,type:"fill-extrusion",source,minzoom:14,
+            map.addLayer({id:layer,type:"fill-extrusion",source,
+                minzoom:AIRCRAFT_3D_MIN_ZOOM,
                 layout:{visibility:"none"},
                 paint:{"fill-extrusion-color":["match",["get","part"],
-                    "heli-body","#e6ae63","heli-tail","#c9924e",
-                    "heli-rotor","#c9d9e0","heli-tailrotor","#b7c8d2",
-                    "plane-body","#e0e9f0","plane-wing","#87b5d1",
-                    "plane-tail","#789bb4","#b9cad6"],
+                    // Strong warm/dark aircraft palette, unlike blue buildings.
+                    "heli-body","#ff942e","heli-tail","#253447",
+                    "heli-rotor","#ffe66d","heli-tailrotor","#182a42",
+                    "plane-body","#ffd344","plane-wing","#ff812b",
+                    "plane-tail","#223248","#ffb732"],
                     "fill-extrusion-base":["get","base_height_m"],
                     "fill-extrusion-height":["get","top_height_m"],
-                    "fill-extrusion-opacity":.95}});
+                    "fill-extrusion-opacity":1}});
             map.on("click",layer,event=>{
                 const feature=event.features?.[0];
                 if(!feature) return;
@@ -1067,24 +1084,35 @@
         if(map.getLayer("sdrcc-"+kind+"-air-3d-models"))
             map.setLayoutProperty("sdrcc-"+kind+"-air-3d-models","visibility",
                 visible && mode3d ? "visible" : "none");
-        // ADS-B nameplates also carry the 2D aircraft icon; suppress only that
-        // duplicate at close 3D zoom while preserving the text label.
+        // Keep the actual 2D aircraft sprite until its 3D miniature is
+        // legible at close zoom. The 2D mode retains its existing sprites.
         if(kind==="adsb" && map.getLayer("sdrcc-adsb-labels"))
             map.setLayoutProperty("sdrcc-adsb-labels","icon-image",
-                mode3d ? ["step",["zoom"],["get","icon_name"],14,""]
-                    : ["get","icon_name"]);
+                mode3d ? ["step",["zoom"],["get","icon_name"],
+                    AIRCRAFT_ICON_FADE_START,""] : ["get","icon_name"]);
         if(kind==="adsb" && map.getLayer("sdrcc-adsb-icons"))
             map.setPaintProperty("sdrcc-adsb-icons","icon-opacity",
-                ["interpolate",["linear"],["zoom"],13.99,1,14,mode3d?0:1]);
+                mode3d ? ["interpolate",["linear"],["zoom"],
+                    AIRCRAFT_ICON_FADE_START,1,AIRCRAFT_ICON_FADE_END,0] : 1);
         if (kind === "ais") {
             if (map.getLayer("sdrcc-offshore-3d-structures"))
                 map.setLayoutProperty("sdrcc-offshore-3d-structures","visibility",
                     visible && mode3d ? "visible" : "none");
-            const opacity = ["interpolate", ["linear"], ["zoom"],
-                13.99, ["case", ["get", "position_stale"], 0.65, 1],
-                14, ["case", ["any", ["get", "is_offshore_structure"],
-                    ["get", "air_3d"]], mode3d ? 0 : 1,
-                    ["get", "position_stale"], 0.65, 1]];
+            // An AIS helicopter isn't a hull: retain its fallback icon
+            // through the aircraft 3D handoff instead of hiding it at zoom 14.
+            const defaultOpacity = ["case",["get","position_stale"],.65,1];
+            const opacity = mode3d
+                ? ["interpolate",["linear"],["zoom"],
+                    13.99, defaultOpacity,
+                    14, ["case",["get","is_offshore_structure"],0,
+                        ["get","air_3d"],defaultOpacity,defaultOpacity],
+                    AIRCRAFT_ICON_FADE_START,
+                        ["case",["get","air_3d"],defaultOpacity,
+                            ["get","is_offshore_structure"],0,defaultOpacity],
+                    AIRCRAFT_ICON_FADE_END,
+                        ["case",["get","air_3d"],0,
+                            ["get","is_offshore_structure"],0,defaultOpacity]]
+                : defaultOpacity;
             for (const id of ["sdrcc-ais-icons","sdrcc-ais-fallback-icons"]) {
                 if (map.getLayer(id)) map.setPaintProperty(id,"icon-opacity",opacity);
             }
@@ -1222,6 +1250,7 @@
             add("Category", props.category);
             add("Vertical rate", props.baro_rate, " ft/min");
             add("Altitude", props.altitude_ft, " ft");
+            add("3D display", "Aircraft raised for visibility; height is illustrative");
             if (props.altitude_band === "unknown") add("Altitude colour", "Unknown");
             else add("Altitude colour", props.altitude_band);
         }
