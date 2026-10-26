@@ -160,6 +160,65 @@ _TUG_STATUS_RE = re.compile(r"\b(?:TUGGING|TOWING|PUSHING|TOWED|PUSHED)\b", re.I
 # *explicit name* supports the equipment; the generic code alone does not.
 _DREDGER_NAME_RE = re.compile(r"\b(?:DREDGER|BAGGERSCHIP|HOPPER DREDGER|ZANDZUIGER)\b", re.I)
 _CRANE_NAME_RE = re.compile(r"\b(?:CRANE SHIP|FLOATING CRANE|KRAANSCHIP|HIJSBOK)\b", re.I)
+# Curated special-purpose ships: identities from operator/classification sources.
+# Adding ships here must require an independently confirmed IMO/ENI and MMSI.
+# Never infer a ship's operator or actual on-deck equipment from AIS type 99.
+KNOWN_SPECIAL_VESSELS = (
+    {
+        "name": "SKANDI CALEDONIA",
+        "imo": "9281657",
+        "eni": "",
+        "mmsi": "258765000",
+        "profile": "offshore_supply",
+        "source": "https://www.dof.com/fleet/skandi-caledonia",
+    },
+)
+# These strict names explicitly identify a function; ordinary vessel names,
+# company names, destinations or a bare "SUPPLY"/"CABLE" are insufficient.
+_SPECIAL_NAME_PROFILES = (
+    (re.compile(r"^(?:PSV|PLATFORM SUPPLY VESSEL|OFFSHORE SUPPLY VESSEL)(?:\\b|[- ])", re.I), "offshore_supply"),
+    (re.compile(r"\\b(?:PLATFORM SUPPLY VESSEL|OFFSHORE SUPPLY VESSEL)\\b", re.I), "offshore_supply"),
+    (re.compile(r"\\b(?:RESEARCH VESSEL|RESEARCH SHIP|SURVEY VESSEL|SURVEY SHIP)\\b", re.I), "research_vessel"),
+    (re.compile(r"\\b(?:CABLE LAYING VESSEL|CABLE LAYER|CABLE SHIP|KABELLEGGER)\\b", re.I), "cable_vessel"),
+    (re.compile(r"\\b(?:OFFSHORE CONSTRUCTION VESSEL|CONSTRUCTION SUPPORT VESSEL|SUBSEA CONSTRUCTION VESSEL)\\b", re.I), "offshore_construction"),
+    (re.compile(r"\\b(?:HEAVY LIFT VESSEL|HEAVY LIFT SHIP|CRANE VESSEL|CRANE SHIP|KRAANSCHIP|HIJSBOK)\\b", re.I), "crane_ship"),
+    (re.compile(r"\\b(?:DREDGER|DREDGING VESSEL|BAGGERSCHIP|ZANDZUIGER|HOPPER DREDGER)\\b", re.I), "dredger"),
+)
+
+
+def special_ship_match(name: str, shiptype: int | None, shipclass: int | None,
+                       *, mmsi: str = "", imo: str = "", eni: str = "") -> tuple[str, str] | None:
+    """Return profile and evidence only for explicitly supported AIS 90/99.
+
+    A registry identity requires two agreeing identifiers. Inconsistent IMO
+    or ENI values invalidate an MMSI/name match. A descriptive AIS name
+    is weaker evidence, explicitly shown as name-based in the map popup.
+    """
+    if shiptype not in (90, 99) or shipclass in (10, 11, 12) or str(mmsi).startswith("99"):
+        return None
+    normalized_name = re.sub(r"[^A-Z0-9]", "", str(name or "").upper())
+    mmsi = str(mmsi or "").strip().removesuffix(".0")
+    imo = str(imo or "").strip().removesuffix(".0")
+    eni = str(eni or "").strip().removesuffix(".0")
+    for known in KNOWN_SPECIAL_VESSELS:
+        if imo and known["imo"] and imo != known["imo"]:
+            continue
+        if eni and known["eni"] and eni != known["eni"]:
+            continue
+        name_match = normalized_name == re.sub(r"[^A-Z0-9]", "", known["name"])
+        imo_match = bool(imo and known["imo"] and imo == known["imo"])
+        eni_match = bool(eni and known["eni"] and eni == known["eni"])
+        mmsi_match = bool(mmsi and known["mmsi"] and mmsi == known["mmsi"])
+        if (imo_match and (name_match or mmsi_match)
+                or eni_match and (name_match or mmsi_match)
+                or mmsi_match and name_match):
+            return known["profile"], "Verified vessel registry (IMO / MMSI / name)"
+    for pattern, profile in _SPECIAL_NAME_PROFILES:
+        if pattern.search(str(name or "")):
+            return profile, "Descriptive AIS name only (not independently verified)"
+    return None
+
+
 TRACK_WINDOW_SECONDS = 3600
 TRACK_POINT_LIMIT = 300
 TRACK_URL_PREFIXES = ("http://127.0.0.1:8119/api/path.geojson?",
@@ -175,7 +234,7 @@ TRACK_ALL_TOTAL_POINTS = 45000
 def display_profile(name: str, shiptype: int | None, shipclass: int | None,
                     nav_status: Any = None, *, mmsi: str = "",
                     callsign: str = "", speed_knots: float | None = None,
-                    destination: str = "") -> str:
+                    destination: str = "", imo: str = "", eni: str = "") -> str:
     """Conservative AIS-based display hint; never changes alerts or AIS records.
 
     AIS-Catcher: class 11 = base station, class 12 = Aid-to-Navigation.
@@ -248,6 +307,13 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
             and speed_knots is not None and 0 <= speed_knots <= 0.5
             and (status in ("5", "6") or steady_object)):
         return "offshore_platform"
+    # AIS 90/99 are otherwise unspecified: specialize only with a
+    # verified catalog identity or an explicit descriptive name. Do not
+    # reclassify ordinary cargo/tanker codes or emergency/port services.
+    special = special_ship_match(
+        label, shiptype, shipclass, mmsi=mmsi, imo=imo, eni=eni)
+    if special is not None and not fixed_evidence:
+        return special[0]
     # No moving vessel may be interpreted as a fixed installation by name.
     # Maritime AIS types are broad but still permit distinct *illustrative*
     # craft outlines. Names alone are not evidence of emergency authority.
@@ -412,11 +478,17 @@ def vessels(payload: Any) -> list[dict]:
         nav_status = _label(item, ("status","nav_status","navigation_status"), 40)
         callsign = _label(item, ("callsign",), 24)
         destination = _label(item, ("destination",), 90)
+        imo = _label(item, ("imo",), 15)
+        eni = _label(item, ("eni",), 15)
         profile = display_profile(
             name, eri_code if eri_code is not None else normalized_type, normalized_class, nav_status,
             mmsi=mmsi, callsign=callsign, speed_knots=speed,
-            destination=destination or "")
-        if profile.startswith("offshore_") or profile == "ais_helicopter":
+            destination=destination or "", imo=imo, eni=eni)
+        special = special_ship_match(
+            name, normalized_type, normalized_class, mmsi=mmsi, imo=imo, eni=eni)
+        # A mobile offshore vessel is not a stationary platform. Only these
+        # two *fixed* profiles suppress ordinary AIS hull geometry.
+        if profile in ("offshore_wtg", "offshore_platform", "ais_helicopter"):
             has_hull = False
         # When live AIS reports no full offsets, a verified fleet member may
         # use its OWN published length/beam for a clearly approximate 3D hull.
@@ -506,7 +578,9 @@ def vessels(payload: Any) -> list[dict]:
         selected.append({
             "type": "ais", "id": mmsi, "name": name,
             "render_profile": profile,
-            "is_offshore_structure": profile.startswith("offshore_"),
+            "is_offshore_structure": profile in ("offshore_wtg", "offshore_platform"),
+            "special_profile_evidence": (special[1] if special is not None
+                                         and profile == special[0] else None),
             "callsign": callsign, "lon": pos[0], "lat": pos[1],
             "validation_state": validation_state,
             "position_stale": position_stale,
@@ -531,8 +605,8 @@ def vessels(payload: Any) -> list[dict]:
                                     (8210 <= eri_code <= 8290
                                      or 8310 <= eri_code <= 8390)
                                     else None),
-            "imo": _label(item, ("imo",), 15),
-            "eni": _label(item, ("eni",), 15),
+            "imo": imo,
+            "eni": eni,
             "destination": destination,
             "country": _label(item, ("country",), 45),
             "nav_status": nav_status,
@@ -803,10 +877,10 @@ def snapshot() -> dict:
         static_keys = ("to_bow", "to_stern", "to_port", "to_starboard",
                        "length", "width", "heading",
                        "inland_shiptype", "eri_shiptype", "shiptype_eri",
-                       "inland_type")
+                       "inland_type", "imo", "eni")
         enrich = {
             key: details[key] for key in static_keys
-            if row.get(key) is None and details.get(key) is not None
+            if row.get(key) in (None, "") and details.get(key) not in (None, "")
         }
         # Some receiver versions only carry the 4-digit ERI type in the full
         # record's "shiptype". Import it as separate inland metadata only for
