@@ -483,6 +483,21 @@
         }
         return {type:"FeatureCollection",features};
     }
+    // MapLibre dispatches one native click to every overlapping interactive
+    // layer (hull, deck, icon and label). Only one popup may handle that
+    // native click, and a new click replaces the currently open popup.
+    const handledPopupClicks = new WeakSet();
+    let activeMapPopup = null;
+    function showSingleMapPopup(event, lngLat, content, options = {}) {
+        const nativeEvent = event && event.originalEvent;
+        if (nativeEvent && typeof nativeEvent === "object") {
+            if (handledPopupClicks.has(nativeEvent)) return;
+            handledPopupClicks.add(nativeEvent);
+        }
+        if (activeMapPopup) activeMapPopup.remove();
+        activeMapPopup = new maplibregl.Popup(options)
+            .setLngLat(lngLat).setDOMContent(content).addTo(map);
+    }
     function addAircraft3dLayers() {
         for(const kind of ["ais","adsb"]){
             const source="sdrcc-"+kind+"-air-3d", layer=source+"-models";
@@ -502,9 +517,9 @@
             map.on("click",layer,event=>{
                 const feature=event.features?.[0];
                 if(!feature) return;
-                new maplibregl.Popup({maxWidth:"360px"})
-                    .setLngLat([feature.properties.lon,feature.properties.lat])
-                    .setDOMContent(popup(feature)).addTo(map);
+                showSingleMapPopup(event,
+                    [feature.properties.lon,feature.properties.lat],
+                    popup(feature),{maxWidth:"360px"});
             });
         }
     }
@@ -1885,8 +1900,8 @@
                 const position=Number.isFinite(feature.properties?.center_lon)
                     && Number.isFinite(feature.properties?.center_lat)
                     ? [feature.properties.center_lon,feature.properties.center_lat] : center;
-                new maplibregl.Popup({offset: 12, maxWidth: "350px"})
-                    .setLngLat(position).setDOMContent(popup(feature)).addTo(map);
+                showSingleMapPopup(event,position,popup(feature),
+                    {offset:12,maxWidth:"350px"});
             });
             map.on("mouseenter", id, () => {map.getCanvas().style.cursor = "pointer";});
             map.on("mouseleave", id, () => {map.getCanvas().style.cursor = "";});
@@ -1978,10 +1993,8 @@
             map.on("click", id, event => {
                 const feature = event.features && event.features[0];
                 if (!feature) return;
-                new maplibregl.Popup({offset: 12, maxWidth: "300px"})
-                    .setLngLat(feature.geometry.coordinates)
-                    .setDOMContent(popup(feature))
-                    .addTo(map);
+                showSingleMapPopup(event,feature.geometry.coordinates,
+                    popup(feature),{offset:12,maxWidth:"300px"});
             });
             map.on("mouseenter", id, () => {map.getCanvas().style.cursor = "pointer";});
             map.on("mouseleave", id, () => {map.getCanvas().style.cursor = "";});
@@ -2233,8 +2246,7 @@
                 div.className="popup-title";
                 div.textContent=(feature.properties?.name || "SDRCC station")
                     + " · Home Position";
-                new maplibregl.Popup({offset:12})
-                    .setLngLat(coords).setDOMContent(div).addTo(map);
+                showSingleMapPopup(event,coords,div,{offset:12});
             });
         }
     }
