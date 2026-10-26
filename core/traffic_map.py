@@ -304,7 +304,7 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
     # Do not classify vessel names like P15 or underway police boats here.
     steady_object = "STEADY OBJECT" in str(destination or "").upper()
     if (_PLATFORM_NAME_RE.match(label) and shiptype == 99
-            and not re.search(r"\\bPLATFORM SUPPLY\\b", label, re.I)
+            and not re.search(r"\bPLATFORM SUPPLY\b", label, re.I)
             and speed_knots is not None and 0 <= speed_knots <= 0.5
             and (status in ("5", "6") or steady_object)):
         return "offshore_platform"
