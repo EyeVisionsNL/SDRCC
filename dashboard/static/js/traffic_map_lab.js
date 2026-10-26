@@ -214,11 +214,12 @@
         12,"#17232b","#ffffff"];
     // 3D aircraft are intentionally elevated map miniatures, NOT ADS-B
     // altitude-to-metres conversions. ADS-B flight levels remain in popups.
-    // Keep 2D aircraft silhouettes visible until models have enough pixels
-    // to be recognizable; buildings already appear from zoom 15.
+    // Switch directly from 2D silhouettes to 3D aircraft at zoom 15:
+    // overlapping zoom ranges made both symbols appear for one target.
+    // Larger visual miniatures remain illustrative, not real wingspans.
     const AIRCRAFT_3D_MIN_ZOOM = 15;
-    const AIRCRAFT_ICON_FADE_START = 15.6;
-    const AIRCRAFT_ICON_FADE_END = 16.6;
+    const AIRCRAFT_3D_PLANE_SCALE = 2.4;
+    const AIRCRAFT_3D_HELI_SCALE = 1.6;
     const AIRCRAFT_3D_PLANE_BASE_M = 62;
     const AIRCRAFT_3D_HELI_BASE_M = 52;
     // Mirror AIS-catcher's class palette (shipclass from the AIS JSON).
@@ -455,7 +456,9 @@
             const heading=(Number.isFinite(item.course)?item.course:0)*Math.PI/180;
             const sn=Math.sin(heading),cs=Math.cos(heading);
             const lonFactor=111320*Math.cos(item.lat*Math.PI/180);
-            const size=heli ? .9 : 1.4,props=trafficProperties(item);
+            const size=heli ? AIRCRAFT_3D_HELI_SCALE
+                : AIRCRAFT_3D_PLANE_SCALE;
+            const props=trafficProperties(item);
             const visualBase = heli ? AIRCRAFT_3D_HELI_BASE_M
                 : AIRCRAFT_3D_PLANE_BASE_M;
             const piece=(poly,part,base,height)=>{
@@ -469,16 +472,16 @@
                         top_height_m:visualBase+height}});
             };
             if(heli){
-                piece([[8,0],[4,-2],[-4,-2],[-5,0],[-4,2],[4,2]],"heli-body",0,2.5);
-                piece([[-4,-.6],[-11,-.6],[-11,.6],[-4,.6]],"heli-tail",1,2);
-                piece([[-1,-11],[1,-11],[1,11],[-1,11]],"heli-rotor",3,3.3);
-                piece([[-12,-2],[-11,-2],[-11,2],[-12,2]],"heli-tailrotor",2,2.4);
+                piece([[8,0],[4,-2],[-4,-2],[-5,0],[-4,2],[4,2]],"heli-body",0,4.1);
+                piece([[-4,-.6],[-11,-.6],[-11,.6],[-4,.6]],"heli-tail",1.8,3.2);
+                piece([[-1,-11],[1,-11],[1,11],[-1,11]],"heli-rotor",4.8,5.35);
+                piece([[-12,-2],[-11,-2],[-11,2],[-12,2]],"heli-tailrotor",3.3,3.9);
             }else{
-                piece([[16,0],[9,-1.5],[-12,-1.5],[-16,0],[-12,1.5],[9,1.5]],"plane-body",0,2.4);
-                piece([[4,-2],[-8,-15],[-10,-15],[-6,-1]],"plane-wing",1,1.8);
-                piece([[4,2],[-6,1],[-10,15],[-8,15]],"plane-wing",1,1.8);
-                piece([[-10,-1],[-15,-6],[-16,-6],[-14,1]],"plane-tail",1.4,2.1);
-                piece([[-10,1],[-14,-1],[-16,6],[-15,6]],"plane-tail",1.4,2.1);
+                piece([[16,0],[9,-1.5],[-12,-1.5],[-16,0],[-12,1.5],[9,1.5]],"plane-body",0,4.3);
+                piece([[4,-2],[-8,-15],[-10,-15],[-6,-1]],"plane-wing",2.5,3.25);
+                piece([[4,2],[-6,1],[-10,15],[-8,15]],"plane-wing",2.5,3.25);
+                piece([[-10,-1],[-15,-6],[-16,-6],[-14,1]],"plane-tail",3.15,4.1);
+                piece([[-10,1],[-14,-1],[-16,6],[-15,6]],"plane-tail",3.15,4.1);
             }
         }
         return {type:"FeatureCollection",features};
@@ -1252,35 +1255,33 @@
         if(map.getLayer("sdrcc-"+kind+"-air-3d-models"))
             map.setLayoutProperty("sdrcc-"+kind+"-air-3d-models","visibility",
                 visible && mode3d ? "visible" : "none");
-        // Keep the actual 2D aircraft sprite until its 3D miniature is
-        // legible at close zoom. The 2D mode retains its existing sprites.
+        // 2D icons must stop exactly when 3D extrusions start. A gradual
+        // cross-fade leaves a second aircraft on screen between zoom 15-16.
+        // In 2D mode the normal silhouette stays visible at every zoom.
         if(kind==="adsb" && map.getLayer("sdrcc-adsb-labels"))
             map.setLayoutProperty("sdrcc-adsb-labels","icon-image",
                 mode3d ? ["step",["zoom"],["get","icon_name"],
-                    AIRCRAFT_ICON_FADE_START,""] : ["get","icon_name"]);
+                    AIRCRAFT_3D_MIN_ZOOM,""] : ["get","icon_name"]);
         if(kind==="adsb" && map.getLayer("sdrcc-adsb-icons"))
             map.setPaintProperty("sdrcc-adsb-icons","icon-opacity",
-                mode3d ? ["interpolate",["linear"],["zoom"],
-                    AIRCRAFT_ICON_FADE_START,1,AIRCRAFT_ICON_FADE_END,0] : 1);
+                mode3d ? ["step",["zoom"],1,AIRCRAFT_3D_MIN_ZOOM,0] : 1);
         if (kind === "ais") {
             updateAisNamePresentation();
             if (map.getLayer("sdrcc-offshore-3d-structures"))
                 map.setLayoutProperty("sdrcc-offshore-3d-structures","visibility",
                     visible && mode3d ? "visible" : "none");
-            // An AIS helicopter isn't a hull: retain its fallback icon
-            // through the aircraft 3D handoff instead of hiding it at zoom 14.
+            // At zoom 14 AIS hulls replace ship symbols. Offshore fixed
+            // structures also stop showing icons there. A real AIS helicopter
+            // has no hull: keep its symbol until the 3D model begins at 15,
+            // then hide it completely to avoid two helicopter icons.
             const defaultOpacity = ["case",["get","position_stale"],.65,1];
             const opacity = mode3d
-                ? ["interpolate",["linear"],["zoom"],
-                    13.99, defaultOpacity,
-                    14, ["case",["get","is_offshore_structure"],0,
-                        ["get","air_3d"],defaultOpacity,defaultOpacity],
-                    AIRCRAFT_ICON_FADE_START,
-                        ["case",["get","air_3d"],defaultOpacity,
-                            ["get","is_offshore_structure"],0,defaultOpacity],
-                    AIRCRAFT_ICON_FADE_END,
-                        ["case",["get","air_3d"],0,
-                            ["get","is_offshore_structure"],0,defaultOpacity]]
+                ? ["step",["zoom"],defaultOpacity,
+                    HULL_MIN_ZOOM,
+                        ["case",["get","is_offshore_structure"],0,defaultOpacity],
+                    AIRCRAFT_3D_MIN_ZOOM,
+                        ["case",["any",["get","is_offshore_structure"],
+                            ["get","air_3d"]],0,defaultOpacity]]
                 : defaultOpacity;
             for (const id of ["sdrcc-ais-icons","sdrcc-ais-fallback-icons"]) {
                 if (map.getLayer(id)) map.setPaintProperty(id,"icon-opacity",opacity);
