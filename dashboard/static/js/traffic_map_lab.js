@@ -587,11 +587,11 @@
                 add(-stern+length*.06,bow-length*.10,
                     -port*.88,starboard*.88,"construction-deck",.35);
                 const forwardHouse=profile==="offshore_construction";
-                const cabinStart=-stern+length*(forwardHouse?.68:.07);
-                const cabinEnd=-stern+length*(forwardHouse?.90:.25);
+                const cabinStart=-stern+length*(forwardHouse ? .68 : .07);
+                const cabinEnd=-stern+length*(forwardHouse ? .90 : .25);
                 add(cabinStart,cabinEnd,
                     -port*.68,starboard*.68,"construction-wheelhouse",4.15,.35);
-                const tower=-stern+length*(forwardHouse?.38:.55);
+                const tower=-stern+length*(forwardHouse ? .38 : .55);
                 add(tower-length*.025,tower+length*.035,
                     -port*.19,starboard*.19,"construction-crane-tower",8.0,.35);
                 add(tower-length*.30,tower+length*.045,
