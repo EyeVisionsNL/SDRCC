@@ -492,6 +492,35 @@ class FakeMap {
     assert.equal(planes[1].properties.icon_name,"sdrcc-helicopter-alt-low");
     assert.equal(planes[1].properties.altitude_color,"#3bd66f");
     assert.equal(planes[2].properties.icon_name,"sdrcc-plane-alt-unknown-no-course");
+
+    // The 3D geometry is intentionally larger than the old miniature:
+    // it must be recognizable without inventing a real ADS-B wingspan.
+    const aircraftParts = instance.sources["sdrcc-adsb-air-3d"].data.features;
+    const pilotParts = instance.sources["sdrcc-ais-air-3d"].data.features;
+    const planeParts = aircraftParts.filter(f=>f.properties.id===planes[0].properties.id);
+    const helicopterParts = aircraftParts.filter(f=>f.properties.id===planes[1].properties.id);
+    assert.equal(planeParts.length,5,"one ADS-B plane must have five 3D pieces");
+    assert.equal(helicopterParts.length,4,"one ADS-B helicopter must have four 3D pieces");
+    assert.equal(pilotParts.length,4,"only the AIS helicopter should get a 3D model");
+    function aircraftMaxSpan(features) {
+        const points=features.flatMap(f=>f.geometry.coordinates[0]);
+        const lat=features[0].properties.lat;
+        const metres=points.map(([lon,y])=>[
+            lon*111320*Math.cos(lat*Math.PI/180), y*111320
+        ]);
+        let largest=0;
+        for(let i=0;i<metres.length;i++)
+            for(let j=0;j<i;j++)
+                largest=Math.max(largest,Math.hypot(
+                    metres[i][0]-metres[j][0],metres[i][1]-metres[j][1]));
+        return largest;
+    }
+    assert(aircraftMaxSpan(planeParts)>70,"3D plane should be larger and recognizable");
+    assert(aircraftMaxSpan(helicopterParts)>30,"3D helicopter rotor should be visible");
+    assert(pilotParts.every(f=>f.properties.base_height_m>=52));
+    assert(planeParts.every(f=>f.properties.base_height_m>=62));
+    assert.equal(instance.layers["sdrcc-adsb-air-3d-models"].minzoom,15);
+    assert.equal(instance.layers["sdrcc-ais-air-3d-models"].minzoom,15);
     assert.equal(planes[2].properties.altitude_color,"#aebdcc");
     assert(instance.layers["sdrcc-adsb-labels"].layout["icon-image"][0]==="get");
 
@@ -865,6 +894,34 @@ class FakeMap {
 
     node("mode-3d").listeners.click();
     assert.equal(instance.camera.pitch, 62);
+    // At zoom 15, 2D symbols disappear exactly as the 3D models begin.
+    // This must affect both ADS-B planes and AIS helicopters, not vessel
+    // symbols or the 2D mode's permanent aircraft silhouettes.
+    const latestPaint = (id,key) => instance.paintChanges.filter(c =>
+        c.id===id && c.key===key).at(-1)?.value;
+    const latestLayout = (id,key) => instance.layoutChanges.filter(c =>
+        c.id===id && c.key===key).at(-1)?.value;
+    assert.deepEqual(JSON.parse(JSON.stringify(latestPaint(
+        "sdrcc-adsb-icons","icon-opacity"))),["step",["zoom"],1,15,0]);
+    assert.deepEqual(JSON.parse(JSON.stringify(latestLayout(
+        "sdrcc-adsb-labels","icon-image"))),
+        ["step",["zoom"],["get","icon_name"],15,""]);
+    const aisHeliHandoff=JSON.parse(JSON.stringify(latestPaint(
+        "sdrcc-ais-fallback-icons","icon-opacity")));
+    assert.equal(aisHeliHandoff[0],"step");
+    assert.equal(aisHeliHandoff[3],14);
+    assert.equal(aisHeliHandoff[5],15);
+    assert(JSON.stringify(aisHeliHandoff).includes('"air_3d"'),
+        "AIS helicopters must also lose their 2D icon at zoom 15");
+    assert.equal(latestLayout("sdrcc-adsb-air-3d-models","visibility"),"visible");
+    node("mode-2d").listeners.click();
+    assert.equal(latestPaint("sdrcc-adsb-icons","icon-opacity"),1,
+        "2D mode must keep normal aircraft symbols even at close zoom");
+    assert.deepEqual(JSON.parse(JSON.stringify(latestLayout(
+        "sdrcc-adsb-labels","icon-image"))),["get","icon_name"]);
+    assert.equal(latestLayout("sdrcc-adsb-air-3d-models","visibility"),"none");
+    node("mode-3d").listeners.click();
+    assert.equal(latestLayout("sdrcc-adsb-air-3d-models","visibility"),"visible");
     assert(instance.layers["sdrcc-buildings"], "existing 3D buildings preserved");
     assert(instance.layoutChanges.some(change =>
         change.id === "sdrcc-buildings" && change.value === "visible"));
