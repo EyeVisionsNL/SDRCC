@@ -237,7 +237,9 @@
         "container","bulk","tanker","gas_tanker","powder_tanker",
         "chemical_tanker","bunker","barge_cargo","barge_tanker",
         "container_barge","gas_barge","chemical_barge","powder_barge",
-        "convoy_cargo","convoy_tanker"
+        "convoy_cargo","convoy_tanker","offshore_supply",
+        "research_vessel","cable_vessel","offshore_construction",
+        "crane_ship"
     ]);
     const hullMinLength = profile => smallHullProfiles.has(profile) ? 5
         : mediumHullProfiles.has(profile) ? 12 : 30;
@@ -263,6 +265,11 @@
         oil_response:"Pollution-response craft with deck gear (illustrative)",
         dredger:"Work/dredging vessel hopper and pipe (illustrative)",
         crane_workboat:"Work vessel with schematic deck crane (illustrative)",
+        offshore_supply:"Offshore platform supply vessel: forward bridge, open aft work deck (illustrative)",
+        research_vessel:"Research/survey vessel: laboratories, mast and working deck (illustrative)",
+        cable_vessel:"Cable-laying ship: cable reel and stern guide (illustrative)",
+        offshore_construction:"Offshore construction vessel: heavy work deck and crane (illustrative)",
+        crane_ship:"Heavy-lift / crane vessel with deck crane (illustrative)",
     });
     function hullGeometry(ship) {
         if (ship.is_offshore_structure ||
@@ -338,6 +345,7 @@
                     imo: ship.imo, eni: ship.eni, callsign: ship.callsign,
                     destination: ship.destination, country: ship.country,
                     nav_status: ship.nav_status, shiptype: ship.shiptype,
+                    special_profile_evidence: ship.special_profile_evidence || "",
                     inland_type_code: ship.inland_type_code,
                     inland_type_name: ship.inland_type_name,
                     inland_convoy_barges: ship.inland_convoy_barges,
@@ -488,7 +496,9 @@
                 "gas_tanker", "gas_barge", "chemical_tanker", "chemical_barge",
                 "powder_tanker", "powder_barge", "bunker", "ferry", "cruise",
                 "catamaran", "fishing", "sailing", "dredger", "crane_workboat",
-                "pilot", "rescue", "port_service", "oil_response"].includes(profile)) continue;
+                "pilot", "rescue", "port_service", "oil_response",
+                "offshore_supply", "research_vessel", "cable_vessel",
+                "offshore_construction", "crane_ship"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -518,6 +528,79 @@
 
             // Added model families use real AIS dimensions and orientation only.
             // Cargo/loading state, deck equipment and superstructure are schematic.
+
+            // AIS 90/99 special-purpose vessels: shape only when the Python
+            // backend provides a positively matched profile. Scale every deck
+            // element within the actual AIS length, beam and heading. An empty
+            // work deck does not imply that any particular cargo is aboard.
+            if (profile === "offshore_supply") {
+                // Typical PSV has its tall bridge forward and a broad aft
+                // supply deck; unlike the aft bridge of a cargo vessel.
+                add(-stern+length*.04,-stern+length*.70,
+                    -port*.91,starboard*.91,"psv-workdeck",.28);
+                for (const side of [-1,1]) {
+                    const left=side<0?-port*.94:starboard*.85;
+                    const right=side<0?-port*.85:starboard*.94;
+                    add(-stern+length*.05,-stern+length*.72,
+                        left,right,"psv-safety-rail",.48,.30);
+                }
+                add(-stern+length*.73,bow-length*.055,
+                    -port*.69,starboard*.69,"psv-wheelhouse",4.9);
+                add(-stern+length*.75,bow-length*.075,
+                    -port*.72,starboard*.72,"psv-bridge-roof",.28,4.9);
+                add(bow-length*.15,bow-length*.075,
+                    -port*.69,starboard*.69,"psv-bridge-glass",.72,2.85);
+                add(-stern+length*.20,-stern+length*.32,
+                    -port*.23,starboard*.23,"psv-deck-gear",.35,.3);
+                continue;
+            }
+            if (profile === "research_vessel") {
+                add(-stern+length*.12,bow-length*.15,
+                    -port*.83,starboard*.83,"research-workdeck",.35);
+                add(-stern+length*.28,-stern+length*.69,
+                    -port*.64,starboard*.64,"research-laboratory",3.1,.35);
+                add(-stern+length*.31,-stern+length*.68,
+                    -port*.69,starboard*.69,"research-windows",.58,1.95);
+                add(-stern+length*.64,-stern+length*.68,
+                    -port*.10,starboard*.10,"research-mast",5.2,3.45);
+                continue;
+            }
+            if (profile === "cable_vessel") {
+                add(-stern+length*.07,bow-length*.09,
+                    -port*.83,starboard*.83,"cable-workdeck",.3);
+                add(-stern+length*.64,bow-length*.07,
+                    -port*.70,starboard*.70,"cable-wheelhouse",3.6,.3);
+                // Schematic reel and stern chute, not measured machinery.
+                add(-stern+length*.19,-stern+length*.45,
+                    -port*.57,starboard*.57,"cable-reel",2.5,.3);
+                for (const side of [-1,1]) {
+                    const left=side<0?-port*.59:starboard*.47;
+                    const right=side<0?-port*.47:starboard*.59;
+                    add(-stern+length*.20,-stern+length*.44,
+                        left,right,"cable-reel-rim",3.0,.3);
+                }
+                add(-stern+length*.035,-stern+length*.17,
+                    -port*.24,starboard*.24,"cable-stern-chute",.95,.3);
+                continue;
+            }
+            if (profile === "offshore_construction" || profile === "crane_ship") {
+                add(-stern+length*.06,bow-length*.10,
+                    -port*.88,starboard*.88,"construction-deck",.35);
+                const forwardHouse=profile==="offshore_construction";
+                const cabinStart=-stern+length*(forwardHouse?.68:.07);
+                const cabinEnd=-stern+length*(forwardHouse?.90:.25);
+                add(cabinStart,cabinEnd,
+                    -port*.68,starboard*.68,"construction-wheelhouse",4.15,.35);
+                const tower=-stern+length*(forwardHouse?.38:.55);
+                add(tower-length*.025,tower+length*.035,
+                    -port*.19,starboard*.19,"construction-crane-tower",8.0,.35);
+                add(tower-length*.30,tower+length*.045,
+                    -port*.10,starboard*.10,"construction-crane-boom",.75,7.6);
+                if(profile==="offshore_construction")
+                    add(-stern+length*.12,-stern+length*.28,
+                        -port*.46,starboard*.46,"construction-equipment",1.2,.35);
+                continue;
+            }
             if (profile === "container" || profile === "container_barge") {
                 const barge = profile === "container_barge";
                 if (barge) add(-stern+length*.035,bow-length*.035,
@@ -972,6 +1055,7 @@
             country: item.country || "",
             nav_status: item.nav_status || "",
             shiptype: item.shiptype,
+            special_profile_evidence: item.special_profile_evidence || "",
             inland_type_code: item.inland_type_code,
             inland_type_name: item.inland_type_name,
             inland_convoy_barges: item.inland_convoy_barges,
@@ -1221,6 +1305,8 @@
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             if (props.render_profile !== "ais_helicopter")
                 add("Ship type", props.shiptype);
+            if (props.special_profile_evidence)
+                add("3D vessel identification", props.special_profile_evidence);
                 if (props.inland_type_name) add("Inland AIS / ERI",
                     props.inland_type_code + " · " + props.inland_type_name);
                 if (Number.isInteger(props.inland_convoy_barges) && props.inland_convoy_barges > 0)
@@ -1597,6 +1683,11 @@
                     ["==", ["get", "render_profile"], "service"], "#345368",
                     ["==", ["get", "render_profile"], "workboat"], "#4a5b69",
                     ["==", ["get", "render_profile"], "pushboat"], "#305366",
+                    ["==", ["get", "render_profile"], "offshore_supply"], "#274d61",
+                    ["==", ["get", "render_profile"], "research_vessel"], "#365a70",
+                    ["==", ["get", "render_profile"], "cable_vessel"], "#3c626b",
+                    ["==", ["get", "render_profile"], "offshore_construction"], "#37566c",
+                    ["==", ["get", "render_profile"], "crane_ship"], "#4d6570",
                     ["==", ["get", "render_profile"], "container"], "#244d68",
                     ["==", ["get", "render_profile"], "container_barge"], "#3b5b69",
                     ["==", ["get", "render_profile"], "bulk"], "#516171",
@@ -1638,6 +1729,18 @@
             paint:{
                 "fill-extrusion-color":["match",["get","part"],
                     "bridge","#c1d6df","cargo-hatch","#677e92",
+                    "psv-workdeck","#5d788a","psv-safety-rail","#e6c653",
+                    "psv-wheelhouse","#e5edf1","psv-bridge-roof","#c5d8e4",
+                    "psv-bridge-glass","#36789b","psv-deck-gear","#e3bb64",
+                    "research-workdeck","#7297aa","research-laboratory","#ecf3f2",
+                    "research-windows","#58a0ba","research-mast","#ffcc60",
+                    "cable-workdeck","#638890","cable-wheelhouse","#e1e9ea",
+                    "cable-reel","#c4a56d","cable-reel-rim","#dfc58d",
+                    "cable-stern-chute","#ebaf63",
+                    "construction-deck","#6a8795","construction-wheelhouse","#dae5eb",
+                    "construction-crane-tower","#efc05d",
+                    "construction-crane-boom","#f3d478",
+                    "construction-equipment","#929da2",
                     "container-bridge","#e3e7dd",
                     "container-blue","#376d91","container-rust","#bb694e",
                     "container-white","#dce7e4","container-top","#6a9cac",
