@@ -134,11 +134,11 @@ class TrafficMapTests(unittest.TestCase):
             "lat": 40.0, "lon": 3.2, "eni": "",
         }]}
         with patch.object(traffic_map.receiver_monitor, "_read_ais_ships",
-                          return_value=(live, "ships.json")), \\
+                          return_value=(live, "ships.json")), \
              patch.object(traffic_map.receiver_monitor, "_read_json_url",
-                          return_value=(full, "ships_full.json")), \\
+                          return_value=(full, "ships_full.json")), \
              patch.object(traffic_map.receiver_monitor, "_read_json_file",
-                          return_value=(None, None)), \\
+                          return_value=(None, None)), \
              patch.object(traffic_map.config, "get_home_position",
                           return_value={"configured": False}):
             result = traffic_map.snapshot()
