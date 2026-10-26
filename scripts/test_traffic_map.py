@@ -176,16 +176,22 @@ class TrafficMapTests(unittest.TestCase):
         js = (Path(__file__).resolve().parent.parent
               / "dashboard/static/js/traffic_map_lab.js").read_text()
         for fragment in (
+            'const AIS_NAME_3D_SWITCH_ZOOM = 16;',
             'const AIS_NAME_2D_ANCHORS = ["top","bottom","right","left"];',
             'const AIS_NAME_3D_ANCHORS = ["left","right"];',
             'const AIS_NAME_2D_OFFSET = ["interpolate"',
             'const AIS_NAME_LENGTH_CLEARANCE = ["*",.025,',
             'const AIS_NAME_3D_OFFSET = ["interpolate",["linear"],["zoom"]',
-            'mode3d ? ["step",["zoom"],AIS_NAME_PLATE_IMAGE,15,""]',
-            'mode3d ? AIS_NAME_3D_ANCHORS : AIS_NAME_2D_ANCHORS',
-            'mode3d ? AIS_NAME_3D_OFFSET : AIS_NAME_2D_OFFSET',
-            'mode3d ? ["step",["zoom"],AIS_NAME_2D_TEXT_COLOR,15,',
-            'mode3d ? ["step",["zoom"],.4,15,1.65] : .4',
+            'mode3d && map.getZoom() >= AIS_NAME_3D_SWITCH_ZOOM',
+            'if (aisNameClose3d === close3d) return;',
+            'close3d ? "" : AIS_NAME_PLATE_IMAGE',
+            'close3d ? AIS_NAME_3D_ANCHORS : AIS_NAME_2D_ANCHORS',
+            'close3d ? AIS_NAME_3D_OFFSET : AIS_NAME_2D_OFFSET',
+            'close3d ? classColorExpression : AIS_NAME_2D_TEXT_COLOR',
+            'close3d ? "#102436" : "rgba(10,21,30,0.12)"',
+            'close3d ? 1.65 : .4',
+            'map.on("zoom", () => {',
+            'if (loaded && mode3d) updateAisNamePresentation();',
             '? AIS_NAME_PLATE_IMAGE : ["get", "icon_name"]',
         ):
             with self.subTest(fragment=fragment):
