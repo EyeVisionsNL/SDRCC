@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="same-origin">
+<title>SDRCC · 2D/3D Traffic Map Lab</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
+<style>
+:root{color-scheme:dark;font:15px/1.45 system-ui,Arial,sans-serif;background:#061322;color:#eaf4fd}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#061322}
+.layout{padding:8px;max-width:none;margin:0 auto}
+.viewer{min-width:0;background:#0d2336;border:1px solid #2f5673;border-radius:11px;overflow:hidden}
+button{cursor:pointer;border:1px solid #45728d;border-radius:7px;background:#163a54;color:#e9f7ff;padding:7px 10px;font:inherit;font-size:.85rem;font-weight:650;white-space:nowrap}
+button:hover{background:#215172}
+button[aria-pressed="true"]{background:#146082;border-color:#56b7de;color:#fff}
+button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
+.map-stage{position:relative;isolation:isolate}
+#map{height:calc(100dvh - 58px);min-height:400px;width:100%;background:#0b2033}
+/* Small map controls take no document height and do not intercept map gestures. */
+.map-tools{position:absolute;left:10px;top:10px;z-index:9;display:flex;align-items:center;flex-wrap:wrap;gap:5px;max-width:calc(100% - 365px);padding:5px;background:#0d2438e8;border:1px solid #3e6881;border-radius:10px;box-shadow:0 3px 12px #0008;pointer-events:none}
+.map-tools button{pointer-events:auto}
+.map-tools .tool-divider{height:23px;width:1px;background:#426d85;margin:0 2px}
+.speaker-photo-panel{position:absolute;left:10px;top:66px;z-index:8;width:min(255px,calc(100% - 25px));padding:9px;background:#0d2438ef;border:1px solid #44728d;border-radius:10px;box-shadow:0 5px 19px #0008;font-size:.8rem}
+.speaker-photo-panel[hidden],.speaker-photo-image[hidden]{display:none!important}
+.speaker-photo-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:6px}
+.speaker-photo-heading strong{font-size:.83rem}
+.speaker-photo-heading button{padding:3px 7px;font-size:.73rem}
+.speaker-photo-image{display:block;max-height:165px;width:100%;object-fit:contain;border-radius:6px;background:#091b2b}
+.speaker-photo-link{display:block}
+.speaker-photo-name{display:block;margin-top:5px;font-weight:700;overflow-wrap:anywhere}
+.speaker-photo-credit{display:block;color:#a9cadc;font-size:.7rem;overflow-wrap:anywhere}
+.speaker-photo-toggle{position:absolute;left:10px;top:66px;z-index:8;padding:5px 9px;font-size:.78rem}
+.speaker-photo-toggle[hidden]{display:none!important}
+@media(max-width:760px){.speaker-photo-panel,.speaker-photo-toggle{top:112px;left:8px}}
+.map-caption{font-size:.79rem;color:#9cbbd1;padding:9px 13px}
+.map-legend{position:absolute;right:60px;top:12px;z-index:8;width:min(300px,calc(100% - 78px));max-height:calc(100% - 24px);background:#0d2438f2;border:1px solid #44728d;border-radius:9px;box-shadow:0 5px 19px #0008;font-size:.84rem;color:#eaf4fd;pointer-events:auto}
+.map-legend:not([open]){width:min(247px,calc(100% - 78px))}
+.map-legend>summary{display:flex;align-items:center;gap:6px;padding:8px 10px;cursor:pointer;list-style:none;user-select:none;white-space:nowrap}
+.map-legend>summary::-webkit-details-marker,.legend-more>summary::-webkit-details-marker{display:none}
+.map-legend>summary::after{content:"▾";margin-left:auto;color:#7fd8f4;transition:transform .16s ease}
+.map-legend[open]>summary::after{transform:rotate(180deg)}
+.map-legend summary:focus-visible{outline:2px solid #91dffc;outline-offset:-3px;border-radius:7px}
+.legend-heading{font-size:.83rem;font-weight:750}
+.legend-mini-status{font-size:.69rem;color:#acd3e7;font-variant-numeric:tabular-nums}
+.legend-content{padding:3px 10px 11px;max-height:min(65vh,calc(100dvh - 255px));overflow-y:auto;overscroll-behavior:contain;border-top:1px solid #31536a;scrollbar-color:#406d88 transparent;scrollbar-width:thin}
+.legend-content .section-title{color:#82bddd;font-size:.7rem;font-weight:800;letter-spacing:.07em;margin:10px 0 7px;text-transform:uppercase}
+.legend-content .row{margin:7px 0}
+.legend-content .row .muted{max-width:105px}
+.legend-content .muted{font-size:.77rem}
+.track-duration-control{display:flex;align-items:center;gap:8px;margin:5px 0 9px;color:#b7d5e7;font-size:.78rem}
+.track-duration-control label{white-space:nowrap}
+.track-duration-control input[type="range"]{flex:1;min-width:70px;width:auto;height:auto;margin:0;cursor:pointer;accent-color:#39bfea}
+.track-duration-control output{min-width:43px;text-align:right;color:#eaf4fd;font-variant-numeric:tabular-nums}
+.legend-status{padding-top:7px;border-top:1px solid #32556d;margin-top:9px}
+.legend-status p{margin:5px 0}
+.legend-more{border-top:1px solid #31536a;margin-top:9px;padding-top:5px}
+.legend-more>summary{cursor:pointer;list-style:none;color:#9dd9ed;font-size:.79rem;font-weight:700;padding:5px 0}
+.legend-more>summary::before{content:"▸";display:inline-block;margin-right:7px;color:#7fd8f4}
+.legend-more[open]>summary::before{transform:rotate(90deg)}
+.legend-more p{line-height:1.45;margin:7px 0}
+.legend-group{border:1px solid #365a73;border-radius:7px;padding:0;margin:12px 0 9px;background:#0b2033a1}
+.legend-group>summary{padding:9px 8px;color:#d8f0ff;font-size:.78rem;font-weight:800;letter-spacing:.045em;text-transform:uppercase}
+.legend-group>summary::before{content:"▸"}
+.legend-group-body{padding:0 8px 9px;border-top:1px solid #2e4c61}
+.rws-conditions{padding:7px 0 5px}
+.rws-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;color:#d5efff;font-size:.8rem;font-weight:750}
+.rws-heading button{font-size:.73rem;padding:2px 7px}
+.rws-tide-summary,.rws-next-high,.rws-source{font-size:.73rem;color:#bcd7e9;line-height:1.35;margin-top:4px}
+.rws-next-high{color:#f7ca90;font-weight:700}
+.rws-chart{display:block;width:100%;height:101px;margin-top:5px;background:#122d43;border:1px solid #2d5068;border-radius:6px}
+.rws-chart text{font-size:10px;fill:#bcd3e4}
+.rws-legend{display:flex;gap:11px;font-size:.7rem;margin:5px 0 8px;color:#adcbdc}
+.rws-swatch{display:inline-block;width:11px;height:3px;vertical-align:middle;margin-right:4px}
+.rws-wind{display:flex;align-items:center;gap:8px;padding:7px 0 3px;border-top:1px solid #32556d}
+.rws-wind-icon{width:36px;height:36px;flex:none}
+.rws-wind strong{font-size:.77rem}
+.rws-wind-meta{font-size:.69rem;color:#9dbbd0}
+.rws-source{color:#8fb7d0;font-size:.68rem}
+.rws-conditions button:disabled{opacity:.5;cursor:default}
+
+.row{display:flex;justify-content:space-between;gap:9px;align-items:center;margin:10px 0}
+.row label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.row input{accent-color:#39bfea;width:18px;height:18px}
+.row .muted{font-size:.72rem;text-align:right;max-width:106px}
+.count{color:#e3f5ff;font-variant-numeric:tabular-nums;font-weight:700}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.dot.ais{background:#34d5e5}.dot.adsb{background:#ffbd73}
+.muted{color:#a0bfd1;font-size:.85rem}
+#feed-status{font-size:.88rem;min-height:2.5em;color:#b9ddec}
+#map-error{display:none;color:#ffc5af;background:#3b2532;border:1px solid #82505c;border-radius:9px;padding:12px;margin:12px}
+#map-error.visible{display:block}
+.maplibregl-popup-content{background:#0d2a40;color:#eff8ff;border:1px solid #44728c;border-radius:11px;padding:11px 14px;box-shadow:0 7px 25px #0009}
+.maplibregl-popup-close-button{color:#fff;font-size:20px}
+.maplibregl-popup-tip{border-top-color:#0d2a40!important}
+.maplibregl-control-container .maplibregl-ctrl-attrib{color:#263847}
+.popup-title{font-weight:800;margin:0 0 6px;font-size:.97rem}
+.popup-line{font-size:.84rem;margin:4px 0;display:flex;justify-content:space-between;gap:14px;align-items:baseline;border-bottom:1px solid #27445a;padding-bottom:3px}.popup-line strong{font-weight:650;color:#a9cadc;flex-shrink:0}.popup-line span{text-align:right;overflow-wrap:anywhere}.traffic-detail{min-width:210px;max-width:340px;max-height:360px;overflow-y:auto;padding-right:3px}.traffic-detail--aircraft{max-height:min(62vh,520px)}.popup-photo{margin-top:6px;margin-bottom:10px;font-size:.8rem;color:#a9cadc}.popup-photo img{display:block;max-width:100%;width:100%;max-height:180px;object-fit:contain;background:#091b2b;border-radius:7px;margin-bottom:6px}.popup-photo a{color:#8bd8f5;display:block}
+@media(max-width:760px){.map-tools{right:55px;max-width:none;left:8px;top:8px}.map-legend{right:55px;top:86px;width:min(280px,calc(100% - 66px))}.map-legend:not([open]){width:min(245px,calc(100% - 66px))}.legend-content{max-height:min(55dvh,450px)}}
+@media(max-width:550px){.layout{padding:5px}#map{height:calc(100dvh - 50px);min-height:340px}.map-tools button{padding:6px 8px;font-size:.78rem}.map-tools .tool-divider{display:none}.map-caption{padding:6px 9px;font-size:.72rem}}
+</style>
+<script defer src="{{ url_for('static', filename='js/traffic_map_rws.js') }}?v={{ asset_version }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/traffic_map_lab.js') }}?v={{ asset_version }}"></script>
+</head>
+<body>
+<div class="layout">
+  <section class="viewer" aria-label="SDRCC AIS and ADS-B 2D/3D traffic map">
+    <div class="map-stage">
+      <div id="map" aria-label="Map of ships and aircraft"></div>
+      <div class="map-tools" role="group" aria-label="Map controls">
+        <button type="button" id="mode-2d" aria-pressed="true">▣ 2D map</button>
+        <button type="button" id="mode-3d" aria-pressed="false">◩ 3D</button>
+        <span class="tool-divider" aria-hidden="true"></span>
+        <button type="button" id="reset-view">⌖ Reset</button>
+        <button type="button" id="refresh-now">↻ Refresh</button>
+      </div>
+      <aside id="speaker-photo-panel" class="speaker-photo-panel" aria-label="Possible speaker vessel photo">
+        <div class="speaker-photo-heading"><strong>🚢 Possible speaker</strong><button type="button" id="speaker-photo-hide" aria-label="Hide speaker photo">Hide</button></div>
+        <a id="speaker-photo-link" class="speaker-photo-link" target="_blank" rel="noopener noreferrer"><img id="speaker-photo-image" class="speaker-photo-image" alt="" hidden></a>
+        <span id="speaker-photo-name" class="speaker-photo-name">Waiting for validated Marine ATIS…</span>
+        <small id="speaker-photo-credit" class="speaker-photo-credit"></small>
+      </aside>
+      <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" hidden>🚢 Show speaker photo</button>
+      <details id="map-lab-legend" class="map-legend" aria-label="Map layers and legend">
+        <summary><span class="legend-heading">◈ Map dashboard</span><span id="legend-mini-status" class="legend-mini-status">AIS — · ADS-B —</span></summary>
+        <div class="legend-content">
+          <section id="rws-conditions" class="rws-conditions" aria-label="Getij en wind Hoek van Holland">
+            <div class="rws-heading"><span>🌊 Getij &amp; wind · Hoek van Holland</span><button id="rws-refresh" type="button" title="Vernieuw Rijkswaterstaat-data" aria-label="Getij en wind vernieuwen">↻</button></div>
+            <div id="rws-tide-summary" class="rws-tide-summary">Waterstand ophalen…</div>
+            <svg id="rws-tide-chart" class="rws-chart" viewBox="0 0 300 110" role="img" aria-label="Gemeten en astronomische waterstand bij Hoek van Holland"></svg>
+            <div id="rws-next-high" class="rws-next-high">Volgend hoogwater berekenen…</div>
+            <div class="rws-legend"><span><i class="rws-swatch" style="background:#65c5ef"></i>Gemeten</span><span><i class="rws-swatch" style="background:#fbb76a"></i>Astronomisch</span></div>
+            <div class="rws-wind">
+              <svg class="rws-wind-icon" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="16" fill="#0c263b" stroke="#537f99"/><text x="18" y="10" text-anchor="middle" fill="#b6d8ea" font-size="9">N</text><path id="rws-wind-arrow" d="M18 12 L23 25 L18 21 L13 25 Z" fill="#65c5ef" visibility="hidden"/></svg>
+              <div><strong id="rws-wind-value">Windgegevens ophalen…</strong><div id="rws-wind-meta" class="rws-wind-meta">Rijkswaterstaat · meetstation</div></div>
+            </div>
+            <div id="rws-source" class="rws-source" role="status">Rijkswaterstaat-data ophalen…</div>
+          </section>
+          <details id="traffic-layer-settings" class="legend-more legend-group" open>
+            <summary>Live traffic layers</summary>
+            <div class="legend-group-body">
+          <div class="row"><label><input id="layer-ais" type="checkbox" checked><span><i class="dot ais"></i> AIS vessels</span></label><span id="count-ais" class="count">—</span></div>
+          <div class="row"><label><input id="layer-adsb" type="checkbox" checked><span><i class="dot adsb"></i> ADS-B aircraft</span></label><span id="count-adsb" class="count">—</span></div>
+          <div class="row"><label><input id="layer-tracks" type="checkbox"> AIS tracks · all vessels</label><span id="track-status" class="muted">Off</span></div>
+          <div class="track-duration-control"><label for="track-duration">Track length</label><input id="track-duration" type="range" min="1" max="60" step="1" value="15" aria-label="AIS track length in minutes"><output id="track-duration-value" for="track-duration">15 min</output></div>
+          <div class="row"><label><input id="show-names" type="checkbox" checked> Show vessel / aircraft names</label></div>
+          <div class="row"><label><input id="layer-station" type="checkbox" checked><span style="color:#fbbf56">◎</span> My SDRCC station</label><span id="station-status" class="muted">Loading…</span></div>
+          <div class="row"><label><input id="layer-vts" type="checkbox" checked> Rijnmond VTS sectors</label><span id="vts-status" class="muted">Loading…</span></div>
+          <div class="row"><label><input id="layer-emergency" type="checkbox" checked><span style="color:#f2f9ff">◉</span> Emergency vessels</label><span id="emergency-status" class="muted">Loading…</span></div>
+          <div class="row"><label><input id="layer-atis" type="checkbox" checked><span style="color:#37e4a6">◎</span> ATIS / AIS match</label><span id="atis-status" class="muted">Loading…</span></div>
+          <div class="row"><label><input id="atis-auto-focus" type="checkbox"> Auto-center on new ATIS match</label></div>
+          <div class="track-duration-control"><label for="atis-focus-zoom">ATIS zoom</label><input id="atis-focus-zoom" type="range" min="11" max="18" step="1" value="15" aria-label="Zoom level for automatic ATIS centering"><output id="atis-focus-zoom-value" for="atis-focus-zoom">15</output></div>
+          <div class="legend-status">
+            <p id="feed-status" role="status" aria-live="polite">Connecting to SDRCC live data…</p>
+            <p id="feed-detail" class="muted">Loading source and visible-position counts…</p>
+          </div>
+            </div>
+          </details>
+          <details class="legend-more">
+            <summary>Colours &amp; information</summary>
+            <p class="muted">AIS class colours: <span style="color:#1fbf5c">Cargo</span> · <span style="color:#d93a2b">Tanker</span> · <span style="color:#2c4fd0">Passenger</span> · <span style="color:#f2c81a">High speed</span> · <span style="color:#ff86b4">Fishing</span> · <span style="color:#c04ef0">Class B</span>. Orange outline: unverified. Faded: historical AIS position. <i class="dot adsb"></i> Aircraft.</p>
+            <p class="muted">WTG: compact turquoise turbine symbol, sized similarly to platform markers. Fixed AIS aids such as Q13A-A PLATFORM have an amber platform marker even when PLATFORM is at the end of their name. Other offshore installations such as PLATFORM P15 C are recognized with stationary type-99 AIS evidence; a P-number alone is not enough. At close 3D zoom, ordinary Class B pleasure craft have a compact white/blue recreational boat model (with illustrative dimensions only if AIS lacks offsets); MSTX fast water taxis have a low black hull with yellow roof and stripes; KRVE HSC tenders have dark hulls, broad yellow fenders and a pale cabin with amber roof; Rotterdam Port Authority RPA vessels have blue hulls and yellow cabins/stripes; tugs have a wheelhouse and towing winch; police boats have blue/white cabins and a lightbar. All boats keep their ordinary AIS class icon when zoomed out. Tankers have pipes and cargo ships have hatch covers. Deck details are illustrative. Verified RPA 6/10/11/12/16 can use vessel-specific published dimensions (not AIS antenna offsets) if AIS measurements are missing; the popup marks approximations. Other RPA numbers retain the same 3D model when AIS hull dimensions are provided.</p>
+            <p class="muted">Tracks: switch on to display received AIS-Catcher routes for all vessels currently on the map. Adjust the history from 1 to 60 minutes (default 15); the setting is remembered. No estimated positions or fixed offshore-structure tracks; availability depends on AIS-Catcher's retained history.</p>
+            <p class="muted"><strong>ADS-B altitude colours (feet):</strong> <span style="color:#3bd66f">● &lt;2,000</span> · <span style="color:#b8e15a">● 2–5k</span> · <span style="color:#ffd45a">● 5–10k</span> · <span style="color:#ff9650">● 10–20k</span> · <span style="color:#e47bd7">● 20–30k</span> · <span style="color:#ae88ff">● 30k+</span> · <span style="color:#aebdcc">● unknown</span>. Helicopters use a rotorcraft icon. AIS class-10 helicopters, like PILOT SERVICES SV, have their own orange helicopter symbol and are never drawn as ships. Credited ADS-B aircraft photos are requested on click only.</p>
+            <p class="muted">White rings: KNRM; blue rings: Water police; green rings: the last verified ATIS/AIS match (live for 30 seconds, then retained on this page). These indicators never control the SDR. Enable ATIS auto-center to move the camera once per new match; choose zoom 11–18. Manual map control remains available.</p>
+            <p class="muted">Read-only positions from AIS-Catcher and readsb. VTS polygons come from the installed Rijnmond sector layer. Map Lab never starts or claims SDR receivers.</p>
+          </details>
+        </div>
+      </details>
+    </div>
+    <div id="map-error" role="alert"></div>
+    <div class="map-caption">Live AIS/ADS-B from your receivers · zoom in for scaled vessel hulls · old AIS positions are faded · open the map legend for layers and explanations.</div>
+  </section>
+</div>
+</body>
+</html>

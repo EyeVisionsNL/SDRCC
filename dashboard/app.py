@@ -48,6 +48,11 @@ from core import receiver_runtime as receiver_runtime_core
 from core import receiver_inventory as receiver_inventory_core
 from core import receiver_contexts as receiver_contexts_core
 from core import receiver_monitor
+from core import traffic_map as traffic_map_core
+from core import traffic_map_highlights
+from core import traffic_map_sectors
+from core import traffic_map_rws
+from core import traffic_map_aircraft_photo
 from core import emergency_monitor
 from core import state
 from core import tle
@@ -2597,6 +2602,66 @@ def start_mission_autopilot():
 @app.route("/")
 def index():
     return render_template("index.html", features=get_features(), asset_version=update_manager.installed_version())
+
+
+@app.route("/map-lab")
+def traffic_map_lab():
+    """Standalone, read-only ADS-B/AIS 2D/3D preview."""
+    return render_template("traffic_map_lab.html", asset_version=update_manager.installed_version())
+
+
+@app.route("/api/map-lab/traffic")
+def api_traffic_map_lab():
+    """Read live positions only; never operate receiver hardware."""
+    return jsonify(traffic_map_core.snapshot())
+
+@app.route("/api/map-lab/ais-tracks")
+def api_traffic_map_all_ais_tracks():
+    """Read-only AIS-Catcher paths, clipped to a bounded 1–60 minute interval."""
+    try:
+        minutes = int(request.args.get("minutes", "15"))
+    except (TypeError, ValueError):
+        minutes = 15
+    return jsonify(traffic_map_core.all_tracks_snapshot(minutes=max(1, min(60, minutes))))
+
+
+@app.route("/api/map-lab/ais-track/<mmsi>")
+def api_traffic_map_ais_track(mmsi):
+    """Selected AIS-Catcher native track; read-only and loopback only."""
+    result = traffic_map_core.track_snapshot(mmsi)
+    return jsonify(result), (200 if result["ok"] else 400)
+
+
+@app.route("/api/map-lab/highlights")
+def api_traffic_map_highlights():
+    """Read-only emergency vessel and validated ATIS-AIS indicators."""
+    return jsonify(traffic_map_highlights.snapshot())
+
+@app.route("/api/map-lab/vts-sectors")
+def api_traffic_map_vts_sectors():
+    """Optional read-only local Rijnmond sector overlay from AIS-Catcher plugin."""
+    return jsonify(traffic_map_sectors.snapshot())
+
+@app.route("/api/map-lab/rws/<kind>", methods=["GET"])
+def api_traffic_map_rws(kind):
+    """Same-origin, read-only RWS WaterWebservices measurements.
+
+    Only four predefined official observations are permitted; the browser
+    cannot choose an upstream URL, station, process or time range.
+    """
+    if kind not in traffic_map_rws.KINDS:
+        return jsonify({"ok": False, "error": "unsupported_measurement"}), 404
+    result = traffic_map_rws.fetch(kind)
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response, (200 if result["ok"] else 503)
+
+
+@app.route("/api/map-lab/aircraft-photo/<hex_id>")
+def api_traffic_map_aircraft_photo(hex_id):
+    """Optional on-click photo lookup; bounded ICAO hex and trusted source URLs."""
+    return jsonify(traffic_map_aircraft_photo.lookup(
+        hex_id, request.args.get("reg", ""), request.args.get("icaoType", "")))
 
 
 @app.route("/api/mobile/capabilities")

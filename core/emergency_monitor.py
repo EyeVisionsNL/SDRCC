@@ -31,7 +31,7 @@ _presence: dict[str, int] = {}
 _announced: set[str] = set()
 AIS_REPEAT_SECONDS = 5 * 60  # Per MMSI: repeat moving, freshly observed vessels.
 ADSB_REPEAT_SECONDS = 5 * 60  # Per ICAO hex: repeat moving, freshly observed aircraft.
-_map_recent: dict[str, dict[str, Any]] = {}  # Five-minute moving AIS highlights; RAM only.
+_map_recent: dict[str, dict[str, Any]] = {}  # Five-minute qualified AIS highlights; RAM only.
 _mqtt_client: Any = None
 _mqtt_ha_active = False
 _DEFAULT = {
@@ -193,6 +193,9 @@ def save(payload: Any) -> dict:
     data = validate(payload)
     with _lock:
         _atomic(SETTINGS_FILE, data, private=True)
+        if previous["motion_only"] != data["motion_only"]:
+            # Discard targets admitted under the previous movement filter.
+            _map_recent.clear()
     # Radius, speed and identity changes are applied by the next poll. Do not
     # restart a live worker or erase its ADS-B/AIS statuses for ordinary saves.
     # Only an enable/disable transition or MQTT connection change needs a restart.
@@ -424,12 +427,12 @@ def _poll_positions(data: dict) -> None:
 
 
 def map_highlights() -> dict:
-    """Read-only moving KNRM/waterpolitie targets for the AIS-Catcher map plugin.
+    """Read-only KNRM/waterpolitie targets for the AIS-Catcher and 2D/3D maps.
 
-    A target is added only after a fresh, validated AIS observation reporting at
-    least two knots, within the category's detection radius. Last moving position
-    remains visible for at most 300 seconds after it stops reporting movement.
-    Never changes receivers, AISCatcher map view or P2000 ownership.
+    Fresh, validated AIS positions within the configured category radius qualify.
+    Apply Emergency Monitor motion_only: when disabled, stationary vessels and
+    unknown speeds also qualify. Last qualifying positions linger for up to
+    300 seconds without another observation. No receiver or map ownership changes.
     """
     now = time.monotonic()
     data = settings()
@@ -459,18 +462,19 @@ def map_highlights() -> dict:
                     continue
                 if distance_km(latitude, longitude, lat, lon) > radius_for_category(data, category):
                     continue
-                if not moving_enough("ais", speed_knots("ais", item)):
+                speed = speed_knots("ais", item)
+                if data.get("motion_only", False) and not moving_enough("ais", speed):
                     continue
                 mmsi = str(item["mmsi"]).replace(".0", "")
                 _map_recent[mmsi] = {
                     "mmsi": mmsi, "category": category,
                     "latitude": lat, "longitude": lon,
-                    "speed_knots": round(speed_knots("ais", item), 1),
-                    "last_moving": now,
+                    "speed_knots": round(speed, 1) if speed is not None else None,
+                    "last_qualifying": now,
                 }
             result = []
             for mmsi, item in list(_map_recent.items()):
-                if (now - item["last_moving"] > 300 or
+                if (now - item["last_qualifying"] > 300 or
                         not data["categories"].get(item["category"]) or
                         distance_km(latitude, longitude, item["latitude"], item["longitude"])
                         > radius_for_category(data, item["category"]) or
@@ -481,7 +485,7 @@ def map_highlights() -> dict:
                     "mmsi": mmsi, "category": item["category"],
                     "latitude": item["latitude"], "longitude": item["longitude"],
                     "speed_knots": item["speed_knots"],
-                    "remaining_seconds": max(0, int(300 - (now - item["last_moving"]))),
+                    "remaining_seconds": max(0, int(300 - (now - item["last_qualifying"]))),
                 })
             return {"ok": True, "vessels": result[:80], "linger_seconds": 300}
         except Exception:

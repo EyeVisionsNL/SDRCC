@@ -15,8 +15,24 @@ on:
       - 'core/satellite_view.py'
       - 'dashboard/static/js/home_position.js'
       - 'dashboard/templates/index.html'
+      - 'dashboard/templates/traffic_map_lab.html'
+      - 'dashboard/static/js/traffic_map_lab.js'
+      - 'dashboard/app.py'
+      - 'core/traffic_map.py'
+      - 'core/traffic_map_highlights.py'
+      - 'scripts/test_traffic_map_highlights.py'
+      - 'core/traffic_map_sectors.py'
+      - 'scripts/test_traffic_map_sectors.py'
+      - 'core/traffic_map_aircraft_photo.py'
+      - 'scripts/test_traffic_map_aircraft_photo.py'
+      - 'scripts/test_traffic_map.py'
+      - 'scripts/validate_map_lab_boot.cjs'
+      - 'scripts/validate_map_lab_symbols.cjs'
       - 'scripts/validate_installer_step1.py'
       - 'scripts/install/update_manifest.json'
+      - 'scripts/install/check_update.py'
+      - 'scripts/validate_update_manifest_scope.py'
+      - 'scripts/validate_update_06719_compat.py'
       - 'dashboard/static/js/update_manager.js'
       - 'scripts/validate_update_channel_failure.cjs'
       - 'VERSION'
@@ -36,7 +52,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install offline test requirements
-        run: python -m pip install --disable-pip-version-check PyYAML
+        run: python -m pip install --disable-pip-version-check PyYAML numpy
       - name: Test the deferred Home Position and AIS wizard launch path
         run: python scripts/validate_installer_step1.py
       - name: Test AIS Verify without serial and installer UI
@@ -45,8 +61,22 @@ jobs:
           python -m unittest discover -s scripts/install -p 'test_gui_installer.py'
       - name: Test update failures when switching beta to stable
         run: node scripts/validate_update_channel_failure.cjs
+      - name: Test read-only AIS/ADS-B map normalization
+        run: python -m unittest scripts.test_traffic_map scripts.test_traffic_map_aircraft_photo scripts.test_traffic_map_sectors scripts.test_traffic_map_highlights
+      - name: Validate Emergency Monitor motion filters and map highlights
+        run: python scripts/validate_emergency_monitor_v0675.py
+      - name: Validate Map Lab JavaScript
+        run: node --check dashboard/static/js/traffic_map_lab.js
+      - name: Check MapLibre 6 map boot and error handling
+        run: node scripts/validate_map_lab_boot.cjs
+      - name: Check traffic icon sprites, headings and 3D MapLibre layers
+        run: node scripts/validate_map_lab_symbols.cjs
       - name: Validate Home Position browser script
         run: node --check dashboard/static/js/home_position.js
+      - name: Verify CI-only files never enter SDRCC update manifest
+        run: python scripts/validate_update_manifest_scope.py
+      - name: Verify v0.67.19 upgrade and genuine local modifications
+        run: python scripts/validate_update_06719_compat.py
       - name: Verify source hashes in update manifest
         run: |
           python - <<'PY'

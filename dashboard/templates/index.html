@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/static/css/runtime_diagnostics.css?v=0.54.0g">
     <link rel="stylesheet" href="/static/css/history.css?v=0.56.0x-r9">
     <link rel="stylesheet" href="/static/css/mission_sounds.css?v=0.68.0">
-    <link rel="stylesheet" href="/static/css/radio_view.css?v=0.54.0i">
+    <link rel="stylesheet" href="/static/css/radio_view.css?v=0.68.44">
     <link rel="stylesheet" href="/static/css/mission_planner.css?v=0.65.1">
     <link rel="stylesheet" href="/static/css/mission_analytics.css?v=0.54.0k-r1">
     <link rel="stylesheet" href="/static/css/mission_control_v034.css?v=0.54.0e">
@@ -34,7 +34,7 @@
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.65.25">
     <link rel="stylesheet" href="/static/css/banner_scenes.css?v=0.64.21">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.67.14-rensen1">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.68.52">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
     <link rel="stylesheet" href="/static/css/dashboard_polish.css?v=0.65.8">
     <link rel="stylesheet" href="/static/css/emergency_monitor.css?v=0.67.25">
@@ -688,6 +688,7 @@
             <h2>🌐 Radio View</h2>
             <p class="muted">Live overview of aviation, maritime traffic and satellite reception.</p>
         </div>
+        <a href="/map-lab" class="radio-view-open-button radio-view-map-link" target="_blank" rel="noopener noreferrer">🌐 2D/3D Map ↗</a>
         <span id="radio-view-status" class="radio-view-status">Live overview</span>
     </section>
 
@@ -916,6 +917,7 @@
                 <span id="traffic-voice-audio-detail">Waiting for Voice.</span>
                 <audio id="traffic-voice-audio" preload="none"></audio>
             </div>
+            <div id="traffic-voice-marine-history" class="traffic-voice-marine-history" hidden>
             <section id="traffic-voice-recordings" class="traffic-voice-recordings" aria-label="Recent Marine transmissions" hidden>
                 <div class="traffic-voice-recordings-heading">
                     <div>
@@ -928,6 +930,15 @@
                 <div id="traffic-voice-recordings-list" class="traffic-voice-recordings-list" role="list"></div>
                 <audio id="traffic-voice-replay-audio" class="traffic-voice-replay-audio" preload="none"></audio>
             </section>
+              <section class="traffic-voice-speaker-history" aria-label="Latest four possible speakers">
+                <div class="traffic-voice-recordings-heading">
+                  <div><span>MARINE ATIS · AIS</span><h3>🚢 Recent possible speakers</h3></div>
+                  <small>Last 4 matched vessels</small>
+                </div>
+                <p id="traffic-voice-speaker-history-status" class="traffic-voice-recordings-status">Waiting for validated Marine ATIS.</p>
+                <div id="traffic-voice-speaker-history-list" class="traffic-voice-speaker-history-list" role="list"></div>
+              </section>
+            </div>
             <div class="traffic-voice-signal-metrics">
                 <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🔊</span>Audio</span><strong id="traffic-voice-audio-state">WAITING</strong></div>
                 <div><span><span class="sdrcc-inline-icon" aria-hidden="true">🎚️</span>Tuning</span><strong id="traffic-voice-tuning-state">SCAN</strong></div>
@@ -939,6 +950,7 @@
                     <strong id="traffic-voice-possible-speaker">NOT INFERRED</strong>
                     <small id="traffic-voice-ais-match-detail">Waiting for validated Marine ATIS.</small>
                     <div class="traffic-voice-map-actions">
+                        <a href="/map-lab" class="traffic-voice-map-button" target="_blank" rel="noopener noreferrer" title="Open the live 2D/3D map">🌐 2D/3D Map ↗</a>
                         <button id="traffic-voice-show-ais-vessel" type="button" class="traffic-voice-map-button" hidden>Show on full AIS map ↗</button>
                         <label class="traffic-voice-ais-zoom">Zoom
                             <input id="traffic-voice-ais-zoom" type="number" min="3" max="18" step="1" value="14" aria-label="AIS map zoom level">
@@ -1636,7 +1648,7 @@
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.67.8"></script>
 <script src="/static/js/mission_planner.js?v=0.65.1"></script>
-<script src="/static/js/traffic_voice.js?v=0.67.14-rensen1"></script>
+<script src="/static/js/traffic_voice.js?v=0.68.58"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>

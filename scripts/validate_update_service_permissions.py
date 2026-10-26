@@ -63,7 +63,8 @@ for permitted, flags in itertools.product((False, True), itertools.product((Fals
                   UPDATE_SERVICE_STATE_FILE=project/'data/state/update_service_state.json',
                   AIS_CONTROL_SERVICE=services[2], run_command=run, service_state=state,
                   wait_for_service=lambda s, wanted, timeout: states[s] == wanted,
-                  write_log=lambda msg: None, _update_receiver_runtime_active=lambda: False,
+                  write_log=lambda msg: None, reconcile_idle_autopilot_runtime=lambda: False,
+                  _update_receiver_runtime_blockers=lambda: [],
                   hf_monitor_controller=SimpleNamespace(get_session=lambda: None),
                   traffic_voice_controller=SimpleNamespace(VOICE_SERVICE='sdrcc-traffic-voice.service', SESSION_FILE=None),
                   receiver_manager=SimpleNamespace(cancel_service_recovery=lambda p: None, binding_status=lambda: {}, get_status=lambda: {}),
@@ -82,7 +83,7 @@ for permitted, flags in itertools.product((False, True), itertools.product((Fals
         assert restored['ok'] and not plan_path.exists()
         assert all((states[s] == 'active') == initial[s] for s in services)
         before = list(calls)
-        ns['_update_receiver_runtime_active'] = lambda: True
+        ns['_update_receiver_runtime_blockers'] = lambda: ['active mission']
         assert not ns['_prepare_receiver_work_for_update']()['ok']
         assert calls == before
 print('PASS: 16 legacy/current permission and service-state cases; exact stop/restore; active missions blocked')

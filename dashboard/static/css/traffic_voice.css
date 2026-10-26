@@ -1063,3 +1063,17 @@
     background: #fff url("https://quem.nl/wp-content/uploads/2021/12/RensenDriessen-Logo-1.jpg") center / 175% auto no-repeat;
     box-shadow: 0 1px 6px rgba(0, 0, 0, .35);
 }
+
+/* Radio View: marine-only history beside recent transmissions. */
+.traffic-voice-marine-history{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(290px,1fr);gap:10px;margin-top:10px;align-items:stretch}
+.traffic-voice-marine-history[hidden]{display:none!important}
+.traffic-voice-marine-history .traffic-voice-recordings{margin-top:0;min-width:0}
+.traffic-voice-speaker-history{min-width:0;padding:12px;background:#0a1626;border:1px solid rgba(34,211,238,.28);border-radius:9px}
+.traffic-voice-speaker-history-list{display:grid;gap:6px}
+.traffic-voice-speaker-history-item{display:flex;gap:9px;align-items:center;padding:6px 8px;border:1px solid #26364b;background:#07111f;border-radius:7px;min-height:58px}
+.traffic-voice-speaker-history-item img{width:70px;height:47px;object-fit:contain;border-radius:5px;background:#0b2335;flex:none}
+.traffic-voice-speaker-history-item strong,.traffic-voice-speaker-history-item small{display:block;overflow-wrap:anywhere}
+.traffic-voice-speaker-history-item strong{font-size:.78rem;color:#dbeafe}
+.traffic-voice-speaker-history-item small{font-size:.68rem;color:#8fa7c5}
+.traffic-voice-speaker-history-item a{color:#87d7ee;text-decoration:none}
+@media(max-width:850px){.traffic-voice-marine-history{grid-template-columns:minmax(0,1fr)}}

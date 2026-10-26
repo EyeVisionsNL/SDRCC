@@ -401,3 +401,10 @@
         bottom: 127px;
     }
 }
+
+/* Compact Radio View heading: title left, map action centered, state right. */
+#tab-radio-view .radio-view-header {display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;margin-bottom:10px;padding-top:10px;padding-bottom:10px}
+#tab-radio-view .radio-view-header > div p{margin:2px 0 0}
+#tab-radio-view .radio-view-map-link{justify-self:center;margin:0;white-space:nowrap}
+#tab-radio-view #radio-view-status{justify-self:end}
+@media(max-width:720px){#tab-radio-view .radio-view-header{grid-template-columns:minmax(0,1fr) auto;gap:8px}#tab-radio-view .radio-view-map-link{grid-column:1/-1;grid-row:2;justify-self:center}#tab-radio-view #radio-view-status{grid-column:2;grid-row:1}}

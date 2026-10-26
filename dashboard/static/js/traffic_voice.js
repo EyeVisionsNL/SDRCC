@@ -708,14 +708,80 @@
         }
     }
 
+    const recentPossibleSpeakers = [];
+    const speakerHistorySeen = new Map();
+    function renderPossibleSpeakerHistory() {
+        const list=byId("traffic-voice-speaker-history-list");
+        if(!list)return;
+        list.replaceChildren();
+        text("traffic-voice-speaker-history-status",recentPossibleSpeakers.length
+            ? "Most recent distinct validated ATIS/AIS matches."
+            : "Waiting for validated Marine ATIS.");
+        for(const speaker of recentPossibleSpeakers){
+            const row=document.createElement("div");
+            row.className="traffic-voice-speaker-history-item";
+            row.setAttribute("role","listitem");
+            const picture=document.createElement("img");
+            picture.alt="";picture.hidden=!speaker.image;
+            if(speaker.image)picture.src=speaker.image;
+            const info=document.createElement("div");
+            const name=document.createElement("strong");
+            name.textContent=speaker.name||("MMSI "+speaker.mmsi);
+            const details=document.createElement("small");
+            details.textContent="MMSI "+speaker.mmsi+" · "+speaker.time;
+            const credit=document.createElement("small");
+            credit.textContent=speaker.credit||"";
+            info.append(name,details,credit);
+            row.append(picture,info);
+            list.appendChild(row);
+        }
+    }
+    async function addPossibleSpeakerHistory(payload){
+        const match=payload.ais_match||{};
+        if(payload.selected_mode!=="marine_ais" || !payload.service?.active
+                || !match.matched || !/^\d{9}$/.test(String(match.mmsi||"")))return;
+        const mmsi=String(match.mmsi);
+        const identity=String(payload.atis?.atis_code||payload.atis?.code||"")
+            +"|"+mmsi;
+        // A repeated poll is not another reception. Keep a short-lived guard
+        // so the same continuous ATIS match does not flood the history.
+        const now=Date.now();
+        if(now-(speakerHistorySeen.get(identity)||0)<30000)return;
+        speakerHistorySeen.set(identity,now);
+        if(speakerHistorySeen.size>60)for(const [key,time] of speakerHistorySeen)
+            if(now-time>3600000)speakerHistorySeen.delete(key);
+        const speaker={mmsi,name:String(match.shipname||match.callsign||""),
+            time:new Date().toLocaleTimeString(),image:"",credit:""};
+        const prior=recentPossibleSpeakers.findIndex(entry=>entry.mmsi===mmsi);
+        if(prior!==-1)recentPossibleSpeakers.splice(prior,1);
+        recentPossibleSpeakers.unshift(speaker);
+        if(recentPossibleSpeakers.length>4)recentPossibleSpeakers.length=4;
+        renderPossibleSpeakerHistory();
+        try{
+            const url="/api/traffic-voice/vessel-photo?mmsi="+encodeURIComponent(mmsi)
+                +"&shipname="+encodeURIComponent(speaker.name)
+                +"&imo="+encodeURIComponent(String(match.imo||""))
+                +"&eni="+encodeURIComponent(String(match.eni||""));
+            const response=await fetch(url,{cache:"no-store"});
+            const data=await response.json();
+            if(!response.ok||!data.ok||!data.image_url)return;
+            if(!recentPossibleSpeakers.includes(speaker))return;
+            speaker.image=data.image_url;
+            // Show the photographer, not the photo provider, in this compact list.
+            speaker.credit=String(data.artist||"").trim();
+            renderPossibleSpeakerHistory();
+        }catch(_){/* No photo is not an error for matching history. */}
+    }
     function renderMarineRecordings(payload) {
         const section = byId("traffic-voice-recordings");
         const list = byId("traffic-voice-recordings-list");
         const status = byId("traffic-voice-recordings-status");
         if (!section || !list) return;
         const marineSelected = payload.selected_mode === "marine_ais";
-        section.hidden = !marineSelected;
-        if (!marineSelected) return;
+        const history=byId("traffic-voice-marine-history");
+        if(history)history.hidden=!marineSelected || !payload.service?.active;
+        section.hidden=!marineSelected || !payload.service?.active;
+        if(!marineSelected || !payload.service?.active)return;
 
         const audioState = payload.audio || {};
         const recordings = Array.isArray(audioState.marine_recordings)
@@ -950,6 +1016,7 @@
         );
         text("traffic-voice-possible-speaker", payload.possible_speaker || "NOT INFERRED");
         renderAisMatch(payload);
+        void addPossibleSpeakerHistory(payload);
 
         const assignmentValid = Boolean(assignment.separated && assignment.matches_policy);
         if (assignmentBadge) {
