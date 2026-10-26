@@ -103,10 +103,12 @@ const document = {
 };
 let instance;
 let lastPopup;
+const openPopups = new Set();
 class FakePopup {
     setLngLat(value) {this.position = value; return this;}
     setDOMContent(element) {this.element = element; return this;}
-    addTo() {lastPopup = this; return this;}
+    addTo() {lastPopup = this; openPopups.add(this); return this;}
+    remove() {openPopups.delete(this); this.wasRemoved = true; return this;}
 }
 class FakeMap {
     constructor() {
@@ -631,6 +633,39 @@ class FakeMap {
     assert(colors.includes("#17232b"), "light nameplates use dark text for contrast");
     assert.equal(boats[0].properties.label_name, "Known ship");
     assert(instance.callbacks["click:sdrcc-ais-hull-fill"], "hull must be selectable");
+
+    // A single native mouse click on a 3D ship also hits its extruded deck
+    // and possibly its symbol label. MapLibre dispatches to each registered
+    // layer callback: there must be exactly one popup, not two or three.
+    const sameClick = {button: 0, type: "click"};
+    instance.callbacks["click:sdrcc-ais-hull-3d"]({
+        features: [polygons[0]], originalEvent: sameClick,
+    });
+    const firstShipPopup = lastPopup;
+    assert.equal(openPopups.size, 1, "first hull click opens one popup");
+    instance.callbacks["click:sdrcc-ais-hull-decks"]({
+        features: [decks[0]], originalEvent: sameClick,
+    });
+    instance.callbacks["click:sdrcc-ais-labels"]({
+        features: [boats[0]], originalEvent: sameClick,
+    });
+    assert.strictEqual(lastPopup, firstShipPopup,
+        "overlapping 3D hull, deck and label must not create another popup");
+    assert.equal(openPopups.size, 1, "same click must show only one popup");
+
+    // A separate click replaces the old card. It must not be discarded
+    // merely because it hits the same vessel/layer.
+    instance.callbacks["click:sdrcc-ais-hull-3d"]({
+        features: [polygons[0]], originalEvent: {button: 0, type: "click"},
+    });
+    assert.notStrictEqual(lastPopup, firstShipPopup,
+        "a new native click must still open a new popup");
+    assert.equal(openPopups.size, 1, "next click replaces previous popup");
+    assert(firstShipPopup.wasRemoved, "previous popup must be removed");
+    // Synthetic/test clicks without originalEvent must also be safe.
+    instance.callbacks["click:sdrcc-ais-hull-3d"]({features: [polygons[0]]});
+    assert.equal(openPopups.size, 1,
+        "legacy popup event without originalEvent still keeps one card");
 
     assert.equal(node("count-ais").textContent, 22);
     assert.equal(node("count-adsb").textContent, 3);
