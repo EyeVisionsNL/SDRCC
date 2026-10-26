@@ -198,9 +198,15 @@
         12.5,1.6,14,2.1,16,3.2,18,5];
     // Extra clearance scales with both zoom and reported vessel length.
     // Labels that cannot fit beside a vessel yield to collision detection.
-    const AIS_NAME_3D_OFFSET = ["+",["interpolate",["linear"],["zoom"],
-        12.5,1.6,14,2.5,15,5,16,7.5,17,12,18,18],
-        ["*",["min",200,["max",0,["coalesce",["get","length_m"],0]]],.025]];
+    const AIS_NAME_LENGTH_CLEARANCE = ["*",.025,
+        ["min",200,["max",0,["coalesce",["get","length_m"],0]]]];
+    const AIS_NAME_3D_OFFSET = ["interpolate",["linear"],["zoom"],
+        12.5,1.6,
+        14,["+",2.5,AIS_NAME_LENGTH_CLEARANCE],
+        15,["+",5,AIS_NAME_LENGTH_CLEARANCE],
+        16,["+",7.5,AIS_NAME_LENGTH_CLEARANCE],
+        17,["+",12,AIS_NAME_LENGTH_CLEARANCE],
+        18,["+",18,AIS_NAME_LENGTH_CLEARANCE]];
     const AIS_NAME_2D_TEXT_COLOR = ["match",["get","shipclass"],
         0,"#072331",1,"#072331",2,"#0c281c",
         7,"#17232b",8,"#17232b",9,"#17232b",10,"#17232b",
