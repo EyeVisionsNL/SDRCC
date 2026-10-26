@@ -187,6 +187,7 @@
     // In a harbour we want geographic-scale hulls, not a fixed pixel-length emoji.
     const HULL_MIN_ZOOM = 14;
     const AIS_NAME_MIN_ZOOM = 12.5;
+    const AIS_NAME_3D_SWITCH_ZOOM = 16;
     // In 3D, an AIS nameplate placed on the antenna position can cover the
     // wheelhouse. At harbour zoom use offset side labels without the coloured
     // plate; preserve the original plate and positioning when back in 2D.
@@ -1197,6 +1198,29 @@
                 "line-opacity":.7},
         });
     }
+    // Only after zoom 15 (from zoom 16) replace the normal coloured AIS
+    // nameplate with text beside the 3D hull. Keep all label placement,
+    // colours and the original plate untouched at zoom 15 and below.
+    let aisNameClose3d = null;
+    function updateAisNamePresentation() {
+        if (!loaded || !map.getLayer("sdrcc-ais-labels")) return;
+        const close3d = mode3d && map.getZoom() >= AIS_NAME_3D_SWITCH_ZOOM;
+        if (aisNameClose3d === close3d) return;
+        aisNameClose3d = close3d;
+        const nameLayer = "sdrcc-ais-labels";
+        map.setLayoutProperty(nameLayer,"icon-image",
+            close3d ? "" : AIS_NAME_PLATE_IMAGE);
+        map.setLayoutProperty(nameLayer,"text-variable-anchor",
+            close3d ? AIS_NAME_3D_ANCHORS : AIS_NAME_2D_ANCHORS);
+        map.setLayoutProperty(nameLayer,"text-radial-offset",
+            close3d ? AIS_NAME_3D_OFFSET : AIS_NAME_2D_OFFSET);
+        map.setPaintProperty(nameLayer,"text-color",
+            close3d ? classColorExpression : AIS_NAME_2D_TEXT_COLOR);
+        map.setPaintProperty(nameLayer,"text-halo-color",
+            close3d ? "#102436" : "rgba(10,21,30,0.12)");
+        map.setPaintProperty(nameLayer,"text-halo-width",
+            close3d ? 1.65 : .4);
+    }
     function setLayerVisibility(kind, visible) {
         if (!loaded) return;
         for (const suffix of kind === "ais"
@@ -1224,24 +1248,7 @@
                 mode3d ? ["interpolate",["linear"],["zoom"],
                     AIRCRAFT_ICON_FADE_START,1,AIRCRAFT_ICON_FADE_END,0] : 1);
         if (kind === "ais") {
-            const nameLayer = "sdrcc-ais-labels";
-            if (map.getLayer(nameLayer)) {
-                map.setLayoutProperty(nameLayer,"icon-image",
-                    mode3d ? ["step",["zoom"],AIS_NAME_PLATE_IMAGE,15,""]
-                        : AIS_NAME_PLATE_IMAGE);
-                map.setLayoutProperty(nameLayer,"text-variable-anchor",
-                    mode3d ? AIS_NAME_3D_ANCHORS : AIS_NAME_2D_ANCHORS);
-                map.setLayoutProperty(nameLayer,"text-radial-offset",
-                    mode3d ? AIS_NAME_3D_OFFSET : AIS_NAME_2D_OFFSET);
-                map.setPaintProperty(nameLayer,"text-color",
-                    mode3d ? ["step",["zoom"],AIS_NAME_2D_TEXT_COLOR,15,
-                        classColorExpression] : AIS_NAME_2D_TEXT_COLOR);
-                map.setPaintProperty(nameLayer,"text-halo-color",
-                    mode3d ? ["step",["zoom"],"rgba(10,21,30,0.12)",15,
-                        "#102436"] : "rgba(10,21,30,0.12)");
-                map.setPaintProperty(nameLayer,"text-halo-width",
-                    mode3d ? ["step",["zoom"],.4,15,1.65] : .4);
-            }
+            updateAisNamePresentation();
             if (map.getLayer("sdrcc-offshore-3d-structures"))
                 map.setLayoutProperty("sdrcc-offshore-3d-structures","visibility",
                     visible && mode3d ? "visible" : "none");
@@ -2350,6 +2357,11 @@
         setAlertVisibility();
         setMode(mode3d);
         void refresh();
+    });
+    // Zoom changes the label style only when crossing the close-up
+    // threshold, never on every frame; 2D always keeps normal nameplates.
+    map.on("zoom", () => {
+        if (loaded && mode3d) updateAisNamePresentation();
     });
     map.on("error", event => {
         const reason = event.error && event.error.message || "";
