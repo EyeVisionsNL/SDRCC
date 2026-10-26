@@ -1059,8 +1059,8 @@ class TrafficMapTests(unittest.TestCase):
             "const AIRCRAFT_3D_MIN_ZOOM = 15;",
             "const AIRCRAFT_3D_PLANE_BASE_M = 62;",
             "const AIRCRAFT_3D_HELI_BASE_M = 52;",
-            "const AIRCRAFT_ICON_FADE_START = 15.6;",
-            "const AIRCRAFT_ICON_FADE_END = 16.6;",
+            "const AIRCRAFT_3D_PLANE_SCALE = 2.4;",
+            "const AIRCRAFT_3D_HELI_SCALE = 1.6;",
             "base_height_m:visualBase+base",
             "top_height_m:visualBase+height",
             "minzoom:AIRCRAFT_3D_MIN_ZOOM",
@@ -1068,15 +1068,24 @@ class TrafficMapTests(unittest.TestCase):
             '"plane-wing","#ff812b"',
             '"heli-body","#ff942e"',
             '"heli-rotor","#ffe66d"',
-            "AIRCRAFT_ICON_FADE_START,1,AIRCRAFT_ICON_FADE_END,0",
+            'mode3d ? ["step",["zoom"],1,AIRCRAFT_3D_MIN_ZOOM,0] : 1',
+            'AIRCRAFT_3D_MIN_ZOOM,""] : ["get","icon_name"]',
+            'AIRCRAFT_3D_MIN_ZOOM,',
+            '["get","air_3d"]],0,defaultOpacity]',
+            '"plane-body",0,4.3',
+            '"heli-body",0,4.1',
             "Aircraft raised for visibility; height is illustrative",
         ):
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, js)
-        # ADS-B 2D sprites remain enabled when switching back to 2D.
-        self.assertIn("AIRCRAFT_ICON_FADE_END,0] : 1", js)
-        # The AIS helicopter sprite must not disappear at zoom 14.
-        self.assertIn('["get","air_3d"],defaultOpacity', js)
+        # There is no fade overlap: both ADS-B icon layers switch at the
+        # same zoom where the 3D model starts. In 2D they stay visible.
+        self.assertNotIn("AIRCRAFT_ICON_FADE_START", js)
+        self.assertNotIn("AIRCRAFT_ICON_FADE_END", js)
+        # AIS aircraft icons remain visible between zoom 14 and 15, then
+        # switch fully to 3D; do not treat regular ships as aircraft.
+        self.assertIn('["case",["get","is_offshore_structure"],0,defaultOpacity]', js)
+        self.assertIn('["get","air_3d"]],0,defaultOpacity]', js)
 
     def test_aircraft_helicopter_detection_is_from_metadata(self):
         rows = traffic_map.aircraft({"aircraft": [
