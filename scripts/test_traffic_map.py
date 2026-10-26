@@ -800,7 +800,7 @@ class TrafficMapTests(unittest.TestCase):
             ("MSTX 12",3,37,"watertaxi"),
             ("KRVE 65",3,36,"vessel"),
             ("RPA 12",3,37,"port_authority"),
-            ("MY BOAT",3,60,"vessel"),
+            ("MY BOAT",3,60,"passenger"),
             ("MY BOAT",2,37,"cargo"),
             ("P15",12,37,"offshore_platform"),
         ]

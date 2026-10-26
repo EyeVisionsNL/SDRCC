@@ -71,7 +71,8 @@ const nodes = {};
 const node = id => nodes[id] ||= {
     textContent: "", checked: true, listeners: {},
     addEventListener(event, cb) {this.listeners[event] = cb;},
-    setAttribute() {},
+    setAttribute(name, value) {this[name] = value;},
+    removeAttribute(name) {delete this[name];},
     classList: {add() {}, remove() {}},
 };
 const canvas = () => {
@@ -158,6 +159,7 @@ class FakeMap {
     }
     easeTo(camera) {this.camera = camera;}
     jumpTo(camera) {this.camera = camera;}
+    getZoom() {return this.camera.zoom ?? 12;}
     getCanvas() {return {style: {}};}
 }
 
