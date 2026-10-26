@@ -176,13 +176,13 @@ KNOWN_SPECIAL_VESSELS = (
 # These strict names explicitly identify a function; ordinary vessel names,
 # company names, destinations or a bare "SUPPLY"/"CABLE" are insufficient.
 _SPECIAL_NAME_PROFILES = (
-    (re.compile(r"^(?:PSV|PLATFORM SUPPLY VESSEL|OFFSHORE SUPPLY VESSEL)(?:\\b|[- ])", re.I), "offshore_supply"),
-    (re.compile(r"\\b(?:PLATFORM SUPPLY VESSEL|OFFSHORE SUPPLY VESSEL)\\b", re.I), "offshore_supply"),
-    (re.compile(r"\\b(?:RESEARCH VESSEL|RESEARCH SHIP|SURVEY VESSEL|SURVEY SHIP)\\b", re.I), "research_vessel"),
-    (re.compile(r"\\b(?:CABLE LAYING VESSEL|CABLE LAYER|CABLE SHIP|KABELLEGGER)\\b", re.I), "cable_vessel"),
-    (re.compile(r"\\b(?:OFFSHORE CONSTRUCTION VESSEL|CONSTRUCTION SUPPORT VESSEL|SUBSEA CONSTRUCTION VESSEL)\\b", re.I), "offshore_construction"),
-    (re.compile(r"\\b(?:HEAVY LIFT VESSEL|HEAVY LIFT SHIP|CRANE VESSEL|CRANE SHIP|KRAANSCHIP|HIJSBOK)\\b", re.I), "crane_ship"),
-    (re.compile(r"\\b(?:DREDGER|DREDGING VESSEL|BAGGERSCHIP|ZANDZUIGER|HOPPER DREDGER)\\b", re.I), "dredger"),
+    (re.compile(r"^(?:PSV|PLATFORM SUPPLY VESSEL|OFFSHORE SUPPLY VESSEL)(?:\b|[- ])", re.I), "offshore_supply"),
+    (re.compile(r"\b(?:PLATFORM SUPPLY VESSEL|OFFSHORE SUPPLY VESSEL)\b", re.I), "offshore_supply"),
+    (re.compile(r"\b(?:RESEARCH VESSEL|RESEARCH SHIP|SURVEY VESSEL|SURVEY SHIP)\b", re.I), "research_vessel"),
+    (re.compile(r"\b(?:CABLE LAYING VESSEL|CABLE LAYER|CABLE SHIP|KABELLEGGER)\b", re.I), "cable_vessel"),
+    (re.compile(r"\b(?:OFFSHORE CONSTRUCTION VESSEL|CONSTRUCTION SUPPORT VESSEL|SUBSEA CONSTRUCTION VESSEL)\b", re.I), "offshore_construction"),
+    (re.compile(r"\b(?:HEAVY LIFT VESSEL|HEAVY LIFT SHIP|CRANE VESSEL|CRANE SHIP|KRAANSCHIP|HIJSBOK)\b", re.I), "crane_ship"),
+    (re.compile(r"\b(?:DREDGER|DREDGING VESSEL|BAGGERSCHIP|ZANDZUIGER|HOPPER DREDGER)\b", re.I), "dredger"),
 )
 
 
