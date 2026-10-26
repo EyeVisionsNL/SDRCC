@@ -160,12 +160,43 @@ class TrafficMapTests(unittest.TestCase):
                 self.assertIn('"' + profile + '"', js)
         for part in (
             "psv-workdeck", "psv-wheelhouse", "psv-bridge-glass",
+            "psv-bridge-upper", "psv-side-windows", "psv-upper-windows",
+            "psv-bridge-roof", "psv-mast",
             "research-laboratory", "research-mast",
             "cable-reel", "cable-stern-chute",
             "construction-crane-tower", "construction-crane-boom",
             "special_profile_evidence",
         ):
             self.assertIn(part, js)
+
+    def test_psv_3d_has_a_tall_two_level_bridge_and_stays_illustrative(self):
+        # Guard the recognizable bridge silhouette independently of the
+        # AIS 90/99 identity classification; no fake dimensions or loading.
+        js = (Path(__file__).resolve().parent.parent
+              / "dashboard/static/js/traffic_map_lab.js").read_text()
+        block = js.split('if (profile === "offshore_supply") {', 1)[1].split(
+            'if (profile === "research_vessel") {', 1)[0]
+        self.assertIn('"psv-wheelhouse",5.65,.3', block)
+        self.assertIn('"psv-bridge-upper",2.2,5.95', block)
+        self.assertIn('"psv-bridge-roof",.38,8.15', block)
+        self.assertIn('"psv-mast",3.0,8.53', block)
+        self.assertIn('"psv-side-windows"', block)
+        self.assertIn('"psv-upper-windows"', block)
+        self.assertIn('open aft workdeck', block)
+        self.assertIn('not AIS measurements', block)
+        # No rendering change is allowed to classify mobile PSV as a fixed
+        # offshore installation or invent its true AIS hull dimensions.
+        recognized = traffic_map.vessels([{
+            "mmsi": "258765000", "shipname": "SKANDI CALEDONIA",
+            "imo": "9281657", "shiptype": 99,
+            "lat": 51.92, "lon": 4.29, "heading": 90,
+            "to_bow": 72, "to_stern": 12,
+            "to_port": 10, "to_starboard": 10
+        }])[0]
+        self.assertEqual(recognized["render_profile"], "offshore_supply")
+        self.assertTrue(recognized["hull_available"])
+        self.assertFalse(recognized["is_offshore_structure"])
+        self.assertEqual(recognized["hull_geometry_source"], "AIS dimensions")
 
     def test_inland_eri_table_and_safe_profiles(self):
         self.assertGreaterEqual(len(traffic_map.INLAND_AIS_TYPES), 70)
