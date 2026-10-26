@@ -169,6 +169,32 @@ class TrafficMapTests(unittest.TestCase):
         ):
             self.assertIn(part, js)
 
+    def test_3d_ais_nameplates_leave_hulls_uncovered(self):
+        # In close 3D, full-colour nameplates can cover the tall PSV
+        # wheelhouse. Move a text-only label to either side of the hull.
+        # 2D must retain the previous plate, anchors, colours and spacing.
+        js = (Path(__file__).resolve().parent.parent
+              / "dashboard/static/js/traffic_map_lab.js").read_text()
+        for fragment in (
+            'const AIS_NAME_2D_ANCHORS = ["top","bottom","right","left"];',
+            'const AIS_NAME_3D_ANCHORS = ["left","right"];',
+            'const AIS_NAME_2D_OFFSET = ["interpolate"',
+            'const AIS_NAME_LENGTH_CLEARANCE = ["*",.025,',
+            'const AIS_NAME_3D_OFFSET = ["interpolate",["linear"],["zoom"]',
+            'mode3d ? ["step",["zoom"],AIS_NAME_PLATE_IMAGE,15,""]',
+            'mode3d ? AIS_NAME_3D_ANCHORS : AIS_NAME_2D_ANCHORS',
+            'mode3d ? AIS_NAME_3D_OFFSET : AIS_NAME_2D_OFFSET',
+            'mode3d ? ["step",["zoom"],AIS_NAME_2D_TEXT_COLOR,15,',
+            'mode3d ? ["step",["zoom"],.4,15,1.65] : .4',
+            '? AIS_NAME_PLATE_IMAGE : ["get", "icon_name"]',
+        ):
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, js)
+        # No toggles or ship identities changed: this is solely styling.
+        self.assertIn('setLayerVisibility("ais", el("layer-ais").checked);', js)
+        self.assertIn('"text-allow-overlap": false', js)
+        self.assertIn('"text-ignore-placement": false', js)
+
     def test_psv_3d_has_a_tall_two_level_bridge_and_stays_illustrative(self):
         # Guard the recognizable bridge silhouette independently of the
         # AIS 90/99 identity classification; no fake dimensions or loading.
