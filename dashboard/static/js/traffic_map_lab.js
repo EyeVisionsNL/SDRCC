@@ -187,6 +187,24 @@
     // In a harbour we want geographic-scale hulls, not a fixed pixel-length emoji.
     const HULL_MIN_ZOOM = 14;
     const AIS_NAME_MIN_ZOOM = 12.5;
+    // In 3D, an AIS nameplate placed on the antenna position can cover the
+    // wheelhouse. At harbour zoom use offset side labels without the coloured
+    // plate; preserve the original plate and positioning when back in 2D.
+    const AIS_NAME_PLATE_IMAGE = ["concat","sdrcc-name-",
+        ["to-string",["get","shipclass"]]];
+    const AIS_NAME_2D_ANCHORS = ["top","bottom","right","left"];
+    const AIS_NAME_3D_ANCHORS = ["left","right"];
+    const AIS_NAME_2D_OFFSET = ["interpolate",["linear"],["zoom"],
+        12.5,1.6,14,2.1,16,3.2,18,5];
+    // Extra clearance scales with both zoom and reported vessel length.
+    // Labels that cannot fit beside a vessel yield to collision detection.
+    const AIS_NAME_3D_OFFSET = ["+",["interpolate",["linear"],["zoom"],
+        12.5,1.6,14,2.5,15,5,16,7.5,17,12,18,18],
+        ["*",["min",200,["max",0,["coalesce",["get","length_m"],0]]],.025]];
+    const AIS_NAME_2D_TEXT_COLOR = ["match",["get","shipclass"],
+        0,"#072331",1,"#072331",2,"#0c281c",
+        7,"#17232b",8,"#17232b",9,"#17232b",10,"#17232b",
+        12,"#17232b","#ffffff"];
     // 3D aircraft are intentionally elevated map miniatures, NOT ADS-B
     // altitude-to-metres conversions. ADS-B flight levels remain in popups.
     // Keep 2D aircraft silhouettes visible until models have enough pixels
@@ -1200,6 +1218,24 @@
                 mode3d ? ["interpolate",["linear"],["zoom"],
                     AIRCRAFT_ICON_FADE_START,1,AIRCRAFT_ICON_FADE_END,0] : 1);
         if (kind === "ais") {
+            const nameLayer = "sdrcc-ais-labels";
+            if (map.getLayer(nameLayer)) {
+                map.setLayoutProperty(nameLayer,"icon-image",
+                    mode3d ? ["step",["zoom"],AIS_NAME_PLATE_IMAGE,15,""]
+                        : AIS_NAME_PLATE_IMAGE);
+                map.setLayoutProperty(nameLayer,"text-variable-anchor",
+                    mode3d ? AIS_NAME_3D_ANCHORS : AIS_NAME_2D_ANCHORS);
+                map.setLayoutProperty(nameLayer,"text-radial-offset",
+                    mode3d ? AIS_NAME_3D_OFFSET : AIS_NAME_2D_OFFSET);
+                map.setPaintProperty(nameLayer,"text-color",
+                    mode3d ? ["step",["zoom"],AIS_NAME_2D_TEXT_COLOR,15,
+                        classColorExpression] : AIS_NAME_2D_TEXT_COLOR);
+                map.setPaintProperty(nameLayer,"text-halo-color",
+                    mode3d ? ["step",["zoom"],"rgba(10,21,30,0.12)",15,
+                        "#102436"] : "rgba(10,21,30,0.12)");
+                map.setPaintProperty(nameLayer,"text-halo-width",
+                    mode3d ? ["step",["zoom"],.4,15,1.65] : .4);
+            }
             if (map.getLayer("sdrcc-offshore-3d-structures"))
                 map.setLayoutProperty("sdrcc-offshore-3d-structures","visibility",
                     visible && mode3d ? "visible" : "none");
@@ -1893,8 +1929,7 @@
             layout: {
                 "text-field": kind === "ais" ? ["get", "label_name"] : ["get", "name"],
                 "icon-image": kind === "ais"
-                    ? ["concat", "sdrcc-name-", ["to-string", ["get", "shipclass"]]]
-                    : ["get", "icon_name"],
+                    ? AIS_NAME_PLATE_IMAGE : ["get", "icon_name"],
                 "icon-text-fit": kind === "ais" ? "both" : "none",
                 "icon-text-fit-padding": kind === "ais" ? [2, 4, 2, 4] : [0, 0, 0, 0],
                 // A small plate is easier to read than a large label over the hull.
@@ -1903,11 +1938,11 @@
                     : ["interpolate", ["linear"], ["zoom"], 11, 9, 16, 10.5],
                 // MapLibre can try adjacent positions instead of covering the
                 // ship's own icon/real-scale hull or hiding the vessel entirely.
-                "text-variable-anchor": ["top", "bottom", "right", "left"],
+                "text-variable-anchor": kind === "ais"
+                    ? AIS_NAME_2D_ANCHORS : ["top", "bottom", "right", "left"],
                 "text-justify": "auto",
                 "text-radial-offset": kind === "ais"
-                    ? ["interpolate", ["linear"], ["zoom"], 12.5, 1.6, 14, 2.1, 16, 3.2, 18, 5]
-                    : 1.2,
+                    ? AIS_NAME_2D_OFFSET : 1.2,
                 "text-optional": false,
                 "text-allow-overlap": false,
                 "text-ignore-placement": false,
@@ -1918,11 +1953,7 @@
                 "text-opacity": kind === "ais"
                     ? ["case", ["get", "position_stale"], 0.72, 1] : 1,
                 "text-color": kind === "ais"
-                    ? ["match", ["get", "shipclass"],
-                        0, "#072331", 1, "#072331", 2, "#0c281c",
-                        7, "#17232b", 8, "#17232b", 9, "#17232b", 10, "#17232b",
-                        12, "#17232b", "#ffffff"]
-                    : "#ffffff",
+                    ? AIS_NAME_2D_TEXT_COLOR : "#ffffff",
                 "text-halo-color": kind === "ais" ? "rgba(10,21,30,0.12)" : "#102436",
                 "text-halo-width": kind === "ais" ? 0.4 : 1.4,
             },
