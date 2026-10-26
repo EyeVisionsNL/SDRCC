@@ -534,22 +534,43 @@
             // element within the actual AIS length, beam and heading. An empty
             // work deck does not imply that any particular cargo is aboard.
             if (profile === "offshore_supply") {
-                // Typical PSV has its tall bridge forward and a broad aft
-                // supply deck; unlike the aft bridge of a cargo vessel.
-                add(-stern+length*.04,-stern+length*.70,
-                    -port*.91,starboard*.91,"psv-workdeck",.28);
+                // Recognizable PSV silhouette: broad open aft workdeck,
+                // tall two-level forward bridge and a small navigation mast.
+                // Heights and fittings are illustrative, not AIS measurements.
+                add(-stern+length*.04,-stern+length*.69,
+                    -port*.91,starboard*.91,"psv-workdeck",.3);
                 for (const side of [-1,1]) {
                     const left=side<0?-port*.94:starboard*.85;
                     const right=side<0?-port*.85:starboard*.94;
-                    add(-stern+length*.05,-stern+length*.72,
-                        left,right,"psv-safety-rail",.48,.30);
+                    add(-stern+length*.05,-stern+length*.69,
+                        left,right,"psv-safety-rail",.55,.3);
                 }
-                add(-stern+length*.73,bow-length*.055,
-                    -port*.69,starboard*.69,"psv-wheelhouse",4.9);
-                add(-stern+length*.75,bow-length*.075,
-                    -port*.72,starboard*.72,"psv-bridge-roof",.28,4.9);
-                add(bow-length*.15,bow-length*.075,
-                    -port*.69,starboard*.69,"psv-bridge-glass",.72,2.85);
+                // Larger lower bridge block, entirely inside AIS hull length.
+                add(-stern+length*.70,bow-length*.045,
+                    -port*.76,starboard*.76,"psv-wheelhouse",5.65,.3);
+                // Blue side-window bands make the bridge readable obliquely.
+                for (const side of [-1,1]) {
+                    const left=side<0?-port*.78:starboard*.70;
+                    const right=side<0?-port*.70:starboard*.78;
+                    add(-stern+length*.73,bow-length*.075,
+                        left,right,"psv-side-windows",1.05,3.65);
+                }
+                // Raised, narrower navigation bridge with panoramic glazing.
+                add(-stern+length*.78,bow-length*.065,
+                    -port*.65,starboard*.65,"psv-bridge-upper",2.2,5.95);
+                add(bow-length*.145,bow-length*.063,
+                    -port*.67,starboard*.67,"psv-bridge-glass",1.35,6.18);
+                for (const side of [-1,1]) {
+                    const left=side<0?-port*.68:starboard*.60;
+                    const right=side<0?-port*.60:starboard*.68;
+                    add(-stern+length*.80,bow-length*.09,
+                        left,right,"psv-upper-windows",1.15,6.35);
+                }
+                add(-stern+length*.76,bow-length*.05,
+                    -port*.71,starboard*.71,"psv-bridge-roof",.38,8.15);
+                add(-stern+length*.85,-stern+length*.87,
+                    -port*.065,starboard*.065,"psv-mast",3.0,8.53);
+                // Minimal fittings only: never assert actual deck cargo.
                 add(-stern+length*.20,-stern+length*.32,
                     -port*.23,starboard*.23,"psv-deck-gear",.35,.3);
                 continue;
@@ -1729,9 +1750,11 @@
             paint:{
                 "fill-extrusion-color":["match",["get","part"],
                     "bridge","#c1d6df","cargo-hatch","#677e92",
-                    "psv-workdeck","#5d788a","psv-safety-rail","#e6c653",
-                    "psv-wheelhouse","#e5edf1","psv-bridge-roof","#c5d8e4",
-                    "psv-bridge-glass","#36789b","psv-deck-gear","#e3bb64",
+                    "psv-workdeck","#597487","psv-safety-rail","#e6c653",
+                    "psv-wheelhouse","#f1f5f6","psv-bridge-roof","#f2f3ed",
+                    "psv-bridge-upper","#dfeaf0","psv-bridge-glass","#20779e",
+                    "psv-side-windows","#2984a9","psv-upper-windows","#2b85ad",
+                    "psv-mast","#f3c858","psv-deck-gear","#e3bb64",
                     "research-workdeck","#7297aa","research-laboratory","#ecf3f2",
                     "research-windows","#58a0ba","research-mast","#ffcc60",
                     "cable-workdeck","#638890","cable-wheelhouse","#e1e9ea",
