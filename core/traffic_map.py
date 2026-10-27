@@ -544,6 +544,19 @@ def vessels(payload: Any) -> list[dict]:
                 hull_heading = 0.0  # explicit neutral north-up drawing
             hull_bearing_approximate = heading is None
             has_hull = True
+        # Small moored tugs can report dimensions without a heading or offsets.
+        # Keep real AIS size; never invent a size for an unidentified hull.
+        if (profile == "tug" and normalized_class not in (9, 10, 11, 12)
+                and not mmsi.startswith("99") and not has_hull and length is not None
+                and beam is not None and 8 <= length <= 450 and 2 <= beam <= 90):
+            if to_bow is None:
+                to_bow = to_stern = length / 2
+                to_port = to_starboard = beam / 2
+                hull_geometry_source = "AIS length/beam; illustrative centered antenna"
+            if hull_heading is None:
+                hull_heading = course if course is not None else 0.0
+                hull_bearing_approximate = True
+            has_hull = True
         # Phase 1 ERI geometry: when AIS-Catcher reports overall dimensions
         # but omits antenna offsets, preserve the real length/beam and place
         # the antenna at an explicitly illustrative midship position.

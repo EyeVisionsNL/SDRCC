@@ -1,0 +1,13 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const s=fs.readFileSync('dashboard/static/js/traffic_map_lab.js','utf8');
+const begin=s.indexOf('    const smallHullProfiles'), end=s.indexOf('    // Compact native MapLibre extrusions',begin);
+const d=s.indexOf('    function deckCollection('),de=s.indexOf('    function hasHull(',d);
+const ctx={};vm.createContext(ctx);
+vm.runInContext(s.slice(begin,end)+s.slice(d,de)+';this.make=hullCollection;this.deck=deckCollection;',ctx);
+const ship={id:'244039187',render_profile:'tug',hull_available:true,hull_heading:0,to_bow:5.5,to_stern:5.5,to_port:2,to_starboard:2,lon:4.4,lat:51.9};
+const hulls=ctx.make([ship]);assert.equal(hulls.features.length,1);
+const deck=ctx.deck([ship],hulls);assert(deck.features.some(x=>x.properties.part==='tug-wheelhouse'));
+assert.equal(ctx.make([{...ship,hull_available:false}]).features.length,0);
+assert.equal(ctx.make([{...ship,to_bow:4,to_stern:4}]).features.length,1);
+assert.equal(ctx.make([{...ship,to_bow:3.95,to_stern:3.95}]).features.length,0);
+console.log('PASS: 11-metre tug renders hull and wheelhouse; missing geometry remains icon');

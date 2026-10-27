@@ -259,7 +259,7 @@
         "pilot","rescue","port_service","oil_response","ferry","water_supply"
     ]);
     const mediumHullProfiles = new Set([
-        "tug","police","port_authority","passenger","cruise","cargo",
+        "police","port_authority","passenger","cruise","cargo",
         "container","bulk","tanker","gas_tanker","powder_tanker",
         "chemical_tanker","bunker","barge_cargo","barge_tanker",
         "container_barge","gas_barge","chemical_barge","powder_barge",
@@ -267,7 +267,7 @@
         "research_vessel","cable_vessel","offshore_construction",
         "crane_ship"
     ]);
-    const hullMinLength = profile => smallHullProfiles.has(profile) ? 5
+    const hullMinLength = profile => profile === "tug" ? 8 : smallHullProfiles.has(profile) ? 5
         : mediumHullProfiles.has(profile) ? 12 : 30;
     const specialDeckHints = Object.freeze({
         container:"Container stacks and aft bridge (illustrative; actual load unknown)",
@@ -1405,7 +1405,9 @@
             if (props.hull_geometry_source && props.hull_geometry_source !== "AIS dimensions" && props.render_profile !== "pleasure")
                 add("3D hull data", props.hull_geometry_source);
             if (props.hull_bearing_approximate && props.render_profile !== "pleasure")
-                add("3D orientation", "Based on AIS course; may differ from true heading");
+                add("3D orientation", props.render_profile === "tug"
+                    ? "Approximate: AIS course or neutral north-up; not true heading"
+                    : "Based on AIS course; may differ from true heading");
             add("Class", AIS_CLASS_NAMES[props.shipclass] || "Unknown");
             if (props.render_profile !== "ais_helicopter")
                 add("Ship type", props.shiptype);

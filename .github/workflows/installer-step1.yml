@@ -69,6 +69,8 @@ jobs:
         run: |
           python -m unittest scripts.test_water_supply_profile
           node scripts/validate_water_supply_model.cjs
+          python -m unittest scripts.test_small_tug
+          node scripts/validate_small_tug.cjs
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
       - name: Check MapLibre 6 map boot and error handling
