@@ -65,6 +65,10 @@ jobs:
         run: python -m unittest scripts.test_traffic_map scripts.test_traffic_map_aircraft_photo scripts.test_traffic_map_sectors scripts.test_traffic_map_highlights
       - name: Validate Emergency Monitor motion filters and map highlights
         run: python scripts/validate_emergency_monitor_v0675.py
+      - name: Check drinking-water vessel recognition and geometry
+        run: |
+          python -m unittest scripts.test_water_supply_profile
+          node scripts/validate_water_supply_model.cjs
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
       - name: Check MapLibre 6 map boot and error handling

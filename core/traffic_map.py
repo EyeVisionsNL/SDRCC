@@ -278,6 +278,16 @@ def display_profile(name: str, shiptype: int | None, shipclass: int | None,
         if shipclass == 5 and (_POLICE_P_NUMBER_RE.match(label)
                                or _POLICE_P_NUMBER_RE.match(callsign)):
             return "police"
+    # Numbered drinking-water fleet names, not generic ERI 8000 or WATERMAN.
+    # Keep aircraft, fixed marks and explicit incompatible ship types intact.
+    water_name = re.fullmatch(
+        r"(?:D[. ]*W[. ]*S[. ]*[- ]*\d{1,3}(?:[- ]+WATERMAN)?|"
+        r"WATERMAN[- ]+DWS[- ]*\d{1,3}|"
+        r"(?:DRINKWATER(?:BOOT)?|WATERBOOT)[- ]*\d{1,3})", label, re.I)
+    water_type = (shiptype in (None, 0, 80, 89, 90, 99, 8000, 8020, 8090, 8490)
+                  or shiptype == 52)
+    if not fixed_evidence and shipclass not in (9, 10) and water_type and water_name:
+        return "water_supply"
     # Inland ERI codes describe hull/deck type, not operator identity.
     # Fixed navigation marks must never become ships from a stray ERI code.
     # Preserve explicit port-authority and police matches above.
@@ -545,7 +555,7 @@ def vessels(payload: Any) -> list[dict]:
                  "gas_barge", "chemical_barge", "powder_barge",
                  "convoy_cargo", "convoy_tanker", "pushboat", "workboat",
                  "container", "bulk", "gas_tanker", "powder_tanker",
-                 "chemical_tanker", "bunker", "ferry", "cruise",
+                 "chemical_tanker", "bunker", "water_supply", "ferry", "cruise",
                  "catamaran", "fishing", "dredger", "crane_workboat")
                 and not has_hull and to_bow is None
                 and length is not None and beam is not None

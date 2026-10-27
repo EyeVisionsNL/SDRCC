@@ -256,7 +256,7 @@
     const smallHullProfiles = new Set([
         "watertaxi","krve","pleasure","sailing","catamaran","fishing",
         "service","workboat","dredger","crane_workboat","pushboat",
-        "pilot","rescue","port_service","oil_response","ferry"
+        "pilot","rescue","port_service","oil_response","ferry","water_supply"
     ]);
     const mediumHullProfiles = new Set([
         "tug","police","port_authority","passenger","cruise","cargo",
@@ -278,6 +278,7 @@
         powder_barge:"Dry bulk / powder tank barge silos (schematic)",
         chemical_tanker:"Chemical tanker valves and tank deck (illustrative)",
         chemical_barge:"Chemical tank barge deck (illustrative)",
+        water_supply:"Drinking-water supply boat with low tank deck, pipes and hose reels (illustrative)",
         bunker:"Bunkering tanker pumps and hose deck (illustrative)",
         bulk:"Bulk carrier hatch covers (illustrative)",
         ferry:"Low vehicle/passenger ferry deck (illustrative)",
@@ -377,7 +378,7 @@
                     inland_convoy_barges: ship.inland_convoy_barges,
                     beam_m: ship.beam_m, draught_m: ship.draught_m,
                     heading: ship.heading,
-                    display_height_m: ["watertaxi","krve","pleasure","sailing","catamaran","fishing"].includes(ship.render_profile)
+                    display_height_m: ["watertaxi","krve","pleasure","sailing","catamaran","fishing","water_supply"].includes(ship.render_profile)
                         ? Math.min(1.8, Math.max(.9,
                             (Number(ship.to_port) + Number(ship.to_starboard)) * .45))
                         : ["barge_cargo","barge_tanker","container_barge","gas_barge",
@@ -537,7 +538,7 @@
                 "barge_cargo", "barge_tanker", "convoy_cargo", "convoy_tanker",
                 "pushboat", "workboat", "container", "container_barge", "bulk",
                 "gas_tanker", "gas_barge", "chemical_tanker", "chemical_barge",
-                "powder_tanker", "powder_barge", "bunker", "ferry", "cruise",
+                "powder_tanker", "powder_barge", "bunker", "water_supply", "ferry", "cruise",
                 "catamaran", "fishing", "sailing", "dredger", "crane_workboat",
                 "pilot", "rescue", "port_service", "oil_response",
                 "offshore_supply", "research_vessel", "cable_vessel",
@@ -576,6 +577,23 @@
             // backend provides a positively matched profile. Scale every deck
             // element within the actual AIS length, beam and heading. An empty
             // work deck does not imply that any particular cargo is aboard.
+            if (profile === "water_supply") {
+                // Compact fresh-water tanker: low flush tank deck, aft wheelhouse,
+                // pump manifold and twin hose reels. All positions scale to AIS.
+                add(-stern+length*.24,bow-length*.09,-port*.82,starboard*.82,"water-deck",.22);
+                add(-stern+length*.06,-stern+length*.23,-port*.70,starboard*.70,"water-house",1.7);
+                add(-stern+length*.10,-stern+length*.22,-port*.57,starboard*.57,"water-windows",.65,1.7);
+                add(-stern+length*.085,-stern+length*.235,-port*.65,starboard*.65,"water-roof",.16,2.35);
+                for (const f of [.36,.54,.72])
+                    add(-stern+length*f,-stern+length*(f+.045),-port*.23,starboard*.23,"water-hatch",.25,.22);
+                add(-stern+length*.29,bow-length*.13,-port*.07,starboard*.07,"water-pipe",.25,.48);
+                add(-stern+length*.75,-stern+length*.82,-port*.48,starboard*.48,"water-pump",.65,.22);
+                for (const side of [-1,1]) {
+                    const center=side*beam*.27;
+                    add(-stern+length*.27,-stern+length*.34,center-beam*.08,center+beam*.08,"water-hose",.75,.22);
+                }
+                continue;
+            }
             if (profile === "offshore_supply") {
                 // Recognizable PSV silhouette: broad open aft workdeck,
                 // tall two-level forward bridge and a small navigation mast.
@@ -1783,6 +1801,7 @@
                     ["==", ["get", "render_profile"], "powder_barge"], "#778187",
                     ["==", ["get", "render_profile"], "chemical_tanker"], "#306376",
                     ["==", ["get", "render_profile"], "chemical_barge"], "#55737b",
+                    ["==", ["get", "render_profile"], "water_supply"], "#255568",
                     ["==", ["get", "render_profile"], "bunker"], "#2e5d65",
                     ["==", ["get", "render_profile"], "ferry"], "#3c6482",
                     ["==", ["get", "render_profile"], "cruise"], "#e2e4e0",
@@ -1832,6 +1851,10 @@
                     "container-bridge","#e3e7dd",
                     "container-blue","#376d91","container-rust","#bb694e",
                     "container-white","#dce7e4","container-top","#6a9cac",
+                    "water-deck","#638c91","water-house","#e4eceb",
+                    "water-windows","#173b50","water-roof","#eaf3f3",
+                    "water-pipe","#73c9e6","water-hatch","#b4c8c9",
+                    "water-pump","#4eaac7","water-hose","#253b47",
                     "tanker-bridge","#dbe8ec",
                     "gas-vessel-tank","#c9e0e4","powder-silo","#d9d4c6",
                     "chemical-tank","#b4d6d5","chemical-valve","#e3a95e",
