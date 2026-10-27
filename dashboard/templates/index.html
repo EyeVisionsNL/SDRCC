@@ -34,7 +34,7 @@
     <link rel="stylesheet" href="/static/css/navigation_theme.css?v=0.56.0b">
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.65.25">
     <link rel="stylesheet" href="/static/css/banner_scenes.css?v=0.64.21">
-    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.68.52">
+    <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.69.1">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
     <link rel="stylesheet" href="/static/css/dashboard_polish.css?v=0.65.8">
     <link rel="stylesheet" href="/static/css/emergency_monitor.css?v=0.67.25">
@@ -959,6 +959,7 @@
                         <button id="traffic-voice-vessel-photos-toggle" type="button" class="traffic-voice-map-button" aria-pressed="false">Ship photos: off</button>
                         <a id="traffic-voice-google-images" class="traffic-voice-map-button" href="#" target="_blank" rel="noopener noreferrer" hidden>Google Images ↗</a>
                     </div>
+                    <button id="traffic-voice-vessel-camera" type="button" class="traffic-voice-map-button" hidden>📹 Onboard camera</button>
                     <div id="traffic-voice-vessel-photo-card" class="traffic-voice-vessel-photo-card" hidden>
                         <a id="traffic-voice-vessel-photo-link" class="traffic-voice-vessel-photo-link" target="_blank" rel="noopener noreferrer"><img id="traffic-voice-vessel-photo" alt=""></a>
                         <div>
@@ -973,6 +974,15 @@
     </div>
 </section>
 
+
+<dialog id="vessel-camera-dialog" class="vessel-camera-dialog" aria-labelledby="vessel-camera-title">
+    <div class="vessel-camera-heading">
+        <div><h3 id="vessel-camera-title">Onboard camera</h3><p id="vessel-camera-identity"></p></div>
+        <button id="vessel-camera-close" type="button" class="traffic-voice-map-button">Close ✕</button>
+    </div>
+    <div id="vessel-camera-player" class="vessel-camera-player"></div>
+    <p class="vessel-camera-note">Camera may be offline or delayed. No picture? <a id="vessel-camera-source" target="_blank" rel="noopener noreferrer">Open Webcam Binnenvaart ↗</a></p>
+</dialog>
 
 <section class="tab-page" id="tab-hf-monitor">
     <div class="hf-monitor-page">
@@ -1648,7 +1658,8 @@
 <script src="/static/js/mission_briefing.js?v=0.35.0a"></script>
 <script src="/static/js/radio_view.js?v=0.67.8"></script>
 <script src="/static/js/mission_planner.js?v=0.65.1"></script>
-<script src="/static/js/traffic_voice.js?v=0.68.58"></script>
+<script src="/static/js/vessel_camera.js?v=0.69.1"></script>
+<script src="/static/js/traffic_voice.js?v=0.69.1"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>

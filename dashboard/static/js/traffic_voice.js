@@ -732,6 +732,7 @@
             const credit=document.createElement("small");
             credit.textContent=speaker.credit||"";
             info.append(name,details,credit);
+            window.sdrccVesselCamera?.addHistoryButton(info, speaker.camera);
             row.append(picture,info);
             list.appendChild(row);
         }
@@ -751,7 +752,7 @@
         if(speakerHistorySeen.size>60)for(const [key,time] of speakerHistorySeen)
             if(now-time>3600000)speakerHistorySeen.delete(key);
         const speaker={mmsi,name:String(match.shipname||match.callsign||""),
-            time:new Date().toLocaleTimeString(),image:"",credit:""};
+            time:new Date().toLocaleTimeString(),image:"",credit:"",camera:payload.vessel_camera};
         const prior=recentPossibleSpeakers.findIndex(entry=>entry.mmsi===mmsi);
         if(prior!==-1)recentPossibleSpeakers.splice(prior,1);
         recentPossibleSpeakers.unshift(speaker);
@@ -1016,6 +1017,7 @@
         );
         text("traffic-voice-possible-speaker", payload.possible_speaker || "NOT INFERRED");
         renderAisMatch(payload);
+        window.sdrccVesselCamera?.render(payload);
         void addPossibleSpeakerHistory(payload);
 
         const assignmentValid = Boolean(assignment.separated && assignment.matches_policy);
@@ -1061,6 +1063,7 @@
     }
 
     function renderError(error) {
+        window.sdrccVesselCamera?.render(null);
         const status = byId("traffic-voice-status");
         const mapButton = byId("traffic-voice-show-ais-vessel");
         if (status) {

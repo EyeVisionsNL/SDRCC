@@ -1,0 +1,25 @@
+name: Vessel camera validation
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'core/vessel_camera.py'
+      - 'core/traffic_voice.py'
+      - 'dashboard/static/js/vessel_camera.js'
+      - 'tests/test_vessel_camera.py'
+      - 'scripts/validate_vessel_camera.cjs'
+      - '.github/workflows/vessel-camera.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install PyYAML openpyxl
+      - run: python -m unittest discover -s tests -p test_vessel_camera.py -v
+      - run: node scripts/validate_vessel_camera.cjs
+      - run: python scripts/validate_update_manifest_scope.py
+      - run: python scripts/validate_update_06719_compat.py

@@ -17,7 +17,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 
 from core import config as config_core
-from core import plugin_registry, receiver_registry
+from core import plugin_registry, receiver_registry, vessel_camera
 
 
 VERSION = "0.56.0h"
@@ -994,6 +994,8 @@ def get_snapshot(
         "audio": audio,
         "atis": atis,
         "ais_match": ais_match,
+        "vessel_camera": (vessel_camera.for_match(ais_match)
+                          if selected_mode == "marine_ais" and service.get("active") else None),
         "activity": activity,
         "strongest_channel": strongest,
         "spectrum": deepcopy(settings.get("spectrum") or {}),

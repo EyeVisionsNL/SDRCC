@@ -1077,3 +1077,17 @@
 .traffic-voice-speaker-history-item small{font-size:.68rem;color:#8fa7c5}
 .traffic-voice-speaker-history-item a{color:#87d7ee;text-decoration:none}
 @media(max-width:850px){.traffic-voice-marine-history{grid-template-columns:minmax(0,1fr)}}
+
+/* On-demand onboard camera: no empty panel or background video downloads. */
+#traffic-voice-vessel-camera[hidden] { display: none; }
+#traffic-voice-vessel-camera { margin-top: .55rem; }
+.vessel-camera-history-button { margin-top: .35rem; }
+.vessel-camera-dialog { box-sizing: border-box; width: min(900px, calc(100vw - 32px)); max-width: 95vw; max-height: 92vh;
+    padding: 18px; color: #dbeafe; background: #0a1626; border: 1px solid #287c91; border-radius: 12px; }
+.vessel-camera-dialog::backdrop { background: rgba(0, 8, 18, .78); }
+.vessel-camera-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.vessel-camera-heading h3 { margin: 0; font-size: 1rem; }
+.vessel-camera-heading p, .vessel-camera-note { margin: .4rem 0; color: #9eb5ce; font-size: .8rem; }
+.vessel-camera-player iframe { display: block; width: 100%; height: min(60vh, 560px); min-height: 260px;
+    border: 0; background: #07111f; border-radius: 6px; }
+.vessel-camera-note a { color: #7dd3fc; }
