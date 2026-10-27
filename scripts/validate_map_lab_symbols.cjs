@@ -916,7 +916,33 @@ class FakeMap {
     assert(JSON.stringify(aisHeliHandoff).includes('"air_3d"'),
         "AIS helicopters must also lose their 2D icon at zoom 15");
     assert.equal(latestLayout("sdrcc-adsb-air-3d-models","visibility"),"visible");
+    // Normal plates persist through zoom 15. At zoom 16, readable
+    // high-contrast text moves near each 3D hull, and 2D restores defaults.
+    instance.camera.zoom = 15;
+    instance.callbacks["zoom"]();
+    assert.deepEqual(JSON.parse(JSON.stringify(latestLayout(
+        "sdrcc-ais-labels","icon-image"))),
+        ["concat","sdrcc-name-",["to-string",["get","shipclass"]]]);
+    instance.camera.zoom = 16;
+    instance.callbacks["zoom"]();
+    assert.equal(latestLayout("sdrcc-ais-labels","icon-image"),"");
+    assert.deepEqual(JSON.parse(JSON.stringify(latestLayout(
+        "sdrcc-ais-labels","text-variable-anchor"))),["left","right"]);
+    assert.deepEqual(JSON.parse(JSON.stringify(latestLayout(
+        "sdrcc-ais-labels","text-size"))),
+        ["interpolate",["linear"],["zoom"],16,11.5,17,12,18,13]);
+    assert.equal(latestPaint("sdrcc-ais-labels","text-color"),"#f5faff");
+    assert.equal(latestPaint("sdrcc-ais-labels","text-halo-color"),"#102436");
+    assert.equal(latestPaint("sdrcc-ais-labels","text-halo-width"),1.9);
+    const closeOffset = JSON.parse(JSON.stringify(latestLayout(
+        "sdrcc-ais-labels","text-radial-offset")));
+    assert.equal(closeOffset.at(-1)[1],3.4,
+        "close-up names must not drift 18 text heights from small craft");
     node("mode-2d").listeners.click();
+    assert.deepEqual(JSON.parse(JSON.stringify(latestLayout(
+        "sdrcc-ais-labels","text-size"))),
+        ["interpolate",["linear"],["zoom"],12.5,8.5,15,9,18,9.5]);
+    assert.equal(latestPaint("sdrcc-ais-labels","text-halo-width"),0.4);
     assert.equal(latestPaint("sdrcc-adsb-icons","icon-opacity"),1,
         "2D mode must keep normal aircraft symbols even at close zoom");
     assert.deepEqual(JSON.parse(JSON.stringify(latestLayout(

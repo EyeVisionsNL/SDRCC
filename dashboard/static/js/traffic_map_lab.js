@@ -197,17 +197,23 @@
     const AIS_NAME_3D_ANCHORS = ["left","right"];
     const AIS_NAME_2D_OFFSET = ["interpolate",["linear"],["zoom"],
         12.5,1.6,14,2.1,16,3.2,18,5];
-    // Extra clearance scales with both zoom and reported vessel length.
-    // Labels that cannot fit beside a vessel yield to collision detection.
+    // Keep close-up labels near the hull instead of pushing short vessels'
+    // names several hundred pixels away. Long hulls retain extra clearance.
+    // Native symbol collision detection still avoids clutter in busy harbours.
     const AIS_NAME_LENGTH_CLEARANCE = ["*",.025,
         ["min",200,["max",0,["coalesce",["get","length_m"],0]]]];
     const AIS_NAME_3D_OFFSET = ["interpolate",["linear"],["zoom"],
         12.5,1.6,
-        14,["+",2.5,AIS_NAME_LENGTH_CLEARANCE],
-        15,["+",5,AIS_NAME_LENGTH_CLEARANCE],
-        16,["+",7.5,AIS_NAME_LENGTH_CLEARANCE],
-        17,["+",12,AIS_NAME_LENGTH_CLEARANCE],
-        18,["+",18,AIS_NAME_LENGTH_CLEARANCE]];
+        14,["+",2.2,AIS_NAME_LENGTH_CLEARANCE],
+        15,["+",2.4,AIS_NAME_LENGTH_CLEARANCE],
+        16,["+",2.4,AIS_NAME_LENGTH_CLEARANCE],
+        17,["+",2.7,["*",1.2,AIS_NAME_LENGTH_CLEARANCE]],
+        18,["+",3.1,["*",2,AIS_NAME_LENGTH_CLEARANCE]],
+        19,["+",3.4,["*",3.5,AIS_NAME_LENGTH_CLEARANCE]]];
+    const AIS_NAME_2D_TEXT_SIZE = ["interpolate",["linear"],["zoom"],
+        12.5,8.5,15,9,18,9.5];
+    const AIS_NAME_3D_TEXT_SIZE = ["interpolate",["linear"],["zoom"],
+        16,11.5,17,12,18,13];
     const AIS_NAME_2D_TEXT_COLOR = ["match",["get","shipclass"],
         0,"#072331",1,"#072331",2,"#0c281c",
         7,"#17232b",8,"#17232b",9,"#17232b",10,"#17232b",
@@ -1250,12 +1256,15 @@
             close3d ? AIS_NAME_3D_ANCHORS : AIS_NAME_2D_ANCHORS);
         map.setLayoutProperty(nameLayer,"text-radial-offset",
             close3d ? AIS_NAME_3D_OFFSET : AIS_NAME_2D_OFFSET);
+        map.setLayoutProperty(nameLayer,"text-size",
+            close3d ? AIS_NAME_3D_TEXT_SIZE : AIS_NAME_2D_TEXT_SIZE);
+        // Readable over both pale land and dark/purple harbour water.
         map.setPaintProperty(nameLayer,"text-color",
-            close3d ? classColorExpression : AIS_NAME_2D_TEXT_COLOR);
+            close3d ? "#f5faff" : AIS_NAME_2D_TEXT_COLOR);
         map.setPaintProperty(nameLayer,"text-halo-color",
             close3d ? "#102436" : "rgba(10,21,30,0.12)");
         map.setPaintProperty(nameLayer,"text-halo-width",
-            close3d ? 1.65 : .4);
+            close3d ? 1.9 : .4);
     }
     function setLayerVisibility(kind, visible) {
         if (!loaded) return;
@@ -1988,7 +1997,7 @@
                 "icon-text-fit-padding": kind === "ais" ? [2, 4, 2, 4] : [0, 0, 0, 0],
                 // A small plate is easier to read than a large label over the hull.
                 "text-size": kind === "ais"
-                    ? ["interpolate", ["linear"], ["zoom"], 12.5, 8.5, 15, 9, 18, 9.5]
+                    ? AIS_NAME_2D_TEXT_SIZE
                     : ["interpolate", ["linear"], ["zoom"], 11, 9, 16, 10.5],
                 // MapLibre can try adjacent positions instead of covering the
                 // ship's own icon/real-scale hull or hiding the vessel entirely.
