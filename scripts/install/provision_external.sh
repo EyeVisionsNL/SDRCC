@@ -155,7 +155,10 @@ check_all(){
     echo "SKIP external RTLSDR-Airband: Traffic Voice disabled"
   elif [[ -x "$AIRBAND_BIN" ]]; then
     echo "PASS external RTLSDR-Airband: $(version_line "$AIRBAND_BIN")"
-    if [[ -f "$AIRBAND_PROVENANCE" ]] && grep -Fq "$AIRBAND_COMMIT" "$AIRBAND_PROVENANCE" && grep -Fq 'SDRCC v0.56.0f auto-gain patch' "$AIRBAND_PROVENANCE" && grep -Fq 'SDRCC v0.56.0w scan-interval patch' "$AIRBAND_PROVENANCE"; then
+    if [[ -f "$AIRBAND_PROVENANCE" ]] \
+       && (grep -Fq "$AIRBAND_COMMIT" "$AIRBAND_PROVENANCE" || grep -Fq '61c5c4061967752da6b491a924664d72184b38fa' "$AIRBAND_PROVENANCE") \
+       && grep -Fq 'SDRCC v0.56.0f auto-gain patch' "$AIRBAND_PROVENANCE" \
+       && grep -Fq 'SDRCC v0.56.0w scan-interval patch' "$AIRBAND_PROVENANCE"; then
       echo "PASS RTLSDR-Airband provenance, Auto Gain and scan interval patches"
     else
       echo "FAIL RTLSDR-Airband provenance/patch set"; failed=1
@@ -299,6 +302,19 @@ SDRCC v0.56.0w scan-interval patch
 behavior scan_interval_ms=100..500 in 50 ms steps; default 200 ms
 EOF
   sudo install -m 0644 "$WORK/BUILD-PROVENANCE" "$AIRBAND_PROVENANCE"
+  # Migrate only backend pin metadata after the patched 6.2.0 binary exists;
+  # do not silently change the user's Traffic Voice config on SDRCC updates.
+  python3 - "$HERE/../../config/traffic_voice.yaml" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1]).resolve()
+if path.is_file():
+    data = path.read_text(encoding="utf-8")
+    old = "    version: 5.2.0\n    commit: 61c5c4061967752da6b491a924664d72184b38fa"
+    new = "    version: 6.2.0\n    commit: 66d3076819312c7eae7662028234988dc71d0be5"
+    if data.count(old) == 1:
+        path.write_text(data.replace(old, new, 1), encoding="utf-8")
+PY
   receipt_set airband_installed 1
 else
   receipt_default airband_installed 0
