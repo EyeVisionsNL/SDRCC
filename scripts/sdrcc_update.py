@@ -474,7 +474,7 @@ def install_privileged_helpers(source: Path, install_user: str) -> None:
             f'{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""\n',
     }
     rules["/etc/sudoers.d/sdrcc-external-update"] = (
-        f"{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-external-update ais-catcher, /usr/local/sbin/sdrcc-external-update satdump\n"
+        f"{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-external-update ais-catcher, /usr/local/sbin/sdrcc-external-update satdump, /usr/local/sbin/sdrcc-external-update readsb, /usr/local/sbin/sdrcc-external-update rtl-airband\n"
     )
     rules["/etc/sudoers.d/sdrcc-update-services"] = "".join(
         f"{install_user} ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block {action} {service}\n"
