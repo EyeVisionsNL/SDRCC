@@ -481,6 +481,26 @@
                     </div>
                     <p class="control-result" id="sdrcc-update-result">Checking GitHub main for a newer SDRCC version...</p>
                 </section>
+                <details class="system-maintenance-group-v0540f" id="external-updates" data-control-scope="external-updates">
+                    <summary class="system-maintenance-summary-v0540f">
+                        <span class="system-maintenance-copy-v0540f">
+                            <strong>📦 External Software Updates</strong>
+                            <small>AIS-catcher, SatDump, readsb and patched RTLSDR-Airband</small>
+                        </span>
+                    </summary>
+                    <div class="system-maintenance-body-v0540f">
+                        <div class="system-maintenance-heading-v0540f">
+                            <div>
+                                <h3>Third-party software</h3>
+                                <p class="muted">Checks official releases and Ubuntu packages. External updates require your confirmation. Active missions and receiver reservations block installation.</p>
+                            </div>
+                            <span class="system-maintenance-warning-v0540f" id="external-update-badge">CHECKING</span>
+                        </div>
+                        <div class="external-update-list" id="external-update-list" aria-live="polite"></div>
+                        <button type="button" class="control-button" id="external-update-check">↻ Check external versions</button>
+                        <p class="control-result" id="external-update-result">Checking installed external tools…</p>
+                    </div>
+                </details>
                 <section class="system-maintenance-group-v0540f" data-control-scope="ais-autostart" aria-labelledby="ais-autostart-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
@@ -1649,6 +1669,7 @@
 <script src="/static/js/home_position.js?v=0.56.0m"></script>
 <script src="/static/js/emergency_monitor.js?v=0.67.18"></script>
 <script src="/static/js/update_manager.js?v={{ asset_version }}"></script>
+<script src="/static/js/external_updates.js?v={{ asset_version }}"></script>
 <script src="/static/js/mission_recordings.js?v=0.63.5"></script>
 <script src="/static/js/radio.js?v=0.63.11"></script>
 <script src="/static/js/runtime_diagnostics.js?v=0.54.0g"></script>
