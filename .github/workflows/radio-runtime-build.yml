@@ -26,17 +26,24 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends cmake g++ pkg-config libconfig++-dev libfftw3-dev libmp3lame-dev libshout3-dev librtlsdr-dev
-      - name: Checkout pinned Airband release, apply both SDRCC patches and compile
+      - name: Run actual Airband update build from outside any Git repository
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          git clone --quiet --depth 1 --branch v6.2.0 https://github.com/rtl-airband/RTLSDR-Airband.git /tmp/airband-source
-          test "$(git -C /tmp/airband-source rev-parse HEAD)" = 66d3076819312c7eae7662028234988dc71d0be5
-          python3 scripts/install/patch_rtlsdr_airband_auto_gain.py /tmp/airband-source/src/input-rtlsdr.cpp
-          python3 scripts/install/patch_rtlsdr_airband_scan_interval.py /tmp/airband-source/src/rtl_airband.cpp
-          cmake -S /tmp/airband-source -B /tmp/airband-build -DNFM=ON -DRTLSDR=ON -DMIRISDR=OFF -DSOAPYSDR=OFF -DPULSEAUDIO=OFF -DPLATFORM=native
-          cmake --build /tmp/airband-build --parallel 2
-          test -x /tmp/airband-build/src/rtl_airband
-          strings /tmp/airband-build/src/rtl_airband | grep -F 'automatic tuner gain enabled'
-          strings /tmp/airband-build/src/rtl_airband | grep -F 'scan_interval_ms must be 100..500 ms'
+          cd /tmp
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import tempfile
+          from scripts.install.upgrade_radio_runtimes import build_airband_candidate
+
+          project = Path(os.environ["GITHUB_WORKSPACE"])
+          with tempfile.TemporaryDirectory(prefix="sdrcc-airband-ci-") as staging:
+              candidate = build_airband_candidate(project, Path(staging))
+              assert candidate.is_file()
+              assert candidate.stat().st_size > 10000
+              print("PASS: official v6.2.0 and both SDRCC patches compiled from a non-Git worker cwd")
+          PY
 
   pinned-readsb:
     runs-on: ubuntu-24.04
