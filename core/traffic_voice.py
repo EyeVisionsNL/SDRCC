@@ -126,7 +126,8 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
         # Existing SDRCC installs retain v5.2.0 until their external
         # binary is safely updated. Config validation must accept both.
         chosen_version = str(backend.get("version") or "")
-        if backend.get("commit") != allowed_backends.get(chosen_version):
+        if (chosen_version not in allowed_backends
+                or backend.get("commit") != allowed_backends[chosen_version]):
             errors.append("backend.version and backend.commit must match a supported pinned Airband release")
         try:
             port = int(backend.get("audio_port"))
