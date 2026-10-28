@@ -337,6 +337,48 @@ class ExternalUpdateTests(unittest.TestCase):
                     runtime.validate_airband_configuration(project, proposed)
             process.assert_not_called()
 
+    def test_readsb_upgrade_preflight_shows_actual_blocker(self):
+        installed = "3.16.15"
+        output = "readsb version: 3.16.15 wiedehopf git: cc0d099"
+        def command(args, timeout=5):
+            if "-W" in args:
+                return "install ok installed\n"
+            if "-S" in args:
+                return "readsb: /usr/bin/readsb\n"
+            raise AssertionError("Unexpected subprocess call")
+        with patch.object(updates, "command", side_effect=command), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"):
+            eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
+            self.assertTrue(eligible, reason)
+            self.assertIn("ready", reason)
+            eligible, reason = updates.readsb_upgrade_preflight(
+                installed, "readsb version: 3.16.15 wiedehopf git: other", "3.16.20")
+            self.assertFalse(eligible)
+            self.assertIn("commit differs", reason)
+        with patch.object(updates, "command", return_value="no packages found matching readsb"), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"):
+            eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
+            self.assertFalse(eligible)
+            self.assertIn("not registered as a Debian package", reason)
+        with patch.object(updates, "command", side_effect=lambda args, timeout=5:
+                          "install ok installed" if "-W" in args else
+                          "otherpackage: /usr/local/bin/readsb"), \
+             patch.object(updates.shutil, "which", return_value="/usr/local/bin/readsb"):
+            eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
+            self.assertFalse(eligible)
+            self.assertIn("not owned by the readsb package", reason)
+        with patch.object(updates, "command") as command:
+            eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.21")
+            self.assertFalse(eligible)
+            self.assertIn("needs review", reason)
+            command.assert_not_called()
+
+    def test_readsb_upgrade_worker_rechecks_same_ownership_guard(self):
+        from scripts.install import upgrade_radio_runtimes as runtime
+        source = Path(runtime.__file__).read_text(encoding="utf-8")
+        self.assertIn("readsb_upgrade_preflight(version, output, READSB_VERSION)", source)
+        self.assertIn("raise RuntimeError(why)", source)
+
     def test_product_arguments_are_hardcoded_and_updates_are_opt_in(self):
         root = Path(__file__).resolve().parents[1]
         app = (root / "dashboard/app.py").read_text()
