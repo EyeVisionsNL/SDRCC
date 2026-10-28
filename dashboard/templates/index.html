@@ -481,26 +481,7 @@
                     </div>
                     <p class="control-result" id="sdrcc-update-result">Checking GitHub main for a newer SDRCC version...</p>
                 </section>
-                <details class="system-maintenance-group-v0540f" id="external-updates" data-control-scope="external-updates">
-                    <summary class="system-maintenance-summary-v0540f">
-                        <span class="system-maintenance-copy-v0540f">
-                            <strong>📦 External Software Updates</strong>
-                            <small>AIS-catcher, SatDump, readsb and patched RTLSDR-Airband</small>
-                        </span>
-                    </summary>
-                    <div class="system-maintenance-body-v0540f">
-                        <div class="system-maintenance-heading-v0540f">
-                            <div>
-                                <h3>Third-party software</h3>
-                                <p class="muted">Checks official releases and Ubuntu packages. External updates require your confirmation. Active missions and receiver reservations block installation.</p>
-                            </div>
-                            <span class="system-maintenance-warning-v0540f" id="external-update-badge">CHECKING</span>
-                        </div>
-                        <div class="external-update-list" id="external-update-list" aria-live="polite"></div>
-                        <button type="button" class="control-button" id="external-update-check">↻ Check external versions</button>
-                        <p class="control-result" id="external-update-result">Checking installed external tools…</p>
-                    </div>
-                </details>
+
                 <section class="system-maintenance-group-v0540f" data-control-scope="ais-autostart" aria-labelledby="ais-autostart-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
@@ -515,6 +496,23 @@
                     </div>
                     <p class="control-result" id="ais-autostart-result">No AIS autostart action started.</p>
                 </section>
+                <details class="system-maintenance-group-v0540f" id="external-updates" data-control-scope="external-updates">
+                    <summary class="system-maintenance-summary-v0540f">
+                        <span class="system-maintenance-copy-v0540f">
+                            <strong>📦 External Software Updates</strong>
+                            <small id="external-update-summary-detail">Checking installed software and supported update methods…</small>
+                        </span>
+                        <span class="external-update-summary-state" id="external-update-badge" role="status" aria-live="polite">CHECKING</span>
+                    </summary>
+                    <div class="system-maintenance-body-v0540f">
+                        <p class="external-update-intro">Updates are optional and require your approval. Tools with SDRCC-specific patches are not upgraded automatically.</p>
+                        <div class="external-update-list" id="external-update-list"></div>
+                        <div class="external-update-toolbar">
+                            <button type="button" class="control-button" id="external-update-check">↻ Check versions</button>
+                            <p class="control-result" id="external-update-result" role="status" aria-live="polite">Checking installed external tools…</p>
+                        </div>
+                    </div>
+                </details>
                 <details class="system-maintenance-group-v0540f mission-sounds-panel" id="mission-sounds-panel" aria-labelledby="mission-sounds-title">
                     <summary class="mission-sounds-summary">
                         <div class="mission-sounds-heading">
