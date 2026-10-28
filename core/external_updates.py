@@ -285,10 +285,10 @@ def worker_status():
 
 
 def readsb_upgrade_preflight(installed, version_output, upstream):
-    """Explain why a pinned readsb update can or cannot be offered.
+    """Return (eligible, reason) for an original SDRCC readsb installation.
 
-    Never assume that finding a matching readsb command means its files are
-    owned by SDRCC's Debian package; legacy source installs can shadow /usr/bin.
+    Legacy source-built binaries have no Debian package to downgrade. Only
+    an exact, stopped, systemd-managed SDRCC binary can be migrated in place.
     """
     if installed != "3.16.15":
         return False, "Only SDRCC's existing readsb 3.16.15 can use this pinned upgrade"
@@ -297,18 +297,42 @@ def readsb_upgrade_preflight(installed, version_output, upstream):
         return False, "Installed readsb build commit differs from SDRCC's pinned cc0d099"
     if upstream != "3.16.20":
         return False, "Pinned readsb 3.16.20 source needs review against the upstream dev branch"
-    if "install ok installed" not in command(
-            ["/usr/bin/dpkg-query", "-W", "-f=${Status}", "readsb"]).lower():
-        return False, "readsb is not registered as a Debian package; safe migration needs review"
     binary = shutil.which("readsb")
     if not binary:
         return False, "readsb executable cannot be located"
-    ownership = command(["/usr/bin/dpkg-query", "-S", str(Path(binary).resolve())])
-    if not re.search(r"(?m)^readsb(?::[a-z0-9_-]+)?:\s", ownership):
-        return False, (
-            "The active readsb executable is not owned by the readsb package; "
-            "possible legacy source installation")
-    return True, "Pinned 3.16.20 package update ready; stop ADS-B reception first"
+    path = Path(binary)
+    if (str(path) not in ("/usr/bin/readsb", "/usr/local/bin/readsb")
+            or path.is_symlink() or not path.is_file()):
+        return False, "readsb executable has an unsupported location or is a symlink"
+
+    package = command(["/usr/bin/dpkg-query", "-W", "-f=${Status}", "readsb"])
+    if "install ok installed" in package.lower():
+        ownership = command(["/usr/bin/dpkg-query", "-S", str(path)])
+        if not re.search(r"(?m)^readsb(?::[a-z0-9_-]+)?:\s", ownership):
+            return False, (
+                "The active readsb executable is not owned by the readsb package; "
+                "possible legacy source installation")
+        return True, "Pinned 3.16.20 package update ready; stop ADS-B reception first"
+
+    # Do not overwrite an executable owned by a different Debian package.
+    try:
+        owner = subprocess.run(
+            ["/usr/bin/dpkg-query", "-S", str(path)],
+            capture_output=True, text=True, timeout=5, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return False, "Unable to verify ownership of the legacy readsb binary"
+    if owner.returncode == 0:
+        return False, "Legacy readsb executable belongs to another Debian package"
+    if owner.returncode != 1 or "no path found" not in (owner.stderr or "").lower():
+        return False, "Unable to verify that the legacy readsb executable is unmanaged"
+
+    # The service must invoke the same executable; no custom unit migration.
+    unit = command(["/usr/bin/systemctl", "show", "--property=ExecStart",
+                    "--value", "readsb.service"])
+    if not re.search(r"(?<!\S)path=" + re.escape(str(path)) + r"(?=[;\s]|$)", unit):
+        return False, "readsb service uses another executable; manual migration required"
+    return True, "Legacy SDRCC binary detected; safe in-place upgrade with backup available"
+
 
 
 def snapshot(refresh=False):
