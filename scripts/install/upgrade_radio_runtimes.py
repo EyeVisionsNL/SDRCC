@@ -238,6 +238,54 @@ def build_airband_candidate(project: Path, work: Path) -> Path:
     return candidate
 
 
+def validate_airband_configuration(project: Path, proposed_yaml: str) -> None:
+    """Validate proposed Marine Voice settings in SDRCC's installed venv.
+
+    The external update worker runs as root via the system interpreter, which
+    intentionally lacks dashboard-only packages such as openpyxl. Do not
+    import core.traffic_voice into that interpreter or install packages as
+    root: the installed venv is the authoritative SDRCC dependency set.
+    """
+    python = project / "venv/bin/python"
+    if not python.is_file() or not os.access(python, os.X_OK):
+        raise RuntimeError("SDRCC Python venv is unavailable; Airband was not replaced")
+    script = (
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "sys.path.insert(0, str(Path.cwd()))\n"
+        "import yaml\n"
+        "from core import traffic_voice\n"
+        "try:\n"
+        "    config = yaml.safe_load(sys.stdin.read())\n"
+        "    result = traffic_voice.validate_configuration(config)\n"
+        "    print(json.dumps(result))\n"
+        "except Exception as exc:\n"
+        "    print(json.dumps({'ok': False, 'errors': [str(exc)]}))\n"
+        "    sys.exit(1)\n"
+    )
+    try:
+        check = subprocess.run(
+            [str(python), "-I", "-c", script],
+            input=proposed_yaml, cwd=project, capture_output=True,
+            text=True, timeout=30, check=False)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(
+            f"SDRCC venv configuration check could not run: {exc}") from exc
+    try:
+        result = json.loads((check.stdout or "").strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        detail = (check.stderr or check.stdout or "No output").strip()[-260:]
+        raise RuntimeError(
+            "SDRCC venv configuration validation unavailable: " + detail)
+    if check.returncode or not isinstance(result, dict) or not result.get("ok"):
+        problems = result.get("errors", []) if isinstance(result, dict) else []
+        if not isinstance(problems, list):
+            problems = [str(problems)]
+        raise RuntimeError(
+            "Traffic Voice 6.2.0 config validation failed in SDRCC venv: "
+            + "; ".join(str(item) for item in problems[:3])[:250])
+
+
 def update_airband(project, backup, report):
     from core.external_updates import installed_airband_version
     version, method = installed_airband_version()
@@ -268,15 +316,9 @@ def update_airband(project, backup, report):
         report("installing", "Building patched RTLSDR-Airband 6.2.0 in a staging directory.")
         with tempfile.TemporaryDirectory(prefix="sdrcc-airband-src-") as work:
             candidate = build_airband_candidate(project, Path(work))
-            # Validation before downtime, including SDRCC's own two supported
-            # backend-version contracts.
-            import yaml
-            from core import traffic_voice
-            data = yaml.safe_load(replacement)
-            result = traffic_voice.validate_configuration(data)
-            if not result.get("ok"):
-                raise RuntimeError("Traffic Voice 6.2.0 config validation failed: "
-                                   + "; ".join(result["errors"][:3]))
+            # Validate using SDRCC's own venv (openpyxl, PyYAML, etc.),
+            # not the root system Python used by the external update worker.
+            validate_airband_configuration(project, replacement)
             inactive(TRAFFIC_UNIT)
             report("installing", "Replacing idle Airband binary, recording source and updating metadata.")
             installed_temp = AIRBAND_BIN.with_name(".rtl_airband-sdrcc-upgrade")
