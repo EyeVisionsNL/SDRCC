@@ -112,7 +112,6 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
     else:
         exact = {
             "name": "rtlsdr_airband",
-            "version": "5.2.0",
             "service": "sdrcc-traffic-voice.service",
             "audio_transport": "local_udp_pcm",
             "activity_source": "channel_statistics",
@@ -120,8 +119,15 @@ def validate_configuration(payload: dict[str, Any] | None = None) -> dict[str, A
         for field, expected in exact.items():
             if backend.get(field) != expected:
                 errors.append(f"backend.{field} must be {expected}")
-        if backend.get("commit") != "61c5c4061967752da6b491a924664d72184b38fa":
-            errors.append("backend.commit is not the pinned v5.2.0 commit")
+        allowed_backends = {
+            "5.2.0": "61c5c4061967752da6b491a924664d72184b38fa",
+            "6.2.0": "66d3076819312c7eae7662028234988dc71d0be5",
+        }
+        # Existing SDRCC installs retain v5.2.0 until their external
+        # binary is safely updated. Config validation must accept both.
+        chosen_version = str(backend.get("version") or "")
+        if backend.get("commit") != allowed_backends.get(chosen_version):
+            errors.append("backend.version and backend.commit must match a supported pinned Airband release")
         try:
             port = int(backend.get("audio_port"))
         except (TypeError, ValueError):
