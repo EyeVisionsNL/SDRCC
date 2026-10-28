@@ -124,6 +124,25 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 
     data = {...data, software: [
         data.software[0],
+        {...data.software[1], installed: "1.2.3", latest: "1.2.2",
+            available: false, can_install: false, status: "ahead",
+            reason: "Installed version is newer than the latest tagged stable release"},
+        {...data.software[2], installed: "3.16.15", latest: "3.16.20",
+            available: true, can_install: true, status: "update",
+            reason: "Pinned upgrade 3.16.20 ready; stop ADS-B reception first"},
+        data.software[3],
+    ]};
+    intervals[0]();
+    await flush();
+    assert.equal(elements["external-update-badge"].textContent, "1 UPDATE AVAILABLE");
+    const readsbButton = list.queryAll(item => item.tagName === "button");
+    assert.equal(readsbButton.length, 1);
+    assert.equal(readsbButton[0].textContent, "⬆ Install 3.16.20");
+    assert(list.queryAll(item => item.className.includes("is-ahead")).length >= 1,
+        "a SatDump binary ahead of GitHub stable must not be labelled up to date");
+
+    data = {...data, software: [
+        data.software[0],
         makeRow("satdump", "SatDump", "1.2.2", "1.2.3", "APT update available", true, true),
         data.software[2], data.software[3],
     ]};
