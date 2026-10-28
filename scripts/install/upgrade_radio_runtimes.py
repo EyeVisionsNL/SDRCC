@@ -132,6 +132,21 @@ def _replace_binary_atomically(candidate: Path, target: Path, original_stat) -> 
         staged.unlink(missing_ok=True)
 
 
+def _is_pinned_readsb_3_16_20(version_output):
+    """Recognize both valid git-describe forms for a pinned readsb build.
+
+    A full git checkout at the pinned commit reports the upstream tag
+    v3.16.20. A shallow commit fetch may report the short Git SHA instead.
+    The build itself remains strictly tied to READSB_NEW via git_checkout.
+    """
+    text = version_output or ""
+    return bool(
+        re.search(r"(?i)\breadsb version:\s*3\.16\.20\b", text)
+        and re.search(
+            r"(?i)\bgit:\s*(?:v3\.16\.20\b|" + re.escape(READSB_NEW[:7]) + r"\b)",
+            text))
+
+
 def update_unmanaged_readsb(project, backup, report):
     """Migrate only a recognized old SDRCC readsb executable.
 
@@ -193,7 +208,7 @@ def update_unmanaged_readsb(project, backup, report):
     if not candidate.is_file() or candidate.is_symlink():
         raise RuntimeError("Pinned package did not contain a regular readsb executable")
     candidate_info = command([str(candidate), "--version"], timeout=15)
-    if READSB_VERSION not in candidate_info or READSB_NEW[:7] not in candidate_info:
+    if not _is_pinned_readsb_3_16_20(candidate_info):
         raise RuntimeError("New readsb executable failed version/commit check")
 
     # Build/test may take time. Recheck service and binary immediately before
@@ -208,7 +223,7 @@ def update_unmanaged_readsb(project, backup, report):
         _replace_binary_atomically(candidate, target, previous_stat)
         replaced = True
         installed = command([str(target), "--version"], timeout=15)
-        if READSB_VERSION not in installed or READSB_NEW[:7] not in installed:
+        if not _is_pinned_readsb_3_16_20(installed):
             raise RuntimeError("New readsb verification failed; restoring original executable")
         # Intentionally leave ADS-B stopped. Mission Engine owns the SDR.
         return READSB_VERSION
