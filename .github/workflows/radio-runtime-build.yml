@@ -88,5 +88,5 @@ jobs:
           dpkg-deb -x /tmp/readsb_*.deb /tmp/readsb-extracted
           test -x /tmp/readsb-extracted/usr/bin/readsb
           /tmp/readsb-extracted/usr/bin/readsb --version 2>&1 | grep -F '3.16.20'
-          /tmp/readsb-extracted/usr/bin/readsb --version 2>&1 | grep -F 'dadfa330'
+          /tmp/readsb-extracted/usr/bin/readsb --version 2>&1 | grep -F 'git: v3.16.20'
 
