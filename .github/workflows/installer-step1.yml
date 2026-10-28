@@ -35,6 +35,12 @@ on:
       - 'scripts/validate_update_06719_compat.py'
       - 'dashboard/static/js/update_manager.js'
       - 'scripts/validate_update_channel_failure.cjs'
+      - 'core/external_updates.py'
+      - 'scripts/sdrcc_external_update.py'
+      - 'scripts/validate_external_updates.py'
+      - 'dashboard/static/js/external_updates.js'
+      - 'dashboard/static/style.css'
+      - 'uninstall.sh'
       - 'VERSION'
       - '.github/workflows/installer-step1.yml'
   workflow_dispatch:
@@ -71,6 +77,12 @@ jobs:
           node scripts/validate_water_supply_model.cjs
           python -m unittest scripts.test_small_tug
           node scripts/validate_small_tug.cjs
+      - name: Check external updater safety and browser syntax
+        run: |
+          python -m compileall -q core/external_updates.py scripts/sdrcc_external_update.py dashboard/app.py
+          python scripts/validate_external_updates.py
+          node --check dashboard/static/js/external_updates.js
+          bash -n install.sh uninstall.sh
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
       - name: Check MapLibre 6 map boot and error handling
