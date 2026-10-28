@@ -1,0 +1,59 @@
+name: Radio runtime build compatibility
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'scripts/install/provision_external.sh'
+      - 'scripts/install/upgrade_radio_runtimes.py'
+      - 'scripts/install/patch_rtlsdr_airband_auto_gain.py'
+      - 'scripts/install/patch_rtlsdr_airband_scan_interval.py'
+      - 'core/traffic_voice.py'
+      - 'config/traffic_voice.yaml'
+      - '.github/workflows/radio-runtime-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  patched-airband:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cmake g++ pkg-config libconfig++-dev libfftw3-dev libmp3lame-dev libshout3-dev librtlsdr-dev
+      - name: Checkout pinned Airband release, apply both SDRCC patches and compile
+        run: |
+          git clone --quiet --depth 1 --branch v6.2.0 https://github.com/rtl-airband/RTLSDR-Airband.git /tmp/airband-source
+          test "$(git -C /tmp/airband-source rev-parse HEAD)" = 66d3076819312c7eae7662028234988dc71d0be5
+          python3 scripts/install/patch_rtlsdr_airband_auto_gain.py /tmp/airband-source/src/input-rtlsdr.cpp
+          python3 scripts/install/patch_rtlsdr_airband_scan_interval.py /tmp/airband-source/src/rtl_airband.cpp
+          cmake -S /tmp/airband-source -B /tmp/airband-build -DNFM=ON -DRTLSDR=ON -DMIRISDR=OFF -DSOAPYSDR=OFF -DPULSEAUDIO=OFF -DPLATFORM=native
+          cmake --build /tmp/airband-build --parallel 2
+          test -x /tmp/airband-build/src/rtl_airband
+          strings /tmp/airband-build/src/rtl_airband | grep -F 'automatic tuner gain enabled'
+          strings /tmp/airband-build/src/rtl_airband | grep -F 'scan_interval_ms must be 100..500 ms'
+
+  pinned-readsb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install readsb Debian package build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends git build-essential debhelper libusb-1.0-0-dev pkg-config fakeroot libncurses-dev zlib1g-dev libzstd-dev librtlsdr-dev help2man
+      - name: Build pinned readsb 3.16.20 package
+        run: |
+          git clone --quiet https://github.com/wiedehopf/readsb.git /tmp/readsb-source
+          git -C /tmp/readsb-source checkout --quiet dadfa3307a1951b7ef687cfe3fd66cdb708a4f6f
+          test "$(git -C /tmp/readsb-source rev-parse HEAD)" = dadfa3307a1951b7ef687cfe3fd66cdb708a4f6f
+          test "$(cat /tmp/readsb-source/version)" = "3.16.20"
+          cd /tmp/readsb-source
+          export DEB_BUILD_OPTIONS=noddebs
+          dpkg-buildpackage -b -ui -uc -us --build-profiles=rtlsdr
+          dpkg-deb -f /tmp/readsb_*.deb Package | grep -Fx readsb
