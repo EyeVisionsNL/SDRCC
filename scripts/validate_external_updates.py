@@ -338,16 +338,19 @@ class ExternalUpdateTests(unittest.TestCase):
             process.assert_not_called()
 
     def test_readsb_upgrade_preflight_shows_actual_blocker(self):
+        from types import SimpleNamespace
         installed = "3.16.15"
         output = "readsb version: 3.16.15 wiedehopf git: cc0d099"
-        def command(args, timeout=5):
+        def packaged(args, timeout=5):
             if "-W" in args:
                 return "install ok installed\n"
             if "-S" in args:
                 return "readsb: /usr/bin/readsb\n"
             raise AssertionError("Unexpected subprocess call")
-        with patch.object(updates, "command", side_effect=command), \
-             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"):
+        with patch.object(updates, "command", side_effect=packaged), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"), \
+             patch.object(updates.Path, "is_file", return_value=True), \
+             patch.object(updates.Path, "is_symlink", return_value=False):
             eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
             self.assertTrue(eligible, reason)
             self.assertIn("ready", reason)
@@ -355,23 +358,121 @@ class ExternalUpdateTests(unittest.TestCase):
                 installed, "readsb version: 3.16.15 wiedehopf git: other", "3.16.20")
             self.assertFalse(eligible)
             self.assertIn("commit differs", reason)
-        with patch.object(updates, "command", return_value="no packages found matching readsb"), \
-             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"):
+        def legacy_commands(args, timeout=5):
+            if "-W" in args:
+                return "dpkg-query: no packages found matching readsb"
+            if "show" in args:
+                return "{ path=/usr/bin/readsb ; argv[]=/usr/bin/readsb --write-json ... ; }"
+            raise AssertionError(f"Unexpected query {args}")
+        unowned = SimpleNamespace(
+            returncode=1, stdout="",
+            stderr="dpkg-query: no path found matching pattern /usr/bin/readsb")
+        with patch.object(updates, "command", side_effect=legacy_commands), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"), \
+             patch.object(updates.Path, "is_file", return_value=True), \
+             patch.object(updates.Path, "is_symlink", return_value=False), \
+             patch.object(updates.subprocess, "run", return_value=unowned):
+            eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
+            self.assertTrue(eligible, reason)
+            self.assertIn("Legacy SDRCC binary", reason)
+
+        owned_by_other = SimpleNamespace(
+            returncode=0, stdout="otherpackage: /usr/bin/readsb", stderr="")
+        with patch.object(updates, "command", side_effect=legacy_commands), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"), \
+             patch.object(updates.Path, "is_file", return_value=True), \
+             patch.object(updates.Path, "is_symlink", return_value=False), \
+             patch.object(updates.subprocess, "run", return_value=owned_by_other):
             eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
             self.assertFalse(eligible)
-            self.assertIn("not registered as a Debian package", reason)
-        with patch.object(updates, "command", side_effect=lambda args, timeout=5:
-                          "install ok installed" if "-W" in args else
-                          "otherpackage: /usr/local/bin/readsb"), \
-             patch.object(updates.shutil, "which", return_value="/usr/local/bin/readsb"):
+            self.assertIn("belongs to another Debian package", reason)
+        with patch.object(updates, "command", return_value=""), \
+             patch.object(updates.shutil, "which", return_value="/tmp/readsb"):
             eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
             self.assertFalse(eligible)
-            self.assertIn("not owned by the readsb package", reason)
+            self.assertIn("unsupported location", reason)
         with patch.object(updates, "command") as command:
             eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.21")
             self.assertFalse(eligible)
             self.assertIn("needs review", reason)
             command.assert_not_called()
+
+    def test_unmanaged_readsb_migration_preserves_config_and_rollback(self):
+        from scripts.install import upgrade_radio_runtimes as runtime
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from types import SimpleNamespace
+
+        def simulate(success):
+            with TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                target = root / "readsb"
+                target.write_bytes(b"old-3.16.15")
+                target.chmod(0o755)
+                backup = root / "backup"
+                events = []
+                new_version = ("readsb version: 3.16.20 wiedehopf git: dadfa330"
+                               if success else "readsb version: broken")
+                def mock_readsb(args, timeout=5):
+                    if args[0] == str(target):
+                        return (new_version if target.read_bytes() != b"old-3.16.15"
+                                else "readsb version: 3.16.15 git: cc0d099")
+                    if args[0].endswith("/usr/bin/readsb"):
+                        return "readsb version: 3.16.20 wiedehopf git: dadfa330"
+                    return ""
+                def mock_call(args, **kw):
+                    events.append(args)
+                    if args[0] == "/usr/bin/dpkg-deb" and "-x" in args:
+                        out = Path(args[-1]) / "usr/bin/readsb"
+                        out.parent.mkdir(parents=True)
+                        out.write_bytes(b"new-3.16.20")
+                        out.chmod(0o755)
+                    if args[0] == "/usr/bin/dpkg-deb" and "-f" in args:
+                        return "3.16.20\n"
+                    return "ExecStart=/usr/bin/readsb\n"
+                def mock_build(work, sha):
+                    path = work / "readsb_3.16.20.deb"
+                    path.write_bytes(b"test Debian container")
+                    return path
+
+                with patch.object(runtime.shutil, "which", return_value=str(target)), \
+                     patch.object(runtime, "inactive"), \
+                     patch.object(runtime, "_build_readsb", side_effect=mock_build), \
+                     patch.object(runtime, "call", side_effect=mock_call), \
+                     patch.object(runtime, "readsb_upgrade_preflight",
+                                  return_value=(True, "Legacy SDRCC binary detected; safe in-place upgrade")), \
+                     patch.object(runtime, "os") as mocked_os, \
+                     patch("core.external_updates.command", side_effect=mock_readsb):
+                    # Preserve real os.* functions other than privileged chown.
+                    mocked_os.fdopen.side_effect = os.fdopen
+                    mocked_os.fsync.side_effect = os.fsync
+                    mocked_os.replace.side_effect = os.replace
+                    mocked_os.chmod.side_effect = os.chmod
+                    mocked_os.access.side_effect = os.access
+                    mocked_os.cpu_count.side_effect = os.cpu_count
+                    mocked_os.environ = os.environ
+                    mocked_os.chown.return_value = None
+                    mocked_os.path = os.path
+                    mocked_os.stat_result = os.stat_result
+                    mocked_os.open.side_effect = os.open
+                    mocked_os.close.side_effect = os.close
+                    # mkstemp uses tempfile's real os and only the target
+                    # ownership change is privileged in the migration path.
+                    if success:
+                        version = runtime.update_unmanaged_readsb(
+                            root, backup, lambda st, msg: events.append((st, msg)))
+                        self.assertEqual(version, "3.16.20")
+                        self.assertEqual(target.read_bytes(), b"new-3.16.20")
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, "New readsb verification failed"):
+                            runtime.update_unmanaged_readsb(
+                                root, backup, lambda st, msg: events.append((st, msg)))
+                        self.assertEqual(target.read_bytes(), b"old-3.16.15")
+                    self.assertEqual((backup / "readsb-original").read_bytes(), b"old-3.16.15")
+                    self.assertTrue((backup / "migration.json").is_file())
+        import os
+        simulate(True)
+        simulate(False)
 
     def test_readsb_upgrade_worker_rechecks_same_ownership_guard(self):
         from scripts.install import upgrade_radio_runtimes as runtime
