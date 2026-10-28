@@ -140,11 +140,13 @@ def _is_pinned_readsb_3_16_20(version_output):
     The build itself remains strictly tied to READSB_NEW via git_checkout.
     """
     text = version_output or ""
-    return bool(
-        re.search(r"(?i)\breadsb version:\s*3\.16\.20\b", text)
-        and re.search(
-            r"(?i)\bgit:\s*(?:v3\.16\.20\b|" + re.escape(READSB_NEW[:7]) + r"\b)",
-            text))
+    if not re.search(r"(?i)\breadsb version:\s*3\.16\.20\b", text):
+        return False
+    match = re.search(r"(?i)\bgit:\s*(v3\.16\.20|[0-9a-f]{7,40})(?![a-z0-9])", text)
+    if not match:
+        return False
+    git_revision = match.group(1).lower()
+    return git_revision == "v3.16.20" or READSB_NEW.startswith(git_revision)
 
 
 def update_unmanaged_readsb(project, backup, report):
