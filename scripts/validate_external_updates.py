@@ -80,12 +80,12 @@ class ExternalUpdateTests(unittest.TestCase):
              "digest": "sha256:" + "e" * 64,
              "url": "https://github.com/jvde-github/AIS-catcher/releases/download/v0.71/ais-catcher_ubuntu_resolute_amd64.deb"}]}
         with patch("pathlib.Path.read_text", mock_open(
-            read_data='ID=ubuntu\\nVERSION_CODENAME=resolute\\n')), \\
-             patch.object(updates, "command", return_value="amd64\\n"):
+            read_data='ID=ubuntu\nVERSION_CODENAME=resolute\n')), \
+             patch.object(updates, "command", return_value="amd64\n"):
             self.assertIsNotNone(updates.matching_ais_asset(release))
         with patch("pathlib.Path.read_text", mock_open(
-            read_data='ID=debian\\nVERSION_CODENAME=trixie\\n')), \\
-             patch.object(updates, "command", return_value="amd64\\n"):
+            read_data='ID=debian\nVERSION_CODENAME=trixie\n')), \
+             patch.object(updates, "command", return_value="amd64\n"):
             self.assertIsNone(updates.matching_ais_asset(release))
 
     def test_product_arguments_are_hardcoded_and_updates_are_opt_in(self):
