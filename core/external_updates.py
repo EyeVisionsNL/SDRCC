@@ -284,6 +284,33 @@ def worker_status():
     return data
 
 
+def readsb_upgrade_preflight(installed, version_output, upstream):
+    """Explain why a pinned readsb update can or cannot be offered.
+
+    Never assume that finding a matching readsb command means its files are
+    owned by SDRCC's Debian package; legacy source installs can shadow /usr/bin.
+    """
+    if installed != "3.16.15":
+        return False, "Only SDRCC's existing readsb 3.16.15 can use this pinned upgrade"
+    if not re.search(r"(?<![a-z0-9])cc0d099(?![a-z0-9])",
+                     version_output or "", flags=re.I):
+        return False, "Installed readsb build commit differs from SDRCC's pinned cc0d099"
+    if upstream != "3.16.20":
+        return False, "Pinned readsb 3.16.20 source needs review against the upstream dev branch"
+    if "install ok installed" not in command(
+            ["/usr/bin/dpkg-query", "-W", "-f=${Status}", "readsb"]).lower():
+        return False, "readsb is not registered as a Debian package; safe migration needs review"
+    binary = shutil.which("readsb")
+    if not binary:
+        return False, "readsb executable cannot be located"
+    ownership = command(["/usr/bin/dpkg-query", "-S", str(Path(binary).resolve())])
+    if not re.search(r"(?m)^readsb(?::[a-z0-9_-]+)?:\s", ownership):
+        return False, (
+            "The active readsb executable is not owned by the readsb package; "
+            "possible legacy source installation")
+    return True, "Pinned 3.16.20 package update ready; stop ADS-B reception first"
+
+
 def snapshot(refresh=False):
     ais_installed = ais_version(command(["AIS-catcher", "-v"]))
     if not ais_installed and shutil.which("AIS-catcher"):
@@ -314,11 +341,9 @@ def snapshot(refresh=False):
     air_installed, air_method = installed_airband_version()
     readsb_newer = newer_than(readsb_installed, readsb_latest.get("version"))
     air_newer = newer_than(air_installed, air_latest.get("version"))
-    readsb_can_install = bool(
-        readsb_installed == "3.16.15" and "cc0d099" in readsb_info
-        and readsb_latest.get("version") == "3.16.20" and readsb_newer
-        and "install ok installed" in command(
-            ["/usr/bin/dpkg-query", "-W", "-f=${Status}", "readsb"]).lower())
+    readsb_can_install, readsb_guard_reason = readsb_upgrade_preflight(
+        readsb_installed, readsb_info, readsb_latest.get("version"))
+    readsb_can_install = bool(readsb_can_install and readsb_newer)
     air_provenance = ""
     try:
         air_provenance = AIRBAND_PROVENANCE.read_text(encoding="utf-8")
@@ -370,8 +395,7 @@ def snapshot(refresh=False):
     elif errors.get("readsb_upstream"):
         readsb_status, readsb_reason = "manual", "Development version check unavailable"
     elif readsb_newer:
-        readsb_status, readsb_reason = "review", (
-            "Newer development build; SDRCC receiver integration must be tested before upgrading")
+        readsb_status, readsb_reason = "review", readsb_guard_reason
     elif readsb_newer is False:
         readsb_status, readsb_reason = "current", "Current with upstream dev branch"
     else:
@@ -415,7 +439,7 @@ def snapshot(refresh=False):
          "can_install": readsb_can_install, "status": "update" if readsb_can_install else readsb_status,
          "source": "GitHub development branch (not a stable release)",
          "url": READSB_PAGE,
-         "reason": "Pinned upgrade 3.16.20 ready; stop ADS-B reception first" if readsb_can_install else readsb_reason},
+         "reason": readsb_guard_reason if readsb_can_install else readsb_reason},
         {"id": "rtl-airband", "name": "RTLSDR-Airband",
          "installed": (air_installed + (" (" + air_method + ")" if air_method == "SDRCC patched" else ""))
                      if air_installed else None,
