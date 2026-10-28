@@ -115,19 +115,18 @@ def _build_readsb(work, sha):
 
 
 def update_readsb(project, backup, report):
-    from core.external_updates import command, newer_than
+    from core.external_updates import command, newer_than, readsb_upgrade_preflight
     output = command(["readsb", "--version"])
     match = re.search(r"readsb version:\s*(\d+\.\d+(?:\.\d+)?)", output, re.I)
-    if not match or not newer_than(match.group(1), READSB_VERSION):
+    version = match.group(1) if match else None
+    if not version or not newer_than(version, READSB_VERSION):
         raise RuntimeError("Installed readsb version is unknown or already current")
-    # Only upgrade the exact original SDRCC-pinned build. Other local
-    # modifications must never be overwritten by the dashboard.
-    if "cc0d099" not in output or match.group(1) != "3.16.15":
-        raise RuntimeError("readsb is not SDRCC's original pinned build; manual review required")
+    # Use exactly the same package/commit ownership checks as the dashboard.
+    # A /usr/local/bin/readsb source build must never be silently replaced.
+    allowed, why = readsb_upgrade_preflight(version, output, READSB_VERSION)
+    if not allowed:
+        raise RuntimeError(why)
     inactive(READSB_UNIT)
-    if not call(["dpkg-query", "-W", "-f=${Status}", "readsb"]).strip().endswith(
-            "installed"):
-        raise RuntimeError("readsb is not installed as a Debian package")
     previous_enabled = _service_enabled(READSB_UNIT)
     _copy_if_exists(Path("/etc/default/readsb"), backup / "readsb-default")
     _copy_if_exists(Path("/etc/systemd/system/readsb.service"),
