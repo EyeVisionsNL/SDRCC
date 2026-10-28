@@ -314,17 +314,29 @@ def readsb_upgrade_preflight(installed, version_output, upstream):
                 "possible legacy source installation")
         return True, "Pinned 3.16.20 package update ready; stop ADS-B reception first"
 
-    # Do not overwrite an executable owned by a different Debian package.
+    # dpkg-query -S exits 1 for an unowned path. Its diagnostic text
+    # depends on LANGUAGE/LC_MESSAGES and can appear on stdout or stderr;
+    # never use a particular English substring to decide ownership.
+    # Verify the dpkg database responds correctly before accepting rc=1.
+    health = command(["/usr/bin/dpkg-query", "-W", "-f=${Status}", "dpkg"])
+    if "install ok installed" not in health.lower():
+        return False, "dpkg database health check failed; refusing readsb migration"
     try:
+        import os
         owner = subprocess.run(
             ["/usr/bin/dpkg-query", "-S", str(path)],
-            capture_output=True, text=True, timeout=5, check=False)
+            capture_output=True, text=True, timeout=5, check=False,
+            env={**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"})
     except (OSError, subprocess.SubprocessError):
-        return False, "Unable to verify ownership of the legacy readsb binary"
+        return False, "Unable to query Debian ownership of the legacy readsb binary"
     if owner.returncode == 0:
         return False, "Legacy readsb executable belongs to another Debian package"
-    if owner.returncode != 1 or "no path found" not in (owner.stderr or "").lower():
-        return False, "Unable to verify that the legacy readsb executable is unmanaged"
+    if owner.returncode != 1:
+        return False, (
+            "Debian ownership query failed (exit " + str(owner.returncode)
+            + "); refusing readsb migration")
+    # Exit 1 with a working dpkg database means no package claims this file.
+    # No localized error-message parsing is needed.
 
     # The service must invoke the same executable; no custom unit migration.
     unit = command(["/usr/bin/systemctl", "show", "--property=ExecStart",
