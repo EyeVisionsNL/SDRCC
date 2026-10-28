@@ -246,6 +246,50 @@ class ExternalUpdateTests(unittest.TestCase):
         self.assertTrue(any(x[:2] == ["/usr/bin/systemctl", "reset-failed"]
                             for x in events))
 
+    def test_airband_cmake_executes_in_tagged_source_checkout(self):
+        from scripts.install import upgrade_radio_runtimes as runtime
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        commands = []
+        with TemporaryDirectory() as tmp:
+            stage = Path(tmp)
+            source = stage / "source"
+            built = stage / "build/src/rtl_airband"
+            def fake_call(args, *, cwd=None, timeout=180, env=None):
+                commands.append((tuple(str(part) for part in args), cwd))
+                if args[0] == "cmake" and "--build" in args:
+                    built.parent.mkdir(parents=True, exist_ok=True)
+                    built.write_bytes(
+                        b"automatic tuner gain enabled\x00"
+                        b"scan_interval_ms must be 100..500 ms")
+                    built.chmod(0o755)
+                if str(args[0]).endswith("/scripts/find_version"):
+                    if cwd != source:
+                        raise RuntimeError("version resolver needs source cwd")
+                    return "v6.2.0-dirty\n"
+                return ""
+            with patch.object(runtime, "git_checkout", return_value=runtime.AIRBAND_SHA) as git, \
+                 patch.object(runtime, "call", side_effect=fake_call):
+                candidate = runtime.build_airband_candidate(
+                    Path(__file__).resolve().parents[1], stage)
+            self.assertEqual(candidate, built)
+            git.assert_called_once_with(
+                source, runtime.AIRBAND_URL, runtime.AIRBAND_SHA,
+                branch=runtime.AIRBAND_TAG)
+            config = next((item for item in commands
+                           if item[0][0] == "cmake" and "-S" in item[0]), None)
+            self.assertIsNotNone(config)
+            self.assertEqual(config[1], source)
+            self.assertTrue(any(item[0][0].endswith("/scripts/find_version")
+                                and item[1] == source for item in commands))
+
+    def test_clean_installer_uses_airband_source_as_cmake_cwd(self):
+        source = (Path(__file__).resolve().parents[1] /
+                  "scripts/install/provision_external.sh").read_text(encoding="utf-8")
+        self.assertIn('cd "$WORK/airband"', source)
+        self.assertIn('scripts/find_version', source)
+
     def test_product_arguments_are_hardcoded_and_updates_are_opt_in(self):
         root = Path(__file__).resolve().parents[1]
         app = (root / "dashboard/app.py").read_text()
