@@ -286,12 +286,35 @@ def launch(product):
         print(json.dumps({"ok": False, "message": "An update is already running."}))
         return 3
     status("queued", "External update queued.", software=product)
-    result = run(["/usr/bin/systemd-run", "--quiet", "--no-block", "--collect",
-                  f"--unit={UPDATE_UNIT}", "--property=Type=exec",
-                  str(SELF), "--worker", product], timeout=30)
+    command = ["/usr/bin/systemd-run", "--quiet", "--no-block", "--collect",
+               f"--unit={UPDATE_UNIT}", "--property=Type=exec",
+               str(SELF), "--worker", product]
+    try:
+        result = run(command, timeout=30)
+        detail = (result.stderr or result.stdout or "").strip()
+        # systemd can retain a failed transient unit under the same name.
+        # Clear it only when there is definitely no active updater.
+        if result.returncode and ("already exists" in detail.lower()
+                                  or "already loaded" in detail.lower()):
+            if not active(UPDATE_UNIT + ".service"):
+                reset = run(["/usr/bin/systemctl", "reset-failed",
+                             UPDATE_UNIT + ".service"], timeout=15)
+                if reset.returncode == 0:
+                    result = run(command, timeout=30)
+                    detail = (result.stderr or result.stdout or "").strip()
+    except (OSError, subprocess.SubprocessError) as exc:
+        detail = str(exc)[:200]
+        status("failed", "Could not execute systemd-run: " + detail, software=product)
+        print(json.dumps({"ok": False, "code": "systemd_run_unavailable",
+                          "message": "Could not start systemd-run: " + detail}))
+        return 1
     if result.returncode:
-        status("failed", "Unable to start external update worker.", software=product)
-        print(json.dumps({"ok": False, "message": "Could not start update worker."}))
+        safe_detail = " ".join(detail.split())[:220]
+        explanation = ("Systemd could not launch the update service: " + safe_detail
+                       if safe_detail else "Systemd could not launch the update service")
+        status("failed", explanation, software=product)
+        print(json.dumps({"ok": False, "code": "systemd_launch_failed",
+                          "message": explanation}))
         return 1
     print(json.dumps({"ok": True, "message": "External update started."}))
     return 0
