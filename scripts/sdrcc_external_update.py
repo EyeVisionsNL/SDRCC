@@ -65,10 +65,6 @@ def service(action, name):
 def restore_service_states(was):
     problems = []
     try:
-        service("daemon-reload", AIS_SERVICE)  # handled below by direct daemon-reload
-    except Exception:
-        pass
-    try:
         run(["/usr/bin/systemctl", "daemon-reload"], timeout=30, check=True)
     except Exception:
         problems.append("systemd reload")
@@ -89,7 +85,7 @@ def restore_service_states(was):
 
 def safe_copy(src, dest):
     if src.is_dir():
-        shutil.copytree(src, dest, symlinks=True)
+        shutil.copytree(src, dest, symlinks=True, dirs_exist_ok=True)
     elif src.exists():
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
@@ -124,7 +120,7 @@ def install_ais(external, backup):
     current = ais_version(external.command(["AIS-catcher", "-v"]))
     latest = release(refresh=True).get("ais_release") or {}
     tag = latest.get("tag", "")
-    if not current or not re.fullmatch(r"v\\d+\\.\\d+(?:\\.\\d+)?", tag):
+    if not current or not re.fullmatch(r"v\d+\.\d+(?:\.\d+)?", tag):
         raise RuntimeError("AIS version or trusted release cannot be verified")
     if not (version_tuple(tag[1:]) > version_tuple(current)):
         raise RuntimeError("No newer AIS-catcher release is available")
@@ -258,7 +254,7 @@ def launch(product):
     if active(UPDATE_UNIT + ".service") or active("sdrcc-update.service"):
         print(json.dumps({"ok": False, "message": "An update is already running."}))
         return 3
-    status("starting", "External update queued.", software=product)
+    status("queued", "External update queued.", software=product)
     result = run(["/usr/bin/systemd-run", "--quiet", "--no-block", "--collect",
                   f"--unit={UPDATE_UNIT}", "--property=Type=exec",
                   str(SELF), "--worker", product], timeout=30)
