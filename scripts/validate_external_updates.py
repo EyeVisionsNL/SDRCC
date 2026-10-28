@@ -203,6 +203,49 @@ class ExternalUpdateTests(unittest.TestCase):
         self.assertIn('rollback package', runtime.update_readsb.__doc__ or
                       (root / "scripts/install/upgrade_radio_runtimes.py").read_text())
 
+    def test_launcher_failure_distinguishes_sudo_and_systemd(self):
+        forbidden = updates.explain_launch_failure(
+            1, "", "sudo: a password is required")
+        self.assertEqual(forbidden["code"], "sudo_permission")
+        self.assertIn("sudo", forbidden["message"])
+        not_allowed = updates.explain_launch_failure(
+            1, "", "sorry, user eyevisions is not allowed to execute")
+        self.assertEqual(not_allowed["code"], "sudo_permission")
+        service = updates.explain_launch_failure(
+            1, '{"ok":false,"code":"systemd_launch_failed",'
+               '"message":"Unit sdrcc-external-update.service already exists"}',
+            "")
+        self.assertEqual(service["code"], "systemd_launch_failed")
+        self.assertIn("already exists", service["message"])
+        unknown = updates.explain_launch_failure(7, "", "")
+        self.assertEqual(unknown["code"], "launch_failed")
+
+    def test_external_launcher_retries_stale_failed_systemd_unit(self):
+        from scripts import sdrcc_external_update as helper
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from types import SimpleNamespace
+
+        events = []
+        def fake_run(args, timeout=30, **kw):
+            events.append(args)
+            if args[0] == "/usr/bin/systemd-run" and sum(
+                    1 for cmd in events if cmd[0] == "/usr/bin/systemd-run") == 1:
+                return SimpleNamespace(
+                    returncode=1, stdout="", stderr="Unit sdrcc-external-update.service already exists")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        captured = StringIO()
+        with patch.object(helper, "run", side_effect=fake_run), \
+             patch.object(helper, "active", return_value=False), \
+             patch.object(helper, "status"), \
+             redirect_stdout(captured):
+            code = helper.launch("rtl-airband")
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(captured.getvalue())["ok"])
+        self.assertEqual(sum(1 for x in events if x[0] == "/usr/bin/systemd-run"), 2)
+        self.assertTrue(any(x[:2] == ["/usr/bin/systemctl", "reset-failed"]
+                            for x in events))
+
     def test_product_arguments_are_hardcoded_and_updates_are_opt_in(self):
         root = Path(__file__).resolve().parents[1]
         app = (root / "dashboard/app.py").read_text()
