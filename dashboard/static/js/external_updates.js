@@ -185,7 +185,7 @@
         const impact = {
             "ais-catcher": "AIS sharing will stop temporarily; SDRCC backs up the configuration and restores the service state.",
             "satdump": "Only the Ubuntu APT package will be updated. Active satellite missions must finish first.",
-            "readsb": "Stop ADS-B first. SDRCC builds original rollback and pinned 3.16.20 Debian packages, then installs and verifies. SDRCC will not restart receiver hardware.",
+            "readsb": "Stop ADS-B first. SDRCC backs up your existing readsb executable and settings, builds the verified 3.16.20 version and restores the old binary if verification fails. SDRCC will not restart receiver hardware.",
             "rtl-airband": "Stop Traffic Voice first. SDRCC builds 6.2.0 with Auto Gain and scan interval patches; previous binary and settings are backed up.",
         }[item.id];
         if (!window.confirm("Install " + item.name + " " + item.latest + "?\n\n" +
