@@ -505,3 +505,11 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* External third-party updates: compact, collapsible maintenance rows. */
+.external-update-list{display:grid;gap:12px;margin:12px 0}
+.external-update-row{padding:12px;border:1px solid rgba(130,180,215,.22);border-radius:11px;background:rgba(8,32,49,.3)}
+.external-update-row-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.external-update-row p{margin:8px 0;overflow-wrap:anywhere}
+.external-update-row .system-maintenance-ais-actions{display:flex;gap:8px;flex-wrap:wrap}
+.external-update-row a.control-button{display:inline-flex;align-items:center;text-decoration:none}
