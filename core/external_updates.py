@@ -237,6 +237,39 @@ def _apt_newer(installed, candidate):
         return False
 
 
+def explain_launch_failure(returncode, stdout="", stderr=""):
+    """Turn a failed privileged launcher into actionable, bounded UI feedback."""
+    try:
+        answer = json.loads((stdout or "").strip())
+    except (TypeError, ValueError):
+        answer = None
+    if isinstance(answer, dict) and answer.get("ok") is False:
+        label = str(answer.get("message") or "").strip()
+        if label:
+            return {"code": str(answer.get("code") or "helper_rejected")[:48],
+                    "message": label[:240]}
+    error = str(stderr or "").strip()
+    lowered = error.lower()
+    if any(part in lowered for part in (
+            "a password is required", "not allowed to execute",
+            "is not in the sudoers", "is not in sudoers",
+            "sudo: a terminal is required", "authentication is required")):
+        return {"code": "sudo_permission",
+                "message": "SDRCC external updater is not authorized by sudo. "
+                           "The update helper permissions need repair."}
+    if any(part in lowered for part in (
+            "no such file or directory", "command not found", "permission denied")):
+        return {"code": "helper_missing_or_unexecutable",
+                "message": "The installed external update helper cannot run. "
+                           "The privileged helper needs repair."}
+    if "already exists" in lowered or "already loaded" in lowered:
+        return {"code": "unit_already_exists",
+                "message": "A previous external update systemd unit is still registered."}
+    return {"code": "launch_failed",
+            "message": "External updater failed to launch (exit "
+                       + str(returncode) + "). Check the SDRCC service log."}
+
+
 def worker_status():
     try:
         data = json.loads(WORKER_STATUS.read_text(encoding="utf-8"))
