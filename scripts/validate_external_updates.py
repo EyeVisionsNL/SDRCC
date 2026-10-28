@@ -290,6 +290,53 @@ class ExternalUpdateTests(unittest.TestCase):
         self.assertIn('cd "$WORK/airband"', source)
         self.assertIn('scripts/find_version', source)
 
+    def test_airband_validator_uses_sdrcc_venv_not_system_python(self):
+        from scripts.install import upgrade_radio_runtimes as runtime
+        from tempfile import TemporaryDirectory
+        from types import SimpleNamespace
+        import os
+
+        with TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            interpreter = project / "venv/bin/python"
+            interpreter.parent.mkdir(parents=True)
+            interpreter.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            interpreter.chmod(0o755)
+            proposed = "traffic_voice:\n  backend:\n    version: 6.2.0\n"
+            calls = []
+            def validated(args, **kwargs):
+                calls.append((args, kwargs))
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout='{"ok": true, "errors": []}\n',
+                    stderr="")
+            with patch.object(runtime.subprocess, "run", side_effect=validated):
+                runtime.validate_airband_configuration(project, proposed)
+            self.assertEqual(len(calls), 1)
+            args, kwargs = calls[0]
+            self.assertEqual(args[:2], [str(interpreter), "-I"])
+            self.assertEqual(args[2], "-c")
+            self.assertIn("from core import traffic_voice", args[3])
+            self.assertEqual(kwargs["input"], proposed)
+            self.assertEqual(kwargs["cwd"], project)
+            self.assertTrue(kwargs["capture_output"])
+            self.assertNotIn("pip", args)
+            with patch.object(runtime.subprocess, "run", return_value=SimpleNamespace(
+                    returncode=1,
+                    stdout='{"ok": false, "errors": ["invalid backend version"]}\n',
+                    stderr="")):
+                with self.assertRaisesRegex(RuntimeError, "invalid backend version"):
+                    runtime.validate_airband_configuration(project, proposed)
+            with patch.object(runtime.subprocess, "run", return_value=SimpleNamespace(
+                    returncode=1, stdout="", stderr="No module named 'openpyxl'")):
+                with self.assertRaisesRegex(RuntimeError, "openpyxl"):
+                    runtime.validate_airband_configuration(project, proposed)
+            interpreter.unlink()
+            with patch.object(runtime.subprocess, "run") as process:
+                with self.assertRaisesRegex(RuntimeError, "SDRCC Python venv is unavailable"):
+                    runtime.validate_airband_configuration(project, proposed)
+            process.assert_not_called()
+
     def test_product_arguments_are_hardcoded_and_updates_are_opt_in(self):
         root = Path(__file__).resolve().parents[1]
         app = (root / "dashboard/app.py").read_text()
