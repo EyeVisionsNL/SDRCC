@@ -439,25 +439,10 @@ class ExternalUpdateTests(unittest.TestCase):
                      patch.object(runtime, "inactive"), \
                      patch.object(runtime, "_build_readsb", side_effect=mock_build), \
                      patch.object(runtime, "call", side_effect=mock_call), \
-                     patch.object(runtime, "readsb_upgrade_preflight",
-                                  return_value=(True, "Legacy SDRCC binary detected; safe in-place upgrade")), \
-                     patch.object(runtime, "os") as mocked_os, \
+                     patch("core.external_updates.readsb_upgrade_preflight",
+                           return_value=(True, "Legacy SDRCC binary detected; safe in-place upgrade")), \
+                     patch.object(runtime.os, "chown"), \
                      patch("core.external_updates.command", side_effect=mock_readsb):
-                    # Preserve real os.* functions other than privileged chown.
-                    mocked_os.fdopen.side_effect = os.fdopen
-                    mocked_os.fsync.side_effect = os.fsync
-                    mocked_os.replace.side_effect = os.replace
-                    mocked_os.chmod.side_effect = os.chmod
-                    mocked_os.access.side_effect = os.access
-                    mocked_os.cpu_count.side_effect = os.cpu_count
-                    mocked_os.environ = os.environ
-                    mocked_os.chown.return_value = None
-                    mocked_os.path = os.path
-                    mocked_os.stat_result = os.stat_result
-                    mocked_os.open.side_effect = os.open
-                    mocked_os.close.side_effect = os.close
-                    # mkstemp uses tempfile's real os and only the target
-                    # ownership change is privileged in the migration path.
                     if success:
                         version = runtime.update_unmanaged_readsb(
                             root, backup, lambda st, msg: events.append((st, msg)))
