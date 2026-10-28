@@ -302,6 +302,14 @@ def snapshot(refresh=False):
         sat_status, sat_reason = "manual", (
             "Source build: exact installed version could not be verified"
             if not installed_pkg else "Installed package version could not be compared")
+    elif (version_tuple(sat_installed) is not None
+          and version_tuple(sat_latest.get("version")) is not None
+          and version_tuple(sat_installed) > version_tuple(sat_latest["version"])):
+        # Ubuntu can ship newer packages than the last GitHub stable tag.
+        # Do not label a 1.2.3 binary as "current stable 1.2.2".
+        sat_status, sat_reason = "ahead", (
+            "Installed version is newer than the latest tagged stable release; "
+            "likely a distribution or development build")
     else:
         sat_status, sat_reason = "current", (
             "Current stable release (nightly builds excluded)"
