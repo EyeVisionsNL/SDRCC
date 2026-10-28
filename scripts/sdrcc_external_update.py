@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timezone
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -136,21 +137,39 @@ def install_ais(external, backup):
     safe_copy(Path(binary), backup / "AIS-catcher")
     safe_copy(Path("/etc/systemd/system/ais-catcher.service"), backup / "ais-unit")
     safe_copy(Path("/etc/systemd/system/ais-catcher.service.d"), backup / "ais-dropins")
-    url = UPSTREAM_TEMPLATE.format(tag=tag)
-    request = Request(url, headers={"User-Agent": "SDRCC-external-updater"})
-    with urlopen(request, timeout=20) as reply:
-        script = reply.read(256 * 1024 + 1)
-    if len(script) > 256 * 1024 or not script.startswith(b"#!/usr/bin/env bash"):
-        raise RuntimeError("Unexpected upstream AIS installer")
-    # Stop AIS sharing briefly; the original service states are restored in
-    # the worker's finally block, including disabled autostart.
-    status("installing", "Installing verified official AIS release " + tag + ".",
-           software="ais-catcher")
-    with tempfile.NamedTemporaryFile(prefix="sdrcc-ais-installer-", suffix=".sh",
-                                     dir="/var/tmp") as tmp:
-        tmp.write(script)
-        tmp.flush()
-        run(["/bin/bash", tmp.name, "-p", "-M"], timeout=900, check=True,
+    if not external.apt_ais_installed():
+        raise RuntimeError("AIS-catcher was not installed as an APT package")
+    asset = external.matching_ais_asset(latest)
+    if not asset:
+        raise RuntimeError("No official, checksum-verified stable package for this Ubuntu release")
+    request = Request(asset["url"], headers={"User-Agent": "SDRCC-external-updater"})
+    with tempfile.TemporaryDirectory(prefix="sdrcc-ais-stable-", dir="/var/tmp") as directory:
+        package = Path(directory) / asset["name"]
+        with urlopen(request, timeout=30) as response, package.open("wb") as out:
+            digest = hashlib.sha256()
+            size = 0
+            while True:
+                chunk = response.read(64 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > asset["size"]:
+                    raise RuntimeError("Unexpected AIS package download size")
+                digest.update(chunk)
+                out.write(chunk)
+        if size != asset["size"] or "sha256:" + digest.hexdigest() != asset["digest"]:
+            raise RuntimeError("AIS stable package SHA256 verification failed")
+        pkg_name = run(["/usr/bin/dpkg-deb", "-f", package, "Package"],
+                       timeout=20, check=True).stdout.strip()
+        pkg_version = run(["/usr/bin/dpkg-deb", "-f", package, "Version"],
+                          timeout=20, check=True).stdout.strip()
+        if pkg_name != "ais-catcher" or not pkg_version.startswith(tag[1:]):
+            raise RuntimeError("AIS package identity or version mismatch")
+        status("installing", "Installing checksum-verified official AIS release " + tag + ".",
+               software="ais-catcher")
+        run(["/usr/bin/apt-get", "install", "-y",
+             "-o", "Dpkg::Options::=--force-confold", package],
+            timeout=600, check=True,
             env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"})
     installed = ais_version(external.command(["AIS-catcher", "-v"]))
     if not installed or version_tuple(installed) < version_tuple(tag[1:]):
@@ -159,7 +178,11 @@ def install_ais(external, backup):
     # keep them, but protect our configuration if its behavior changes.
     shutil.copytree(backup / "config", AIS_CONFIG, dirs_exist_ok=True,
                     symlinks=True)
+    safe_copy(backup / "ais-unit", Path("/etc/systemd/system/ais-catcher.service"))
     safe_copy(backup / "ais-dropins", Path("/etc/systemd/system/ais-catcher.service.d"))
+    config = run(["/usr/bin/systemctl", "cat", AIS_SERVICE], timeout=10, check=True)
+    if "-E /etc/AIS-catcher/aiscatcher.json 0.0.0.0:8118" not in config.stdout:
+        raise RuntimeError("AIS managed-mode service override no longer specifies port 8118")
     return installed
 
 
