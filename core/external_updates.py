@@ -166,6 +166,10 @@ def snapshot(refresh=False):
     satdump_binary = shutil.which("satdump")
     satdump_upgrade = bool(satdump_binary and installed and candidate and
                            _apt_newer(installed, candidate))
+    readsb_info = command(["readsb", "--version"])
+    readsb_match = re.search(r"readsb version:\\s*(\\d+\\.\\d+(?:\\.\\d+)?)",
+                            readsb_info, re.I)
+    readsb_version = readsb_match.group(1) if readsb_match else None
     ais_upgrade = bool(ais_installed and latest.get("version") and
                        version_tuple(latest["version"]) and version_tuple(ais_installed)
                        and version_tuple(latest["version"]) > version_tuple(ais_installed))
@@ -189,7 +193,7 @@ def snapshot(refresh=False):
                    ("Managed outside APT; update requires manual review"
                     if satdump_binary and not installed else "No newer APT package available")},
         {"id": "readsb", "name": "readsb",
-         "installed": (command(["readsb", "--version"]).strip().splitlines() or [None])[0],
+         "installed": readsb_version,
          "latest": None, "available": False, "can_install": False,
          "source": "SDRCC pinned build", "url": "https://github.com/wiedehopf/readsb",
          "reason": "Pinned by SDRCC; compatibility review required"},
