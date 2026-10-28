@@ -7,8 +7,8 @@ traffic_voice:
   channel_source: sdrcc-traffic-voice-channel-list-named-aviation.xlsx
   backend:
     name: rtlsdr_airband
-    version: 5.2.0
-    commit: 61c5c4061967752da6b491a924664d72184b38fa
+    version: 6.2.0
+    commit: 66d3076819312c7eae7662028234988dc71d0be5
     binary: /opt/sdrcc/traffic_voice/bin/rtl_airband
     service: sdrcc-traffic-voice.service
     audio_transport: local_udp_pcm
