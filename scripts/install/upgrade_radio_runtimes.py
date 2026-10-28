@@ -8,6 +8,8 @@ Builds and verifies the new binary before replacing the existing one.
 from __future__ import annotations
 
 import json
+import stat
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -114,6 +116,113 @@ def _build_readsb(work, sha):
     return packages[0]
 
 
+def _replace_binary_atomically(candidate: Path, target: Path, original_stat) -> None:
+    """Replace an existing regular binary without changing its owner or mode."""
+    fd, path = tempfile.mkstemp(prefix=".sdrcc-readsb-", dir=target.parent)
+    staged = Path(path)
+    try:
+        with os.fdopen(fd, "wb") as output, candidate.open("rb") as source:
+            shutil.copyfileobj(source, output)
+            output.flush()
+            os.fsync(output.fileno())
+        os.chown(staged, original_stat.st_uid, original_stat.st_gid)
+        os.chmod(staged, stat.S_IMODE(original_stat.st_mode))
+        os.replace(staged, target)
+    finally:
+        staged.unlink(missing_ok=True)
+
+
+def update_unmanaged_readsb(project, backup, report):
+    """Migrate only a recognized old SDRCC readsb executable.
+
+    An unmanaged executable has no Debian rollback package. Installing a
+    .deb would also rewrite the service's settings and leave a conflicting
+    old /usr/local binary on PATH. Extract just the verified executable and
+    preserve the current service, config, and original binary verbatim.
+    """
+    from core.external_updates import command, readsb_upgrade_preflight
+    executable = shutil.which("readsb")
+    if not executable:
+        raise RuntimeError("readsb executable vanished before migration")
+    target = Path(executable)
+    original = command([str(target), "--version"])
+    permitted, reason = readsb_upgrade_preflight("3.16.15", original, READSB_VERSION)
+    if not permitted or "Legacy SDRCC binary" not in reason:
+        raise RuntimeError("Unmanaged readsb migration blocked: " + reason)
+    inactive(READSB_UNIT)
+    if target.is_symlink() or not target.is_file():
+        raise RuntimeError("Legacy readsb executable must be a regular file")
+    previous_stat = target.stat()
+
+    # Preserve the original program and systemd settings in a persistent
+    # root-owned backup before building. Do not modify the receiver unit.
+    backup.mkdir(parents=True, exist_ok=True)
+    original_bin = backup / "readsb-original"
+    shutil.copy2(target, original_bin)
+    if hashlib.sha256(original_bin.read_bytes()).digest() != hashlib.sha256(
+            target.read_bytes()).digest():
+        raise RuntimeError("Legacy readsb backup verification failed")
+    _copy_if_exists(Path("/etc/default/readsb"), backup / "readsb-default")
+    _copy_if_exists(Path("/etc/systemd/system/readsb.service"), backup / "readsb-unit")
+    unit_dropins = Path("/etc/systemd/system/readsb.service.d")
+    if unit_dropins.is_dir():
+        shutil.copytree(unit_dropins, backup / "readsb-dropins")
+    (backup / "systemd-unit.txt").write_text(
+        call(["/usr/bin/systemctl", "cat", READSB_UNIT], timeout=15))
+    (backup / "migration.json").write_text(json.dumps({
+        "source": str(target),
+        "version": "3.16.15",
+        "source_commit": READSB_OLD,
+        "target_version": READSB_VERSION,
+        "target_commit": READSB_NEW,
+        "sha256": hashlib.sha256(original_bin.read_bytes()).hexdigest(),
+        "method": "in-place executable only; no package or unit changes",
+    }, indent=2) + "\n", encoding="utf-8")
+
+    report("installing", "Building pinned readsb 3.16.20; original executable backed up.")
+    work = backup / "new-build"
+    work.mkdir()
+    package = _build_readsb(work, READSB_NEW)
+    version = call(["/usr/bin/dpkg-deb", "-f", package, "Version"]).strip()
+    if not version.startswith(READSB_VERSION):
+        raise RuntimeError("Unexpected readsb package version; original remains untouched")
+    extract = backup / "extracted"
+    extract.mkdir()
+    call(["/usr/bin/dpkg-deb", "-x", package, extract], timeout=90)
+    candidate = extract / "usr/bin/readsb"
+    if not candidate.is_file() or candidate.is_symlink():
+        raise RuntimeError("Pinned package did not contain a regular readsb executable")
+    candidate_info = command([str(candidate), "--version"], timeout=15)
+    if READSB_VERSION not in candidate_info or READSB_NEW[:7] not in candidate_info:
+        raise RuntimeError("New readsb executable failed version/commit check")
+
+    # Build/test may take time. Recheck service and binary immediately before
+    # replacing; nobody should start ADS-B or update the old file meanwhile.
+    inactive(READSB_UNIT)
+    if hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(
+            original_bin.read_bytes()).digest():
+        raise RuntimeError("Existing readsb changed during build; refusing replacement")
+    report("installing", "Replacing idle legacy readsb binary; settings remain unchanged.")
+    replaced = False
+    try:
+        _replace_binary_atomically(candidate, target, previous_stat)
+        replaced = True
+        installed = command([str(target), "--version"], timeout=15)
+        if READSB_VERSION not in installed or READSB_NEW[:7] not in installed:
+            raise RuntimeError("New readsb verification failed; restoring original executable")
+        # Intentionally leave ADS-B stopped. Mission Engine owns the SDR.
+        return READSB_VERSION
+    except Exception as error:
+        if replaced:
+            try:
+                report("restoring", "Restoring backed-up legacy readsb executable.")
+                _replace_binary_atomically(original_bin, target, previous_stat)
+            except Exception as rollback:
+                raise RuntimeError(
+                    f"{error}; legacy readsb restore failed: {rollback}") from rollback
+        raise
+
+
 def update_readsb(project, backup, report):
     from core.external_updates import command, newer_than, readsb_upgrade_preflight
     output = command(["readsb", "--version"])
@@ -127,6 +236,9 @@ def update_readsb(project, backup, report):
     if not allowed:
         raise RuntimeError(why)
     inactive(READSB_UNIT)
+    package_state = command(["/usr/bin/dpkg-query", "-W", "-f=${Status}", "readsb"])
+    if "install ok installed" not in package_state.lower():
+        return update_unmanaged_readsb(project, backup, report)
     previous_enabled = _service_enabled(READSB_UNIT)
     _copy_if_exists(Path("/etc/default/readsb"), backup / "readsb-default")
     _copy_if_exists(Path("/etc/systemd/system/readsb.service"),
