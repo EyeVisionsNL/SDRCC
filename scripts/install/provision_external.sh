@@ -280,8 +280,14 @@ if ((rebuild_airband)); then
   [[ "$(git -C "$WORK/airband" rev-parse HEAD)" == "$AIRBAND_COMMIT" ]] || { echo "FAIL: RTLSDR-Airband commit mismatch"; exit 3; }
   python3 "$HERE/patch_rtlsdr_airband_auto_gain.py" "$WORK/airband/src/input-rtlsdr.cpp"
   python3 "$HERE/patch_rtlsdr_airband_scan_interval.py" "$WORK/airband/src/rtl_airband.cpp"
-  cmake -S "$WORK/airband" -B "$WORK/airband-build" \
-    -DNFM=ON -DRTLSDR=ON -DMIRISDR=OFF -DSOAPYSDR=OFF -DPULSEAUDIO=OFF -DPLATFORM=native
+  # Airband's CMake scripts/find_version runs git describe in the current
+  # process directory. Use the source checkout, not the SDRCC installer cwd.
+  (
+    cd "$WORK/airband"
+    [[ "$(scripts/find_version)" == "$AIRBAND_TAG"* ]] || { echo "FAIL: Airband source version is not $AIRBAND_TAG"; exit 3; }
+    cmake -S "$WORK/airband" -B "$WORK/airband-build" \
+      -DNFM=ON -DRTLSDR=ON -DMIRISDR=OFF -DSOAPYSDR=OFF -DPULSEAUDIO=OFF -DPLATFORM=native
+  )
   cmake --build "$WORK/airband-build" -j "$(nproc)"
   NEW_BIN="$(find "$WORK/airband-build" -type f -name rtl_airband -perm -111 -print -quit)"
   [[ -n "$NEW_BIN" ]] || { echo "FAIL: RTLSDR-Airband binary not produced"; exit 3; }
