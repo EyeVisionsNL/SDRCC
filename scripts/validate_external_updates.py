@@ -85,6 +85,79 @@ class ExternalUpdateTests(unittest.TestCase):
              patch.object(updates, "command", return_value="amd64\n"):
             self.assertIsNone(updates.matching_ais_asset(release))
 
+    def test_satdump_installed_version_uses_supported_cli_subcommand(self):
+        with patch.object(updates, "command",
+                          return_value="This is SatDump v1.2.2\n") as called:
+            self.assertEqual(
+                updates.installed_satdump_version(None, "/usr/bin/satdump"),
+                ("1.2.2", "binary"))
+        called.assert_called_once_with(["/usr/bin/satdump", "version"], timeout=4)
+        with patch.object(updates, "command", return_value="unknown option"):
+            self.assertEqual(
+                updates.installed_satdump_version(None, "/usr/bin/satdump"),
+                (None, "non-apt-unverified"))
+
+    def test_latest_upstream_versions_are_read_only_and_validated(self):
+        def fake_response(data):
+            response = MagicMock()
+            response.read.return_value = data.encode()
+            response.__enter__.return_value = response
+            return response
+        for tag, api, page, prefix in (
+            ("1.2.2", updates.SATDUMP_RELEASE_API, updates.SATDUMP_PAGE, ""),
+            ("v6.2.0", updates.AIRBAND_RELEASE_API, updates.AIRBAND_PAGE, "v"),
+        ):
+            data = json.dumps({"tag_name": tag, "draft": False, "prerelease": False})
+            with patch.object(updates, "urlopen", return_value=fake_response(data)):
+                self.assertEqual(
+                    updates._github_stable_release(api, page, prefix)["version"],
+                    tag.lstrip("v"))
+        with patch.object(updates, "urlopen",
+                          return_value=fake_response("3.16.20\\n")):
+            self.assertEqual(updates._readsb_development_version()["version"], "3.16.20")
+        with patch.object(updates, "urlopen",
+                          return_value=fake_response("main\\n")):
+            with self.assertRaises(ValueError):
+                updates._readsb_development_version()
+        with patch.object(updates, "urlopen", return_value=fake_response(
+                json.dumps({"tag_name": "nightly", "prerelease": True}))):
+            with self.assertRaises(ValueError):
+                updates._github_stable_release(
+                    updates.SATDUMP_RELEASE_API, updates.SATDUMP_PAGE)
+
+    def test_updates_are_detected_without_enabling_unreviewed_installs(self):
+        releases = {
+            "ais_release": {"version": "0.70"},
+            "satdump_release": {"version": "1.2.2"},
+            "readsb_upstream": {"version": "3.16.20"},
+            "airband_release": {"version": "6.2.0"},
+            "errors": {},
+        }
+        def mock_command(args, timeout=5):
+            if args[0] == "AIS-catcher":
+                return "AIS-catcher v0.70"
+            if args[0] == "readsb":
+                return "readsb version: 3.16.15 wiedehopf git cc0d099"
+            return ""
+        with patch.object(updates, "release", return_value=releases), \\
+             patch.object(updates, "command", side_effect=mock_command), \\
+             patch.object(updates, "_apt_version", return_value=None), \\
+             patch.object(updates, "installed_satdump_version", return_value=("1.2.2", "binary")), \\
+             patch.object(updates, "installed_airband_version", return_value=("5.2.0", "SDRCC patched")), \\
+             patch.object(updates, "apt_ais_installed", return_value=False), \\
+             patch.object(updates.shutil, "which", side_effect=lambda name: "/usr/bin/" + name), \\
+             patch.object(updates, "worker_status", return_value={}):
+            info = updates.snapshot()
+        status = {item["id"]: item for item in info["software"]}
+        self.assertEqual(status["ais-catcher"]["status"], "current")
+        self.assertEqual(status["satdump"]["status"], "current")
+        self.assertEqual(status["readsb"]["latest"], "3.16.20")
+        self.assertEqual(status["readsb"]["status"], "review")
+        self.assertEqual(status["rtl-airband"]["latest"], "6.2.0")
+        self.assertEqual(status["rtl-airband"]["status"], "review")
+        self.assertFalse(status["readsb"]["can_install"])
+        self.assertFalse(status["rtl-airband"]["can_install"])
+
     def test_product_arguments_are_hardcoded_and_updates_are_opt_in(self):
         root = Path(__file__).resolve().parents[1]
         app = (root / "dashboard/app.py").read_text()
