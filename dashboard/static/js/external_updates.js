@@ -85,7 +85,8 @@
             note.title = item.source || "";
             const actions = node("div", "external-update-actions");
             if (item.url && /^https:\/\/github\.com\//.test(item.url)) {
-                const notes = node("a", "external-update-release", "Release notes");
+                const notes = node("a", "external-update-release",
+                    item.id === "readsb" ? "Upstream dev" : "Release notes");
                 notes.href = item.url;
                 notes.target = "_blank";
                 notes.rel = "noopener noreferrer";
