@@ -53,17 +53,27 @@ def git_checkout(path, remote, commit, *, branch=None):
     call(["git", "init", "-q", path])
     call(["git", "-C", path, "remote", "add", "origin", remote])
     if branch:
-        call(["git", "-C", path, "fetch", "--depth", "1", "origin", branch],
-             timeout=180)
-        # Unlike readsb's moving dev branch, Airband source is an immutable
-        # tagged commit. Reject tags that do not resolve to the pinned SHA.
+        # Keep the actual Git tag in this shallow checkout. Merely fetching
+        # FETCH_HEAD can leave 'git describe --tags' without a version.
+        if not re.fullmatch(r"v\d+\.\d+\.\d+", branch):
+            raise ValueError("Unsupported pinned release tag")
+        tag_ref = f"refs/tags/{branch}"
+        call(["git", "-C", path, "fetch", "--depth", "1", "origin",
+              f"{tag_ref}:{tag_ref}"], timeout=180)
+        checkout_ref = tag_ref
     else:
         call(["git", "-C", path, "fetch", "--depth", "1", "origin", commit],
              timeout=180)
-    call(["git", "-C", path, "checkout", "--quiet", "--detach", "FETCH_HEAD"])
+        checkout_ref = "FETCH_HEAD"
+    call(["git", "-C", path, "checkout", "--quiet", "--detach", checkout_ref])
     actual = call(["git", "-C", path, "rev-parse", "HEAD"]).strip()
     if actual != commit:
         raise RuntimeError(f"Source moved from pinned commit: {actual}")
+    if branch:
+        resolved_tag = call(["git", "-C", path, "describe", "--tags",
+                             "--exact-match"]).strip()
+        if resolved_tag != branch:
+            raise RuntimeError(f"Pinned release tag missing: expected {branch}")
     return actual
 
 
@@ -186,6 +196,41 @@ def update_readsb(project, backup, report):
             _restore_readsb_service(previous_enabled)
 
 
+def build_airband_candidate(project: Path, work: Path) -> Path:
+    """Stage the exact production build, including version and patch checks.
+
+    RTLSDR-Airband's scripts/find_version calls git describe in the process
+    working directory. CMake MUST run with cwd=source, not the systemd
+    worker's current directory (which is not a Git checkout).
+    """
+    source = work / "source"
+    source.mkdir()
+    git_checkout(source, AIRBAND_URL, AIRBAND_SHA, branch=AIRBAND_TAG)
+    call([sys.executable,
+          project / "scripts/install/patch_rtlsdr_airband_auto_gain.py",
+          source / "src/input-rtlsdr.cpp"])
+    call([sys.executable,
+          project / "scripts/install/patch_rtlsdr_airband_scan_interval.py",
+          source / "src/rtl_airband.cpp"])
+    build = work / "build"
+    call(["cmake", "-S", source, "-B", build, "-DNFM=ON",
+          "-DRTLSDR=ON", "-DMIRISDR=OFF", "-DSOAPYSDR=OFF",
+          "-DPULSEAUDIO=OFF", "-DPLATFORM=native"],
+         cwd=source, timeout=180)
+    call(["cmake", "--build", build, "-j", str(min(4, os.cpu_count() or 2))],
+         timeout=900)
+    candidates = [entry for entry in build.rglob("rtl_airband")
+                  if entry.is_file() and os.access(entry, os.X_OK)]
+    if len(candidates) != 1:
+        raise RuntimeError("Expected exactly one built Airband executable")
+    candidate = candidates[0]
+    strings = candidate.read_bytes()
+    if (b"automatic tuner gain enabled" not in strings or
+            b"scan_interval_ms must be 100..500 ms" not in strings):
+        raise RuntimeError("SDRCC gain or scan patch marker missing")
+    return candidate
+
+
 def update_airband(project, backup, report):
     from core.external_updates import installed_airband_version
     version, method = installed_airband_version()
@@ -215,30 +260,7 @@ def update_airband(project, backup, report):
     try:
         report("installing", "Building patched RTLSDR-Airband 6.2.0 in a staging directory.")
         with tempfile.TemporaryDirectory(prefix="sdrcc-airband-src-") as work:
-            source = Path(work) / "source"
-            source.mkdir()
-            git_checkout(source, AIRBAND_URL, AIRBAND_SHA, branch=AIRBAND_TAG)
-            call([sys.executable,
-                  project / "scripts/install/patch_rtlsdr_airband_auto_gain.py",
-                  source / "src/input-rtlsdr.cpp"])
-            call([sys.executable,
-                  project / "scripts/install/patch_rtlsdr_airband_scan_interval.py",
-                  source / "src/rtl_airband.cpp"])
-            build = Path(work) / "build"
-            call(["cmake", "-S", source, "-B", build, "-DNFM=ON",
-                  "-DRTLSDR=ON", "-DMIRISDR=OFF", "-DSOAPYSDR=OFF",
-                  "-DPULSEAUDIO=OFF", "-DPLATFORM=native"], timeout=180)
-            call(["cmake", "--build", build, "-j", str(min(4, os.cpu_count() or 2))],
-                 timeout=900)
-            candidates = [entry for entry in build.rglob("rtl_airband")
-                          if entry.is_file() and os.access(entry, os.X_OK)]
-            if len(candidates) != 1:
-                raise RuntimeError("Expected exactly one built Airband executable")
-            candidate = candidates[0]
-            strings = candidate.read_bytes()
-            if (b"automatic tuner gain enabled" not in strings or
-                    b"scan_interval_ms must be 100..500 ms" not in strings):
-                raise RuntimeError("SDRCC gain or scan patch marker missing")
+            candidate = build_airband_candidate(project, Path(work))
             # Validation before downtime, including SDRCC's own two supported
             # backend-version contracts.
             import yaml
