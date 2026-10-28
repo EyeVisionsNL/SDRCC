@@ -87,8 +87,8 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     await flush();
     const list = elements["external-update-list"];
     assert.equal(list.children.length, 4);
-    assert.equal(elements["external-update-badge"].textContent, "NO UPDATES FOUND");
-    assert(elements["external-update-summary-detail"].textContent.includes("3 require manual checks"));
+    assert.equal(elements["external-update-badge"].textContent, "CHECK LIMITED");
+    assert(elements["external-update-summary-detail"].textContent.includes("3 need verification"));
     assert.equal(list.queryAll(item => item.tagName === "button").length, 0,
         "up-to-date or manual tools must not show misleading blue update buttons");
     assert.equal(list.queryAll(item => item.tagName === "a").length, 4,
@@ -101,6 +101,26 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     assert.equal(created, previousCreated, "stable status polling must create zero elements");
     assert.deepEqual(list.children, previousCards,
         "stable status polling must preserve existing card and button references");
+
+    data = {...data, software: [
+        {...data.software[0], status: "current"},
+        {...data.software[1], installed: "1.2.2", latest: "1.2.2", status: "current",
+            reason: "Current stable release (nightly builds excluded)"},
+        {...data.software[2], installed: "3.16.15", latest: "3.16.20",
+            available: true, can_install: false, status: "review",
+            reason: "Newer development build; SDRCC receiver integration must be tested"},
+        {...data.software[3], installed: "5.2.0 (SDRCC patched)", latest: "6.2.0",
+            available: true, can_install: false, status: "review",
+            reason: "New stable version; SDRCC patches need porting"},
+    ]};
+    intervals[0]();
+    await flush();
+    assert.equal(elements["external-update-badge"].textContent, "REVIEW REQUIRED");
+    assert.equal(list.queryAll(item => item.tagName === "button").length, 0,
+        "readsb and Airband need review, not automatic install controls");
+    const body = list.queryAll(item => item.tagName === "p").map(item => item.textContent);
+    assert(body.some(text => text.includes("Latest dev: 3.16.20")));
+    assert(body.some(text => text.includes("Latest stable: 6.2.0")));
 
     data = {...data, software: [
         data.software[0],
