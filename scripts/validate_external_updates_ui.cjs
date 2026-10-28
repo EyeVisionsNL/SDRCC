@@ -144,7 +144,8 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     data = {...data, software: [
         data.software[0],
         makeRow("satdump", "SatDump", "1.2.2", "1.2.3", "APT update available", true, true),
-        data.software[2], data.software[3],
+        {...data.software[2], status: "review", can_install: false,
+            reason: "Newer development build requires review"}, data.software[3],
     ]};
     intervals[0]();
     await flush();
