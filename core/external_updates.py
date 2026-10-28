@@ -281,6 +281,22 @@ def snapshot(refresh=False):
     air_installed, air_method = installed_airband_version()
     readsb_newer = newer_than(readsb_installed, readsb_latest.get("version"))
     air_newer = newer_than(air_installed, air_latest.get("version"))
+    readsb_can_install = bool(
+        readsb_installed == "3.16.15" and "cc0d099" in readsb_info
+        and readsb_latest.get("version") == "3.16.20" and readsb_newer
+        and "install ok installed" in command(
+            ["/usr/bin/dpkg-query", "-W", "-f=${Status}", "readsb"]).lower())
+    air_provenance = ""
+    try:
+        air_provenance = AIRBAND_PROVENANCE.read_text(encoding="utf-8")
+    except OSError:
+        pass
+    air_can_install = bool(
+        air_installed == "5.2.0" and air_method == "SDRCC patched"
+        and "61c5c4061967752da6b491a924664d72184b38fa" in air_provenance
+        and "SDRCC v0.56.0f auto-gain patch" in air_provenance
+        and "SDRCC v0.56.0w scan-interval patch" in air_provenance
+        and air_latest.get("version") == "6.2.0" and air_newer)
     ais_upgrade = bool(ais_installed and ais_latest.get("version") and
                        version_tuple(ais_latest["version"]) and version_tuple(ais_installed)
                        and version_tuple(ais_latest["version"]) > version_tuple(ais_installed))
@@ -363,18 +379,18 @@ def snapshot(refresh=False):
          "reason": sat_reason},
         {"id": "readsb", "name": "readsb", "installed": readsb_installed,
          "latest": readsb_latest.get("version"), "available": readsb_newer is True,
-         "can_install": False, "status": readsb_status,
+         "can_install": readsb_can_install, "status": "update" if readsb_can_install else readsb_status,
          "source": "GitHub development branch (not a stable release)",
          "url": READSB_PAGE,
-         "reason": readsb_reason},
+         "reason": "Pinned upgrade 3.16.20 ready; stop ADS-B reception first" if readsb_can_install else readsb_reason},
         {"id": "rtl-airband", "name": "RTLSDR-Airband",
          "installed": (air_installed + (" (" + air_method + ")" if air_method == "SDRCC patched" else ""))
                      if air_installed else None,
          "latest": air_latest.get("version"), "available": air_newer is True,
-         "can_install": False, "status": air_status,
+         "can_install": air_can_install, "status": "update" if air_can_install else air_status,
          "source": "Official stable releases / local build provenance",
          "url": air_latest.get("url") or AIRBAND_PAGE,
-         "reason": air_reason},
+         "reason": "Patched 6.2.0 build available; stop Traffic Voice before updating" if air_can_install else air_reason},
     ]
     return {"ok": True, "software": rows, "worker": worker_status(),
             "release_check_error": errors.get("ais_release"),
