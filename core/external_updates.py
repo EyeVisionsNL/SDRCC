@@ -60,8 +60,45 @@ def _check_ais_release():
     link = payload.get("html_url")
     if not isinstance(link, str) or not link.startswith(RELEASE_PAGE + "/tag/"):
         link = RELEASE_PAGE + "/tag/" + tag
+    assets = []
+    for entry in payload.get("assets", []):
+        name, digest, url = entry.get("name"), entry.get("digest"), entry.get("browser_download_url")
+        if (isinstance(name, str)
+                and re.fullmatch(r"ais-catcher_ubuntu_[a-z]+_(?:amd64|arm64|armhf)\\.deb", name)
+                and isinstance(digest, str)
+                and re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+                and isinstance(url, str)
+                and url == f"https://github.com/jvde-github/AIS-catcher/releases/download/{tag}/{name}"
+                and 0 < int(entry.get("size") or 0) <= 50_000_000):
+            assets.append({"name": name, "digest": digest, "url": url,
+                           "size": entry["size"]})
     return {"version": tag[1:], "tag": tag, "url": link,
-            "published_at": payload.get("published_at")}
+            "published_at": payload.get("published_at"), "assets": assets}
+
+
+def apt_ais_installed():
+    return "install ok installed" in command(
+        ["/usr/bin/dpkg-query", "-W", "-f=${Status}", "ais-catcher"]).lower()
+
+
+def matching_ais_asset(upstream):
+    """Select a checksum-verified official package for the exact installed OS."""
+    try:
+        os_release = Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    def os_field(key):
+        match = re.search(r"^" + key + r"=(?:\\"([^\\"\n]+)\\"|([^\n]+))", os_release, re.M)
+        return (match.group(1) or match.group(2)) if match else ""
+    if os_field("ID") != "ubuntu":
+        return None
+    codename = os_field("VERSION_CODENAME")
+    arch = command(["/usr/bin/dpkg", "--print-architecture"]).strip()
+    if not re.fullmatch(r"[a-z]{3,16}", codename) or arch not in ("amd64", "arm64", "armhf"):
+        return None
+    asset_name = f"ais-catcher_ubuntu_{codename}_{arch}.deb"
+    return next((entry for entry in upstream.get("assets", [])
+                 if entry.get("name") == asset_name), None)
 
 
 def release(refresh=False):
@@ -129,14 +166,17 @@ def snapshot(refresh=False):
     ais_upgrade = bool(ais_installed and latest.get("version") and
                        version_tuple(latest["version"]) and version_tuple(ais_installed)
                        and version_tuple(latest["version"]) > version_tuple(ais_installed))
+    ais_manageable = bool(apt_ais_installed() and matching_ais_asset(latest))
+    ais_can_install = ais_upgrade and ais_manageable
     rows = [
         {"id": "ais-catcher", "name": "AIS-catcher", "installed": ais_installed,
          "latest": latest.get("version"), "available": ais_upgrade,
-         "can_install": ais_upgrade, "source": "Official GitHub release",
+         "can_install": ais_can_install, "source": "Official GitHub release",
          "url": latest.get("url") or RELEASE_PAGE,
          "reason": (upstream.get("error") or "Installed version unavailable")
              if not (ais_installed and latest.get("version")) else
-             ("New upstream release available" if ais_upgrade else "Up to date")},
+             ("New upstream release available" if ais_can_install else
+              "New release requires package/platform review" if ais_upgrade else "Up to date")},
         {"id": "satdump", "name": "SatDump", "installed": installed or
          ("Non-APT installation" if satdump_binary else None),
          "latest": candidate, "available": satdump_upgrade,
