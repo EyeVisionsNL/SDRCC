@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Privileged, opt-in third-party updater. Only two fixed product arguments.
+"""Privileged, opt-in third-party updater. Fixed allowlisted product arguments.
 
 The dashboard may call this *launcher*, never the worker. A detached systemd
 unit completes the update without being killed by an HTTP timeout.
@@ -24,7 +24,7 @@ SELF = Path("/usr/local/sbin/sdrcc-external-update")
 STATUS = Path("/var/lib/sdrcc/external-update-status.json")
 LOCK = Path("/run/lock/sdrcc-external-update.lock")
 UPDATE_UNIT = "sdrcc-external-update"
-ALLOWED = {"ais-catcher", "satdump"}
+ALLOWED = {"ais-catcher", "satdump", "readsb", "rtl-airband"}
 AIS_CONFIG = Path("/etc/AIS-catcher")
 AIS_SERVICE = "ais-catcher.service"
 AIS_CONTROL = "ais-catcher-control.service"
@@ -249,8 +249,16 @@ def worker(product):
                     if active(name):
                         service("stop", name)
                 installed = install_ais(external, backup)
-            else:
+            elif product == "satdump":
                 installed = install_satdump(external, None)
+            elif product in {"readsb", "rtl-airband"}:
+                from scripts.install import upgrade_radio_runtimes
+                def progress(state, message):
+                    status(state, message, software=product)
+                installed = upgrade_radio_runtimes.upgrade(
+                    product, project_root(), progress)
+            else:
+                raise RuntimeError("Unsupported update target")
             status("verifying", "Checking updated installation.", software=product)
             problems = restore_service_states(previous) if previous else []
             previous = None
