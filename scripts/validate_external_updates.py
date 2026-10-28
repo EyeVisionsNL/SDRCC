@@ -360,13 +360,17 @@ class ExternalUpdateTests(unittest.TestCase):
             self.assertIn("commit differs", reason)
         def legacy_commands(args, timeout=5):
             if "-W" in args:
-                return "dpkg-query: no packages found matching readsb"
+                return ("install ok installed" if args[-1] == "dpkg" else
+                        "dpkg-query: no packages found matching readsb")
             if "show" in args:
                 return "{ path=/usr/bin/readsb ; argv[]=/usr/bin/readsb --write-json ... ; }"
             raise AssertionError(f"Unexpected query {args}")
+        # Locale differs on the owner's Ubuntu install; dpkg-query may put
+        # localized diagnostics on stderr or stdout. Exit 1 is authoritative
+        # once a separate dpkg database health check passes.
         unowned = SimpleNamespace(
             returncode=1, stdout="",
-            stderr="dpkg-query: no path found matching pattern /usr/bin/readsb")
+            stderr="dpkg-query: geen pad gevonden dat overeenkomt met /usr/bin/readsb")
         with patch.object(updates, "command", side_effect=legacy_commands), \
              patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"), \
              patch.object(updates.Path, "is_file", return_value=True), \
@@ -375,6 +379,32 @@ class ExternalUpdateTests(unittest.TestCase):
             eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
             self.assertTrue(eligible, reason)
             self.assertIn("Legacy SDRCC binary", reason)
+
+        # The same missing-owner exit code may be reported via stdout.
+        unowned_stdout = SimpleNamespace(
+            returncode=1, stdout="No path matches this executable", stderr="")
+        with patch.object(updates, "command", side_effect=legacy_commands), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"), \
+             patch.object(updates.Path, "is_file", return_value=True), \
+             patch.object(updates.Path, "is_symlink", return_value=False), \
+             patch.object(updates.subprocess, "run", return_value=unowned_stdout):
+            eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
+            self.assertTrue(eligible, reason)
+
+        # A broken dpkg database must NOT be treated as an unmanaged binary.
+        def unhealthy_dpkg(args, timeout=5):
+            if "-W" in args:
+                return "failed to read dpkg database"
+            return legacy_commands(args, timeout=timeout)
+        with patch.object(updates, "command", side_effect=unhealthy_dpkg), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"), \
+             patch.object(updates.Path, "is_file", return_value=True), \
+             patch.object(updates.Path, "is_symlink", return_value=False), \
+             patch.object(updates.subprocess, "run") as dpkg_ownership:
+            eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
+            self.assertFalse(eligible)
+            self.assertIn("health check failed", reason)
+            dpkg_ownership.assert_not_called()
 
         owned_by_other = SimpleNamespace(
             returncode=0, stdout="otherpackage: /usr/bin/readsb", stderr="")
@@ -386,6 +416,16 @@ class ExternalUpdateTests(unittest.TestCase):
             eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
             self.assertFalse(eligible)
             self.assertIn("belongs to another Debian package", reason)
+        invalid_query = SimpleNamespace(
+            returncode=2, stdout="", stderr="dpkg-query failed unexpectedly")
+        with patch.object(updates, "command", side_effect=legacy_commands), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/readsb"), \
+             patch.object(updates.Path, "is_file", return_value=True), \
+             patch.object(updates.Path, "is_symlink", return_value=False), \
+             patch.object(updates.subprocess, "run", return_value=invalid_query):
+            eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
+            self.assertFalse(eligible)
+            self.assertIn("exit 2", reason)
         with patch.object(updates, "command", return_value=""), \
              patch.object(updates.shutil, "which", return_value="/tmp/readsb"):
             eligible, reason = updates.readsb_upgrade_preflight(installed, output, "3.16.20")
