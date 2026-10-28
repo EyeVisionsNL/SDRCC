@@ -64,7 +64,7 @@ def _check_ais_release():
     for entry in payload.get("assets", []):
         name, digest, url = entry.get("name"), entry.get("digest"), entry.get("browser_download_url")
         if (isinstance(name, str)
-                and re.fullmatch(r"ais-catcher_ubuntu_[a-z]+_(?:amd64|arm64|armhf)\\.deb", name)
+                and re.fullmatch(r"ais-catcher_ubuntu_[a-z]+_(?:amd64|arm64|armhf)\.deb", name)
                 and isinstance(digest, str)
                 and re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
                 and isinstance(url, str)
@@ -88,8 +88,11 @@ def matching_ais_asset(upstream):
     except OSError:
         return None
     def os_field(key):
-        match = re.search(r"^" + key + r"=(?:\\"([^\\"\n]+)\\"|([^\n]+))", os_release, re.M)
-        return (match.group(1) or match.group(2)) if match else ""
+        for line in os_release.splitlines():
+            name, separator, value = line.partition("=")
+            if separator and name == key:
+                return value.strip().strip('"')
+        return ""
     if os_field("ID") != "ubuntu":
         return None
     codename = os_field("VERSION_CODENAME")
