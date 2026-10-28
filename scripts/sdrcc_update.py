@@ -455,6 +455,7 @@ def install_privileged_helpers(source: Path, install_user: str) -> None:
         "scripts/sdrcc_disable_self_autostart.py": "/usr/local/sbin/sdrcc-disable-self-autostart",
         "scripts/sdrcc_sync_readsb_position.py": "/usr/local/sbin/sdrcc-sync-readsb-position",
         "scripts/sdrcc_update.py": "/usr/local/sbin/sdrcc-update",
+        "scripts/sdrcc_external_update.py": "/usr/local/sbin/sdrcc-external-update",
     }
     for relative, target in helpers.items():
         run(
@@ -472,6 +473,9 @@ def install_privileged_helpers(source: Path, install_user: str) -> None:
         "/etc/sudoers.d/sdrcc-update":
             f'{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""\n',
     }
+    rules["/etc/sudoers.d/sdrcc-external-update"] = (
+        f"{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-external-update ais-catcher, /usr/local/sbin/sdrcc-external-update satdump\n"
+    )
     rules["/etc/sudoers.d/sdrcc-update-services"] = "".join(
         f"{install_user} ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block {action} {service}\n"
         for service in (*UPDATE_RESTORE_SERVICES, "sdrcc-traffic-voice.service")
