@@ -14,14 +14,14 @@ SATDUMP_TAG="1.2.2"
 SATDUMP_COMMIT="7aef0fe"
 SATDUMP_UBUNTU_2404_AMD64_URL="https://github.com/SatDump/SatDump/releases/download/1.2.2/satdump_1.2.2_ubuntu_24.04_amd64.deb"
 READSB_REPO="https://github.com/wiedehopf/readsb.git"
-READSB_COMMIT="cc0d099"
+READSB_COMMIT="dadfa3307a1951b7ef687cfe3fd66cdb708a4f6f"
 AIS_INSTALLER="https://raw.githubusercontent.com/jvde-github/AIS-catcher/v0.70/scripts/aiscatcher-install"
 AIS_TAG="v0.70"
 AIS_CONTROL_INSTALLER="https://raw.githubusercontent.com/jvde-github/AIS-catcher-control/main/install_ais_catcher_control.sh"
 AIS_CONTROL_TAG="v0.1"
 AIRBAND_REPO="https://github.com/rtl-airband/RTLSDR-Airband.git"
-AIRBAND_TAG="v5.2.0"
-AIRBAND_COMMIT="61c5c4061967752da6b491a924664d72184b38fa"
+AIRBAND_TAG="v6.2.0"
+AIRBAND_COMMIT="66d3076819312c7eae7662028234988dc71d0be5"
 AIRBAND_ROOT="/opt/sdrcc/traffic_voice"
 AIRBAND_BIN="$AIRBAND_ROOT/bin/rtl_airband"
 AIRBAND_PROVENANCE="$AIRBAND_ROOT/share/BUILD-PROVENANCE"
@@ -222,7 +222,7 @@ say "readsb $READSB_COMMIT"
 if ! command -v readsb >/dev/null 2>&1; then
   git clone --quiet "$READSB_REPO" "$WORK/readsb"
   git -C "$WORK/readsb" checkout --quiet "$READSB_COMMIT"
-  [[ "$(git -C "$WORK/readsb" rev-parse --short=7 HEAD)" == "$READSB_COMMIT" ]] || { echo "FAIL: readsb commit mismatch"; exit 3; }
+  [[ "$(git -C "$WORK/readsb" rev-parse HEAD)" == "$READSB_COMMIT" ]] || { echo "FAIL: readsb commit mismatch"; exit 3; }
   (
     cd "$WORK/readsb"
     export DEB_BUILD_OPTIONS=noddebs
@@ -286,10 +286,10 @@ if ((rebuild_airband)); then
   grep -aFq 'scan_interval_ms must be 100..500 ms' "$NEW_BIN" || { echo "FAIL: patched scan interval marker missing"; exit 3; }
   sudo install -d -m 0755 "$AIRBAND_ROOT/bin" "$AIRBAND_ROOT/share"
   sudo install -m 0755 "$NEW_BIN" "$AIRBAND_BIN"
-  git -C "$WORK/airband" archive --format=tar.gz --prefix=RTLSDR-Airband-5.2.0/ -o "$WORK/RTLSDR-Airband-5.2.0.tar.gz" HEAD
-  sudo install -m 0644 "$WORK/RTLSDR-Airband-5.2.0.tar.gz" "$AIRBAND_ROOT/share/RTLSDR-Airband-5.2.0.tar.gz"
+  git -C "$WORK/airband" archive --format=tar.gz --prefix=RTLSDR-Airband-6.2.0/ -o "$WORK/RTLSDR-Airband-6.2.0.tar.gz" HEAD
+  sudo install -m 0644 "$WORK/RTLSDR-Airband-6.2.0.tar.gz" "$AIRBAND_ROOT/share/RTLSDR-Airband-6.2.0.tar.gz"
   cat >"$WORK/BUILD-PROVENANCE" <<EOF
-RTLSDR-Airband 5.2.0
+RTLSDR-Airband 6.2.0
 commit $AIRBAND_COMMIT
 source git tag $AIRBAND_TAG
 build options NFM=ON RTLSDR=ON MIRISDR=OFF SOAPYSDR=OFF PULSEAUDIO=OFF PLATFORM=native
