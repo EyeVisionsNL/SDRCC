@@ -37,6 +37,9 @@ on:
       - 'scripts/validate_update_channel_failure.cjs'
       - 'core/external_updates.py'
       - 'scripts/sdrcc_external_update.py'
+      - 'scripts/install/upgrade_radio_runtimes.py'
+      - 'scripts/install/provision_external.sh'
+      - 'core/traffic_voice.py'
       - 'scripts/validate_external_updates.py'
       - 'scripts/validate_external_updates_ui.cjs'
       - 'dashboard/static/js/external_updates.js'
@@ -80,11 +83,11 @@ jobs:
           node scripts/validate_small_tug.cjs
       - name: Check external updater safety and browser syntax
         run: |
-          python -m compileall -q core/external_updates.py scripts/sdrcc_external_update.py dashboard/app.py
+          python -m compileall -q core/external_updates.py scripts/sdrcc_external_update.py dashboard/app.py scripts/install/upgrade_radio_runtimes.py
           python scripts/validate_external_updates.py
           node --check dashboard/static/js/external_updates.js
           node scripts/validate_external_updates_ui.cjs
-          bash -n install.sh uninstall.sh
+          bash -n install.sh uninstall.sh scripts/install/provision_external.sh
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
       - name: Check MapLibre 6 map boot and error handling
