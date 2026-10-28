@@ -10,7 +10,7 @@
 
     const ACTIVE = new Set(["queued", "starting", "backing_up",
         "installing", "verifying", "restoring"]);
-    const INSTALLABLE = new Set(["ais-catcher", "satdump"]);
+    const INSTALLABLE = new Set(["ais-catcher", "satdump", "readsb", "rtl-airband"]);
     let pending = false;
     let starting = false;
     let activeWorker = false;
@@ -26,7 +26,7 @@
     function stateOf(item) {
         // The backend knows whether a source-based version can be verified.
         // Never infer UP TO DATE merely because a GitHub release was fetched.
-        if (["current", "update", "review", "manual", "missing"].includes(item.status))
+        if (["current", "update", "review", "manual", "missing", "ahead"].includes(item.status))
             return item.status;
         if (item.available) return item.can_install ? "update" : "review";
         if (!item.installed) return "missing";
@@ -38,6 +38,7 @@
         review: "REVIEW REQUIRED",
         manual: "MANUAL CHECK",
         missing: "NOT INSTALLED",
+        ahead: "AHEAD OF STABLE",
     };
     function message(value, kind = "") {
         if (result.textContent !== value) result.textContent = value;
@@ -63,7 +64,7 @@
         lastSignature = signature;
         activeWorker = workerBusy;
 
-        const counts = {current: 0, update: 0, review: 0, manual: 0, missing: 0};
+        const counts = {current: 0, update: 0, review: 0, manual: 0, missing: 0, ahead: 0};
         const cards = [];
         for (const item of rows) {
             const state = stateOf(item);
@@ -121,12 +122,12 @@
             summaryKind = "update";
             subtitle.textContent = counts.current + " up to date · " +
                 counts.update + " ready to install · " +
-                (counts.manual + counts.review) + " manual/review";
+                (counts.manual + counts.review) + " manual/review · " + counts.ahead + " ahead of stable";
         } else if (counts.review) {
             summary = "REVIEW REQUIRED";
             summaryKind = "review";
             subtitle.textContent = counts.current + " up to date · " +
-                counts.review + " update(s) need review";
+                counts.review + " update(s) need review · " + counts.ahead + " ahead of stable";
         } else if (counts.current === rows.length && rows.length > 0) {
             summary = "ALL UP TO DATE";
             summaryKind = "current";
@@ -135,7 +136,7 @@
             const limited = (counts.manual + counts.missing) > 0;
             summary = limited ? "CHECK LIMITED" : "NO UPDATES FOUND";
             summaryKind = limited ? "review" : "current";
-            subtitle.textContent = counts.current + " up to date · " +
+            subtitle.textContent = counts.current + " up to date · " + counts.ahead + " ahead of stable · " +
                 (counts.manual + counts.missing) + " need verification";
         }
         badge.textContent = summary;
@@ -181,9 +182,12 @@
     async function start(item) {
         if (starting || activeWorker || !item.can_install ||
                 !INSTALLABLE.has(item.id)) return;
-        const impact = item.id === "ais-catcher"
-            ? "AIS sharing will stop temporarily; SDRCC will back up the AIS settings and restore the service state."
-            : "Only the Ubuntu APT package will be updated. Active satellite missions must finish first.";
+        const impact = {
+            "ais-catcher": "AIS sharing will stop temporarily; SDRCC backs up the configuration and restores the service state.",
+            "satdump": "Only the Ubuntu APT package will be updated. Active satellite missions must finish first.",
+            "readsb": "Stop ADS-B first. SDRCC builds original rollback and pinned 3.16.20 Debian packages, then installs and verifies. SDRCC will not restart receiver hardware.",
+            "rtl-airband": "Stop Traffic Voice first. SDRCC builds 6.2.0 with Auto Gain and scan interval patches; previous binary and settings are backed up.",
+        }[item.id];
         if (!window.confirm("Install " + item.name + " " + item.latest + "?\n\n" +
                 impact + "\n\nA package rollback cannot always be guaranteed. Continue?")) return;
         starting = true;
