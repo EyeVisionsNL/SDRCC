@@ -5015,12 +5015,17 @@ def api_external_update_install():
                         "No verified update is available for this installed package."}), 409
     result = run_command(["sudo", "-n", str(EXTERNAL_UPDATE_HELPER), product], timeout=30)
     if result.returncode != 0:
-        write_log(f"External {product} update could not start: {result.stderr}")
-        return jsonify({"ok": False, "message": "Managed external updater could not start."}), 503
+        failure = external_updates.explain_launch_failure(
+            result.returncode, result.stdout, result.stderr)
+        write_log(
+            f"External {product} update launch failed: rc={result.returncode}; "
+            f"code={failure['code']}; stderr={(result.stderr or '')[-500:]}")
+        return jsonify({"ok": False, **failure}), 503
     try:
         response = json.loads((result.stdout or "").strip())
     except (ValueError, TypeError):
-        response = {"ok": False, "message": "External update helper returned an invalid response."}
+        response = {"ok": False, "code": "invalid_helper_response",
+                    "message": "The external updater returned an unreadable response."}
     return jsonify(response), 202 if response.get("ok") else 503
 
 
