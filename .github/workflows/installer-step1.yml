@@ -38,6 +38,7 @@ on:
       - 'core/external_updates.py'
       - 'scripts/sdrcc_external_update.py'
       - 'scripts/validate_external_updates.py'
+      - 'scripts/validate_external_updates_ui.cjs'
       - 'dashboard/static/js/external_updates.js'
       - 'dashboard/static/style.css'
       - 'uninstall.sh'
@@ -82,6 +83,7 @@ jobs:
           python -m compileall -q core/external_updates.py scripts/sdrcc_external_update.py dashboard/app.py
           python scripts/validate_external_updates.py
           node --check dashboard/static/js/external_updates.js
+          node scripts/validate_external_updates_ui.cjs
           bash -n install.sh uninstall.sh
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
