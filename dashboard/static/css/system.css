@@ -587,6 +587,8 @@
     background: rgba(9,22,37,.65);
 }
 #tab-system #external-updates .external-update-row.is-current {border-left-color: #22c55e}
+#tab-system #external-updates .external-update-row.is-ahead {border-left-color: #38bdf8}
+#tab-system #external-updates .is-ahead .external-update-state {color: #7dd3fc}
 #tab-system #external-updates .external-update-row.is-update {border-left-color: #f59e0b}
 #tab-system #external-updates .external-update-row.is-review {border-left-color: #eab308}
 #tab-system #external-updates .external-update-row-heading {
