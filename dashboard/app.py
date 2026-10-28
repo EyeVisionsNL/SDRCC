@@ -5017,6 +5017,10 @@ def api_external_update_install():
 @app.route("/api/update/install", methods=["POST"])
 @receiver_manager.service_control_serialized
 def api_update_install():
+    if external_updates.worker_status().get("state") in {
+        "queued", "starting", "backing_up", "installing", "verifying", "restoring",
+    }:
+        return jsonify({"ok": False, "message": "External software update is still running."}), 409
     status = update_manager.check_remote_version()
     if status.get("check_error"):
         return jsonify({
