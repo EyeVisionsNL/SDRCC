@@ -45,6 +45,26 @@ jobs:
               print("PASS: official v6.2.0 and both SDRCC patches compiled from a non-Git worker cwd")
           PY
 
+      - name: Validate Airband 6.2.0 settings with actual SDRCC Python dependencies
+        run: |
+          python3 -m venv venv
+          venv/bin/python -m pip install --disable-pip-version-check -q -r requirements.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          from scripts.install.upgrade_radio_runtimes import (
+              AIRBAND_OLD_SHA, AIRBAND_SHA, validate_airband_configuration
+          )
+          project = Path.cwd()
+          old = (project / "config/traffic_voice.yaml").read_text(encoding="utf-8")
+          assert old.count("    version: 5.2.0\n") == 1
+          assert old.count("    commit: " + AIRBAND_OLD_SHA + "\n") == 1
+          proposed = old.replace("    version: 5.2.0\n", "    version: 6.2.0\n").replace(
+              "    commit: " + AIRBAND_OLD_SHA + "\n",
+              "    commit: " + AIRBAND_SHA + "\n")
+          validate_airband_configuration(project, proposed)
+          print("PASS: Airband 6.2.0 validates using SDRCC venv dependencies")
+          PY
+
   pinned-readsb:
     runs-on: ubuntu-24.04
     timeout-minutes: 18
