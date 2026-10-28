@@ -23,15 +23,15 @@ SATDUMP_PAGE = "https://github.com/SatDump/SatDump/releases"
 CACHE_SECONDS = 900
 _LOCK = threading.RLock()
 _CACHE: dict = {"checked_at": 0.0, "ais_release": None, "error": None}
-VERSION_RE = re.compile(r"(?i)\\b(?:ais[- ]?catcher)\\s+v?(\\d+\\.\\d+(?:\\.\\d+)?)\\b")
-TAG_RE = re.compile(r"^v(\\d+\\.\\d+(?:\\.\\d+)?)$")
+VERSION_RE = re.compile(r"(?i)\b(?:ais[- ]?catcher)\s+v?(\d+\.\d+(?:\.\d+)?)\b")
+TAG_RE = re.compile(r"^v(\d+\.\d+(?:\.\d+)?)$")
 
 
 def command(args, timeout=5):
     try:
         done = subprocess.run(args, capture_output=True, text=True,
                               check=False, timeout=timeout)
-        return (done.stdout or "") + "\\n" + (done.stderr or "")
+        return (done.stdout or "") + "\n" + (done.stderr or "")
     except (OSError, subprocess.SubprocessError):
         return ""
 
@@ -42,7 +42,7 @@ def ais_version(output):
 
 
 def version_tuple(value):
-    if not value or not re.fullmatch(r"\\d+\\.\\d+(?:\\.\\d+)?", value):
+    if not value or not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", value):
         return None
     return tuple(int(x) for x in (value.split(".") + ["0"])[:3])
 
@@ -79,7 +79,7 @@ def release(refresh=False):
 
 def _apt_version(package, field):
     result = command(["/usr/bin/apt-cache", "policy", package])
-    match = re.search(r"^\\s*" + re.escape(field) + r":\\s*(\\S+)", result, re.M)
+    match = re.search(r"^\s*" + re.escape(field) + r":\s*(\S+)", result, re.M)
     value = match.group(1) if match else None
     return None if value in (None, "(none)") else value
 
@@ -116,7 +116,7 @@ def snapshot(refresh=False):
         ais_installed = ais_version(command(["AIS-catcher", "--version"]))
     ais_package = command(["/usr/bin/dpkg-query", "-W", "-f=${Version}", "ais-catcher"]).strip()
     if not ais_installed and ais_package:
-        match = re.search(r"(\\d+\\.\\d+(?:\\.\\d+)?)", ais_package)
+        match = re.search(r"(\d+\.\d+(?:\.\d+)?)", ais_package)
         if match:
             ais_installed = match.group(1)
     upstream = release(refresh=refresh)
