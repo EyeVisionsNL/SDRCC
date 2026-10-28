@@ -7,6 +7,7 @@ Builds and verifies the new binary before replacing the existing one.
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import re
