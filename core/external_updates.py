@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import re
 import shutil
@@ -20,9 +21,18 @@ WORKER_UNIT = "sdrcc-external-update.service"
 RELEASE_API = "https://api.github.com/repos/jvde-github/AIS-catcher/releases/latest"
 RELEASE_PAGE = "https://github.com/jvde-github/AIS-catcher/releases"
 SATDUMP_PAGE = "https://github.com/SatDump/SatDump/releases"
+SATDUMP_RELEASE_API = "https://api.github.com/repos/SatDump/SatDump/releases/latest"
+AIRBAND_PAGE = "https://github.com/rtl-airband/RTLSDR-Airband/releases"
+AIRBAND_RELEASE_API = "https://api.github.com/repos/rtl-airband/RTLSDR-Airband/releases/latest"
+READSB_PAGE = "https://github.com/wiedehopf/readsb/tree/dev"
+READSB_VERSION_URL = "https://raw.githubusercontent.com/wiedehopf/readsb/dev/version"
+AIRBAND_PROVENANCE = Path("/opt/sdrcc/traffic_voice/share/BUILD-PROVENANCE")
+AIRBAND_BINARY = Path("/opt/sdrcc/traffic_voice/bin/rtl_airband")
 CACHE_SECONDS = 900
 _LOCK = threading.RLock()
-_CACHE: dict = {"checked_at": 0.0, "ais_release": None, "error": None}
+_CACHE: dict = {"checked_at": 0.0, "ais_release": None, "error": None,
+                "satdump_release": None, "airband_release": None,
+                "readsb_upstream": None, "errors": {}}
 VERSION_RE = re.compile(r"(?i)\b(?:ais[- ]?catcher)\s+v?(\d+\.\d+(?:\.\d+)?)\b")
 TAG_RE = re.compile(r"^v(\d+\.\d+(?:\.\d+)?)$")
 
@@ -104,17 +114,107 @@ def matching_ais_asset(upstream):
                  if entry.get("name") == asset_name), None)
 
 
+def _github_stable_release(url, page, prefix=""):
+    """Fetch a validated published stable release; prereleases are excluded."""
+    request = Request(url, headers={
+        "User-Agent": "SDRCC-external-release-check",
+        "Accept": "application/vnd.github+json",
+    })
+    with urlopen(request, timeout=6) as response:
+        payload = json.loads(response.read(128 * 1024))
+    tag = payload.get("tag_name")
+    if (not isinstance(tag, str) or
+            not re.fullmatch(re.escape(prefix) + r"\d+\.\d+(?:\.\d+)?", tag)
+            or payload.get("draft") or payload.get("prerelease")):
+        raise ValueError("Unexpected stable release tag")
+    version = tag[len(prefix):]
+    return {"version": version, "tag": tag, "url": page + "/tag/" + tag,
+            "published_at": payload.get("published_at")}
+
+
+def _readsb_development_version():
+    """readsb deliberately has no stable GitHub release feed. Check dev/version."""
+    request = Request(READSB_VERSION_URL, headers={
+        "User-Agent": "SDRCC-external-release-check",
+        "Cache-Control": "no-cache",
+    })
+    with urlopen(request, timeout=6) as response:
+        version = response.read(128).decode("utf-8").strip()
+    if version_tuple(version) is None:
+        raise ValueError("Invalid readsb dev version")
+    return {"version": version, "url": READSB_PAGE, "channel": "dev"}
+
+
 def release(refresh=False):
     with _LOCK:
         if refresh or not _CACHE["checked_at"] or time.time() - _CACHE["checked_at"] > CACHE_SECONDS:
-            try:
-                _CACHE["ais_release"] = _check_ais_release()
-                _CACHE["error"] = None
-            except Exception as exc:
-                _CACHE["ais_release"] = None
-                _CACHE["error"] = str(exc)[:180]
+            sources = {
+                "ais_release": _check_ais_release,
+                "satdump_release": lambda: _github_stable_release(
+                    SATDUMP_RELEASE_API, SATDUMP_PAGE),
+                "airband_release": lambda: _github_stable_release(
+                    AIRBAND_RELEASE_API, AIRBAND_PAGE, prefix="v"),
+                "readsb_upstream": _readsb_development_version,
+            }
+            errors = {}
+            # Independent sources must not block one another, and must not
+            # turn a successful check into an ambiguous global failure.
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                results = {name: executor.submit(fetch) for name, fetch in sources.items()}
+                for name, future in results.items():
+                    try:
+                        _CACHE[name] = future.result()
+                    except Exception as exc:
+                        _CACHE[name] = None
+                        errors[name] = str(exc)[:180]
+            _CACHE["errors"] = errors
+            _CACHE["error"] = errors.get("ais_release")
             _CACHE["checked_at"] = time.time()
-        return dict(_CACHE)
+        return dict(_CACHE, errors=dict(_CACHE.get("errors") or {}))
+
+
+def installed_satdump_version(package, binary):
+    """Prefer local binary/version; do not pretend a source build is APT-managed."""
+    if not binary:
+        return None, "not-installed"
+    output = command([binary, "--version"], timeout=4)
+    match = re.search(r"(?i)\bsatdump\s*(?:version\s*)?v?(\d+\.\d+(?:\.\d+)?)\b", output)
+    if match:
+        return match.group(1), "binary"
+    if package:
+        return package, "apt"
+    # The clean installer pins 1.2.2, but an unrecognised local binary may
+    # have been replaced later. Never mark it current based on that assumption.
+    return None, "non-apt-unverified"
+
+
+def installed_airband_version():
+    if not AIRBAND_BINARY.is_file():
+        return None, "not-installed"
+    try:
+        provenance = AIRBAND_PROVENANCE.read_text(encoding="utf-8")
+    except OSError:
+        provenance = ""
+    match = re.search(r"(?m)^RTLSDR-Airband\s+v?(\d+\.\d+(?:\.\d+)?)\s*$", provenance)
+    if match:
+        return match.group(1), "SDRCC patched"
+    output = command([str(AIRBAND_BINARY), "-v"], timeout=4)
+    match = re.search(r"(?i)\b(?:RTLSDR-Airband|rtl_airband)\s+v?(\d+\.\d+(?:\.\d+)?)\b", output)
+    if match:
+        return match.group(1), "binary"
+    return None, "unverified custom binary"
+
+
+def newer_than(local, upstream):
+    """Compare only clean numeric release versions, never unknown text."""
+    if not local or not upstream:
+        return None
+    match = re.search(r"(?<!\d)(\d+\.\d+(?:\.\d+)?)(?!\d)", local)
+    parsed = version_tuple(match.group(1)) if match else None
+    target = version_tuple(upstream)
+    if parsed is None or target is None:
+        return None
+    return parsed < target
 
 
 def _apt_version(package, field):
@@ -159,51 +259,115 @@ def snapshot(refresh=False):
         match = re.search(r"(\d+\.\d+(?:\.\d+)?)", ais_package)
         if match:
             ais_installed = match.group(1)
+
     upstream = release(refresh=refresh)
-    latest = upstream.get("ais_release") or {}
+    ais_latest = upstream.get("ais_release") or {}
+    sat_latest = upstream.get("satdump_release") or {}
+    readsb_latest = upstream.get("readsb_upstream") or {}
+    air_latest = upstream.get("airband_release") or {}
+    errors = upstream.get("errors") or {}
     candidate = _apt_version("satdump", "Candidate")
-    installed = _apt_version("satdump", "Installed")
+    installed_pkg = _apt_version("satdump", "Installed")
     satdump_binary = shutil.which("satdump")
-    satdump_upgrade = bool(satdump_binary and installed and candidate and
-                           _apt_newer(installed, candidate))
+    sat_installed, sat_method = installed_satdump_version(installed_pkg, satdump_binary)
+    satdump_upgrade = bool(satdump_binary and installed_pkg and candidate and
+                           _apt_newer(installed_pkg, candidate))
+    sat_upstream_newer = newer_than(sat_installed, sat_latest.get("version"))
     readsb_info = command(["readsb", "--version"])
     readsb_match = re.search(r"readsb version:\s*(\d+\.\d+(?:\.\d+)?)",
                             readsb_info, re.I)
-    readsb_version = readsb_match.group(1) if readsb_match else None
-    ais_upgrade = bool(ais_installed and latest.get("version") and
-                       version_tuple(latest["version"]) and version_tuple(ais_installed)
-                       and version_tuple(latest["version"]) > version_tuple(ais_installed))
-    ais_manageable = bool(apt_ais_installed() and matching_ais_asset(latest))
+    readsb_installed = readsb_match.group(1) if readsb_match else None
+    air_installed, air_method = installed_airband_version()
+    readsb_newer = newer_than(readsb_installed, readsb_latest.get("version"))
+    air_newer = newer_than(air_installed, air_latest.get("version"))
+    ais_upgrade = bool(ais_installed and ais_latest.get("version") and
+                       version_tuple(ais_latest["version"]) and version_tuple(ais_installed)
+                       and version_tuple(ais_latest["version"]) > version_tuple(ais_installed))
+    ais_manageable = bool(apt_ais_installed() and matching_ais_asset(ais_latest))
     ais_can_install = ais_upgrade and ais_manageable
+
+    if satdump_upgrade:
+        sat_status = "update"
+        sat_reason = "Ubuntu APT update available"
+    elif sat_method == "not-installed":
+        sat_status, sat_reason = "missing", "SatDump is not installed"
+    elif errors.get("satdump_release"):
+        sat_status, sat_reason = "manual", "Stable release check unavailable"
+    elif sat_upstream_newer:
+        sat_status, sat_reason = "review", (
+            "New stable release found; non-APT builds need a manual compatibility review"
+            if not installed_pkg else "Newer upstream release; check your Ubuntu package")
+    elif sat_upstream_newer is None:
+        sat_status, sat_reason = "manual", (
+            "Source build: exact installed version could not be verified"
+            if not installed_pkg else "Installed package version could not be compared")
+    else:
+        sat_status, sat_reason = "current", (
+            "Current stable release (nightly builds excluded)"
+            if not installed_pkg else "No newer stable release or Ubuntu package")
+
+    if readsb_installed is None:
+        readsb_status = "missing" if not shutil.which("readsb") else "manual"
+        readsb_reason = "Version not detected"
+    elif errors.get("readsb_upstream"):
+        readsb_status, readsb_reason = "manual", "Development version check unavailable"
+    elif readsb_newer:
+        readsb_status, readsb_reason = "review", (
+            "Newer development build; SDRCC receiver integration must be tested before upgrading")
+    elif readsb_newer is False:
+        readsb_status, readsb_reason = "current", "Current with upstream dev branch"
+    else:
+        readsb_status, readsb_reason = "manual", "Version comparison unavailable"
+
+    if air_method == "not-installed":
+        air_status, air_reason = "missing", "Traffic Voice component not installed"
+    elif errors.get("airband_release"):
+        air_status, air_reason = "manual", "Stable release check unavailable"
+    elif air_newer:
+        air_status, air_reason = "review", (
+            "New stable version; SDRCC Auto Gain and scan interval patches need porting")
+    elif air_newer is False:
+        air_status, air_reason = "current", "No newer stable release; SDRCC patches retained"
+    else:
+        air_status, air_reason = "manual", (
+            "Installed binary version could not be verified; SDRCC patches may differ")
+
     rows = [
         {"id": "ais-catcher", "name": "AIS-catcher", "installed": ais_installed,
-         "latest": latest.get("version"), "available": ais_upgrade,
-         "can_install": ais_can_install, "source": "Official GitHub release",
-         "url": latest.get("url") or RELEASE_PAGE,
-         "reason": (upstream.get("error") or "Installed version unavailable")
-             if not (ais_installed and latest.get("version")) else
+         "latest": ais_latest.get("version"), "available": ais_upgrade,
+         "can_install": ais_can_install,
+         "status": "update" if ais_can_install else
+                   "review" if ais_upgrade else
+                   "current" if ais_installed and ais_latest.get("version") else "manual",
+         "source": "Official GitHub stable release",
+         "url": ais_latest.get("url") or RELEASE_PAGE,
+         "reason": (errors.get("ais_release") or "Installed version unavailable")
+             if not (ais_installed and ais_latest.get("version")) else
              ("New upstream release available" if ais_can_install else
               "New release requires package/platform review" if ais_upgrade else "Up to date")},
-        {"id": "satdump", "name": "SatDump", "installed": installed or
-         ("Non-APT installation" if satdump_binary else None),
-         "latest": candidate, "available": satdump_upgrade,
-         "can_install": satdump_upgrade, "source": "Ubuntu APT packages",
-         "url": SATDUMP_PAGE,
-         "reason": "APT update available" if satdump_upgrade else
-                   ("Managed outside APT; update requires manual review"
-                    if satdump_binary and not installed else "No newer APT package available")},
-        {"id": "readsb", "name": "readsb",
-         "installed": readsb_version,
-         "latest": None, "available": False, "can_install": False,
-         "source": "SDRCC pinned build", "url": "https://github.com/wiedehopf/readsb",
-         "reason": "Pinned by SDRCC; compatibility review required"},
+        {"id": "satdump", "name": "SatDump", "installed": sat_installed or
+         ("Source installation (version unknown)" if sat_method == "non-apt-unverified" else None),
+         "latest": sat_latest.get("version"), "available": satdump_upgrade or sat_upstream_newer is True,
+         "can_install": satdump_upgrade, "status": sat_status,
+         "source": "Official stable releases + Ubuntu APT",
+         "url": sat_latest.get("url") or SATDUMP_PAGE,
+         "reason": sat_reason},
+        {"id": "readsb", "name": "readsb", "installed": readsb_installed,
+         "latest": readsb_latest.get("version"), "available": readsb_newer is True,
+         "can_install": False, "status": readsb_status,
+         "source": "GitHub development branch (not a stable release)",
+         "url": READSB_PAGE,
+         "reason": readsb_reason},
         {"id": "rtl-airband", "name": "RTLSDR-Airband",
-         "installed": "SDRCC patched v5.2.0" if
-            Path("/opt/sdrcc/traffic_voice/bin/rtl_airband").exists() else None,
-         "latest": None, "available": False, "can_install": False,
-         "source": "SDRCC custom build", "url": "https://github.com/rtl-airband/RTLSDR-Airband",
-         "reason": "Custom gain and scan patches; automatic upgrade disabled"},
+         "installed": (air_installed + (" (" + air_method + ")" if air_method == "SDRCC patched" else ""))
+                     if air_installed else None,
+         "latest": air_latest.get("version"), "available": air_newer is True,
+         "can_install": False, "status": air_status,
+         "source": "Official stable releases / local build provenance",
+         "url": air_latest.get("url") or AIRBAND_PAGE,
+         "reason": air_reason},
     ]
     return {"ok": True, "software": rows, "worker": worker_status(),
-            "release_check_error": upstream.get("error"),
+            "release_check_error": errors.get("ais_release"),
+            "release_check_errors": errors,
             "checked_at": datetime.now(timezone.utc).isoformat()}
