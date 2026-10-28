@@ -4973,7 +4973,7 @@ def api_external_update_install():
     """Allow only pinned products; active missions and receiver bindings block updates."""
     body = request.get_json(silent=True)
     product = body.get("software") if isinstance(body, dict) else None
-    if product not in {"ais-catcher", "satdump"}:
+    if product not in {"ais-catcher", "satdump", "readsb", "rtl-airband"}:
         return jsonify({"ok": False, "message": "Unsupported external update product."}), 400
     if (update_manager.get_status().get("worker") or {}).get("state") in {
         "queued", "starting", "downloading", "validating",
@@ -4994,6 +4994,16 @@ def api_external_update_install():
             "message": "Finish active missions, receiver reservations or receiver recovery first.",
             "runtime_blockers": blockers,
         }), 409
+
+    # Package updates must not disconnect a running ADS-B or Traffic Voice
+    # receiver. The detached worker repeats this check before installation.
+    busy_unit = {
+        "readsb": "readsb.service",
+        "rtl-airband": "sdrcc-traffic-voice.service",
+    }.get(product)
+    if busy_unit and service_state(busy_unit).get("active"):
+        return jsonify({"ok": False, "message":
+                        f"Stop {busy_unit} using SDRCC before upgrading."}), 409
 
     if not EXTERNAL_UPDATE_HELPER.is_file():
         return jsonify({"ok": False, "message":
