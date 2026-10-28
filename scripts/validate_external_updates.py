@@ -499,6 +499,24 @@ class ExternalUpdateTests(unittest.TestCase):
         simulate(True)
         simulate(False)
 
+    def test_pinned_readsb_binary_accepts_tag_or_short_commit(self):
+        from scripts.install import upgrade_radio_runtimes as runtime
+        accepted = (
+            "readsb version: 3.16.20 wiedehopf git: v3.16.20 "
+            "(committed: Tue Oct 27 19:04:15 2026 0000)",
+            "readsb version: 3.16.20 wiedehopf git: dadfa330",
+        )
+        for info in accepted:
+            self.assertTrue(runtime._is_pinned_readsb_3_16_20(info), info)
+        for info in (
+            "readsb version: 3.16.15 wiedehopf git: dadfa330",
+            "readsb version: 3.16.20 wiedehopf git: v3.16.19",
+            "readsb version: 3.16.20 wiedehopf git: unrelated",
+            "readsb version: 3.16.20 wiedehopf git: dadfa999",
+            "readsb version: broken",
+        ):
+            self.assertFalse(runtime._is_pinned_readsb_3_16_20(info), info)
+
     def test_readsb_upgrade_worker_rechecks_same_ownership_guard(self):
         from scripts.install import upgrade_radio_runtimes as runtime
         source = Path(runtime.__file__).read_text(encoding="utf-8")
