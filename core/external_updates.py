@@ -177,7 +177,8 @@ def installed_satdump_version(package, binary):
     """Prefer local binary/version; do not pretend a source build is APT-managed."""
     if not binary:
         return None, "not-installed"
-    output = command([binary, "--version"], timeout=4)
+    # SatDump 1.2.2 supports `satdump version` (not `--version`).
+    output = command([binary, "version"], timeout=4)
     match = re.search(r"(?i)\bsatdump\s*(?:version\s*)?v?(\d+\.\d+(?:\.\d+)?)\b", output)
     if match:
         return match.group(1), "binary"
