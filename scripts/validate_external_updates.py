@@ -158,14 +158,59 @@ class ExternalUpdateTests(unittest.TestCase):
         self.assertFalse(status["readsb"]["can_install"])
         self.assertFalse(status["rtl-airband"]["can_install"])
 
+    def test_satdump_newer_than_tagged_stable_is_not_called_up_to_date(self):
+        releases = {
+            "ais_release": {"version": "0.70"},
+            "satdump_release": {"version": "1.2.2"},
+            "readsb_upstream": {"version": "3.16.20"},
+            "airband_release": {"version": "6.2.0"},
+            "errors": {},
+        }
+        with patch.object(updates, "release", return_value=releases), \
+             patch.object(updates, "command", return_value=""), \
+             patch.object(updates, "_apt_version", return_value=None), \
+             patch.object(updates, "installed_satdump_version", return_value=("1.2.3", "binary")), \
+             patch.object(updates, "installed_airband_version", return_value=("5.2.0", "SDRCC patched")), \
+             patch.object(updates.shutil, "which", return_value="/usr/bin/satdump"), \
+             patch.object(updates, "worker_status", return_value={}):
+            rows = updates.snapshot()["software"]
+        satdump = next(row for row in rows if row["id"] == "satdump")
+        self.assertEqual(satdump["status"], "ahead")
+        self.assertEqual(satdump["latest"], "1.2.2")
+        self.assertFalse(satdump["can_install"])
+
+    def test_pin_safety_guards_and_compatibility(self):
+        from scripts.install import upgrade_radio_runtimes as runtime
+        self.assertEqual(runtime.READSB_VERSION, "3.16.20")
+        self.assertEqual(runtime.READSB_NEW,
+                         "dadfa3307a1951b7ef687cfe3fd66cdb708a4f6f")
+        self.assertEqual(runtime.AIRBAND_SHA,
+                         "66d3076819312c7eae7662028234988dc71d0be5")
+        with patch.object(runtime.subprocess, "run") as systemctl:
+            systemctl.return_value.returncode = 0
+            with self.assertRaisesRegex(RuntimeError, "Stop readsb.service"):
+                runtime.inactive("readsb.service")
+        root = Path(__file__).resolve().parents[1]
+        traffic = (root / "core/traffic_voice.py").read_text()
+        self.assertIn('"5.2.0": "61c5c406', traffic)
+        self.assertIn('"6.2.0": "66d30768', traffic)
+        self.assertIn('if (chosen_version not in allowed_backends', traffic)
+        airband = (root / "scripts/install/provision_external.sh").read_text()
+        self.assertIn('AIRBAND_TAG="v6.2.0"', airband)
+        self.assertIn('READSB_COMMIT="dadfa330', airband)
+        self.assertIn('patch_rtlsdr_airband_auto_gain.py', airband)
+        self.assertIn('patch_rtlsdr_airband_scan_interval.py', airband)
+        self.assertIn('rollback package', runtime.update_readsb.__doc__ or
+                      (root / "scripts/install/upgrade_radio_runtimes.py").read_text())
+
     def test_product_arguments_are_hardcoded_and_updates_are_opt_in(self):
         root = Path(__file__).resolve().parents[1]
         app = (root / "dashboard/app.py").read_text()
         helper = (root / "scripts/sdrcc_external_update.py").read_text()
         ui = (root / "dashboard/static/js/external_updates.js").read_text()
         installer = (root / "install.sh").read_text()
-        self.assertIn('ALLOWED = {"ais-catcher", "satdump"}', helper)
-        self.assertIn('if product not in {"ais-catcher", "satdump"}:', app)
+        self.assertIn('ALLOWED = {"ais-catcher", "satdump", "readsb", "rtl-airband"}', helper)
+        self.assertIn('if product not in {"ais-catcher", "satdump", "readsb", "rtl-airband"}:', app)
         self.assertIn("receiver_manager.service_control_serialized", app)
         self.assertIn("_update_receiver_runtime_blockers()", app)
         self.assertIn("--only-upgrade", helper)
