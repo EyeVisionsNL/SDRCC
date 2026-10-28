@@ -506,10 +506,172 @@
     }
 }
 
-/* External third-party updates: compact, collapsible maintenance rows. */
-.external-update-list{display:grid;gap:12px;margin:12px 0}
-.external-update-row{padding:12px;border:1px solid rgba(130,180,215,.22);border-radius:11px;background:rgba(8,32,49,.3)}
-.external-update-row-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.external-update-row p{margin:8px 0;overflow-wrap:anywhere}
-.external-update-row .system-maintenance-ais-actions{display:flex;gap:8px;flex-wrap:wrap}
-.external-update-row a.control-button{display:inline-flex;align-items:center;text-decoration:none}
+/* External Updates is a full-width, self-contained disclosure. The parent
+   maintenance card uses two columns, but the nested disclosure must NOT. */
+#tab-system #external-updates {
+    grid-column: 1 / -1;
+    --service-identity: #718398;
+    border-color: rgba(113, 131, 152, .38);
+    box-shadow: inset 3px 0 0 #718398;
+    background: linear-gradient(145deg, rgba(26, 40, 56, .48), #020712 80%);
+}
+#tab-system #external-updates > .system-maintenance-summary-v0540f {
+    padding: 4px 8px 6px;
+    min-height: 40px;
+    gap: 12px;
+}
+#tab-system #external-updates > .system-maintenance-summary-v0540f strong {
+    color: #e2e8f0;
+    font-size: .87rem;
+}
+#tab-system #external-updates .system-maintenance-copy-v0540f small {
+    color: #94a3b8;
+    font-size: .69rem;
+    white-space: normal;
+}
+#tab-system #external-updates > .system-maintenance-body-v0540f {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 8px 4px;
+    border-top: 1px solid rgba(113, 131, 152, .3);
+}
+#tab-system #external-updates .external-update-intro {
+    margin: 0;
+    font-size: .72rem;
+    color: #94a3b8;
+}
+#tab-system #external-updates .external-update-summary-state {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    margin-right: 14px;
+    border: 1px solid #475569;
+    border-radius: 7px;
+    color: #cbd5e1;
+    background: rgba(71,85,105,.10);
+    font-size: .63rem;
+    font-weight: 800;
+    letter-spacing: .035em;
+    white-space: nowrap;
+}
+#tab-system #external-updates .external-update-summary-state.is-current {
+    color: #86efac;
+    border-color: rgba(34,197,94,.42);
+    background: rgba(34,197,94,.09);
+}
+#tab-system #external-updates .external-update-summary-state.is-update,
+#tab-system #external-updates .external-update-summary-state.is-review {
+    color: #fcd34d;
+    border-color: rgba(245,158,11,.4);
+    background: rgba(245,158,11,.09);
+}
+#tab-system #external-updates .external-update-summary-state.is-error {
+    color: #fca5a5;
+    border-color: rgba(239,68,68,.4);
+    background: rgba(239,68,68,.09);
+}
+#tab-system #external-updates .external-update-list {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 10px;
+    margin: 0;
+}
+#tab-system #external-updates .external-update-row {
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid #293b52;
+    border-left: 3px solid #64748b;
+    border-radius: 8px;
+    background: rgba(9,22,37,.65);
+}
+#tab-system #external-updates .external-update-row.is-current {border-left-color: #22c55e}
+#tab-system #external-updates .external-update-row.is-update {border-left-color: #f59e0b}
+#tab-system #external-updates .external-update-row.is-review {border-left-color: #eab308}
+#tab-system #external-updates .external-update-row-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+#tab-system #external-updates .external-update-row-heading strong {
+    font-size: .82rem;
+    color: #e2e8f0;
+}
+#tab-system #external-updates .external-update-state {
+    color: #94a3b8;
+    font-size: .65rem;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+#tab-system #external-updates .is-current .external-update-state {color: #86efac}
+#tab-system #external-updates .is-update .external-update-state,
+#tab-system #external-updates .is-review .external-update-state {color: #fcd34d}
+#tab-system #external-updates .external-update-row p {
+    margin: 5px 0 0;
+    font-size: .72rem;
+    color: #aebcd0;
+    overflow-wrap: anywhere;
+}
+#tab-system #external-updates .external-update-row .external-update-note {
+    color: #8095af;
+}
+#tab-system #external-updates .external-update-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 9px;
+}
+#tab-system #external-updates .external-update-release {
+    font-size: .7rem;
+    color: #93c5fd;
+    text-underline-offset: 3px;
+}
+#tab-system #external-updates .external-update-release:hover {color: #dbeafe}
+#tab-system #external-updates .external-update-actions .control-button {
+    width: auto;
+    min-width: 128px;
+    padding: 5px 12px;
+    font-size: .72rem;
+}
+#tab-system #external-updates .external-update-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+#tab-system #external-updates .external-update-toolbar .control-result {
+    margin: 0;
+    flex: 1 1 250px;
+    font-size: .71rem;
+}
+#tab-system #external-updates #external-update-check {
+    background: rgba(71,85,105,.15);
+    border-color: #475569;
+    color: #dbe4f0;
+    width: auto;
+    min-width: 144px;
+    padding: 6px 11px;
+}
+#tab-system #external-updates #external-update-check:hover {
+    background: rgba(71,85,105,.3);
+    border-color: #64748b;
+}
+@media (max-width: 850px) {
+    #tab-system #external-updates .external-update-list {
+        grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 650px) {
+    #tab-system #external-updates > .system-maintenance-summary-v0540f {
+        flex-direction: row;
+        align-items: center;
+        padding: 7px 6px;
+    }
+    #tab-system #external-updates .external-update-summary-state {
+        margin-right: 16px;
+    }
+}
