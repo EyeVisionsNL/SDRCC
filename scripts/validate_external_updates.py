@@ -74,17 +74,14 @@ class ExternalUpdateTests(unittest.TestCase):
         self.assertFalse(by_id["rtl-airband"]["can_install"])
 
     def test_matching_asset_requires_current_ubuntu_platform(self):
-        from unittest.mock import mock_open
         release = {"assets": [
             {"name": "ais-catcher_ubuntu_resolute_amd64.deb",
              "digest": "sha256:" + "e" * 64,
              "url": "https://github.com/jvde-github/AIS-catcher/releases/download/v0.71/ais-catcher_ubuntu_resolute_amd64.deb"}]}
-        with patch("pathlib.Path.read_text", mock_open(
-            read_data='ID=ubuntu\nVERSION_CODENAME=resolute\n')), \
+        with patch("pathlib.Path.read_text", return_value='ID=ubuntu\nVERSION_CODENAME=resolute\n'), \
              patch.object(updates, "command", return_value="amd64\n"):
             self.assertIsNotNone(updates.matching_ais_asset(release))
-        with patch("pathlib.Path.read_text", mock_open(
-            read_data='ID=debian\nVERSION_CODENAME=trixie\n')), \
+        with patch("pathlib.Path.read_text", return_value='ID=debian\nVERSION_CODENAME=trixie\n'), \
              patch.object(updates, "command", return_value="amd64\n"):
             self.assertIsNone(updates.matching_ais_asset(release))
 
