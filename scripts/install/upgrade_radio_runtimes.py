@@ -114,7 +114,7 @@ def update_readsb(project, backup, report):
     if "cc0d099" not in output or match.group(1) != "3.16.15":
         raise RuntimeError("readsb is not SDRCC's original pinned build; manual review required")
     inactive(READSB_UNIT)
-    if not call(["dpkg-query", "-W", "-f=\${Status}", "readsb"]).strip().endswith(
+    if not call(["dpkg-query", "-W", "-f=${Status}", "readsb"]).strip().endswith(
             "installed"):
         raise RuntimeError("readsb is not installed as a Debian package")
     previous_enabled = _service_enabled(READSB_UNIT)
