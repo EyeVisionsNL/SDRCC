@@ -84,3 +84,9 @@ jobs:
           export DEB_BUILD_OPTIONS=noddebs
           dpkg-buildpackage -b -ui -uc -us --build-profiles=rtlsdr
           dpkg-deb -f /tmp/readsb_*.deb Package | grep -Fx readsb
+          mkdir -p /tmp/readsb-extracted
+          dpkg-deb -x /tmp/readsb_*.deb /tmp/readsb-extracted
+          test -x /tmp/readsb-extracted/usr/bin/readsb
+          /tmp/readsb-extracted/usr/bin/readsb --version 2>&1 | grep -F '3.16.20'
+          /tmp/readsb-extracted/usr/bin/readsb --version 2>&1 | grep -F 'dadfa330'
+
