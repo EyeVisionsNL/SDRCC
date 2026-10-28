@@ -212,6 +212,13 @@ def build_airband_candidate(project: Path, work: Path) -> Path:
     call([sys.executable,
           project / "scripts/install/patch_rtlsdr_airband_scan_interval.py",
           source / "src/rtl_airband.cpp"])
+    # Check the upstream version helper in the same working directory that
+    # will be used during configuration. Patched sources report v6.2.0-dirty.
+    detected_version = call([source / "scripts/find_version"], cwd=source).strip()
+    if not (detected_version == AIRBAND_TAG
+            or detected_version.startswith(AIRBAND_TAG + "-")):
+        raise RuntimeError(
+            f"RTLSDR-Airband source version check failed: {detected_version!r}")
     build = work / "build"
     call(["cmake", "-S", source, "-B", build, "-DNFM=ON",
           "-DRTLSDR=ON", "-DMIRISDR=OFF", "-DSOAPYSDR=OFF",
