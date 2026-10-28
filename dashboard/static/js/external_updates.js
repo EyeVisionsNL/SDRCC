@@ -24,12 +24,13 @@
     }
 
     function stateOf(item) {
+        // The backend knows whether a source-based version can be verified.
+        // Never infer UP TO DATE merely because a GitHub release was fetched.
+        if (["current", "update", "review", "manual", "missing"].includes(item.status))
+            return item.status;
         if (item.available) return item.can_install ? "update" : "review";
         if (!item.installed) return "missing";
-        if (item.reason === "Up to date" ||
-                (item.latest && item.installed && !item.available
-                    && item.installed !== "Non-APT installation")) return "current";
-        return "manual";
+        return item.reason === "Up to date" ? "current" : "manual";
     }
     const STATUS_LABEL = {
         current: "UP TO DATE",
@@ -50,9 +51,11 @@
         const workerBusy = ACTIVE.has(worker.state);
         const signature = JSON.stringify({
             rows: rows.map(item => [item.id, item.name, item.installed,
-                item.latest, item.available, item.can_install, item.reason, item.url]),
+                item.latest, item.available, item.can_install, item.status,
+                item.source, item.reason, item.url]),
             state: worker.state, software: worker.software, message: worker.message,
             error: data.release_check_error,
+            errors: data.release_check_errors,
         });
         // Never rebuild cards on the periodic status poll if their data is
         // unchanged. Replacing buttons every five seconds caused visible flashes.
@@ -70,11 +73,16 @@
             const head = node("div", "external-update-row-heading");
             head.append(node("strong", "", item.name));
             head.append(node("span", "external-update-state", STATUS_LABEL[state]));
+            const latestKind = item.id === "readsb" ? "Latest dev" :
+                (item.id === "satdump" || item.id === "rtl-airband") ? "Latest stable" :
+                    "Latest release";
             const version = node("p", "external-update-versions",
                 "Installed: " + (item.installed || "Not detected") +
-                (item.latest ? "   ·   Available: " + item.latest : ""));
+                (item.latest ? "   ·   " + latestKind + ": " + item.latest : ""));
+
             const note = node("p", "external-update-note",
                 item.reason || item.source || "Version cannot be checked automatically");
+            note.title = item.source || "";
             const actions = node("div", "external-update-actions");
             if (item.url && /^https:\/\/github\.com\//.test(item.url)) {
                 const notes = node("a", "external-update-release", "Release notes");
@@ -118,19 +126,16 @@
             summaryKind = "review";
             subtitle.textContent = counts.current + " up to date · " +
                 counts.review + " update(s) need review";
-        } else if (data.release_check_error) {
-            summary = "CHECK LIMITED";
-            summaryKind = "review";
-            subtitle.textContent = "Some versions could not be checked · open for details";
         } else if (counts.current === rows.length && rows.length > 0) {
             summary = "ALL UP TO DATE";
             summaryKind = "current";
             subtitle.textContent = "All " + rows.length + " installed tools are current";
         } else {
-            summary = "NO UPDATES FOUND";
-            summaryKind = "current";
+            const limited = (counts.manual + counts.missing) > 0;
+            summary = limited ? "CHECK LIMITED" : "NO UPDATES FOUND";
+            summaryKind = limited ? "review" : "current";
             subtitle.textContent = counts.current + " up to date · " +
-                (counts.manual + counts.missing) + " require manual checks";
+                (counts.manual + counts.missing) + " need verification";
         }
         badge.textContent = summary;
         badge.className = "external-update-summary-state is-" + summaryKind;
@@ -142,8 +147,9 @@
                 (worker.message || "Check backup and logs."), "bad");
         } else if (worker.state === "success") {
             message(worker.message || "External update completed.", "ok");
-        } else if (data.release_check_error) {
-            message("AIS release check unavailable: " + data.release_check_error, "warn");
+        } else if (data.release_check_errors &&
+                   Object.keys(data.release_check_errors).length) {
+            message("Some upstream version checks are unavailable. See each software card.", "warn");
         } else {
             message("No automatic installations. Open release notes to review changes.");
         }
