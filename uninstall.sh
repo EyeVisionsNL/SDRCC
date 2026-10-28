@@ -116,6 +116,7 @@ sudo -v
 
 echo "==> Stop SDRCC services"
 sudo systemctl stop sdrcc-update.service >/dev/null 2>&1 || true
+sudo systemctl stop sdrcc-external-update.service >/dev/null 2>&1 || true
 sudo systemctl disable --now sdrcc.service >/dev/null 2>&1 || true
 sudo systemctl disable --now sdrcc-traffic-voice.service >/dev/null 2>&1 || true
 
@@ -132,15 +133,18 @@ sudo rm -f \
   "$(sys /etc/sudoers.d/sdrcc-ais-autostart)" \
   "$(sys /etc/sudoers.d/sdrcc-self-autostart)" \
   "$(sys /etc/sudoers.d/sdrcc-update)" \
+  "$(sys /etc/sudoers.d/sdrcc-external-update)" \
   "$(sys /etc/sudoers.d/sdrcc-update-services)" \
   "$(sys /usr/local/sbin/sdrcc-apply-receiver-roles)" \
   "$(sys /usr/local/sbin/sdrcc-sync-readsb-position)" \
   "$(sys /usr/local/sbin/sdrcc-disable-ais-autostart)" \
   "$(sys /usr/local/sbin/sdrcc-disable-self-autostart)" \
-  "$(sys /usr/local/sbin/sdrcc-update)"
+  "$(sys /usr/local/sbin/sdrcc-update)" \
+  "$(sys /usr/local/sbin/sdrcc-external-update)"
 
 sudo rm -f \
   "$(sys /var/lib/sdrcc/update-status.json)" \
+  "$(sys /var/lib/sdrcc/external-update-status.json)" \
   "$(sys /var/log/sdrcc-update.log)" \
   "$(sys /run/lock/sdrcc-update.lock)"
 
