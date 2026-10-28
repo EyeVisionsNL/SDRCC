@@ -167,7 +167,7 @@ def snapshot(refresh=False):
     satdump_upgrade = bool(satdump_binary and installed and candidate and
                            _apt_newer(installed, candidate))
     readsb_info = command(["readsb", "--version"])
-    readsb_match = re.search(r"readsb version:\\s*(\\d+\\.\\d+(?:\\.\\d+)?)",
+    readsb_match = re.search(r"readsb version:\s*(\d+\.\d+(?:\.\d+)?)",
                             readsb_info, re.I)
     readsb_version = readsb_match.group(1) if readsb_match else None
     ais_upgrade = bool(ais_installed and latest.get("version") and
