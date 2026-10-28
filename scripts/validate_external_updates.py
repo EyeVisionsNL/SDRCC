@@ -113,10 +113,10 @@ class ExternalUpdateTests(unittest.TestCase):
                     updates._github_stable_release(api, page, prefix)["version"],
                     tag.lstrip("v"))
         with patch.object(updates, "urlopen",
-                          return_value=fake_response("3.16.20\\n")):
+                          return_value=fake_response("3.16.20\n")):
             self.assertEqual(updates._readsb_development_version()["version"], "3.16.20")
         with patch.object(updates, "urlopen",
-                          return_value=fake_response("main\\n")):
+                          return_value=fake_response("main\n")):
             with self.assertRaises(ValueError):
                 updates._readsb_development_version()
         with patch.object(updates, "urlopen", return_value=fake_response(
@@ -139,13 +139,13 @@ class ExternalUpdateTests(unittest.TestCase):
             if args[0] == "readsb":
                 return "readsb version: 3.16.15 wiedehopf git cc0d099"
             return ""
-        with patch.object(updates, "release", return_value=releases), \\
-             patch.object(updates, "command", side_effect=mock_command), \\
-             patch.object(updates, "_apt_version", return_value=None), \\
-             patch.object(updates, "installed_satdump_version", return_value=("1.2.2", "binary")), \\
-             patch.object(updates, "installed_airband_version", return_value=("5.2.0", "SDRCC patched")), \\
-             patch.object(updates, "apt_ais_installed", return_value=False), \\
-             patch.object(updates.shutil, "which", side_effect=lambda name: "/usr/bin/" + name), \\
+        with patch.object(updates, "release", return_value=releases), \
+             patch.object(updates, "command", side_effect=mock_command), \
+             patch.object(updates, "_apt_version", return_value=None), \
+             patch.object(updates, "installed_satdump_version", return_value=("1.2.2", "binary")), \
+             patch.object(updates, "installed_airband_version", return_value=("5.2.0", "SDRCC patched")), \
+             patch.object(updates, "apt_ais_installed", return_value=False), \
+             patch.object(updates.shutil, "which", side_effect=lambda name: "/usr/bin/" + name), \
              patch.object(updates, "worker_status", return_value={}):
             info = updates.snapshot()
         status = {item["id"]: item for item in info["software"]}
