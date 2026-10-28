@@ -298,7 +298,7 @@ cat >"$tmp/sdrcc-update" <<EOF
 eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""
 EOF
 cat >"$tmp/sdrcc-external-update" <<EOF
-eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-external-update ais-catcher, /usr/local/sbin/sdrcc-external-update satdump
+eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-external-update ais-catcher, /usr/local/sbin/sdrcc-external-update satdump, /usr/local/sbin/sdrcc-external-update readsb, /usr/local/sbin/sdrcc-external-update rtl-airband
 EOF
 cat >"$tmp/sdrcc-update-services" <<EOF
 eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start readsb.service
