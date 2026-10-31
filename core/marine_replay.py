@@ -56,7 +56,7 @@ def link(conn):
     # ATIS timestamp must lie within the recording, never attach last-known identities.
     conn.execute("""UPDATE events SET clip_id=(
         SELECT c.id FROM clips c WHERE events.ts BETWEEN c.ts-1 AND c.ts+c.duration+2
-        ORDER BY ABS(events.ts-(c.ts+c.duration)) LIMIT 1)
+        ORDER BY c.ts DESC LIMIT 1)
         WHERE clip_id IS NULL AND ts > ?""",(time.time()-86400,))
 
 def store_event(conn,event):
@@ -143,7 +143,7 @@ def list_replays(limit=50,offset=0):
             e.code,e.callsign,e.status,e.mmsi,e.shipname,e.lat,e.lon,e.distance_nm
             FROM clips c LEFT JOIN events e ON e.id=(
               SELECT x.id FROM events x WHERE x.clip_id=c.id
-              ORDER BY ABS(x.ts-(c.ts+c.duration)) LIMIT 1)
+              ORDER BY x.ts DESC LIMIT 1)
             ORDER BY c.ts DESC LIMIT ? OFFSET ?""",(limit,offset)).fetchall()
         total=conn.execute("SELECT COUNT(*) FROM clips").fetchone()[0]
     result=[]
