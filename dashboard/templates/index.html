@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="/static/css/header_theme.css?v=0.65.25">
     <link rel="stylesheet" href="/static/css/banner_scenes.css?v=0.64.21">
     <link rel="stylesheet" href="/static/css/traffic_voice.css?v=0.69.1">
+    <link rel="stylesheet" href="/static/css/reception_history.css?v={{ asset_version }}">
     <link rel="stylesheet" href="/static/css/hf_monitor.css?v=0.56.0-radio-r2">
     <link rel="stylesheet" href="/static/css/dashboard_polish.css?v=0.65.8">
     <link rel="stylesheet" href="/static/css/emergency_monitor.css?v=0.67.25">
@@ -101,11 +102,13 @@
     <button class="tab-button" data-tab="radio">📻 Radio Control</button>
     <button class="tab-button" data-tab="radio-view">🌐 Radio View</button>
 {% if features.traffic_voice %}    <button class="tab-button" data-tab="traffic-voice">🎙 Traffic Voice</button>{% endif %}
+{% if features.traffic_voice %}    <button class="tab-button" data-tab="marine-replay">🚢 Marine Traffic Replay</button>{% endif %}
 {% if features.radio_receiver %}    <button class="tab-button" data-tab="hf-monitor">〰 Radio Receiver</button>{% endif %}
 {% if features.satellite %}    <button class="tab-button" data-tab="mission">🛰 Mission Control</button>{% endif %}
 {% if features.satellite %}    <button class="tab-button" data-tab="mission-planner">🗓 Mission Planner</button>{% endif %}
 {% if features.satellite %}    <button class="tab-button" data-tab="images">🛰️ Mission Operations</button>{% endif %}
 {% if features.satellite %}    <button class="tab-button" data-tab="history">🗂 Mission History</button>{% endif %}
+    <button class="tab-button" data-tab="reception-analytics">📈 Reception Analytics</button>
 {% if features.satellite %}    <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>{% endif %}
     <button class="tab-button" data-tab="logs">📜 Logs</button>
 </nav>
@@ -1002,6 +1005,21 @@
     <p class="vessel-camera-note">Camera may be offline or delayed. No picture? <a id="vessel-camera-source" target="_blank" rel="noopener noreferrer">Open Webcam Binnenvaart ↗</a></p>
 </dialog>
 
+
+{% if features.traffic_voice %}
+<section class="tab-page" id="tab-marine-replay">
+<div class="history-workspace">
+ <header class="history-hero"><div><span class="history-eyebrow">MARITIME · HISTORICAL AUDIO</span><h2>🚢 Marine Traffic Replay</h2>
+ <p>Recorded Marine transmissions, ATIS identities and positions at time of reception.</p></div>
+ <div class="history-actionbar"><button type="button" id="marine-replay-refresh">↻ Refresh</button></div></header>
+ <section class="card history-corner" style="position:relative"><strong id="marine-replay-count">Loading archive…</strong>
+ <p id="marine-replay-message" class="history-note">Historical recording begins with this update.</p></section>
+ <div class="history-list" id="marine-replay-list"></div>
+ <div class="history-pagination"><button type="button" id="marine-replay-newer" class="control-button" disabled>← Newer</button>
+ <button type="button" id="marine-replay-older" class="control-button" disabled>Older →</button></div>
+ <p class="history-note">Possible Speaker is probabilistic. Historical AIS coordinates are snapshots. The optional OpenStreetMap background requires internet.</p>
+</div></section>
+{% endif %}
 <section class="tab-page" id="tab-hf-monitor">
     <div class="hf-monitor-page">
         <section class="card hf-monitor-header">
@@ -1281,6 +1299,32 @@
     </div>
 </section>
 
+
+<section class="tab-page" id="tab-reception-analytics"><div class="history-workspace">
+ <header class="history-hero"><div><span class="history-eyebrow">RECEIVER PERFORMANCE · LOCAL TRENDS</span><h2>📈 Reception Analytics</h2>
+ <p>Read-only AIS, ADS-B and Marine receiving performance.</p></div>
+ <div class="history-actionbar"><label for="analytics-period">Period</label><select id="analytics-period">
+ <option value="24h">24 hours</option><option value="7d">7 days</option><option value="30d">30 days</option></select>
+ <button type="button" id="analytics-refresh">↻ Refresh</button></div></header>
+ <div class="history-grid">
+ <article class="history-stat"><span>Samples collected</span><strong id="analytics-samples">—</strong><small>One per minute</small></article>
+ <article class="history-stat"><span>Peak AIS vessels in view</span><strong id="analytics-ais-peak">—</strong><small id="analytics-ais-average">— msg/s</small></article>
+ <article class="history-stat"><span>Peak ADS-B aircraft in view</span><strong id="analytics-adsb-peak">—</strong><small id="analytics-adsb-average">— msg/s</small></article>
+ <article class="history-stat"><span>Maximum AIS range</span><strong id="analytics-ais-range">—</strong><small>Receiver-reported NM</small></article>
+ <article class="history-stat"><span>Maximum ADS-B range</span><strong id="analytics-adsb-range">—</strong><small>Receiver-reported NM</small></article>
+ <article class="history-stat"><span>Marine recordings</span><strong id="analytics-marine-clips">—</strong><small>Archived audio</small></article>
+ <article class="history-stat"><span>Validated ATIS</span><strong id="analytics-atis-count">—</strong><small>Packets received</small></article>
+ <article class="history-stat"><span>Matched ATIS/AIS</span><strong id="analytics-matched-count">—</strong><small>Possible speakers</small></article>
+ </div>
+ <div class="history-chart-grid">
+ <section class="history-chart"><h3>AIS vessels in view</h3><p>Mean active targets</p><svg id="analytics-ais-targets"></svg></section>
+ <section class="history-chart"><h3>ADS-B aircraft in view</h3><p>Mean active targets</p><svg id="analytics-adsb-targets"></svg></section>
+ <section class="history-chart"><h3>AIS messages per second</h3><p>AIS-catcher message rate</p><svg id="analytics-ais-rate"></svg></section>
+ <section class="history-chart"><h3>ADS-B messages per second</h3><p>readsb message rate</p><svg id="analytics-adsb-rate"></svg></section>
+ </div>
+ <p id="analytics-updated" class="history-note">Collecting reception samples…</p>
+ <p class="history-note">90-day local sample retention. New data begins with this update; unavailable sources are not shown as zero.</p>
+</div></section>
 <section class="tab-page" id="tab-mission-analytics">
     <div class="mission-analytics-layout">
         <section class="card mission-analytics-header">
@@ -1679,6 +1723,8 @@
 <script src="/static/js/mission_planner.js?v=0.65.1"></script>
 <script src="/static/js/vessel_camera.js?v=0.69.1"></script>
 <script src="/static/js/traffic_voice.js?v=0.69.1"></script>
+<script defer src="/static/js/marine_replay.js?v={{ asset_version }}"></script>
+<script defer src="/static/js/reception_analytics.js?v={{ asset_version }}"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
 </body>
 </html>
