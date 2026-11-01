@@ -879,6 +879,22 @@ def stop() -> dict[str, Any]:
     return get_status()
 
 
+def get_reception_activity() -> bool:
+    """Cheap passive activity check: the HF receiver is actually sampling IQ.
+
+    This intentionally avoids validate_runtime(), waterfall copies, and service
+    ownership operations. A stopped or stalled receiver is never considered on.
+    """
+    with _lock:
+        return bool(
+            _state == "LISTENING"
+            and _thread is not None
+            and _thread.is_alive()
+            and _last_iq_epoch is not None
+            and 0 <= time.time() - _last_iq_epoch <= 5.0
+        )
+
+
 def get_status() -> dict[str, Any]:
     capability = validate_runtime()
     with _lock:

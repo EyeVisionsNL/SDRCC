@@ -12,7 +12,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from core import config, mission_engine, receiver_monitor
+from core import config, hf_monitor_backend, mission_engine, receiver_monitor
 
 DB = Path(__file__).resolve().parent.parent / "data" / "analytics" / "reception.sqlite3"
 _lock = threading.Lock()
@@ -31,7 +31,8 @@ def connect():
     columns = {c[1] for c in db.execute("PRAGMA table_info(samples)")}
     for col, kind in (("ais_fresh", "INTEGER"), ("ais_valid_range", "REAL"),
                       ("mission_on", "INTEGER"), ("marine_on", "INTEGER"),
-                      ("airband_on", "INTEGER"), ("ais_catcher_total", "INTEGER")):
+                      ("airband_on", "INTEGER"), ("ais_catcher_total", "INTEGER"),
+                      ("radio_receiver_on", "INTEGER")):
         if col not in columns:
             db.execute(f"ALTER TABLE samples ADD COLUMN {col} {kind}")
     return db
@@ -119,10 +120,17 @@ def service_activity():
             # not inactive. Never infer Airband from the ADS-B decoder.
             marine = None
             airband = None
-    return mission, marine, airband
+    try:
+        # Inspect SDRCC's live HF receiver backend rather than a saved preset
+        # or a service name. A session without recent IQ is not "active".
+        radio_receiver = int(hf_monitor_backend.get_reception_activity())
+    except Exception:
+        # Unknown is different from stopped: preserve nullable timeline state.
+        radio_receiver = None
+    return mission, marine, airband, radio_receiver
 
 
-def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, airband_on=None):
+def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, airband_on=None, radio_receiver_on=None):
     ais_on = active("ais-catcher.service") if ais_on is None else bool(ais_on)
     adsb_on = active("readsb.service") if adsb_on is None else bool(adsb_on)
     a = receiver_monitor.get_ais_metrics(ais_on)
@@ -130,17 +138,18 @@ def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, a
     ais_count, ais_range = fresh_ais() if a.get("available") else (None,None)
     # Unfiltered AIS-Catcher ships.json count, matching its viewer.
     catcher_total = a.get("targets") if a.get("available") else None
-    if mission_on is None or marine_on is None or airband_on is None:
-        mission_status, marine_status, airband_status = service_activity()
+    if mission_on is None or marine_on is None or airband_on is None or radio_receiver_on is None:
+        mission_status, marine_status, airband_status, radio_receiver_status = service_activity()
         if mission_on is None: mission_on = mission_status
         if marine_on is None: marine_on = marine_status
         if airband_on is None: airband_on = airband_status
+        if radio_receiver_on is None: radio_receiver_on = radio_receiver_status
     ts = int(time.time())
     with connect() as con:
         con.execute("""INSERT OR REPLACE INTO samples
             (ts,ais_on,ais_targets,ais_rate,ais_range,adsb_on,adsb_targets,
-            adsb_rate,adsb_range,ais_fresh,ais_valid_range,mission_on,marine_on,airband_on,ais_catcher_total)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            adsb_rate,adsb_range,ais_fresh,ais_valid_range,mission_on,marine_on,airband_on,ais_catcher_total,radio_receiver_on)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
             ts, int(ais_on), ais_count,
             num(a.get("messages_per_second")) if a.get("available") else None,
             ais_range, int(adsb_on),
@@ -151,7 +160,8 @@ def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, a
             int(bool(mission_on)) if mission_on is not None else None,
             int(bool(marine_on)) if marine_on is not None else None,
             int(bool(airband_on)) if airband_on is not None else None,
-            catcher_total))
+            catcher_total,
+            int(bool(radio_receiver_on)) if radio_receiver_on is not None else None))
         con.execute("DELETE FROM samples WHERE ts < ?", (ts-90*86400,))
 
 
@@ -196,7 +206,8 @@ def report(period="24h"):
             MAX(CASE WHEN adsb_range BETWEEN 0 AND 500 THEN adsb_range END) adsb_range,
             MAX(ais_on) ais_on, MAX(adsb_on) adsb_on,
             MAX(mission_on) mission_on, MAX(marine_on) marine_on,
-            MAX(airband_on) airband_on
+            MAX(airband_on) airband_on,
+            MAX(radio_receiver_on) radio_receiver_on
             FROM samples WHERE ts >= ? GROUP BY (ts / ?) ORDER BY ts""",
             (bucket,bucket,since,bucket)).fetchall()
         summary=con.execute("""SELECT COUNT(*) samples, MAX(ais_fresh) ais_peak,
@@ -215,6 +226,8 @@ def report(period="24h"):
             SUM(CASE WHEN mission_on=1 THEN 1 ELSE 0 END) mission_minutes,
             SUM(CASE WHEN marine_on=1 THEN 1 ELSE 0 END) marine_minutes,
             SUM(CASE WHEN airband_on=1 THEN 1 ELSE 0 END) airband_minutes,
+            SUM(CASE WHEN radio_receiver_on=1 THEN 1 ELSE 0 END) radio_receiver_minutes,
+            COUNT(radio_receiver_on) radio_receiver_samples,
             COUNT(ais_fresh) fresh_ais_samples
             FROM samples WHERE ts >= ?""",(since,)).fetchone()
         # Report a current comparison only for samples no more than 180 sec old.

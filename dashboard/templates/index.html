@@ -1336,10 +1336,12 @@
 <span class="rx-key"><span class="rx-dot" style="--key-color:#a78bfa"></span>Satellite mission <strong id="rx-mission-minutes">—</strong> min</span>
 <span class="rx-key"><span class="rx-dot" style="--key-color:#2dd4bf"></span>Marine Traffic <strong id="rx-marine-minutes">—</strong> min</span>
 <span class="rx-key"><span class="rx-dot" style="--key-color:#fb7185"></span>Airband Voice <strong id="rx-airband-minutes">—</strong> min</span>
+<span class="rx-key"><span class="rx-dot" style="--key-color:#a3e635"></span>Radio Receiver <strong id="rx-radio-minutes">—</strong> min</span>
 <span class="rx-key"><span class="rx-dot" style="--key-color:#fbbf24"></span>ADS-B decoder</span>
 <span class="rx-key"><span class="rx-dot" style="--key-color:#38bdf8"></span>AIS receiver</span></div>
 <svg id="rx-activity-chart"></svg>
-<p class="rx-note">Bright = active · muted = inactive · deep blue = no sample. Hover a segment to see its status. Airband activity recording starts with v0.69.18; earlier Airband status is unknown.</p>
+<p class="rx-note">Bright = active · muted = inactive · deep blue = no sample. Hover a segment to see its status. Radio Receiver lights up only while its HF backend is receiving live IQ data.</p>
+<p class="rx-note" id="rx-radio-coverage">Radio Receiver history starts with v0.69.22; earlier periods remain unmeasured.</p>
 </section>
 <p id="analytics-updated" class="rx-note">Loading history…</p>
 <p class="rx-note">History retention: 90 days. The two vessel counts use different rules. AIS-Catcher includes all ships in its list; verified AIS requires valid coordinates received within five minutes. The 24h/7d/30d plots show the complete selected time window, and breaks indicate genuinely unrecorded values. The previous all-target collection stopped when verified collection started and resumes only from v0.69.19. Historical data is never inferred or backfilled.</p>

@@ -49,12 +49,12 @@ function plotSeries(id,rows,lines,label,windowStart,windowEnd,bucket){
  node(svg,"text",{x:right,y:168,fill:"#94a3b8","font-size":11,"text-anchor":"end"},date(last));
 }
 function activity(data){
- const svg=el("rx-activity-chart");svg.replaceChildren();svg.setAttribute("viewBox","0 0 1000 242");
- svg.setAttribute("role","img");svg.setAttribute("aria-label","Satellite missions, Marine Traffic, Airband Voice, ADS-B decoder and AIS receiver activity by time");
+ const svg=el("rx-activity-chart");svg.replaceChildren();svg.setAttribute("viewBox","0 0 1000 280");
+ svg.setAttribute("role","img");svg.setAttribute("aria-label","Satellite missions, Marine Traffic, Airband Voice, Radio Receiver, ADS-B decoder and AIS receiver activity by time");
  const first=Math.floor((Date.now()/1000-data.period_seconds)/data.bucket_seconds)*data.bucket_seconds;
  const count=Math.ceil(data.period_seconds/data.bucket_seconds)+1,width=813/count,left=170;
  const byTime=new Map((data.series||[]).map(r=>[r.ts,r]));
- for(const [index,[key,label,color]] of [["mission_on","Satellite mission","#a78bfa"],["marine_on","Marine Traffic","#2dd4bf"],["airband_on","Airband Voice","#fb7185"],["adsb_on","ADS-B decoder","#fbbf24"],["ais_on","AIS receiver","#38bdf8"]].entries()){
+ for(const [index,[key,label,color]] of [["mission_on","Satellite mission","#a78bfa"],["marine_on","Marine Traffic","#2dd4bf"],["airband_on","Airband Voice","#fb7185"],["radio_receiver_on","Radio Receiver","#a3e635"],["adsb_on","ADS-B decoder","#fbbf24"],["ais_on","AIS receiver","#38bdf8"]].entries()){
    const y=15+index*38;node(svg,"text",{x:12,y:y+18,fill:"#cbd5e1","font-size":14},label);
    for(let i=0;i<count;i++){
      const ts=first+i*data.bucket_seconds,state=byTime.get(ts)?.[key];
@@ -64,7 +64,7 @@ function activity(data){
    }
  }
  const tick=ts=>new Date(ts*1000).toLocaleString(undefined,{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
- for(let i=0;i<=4;i++)node(svg,"text",{x:left+i*813/4,y:230,fill:"#94a3b8","font-size":12,"text-anchor":i===0?"start":i===4?"end":"middle"},tick(first+i*data.period_seconds/4));
+ for(let i=0;i<=4;i++)node(svg,"text",{x:left+i*813/4,y:268,fill:"#94a3b8","font-size":12,"text-anchor":i===0?"start":i===4?"end":"middle"},tick(first+i*data.period_seconds/4));
 }
 async function refresh(){
  if(busy||!el("rx-activity-chart"))return;busy=true;el("analytics-updated").textContent="Loading measurements…";
@@ -80,7 +80,8 @@ async function refresh(){
    "rx-adsb-rate":s.adsb_avg==null?"—":fmt(s.adsb_avg,2)+" msg/s",
    "rx-ais-rate":s.ais_avg==null?"—":fmt(s.ais_avg,2)+" msg/s",
    "rx-mission-minutes":fmt(s.mission_minutes),"rx-marine-minutes":fmt(s.marine_minutes),
-   "rx-airband-minutes":fmt(s.airband_minutes)};
+   "rx-airband-minutes":fmt(s.airband_minutes),
+   "rx-radio-minutes":fmt(s.radio_receiver_minutes)};
   Object.entries(fields).forEach(([k,v])=>el(k).textContent=v);
   const start=d.window_start,end=d.window_end,bucket=d.bucket_seconds;
   for(const [id,key,color] of [["rx-adsb-count","adsb_targets","#a78bfa"],["rx-adsb-messages","adsb_rate","#fbbf24"],["rx-ais-messages","ais_rate","#2dd4bf"]])plot(id,rows,key,color,key,start,end,bucket);
@@ -110,6 +111,10 @@ async function refresh(){
     el("rx-atis-note").textContent="ATIS statistics notice: "+
       (atis.error||atis.last_error||"event queue overflow")+
       " · dropped events: "+fmt(atis.dropped_queue_events);
+  const radioInfo=el("rx-radio-coverage");
+  if(radioInfo) radioInfo.textContent=s.radio_receiver_samples
+    ? "Radio Receiver history is available for "+fmt(s.radio_receiver_samples)+" measured minutes in this period."
+    : "Radio Receiver has no recorded samples in this period yet; earlier periods remain unmeasured.";
   activity(d);
   el("rx-ais-status").textContent=s.fresh_ais_samples?"Verified · ≤5 minutes":"Awaiting fresh AIS";
   const age=s.last_sample_ts==null?null:Math.round(d.window_end-s.last_sample_ts);
