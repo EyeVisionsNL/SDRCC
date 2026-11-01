@@ -687,11 +687,12 @@ def _publish_result(result: dict[str, Any], received_epoch: float) -> None:
             return
         _last_result = projected
         _valid_count += 1
-    try:
-        from core import atis_statistics
-        atis_statistics.decoded(received_epoch, projected.get("atis_code"))
-    except Exception:
-        pass  # Passive reception metrics must never affect audio.
+    if projected.get("mode_id") == "marine_ais":
+        try:
+            from core import atis_statistics
+            atis_statistics.decoded(received_epoch, projected.get("atis_code"))
+        except Exception:
+            pass  # Passive reception metrics must never affect audio.
 
 
 def _decode_worker() -> None:
@@ -741,8 +742,12 @@ def _decode_worker() -> None:
                 except Exception:
                     pass
 
+            # Only Marine Voice ATIS belongs to the Marine reception funnel;
+            # keep normal decoder behavior unchanged in Airband mode.
+            marine_mode = _current_channel_context().get("mode_id") == "marine_ais"
             for decoded in decode_samples(
-                buffer, SAMPLE_RATE_HZ, candidate_observer=observe_candidate,
+                buffer, SAMPLE_RATE_HZ,
+                candidate_observer=observe_candidate if marine_mode else None,
             ):
                 offset_from_end = len(buffer) - int(decoded["sample_index"])
                 received_epoch = packet_epoch - offset_from_end / SAMPLE_RATE_HZ
