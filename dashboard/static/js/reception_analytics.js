@@ -32,12 +32,12 @@ function plot(id,rows,key,color,label){
  node(svg,"text",{x:right,y:168,fill:"#94a3b8","font-size":11,"text-anchor":"end"},date(last));
 }
 function activity(data){
- const svg=el("rx-activity-chart");svg.replaceChildren();svg.setAttribute("viewBox","0 0 1000 202");
- svg.setAttribute("role","img");svg.setAttribute("aria-label","Mission, Marine, ADS-B and AIS activity by time");
+ const svg=el("rx-activity-chart");svg.replaceChildren();svg.setAttribute("viewBox","0 0 1000 242");
+ svg.setAttribute("role","img");svg.setAttribute("aria-label","Satellite missions, Marine Traffic, Airband Voice, ADS-B decoder and AIS receiver activity by time");
  const first=Math.floor((Date.now()/1000-data.period_seconds)/data.bucket_seconds)*data.bucket_seconds;
  const count=Math.ceil(data.period_seconds/data.bucket_seconds)+1,width=813/count,left=170;
  const byTime=new Map((data.series||[]).map(r=>[r.ts,r]));
- for(const [index,[key,label,color]] of [["mission_on","Satellite mission","#a78bfa"],["marine_on","Marine Traffic","#2dd4bf"],["adsb_on","ADS-B decoder","#fbbf24"],["ais_on","AIS receiver","#38bdf8"]].entries()){
+ for(const [index,[key,label,color]] of [["mission_on","Satellite mission","#a78bfa"],["marine_on","Marine Traffic","#2dd4bf"],["airband_on","Airband Voice","#fb7185"],["adsb_on","ADS-B decoder","#fbbf24"],["ais_on","AIS receiver","#38bdf8"]].entries()){
    const y=15+index*38;node(svg,"text",{x:12,y:y+18,fill:"#cbd5e1","font-size":14},label);
    for(let i=0;i<count;i++){
      const ts=first+i*data.bucket_seconds,state=byTime.get(ts)?.[key];
@@ -47,7 +47,7 @@ function activity(data){
    }
  }
  const tick=ts=>new Date(ts*1000).toLocaleString(undefined,{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
- for(let i=0;i<=4;i++)node(svg,"text",{x:left+i*813/4,y:192,fill:"#94a3b8","font-size":12,"text-anchor":i===0?"start":i===4?"end":"middle"},tick(first+i*data.period_seconds/4));
+ for(let i=0;i<=4;i++)node(svg,"text",{x:left+i*813/4,y:230,fill:"#94a3b8","font-size":12,"text-anchor":i===0?"start":i===4?"end":"middle"},tick(first+i*data.period_seconds/4));
 }
 async function refresh(){
  if(busy||!el("rx-activity-chart"))return;busy=true;el("analytics-updated").textContent="Loading measurements…";
@@ -60,7 +60,8 @@ async function refresh(){
    "rx-ais-range":s.ais_range==null?"—":fmt(s.ais_range,1)+" NM",
    "rx-adsb-rate":s.adsb_avg==null?"—":fmt(s.adsb_avg,2)+" msg/s",
    "rx-ais-rate":s.ais_avg==null?"—":fmt(s.ais_avg,2)+" msg/s",
-   "rx-mission-minutes":fmt(s.mission_minutes),"rx-marine-minutes":fmt(s.marine_minutes)};
+   "rx-mission-minutes":fmt(s.mission_minutes),"rx-marine-minutes":fmt(s.marine_minutes),
+   "rx-airband-minutes":fmt(s.airband_minutes)};
   Object.entries(fields).forEach(([k,v])=>el(k).textContent=v);
   for(const [id,key,color] of [["rx-adsb-count","adsb_targets","#a78bfa"],["rx-adsb-messages","adsb_rate","#fbbf24"],["rx-ais-count","ais_targets","#38bdf8"],["rx-ais-messages","ais_rate","#2dd4bf"]])plot(id,rows,key,color,key);
   activity(d);

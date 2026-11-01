@@ -28,7 +28,8 @@ def connect():
         adsb_range REAL)""")
     columns = {c[1] for c in db.execute("PRAGMA table_info(samples)")}
     for col, kind in (("ais_fresh", "INTEGER"), ("ais_valid_range", "REAL"),
-                      ("mission_on", "INTEGER"), ("marine_on", "INTEGER")):
+                      ("mission_on", "INTEGER"), ("marine_on", "INTEGER"),
+                      ("airband_on", "INTEGER")):
         if col not in columns:
             db.execute(f"ALTER TABLE samples ADD COLUMN {col} {kind}")
     return db
@@ -105,30 +106,37 @@ def service_activity():
         mission = None
     if not active("sdrcc-traffic-voice.service"):
         marine = 0
+        airband = 0
     else:
         try:
-            marine = int(config.get_traffic_voice_config().get("selected_mode") == "marine_ais")
+            voice_mode = str(config.get_traffic_voice_config().get("selected_mode") or "")
+            marine = int(voice_mode == "marine_ais")
+            airband = int(voice_mode == "airband_adsb")
         except Exception:
+            # Service is active but mode could not be observed: mark unknown,
+            # not inactive. Never infer Airband from the ADS-B decoder.
             marine = None
-    return mission, marine
+            airband = None
+    return mission, marine, airband
 
 
-def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None):
+def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, airband_on=None):
     ais_on = active("ais-catcher.service") if ais_on is None else bool(ais_on)
     adsb_on = active("readsb.service") if adsb_on is None else bool(adsb_on)
     a = receiver_monitor.get_ais_metrics(ais_on)
     b = receiver_monitor.get_adsb_metrics(adsb_on)
     ais_count, ais_range = fresh_ais() if a.get("available") else (None,None)
-    if mission_on is None or marine_on is None:
-        mission_status, marine_status = service_activity()
+    if mission_on is None or marine_on is None or airband_on is None:
+        mission_status, marine_status, airband_status = service_activity()
         if mission_on is None: mission_on = mission_status
         if marine_on is None: marine_on = marine_status
+        if airband_on is None: airband_on = airband_status
     ts = int(time.time())
     with connect() as con:
         con.execute("""INSERT OR REPLACE INTO samples
             (ts,ais_on,ais_targets,ais_rate,ais_range,adsb_on,adsb_targets,
-            adsb_rate,adsb_range,ais_fresh,ais_valid_range,mission_on,marine_on)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            adsb_rate,adsb_range,ais_fresh,ais_valid_range,mission_on,marine_on,airband_on)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
             ts, int(ais_on), ais_count,
             num(a.get("messages_per_second")) if a.get("available") else None,
             ais_range, int(adsb_on),
@@ -137,7 +145,8 @@ def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None):
             num(b.get("max_range_nm")) if b.get("available") else None,
             ais_count, ais_range,
             int(bool(mission_on)) if mission_on is not None else None,
-            int(bool(marine_on)) if marine_on is not None else None))
+            int(bool(marine_on)) if marine_on is not None else None,
+            int(bool(airband_on)) if airband_on is not None else None))
         con.execute("DELETE FROM samples WHERE ts < ?", (ts-90*86400,))
 
 
@@ -169,7 +178,8 @@ def report(period="24h"):
             ROUND(AVG(adsb_targets),1) adsb_targets, ROUND(AVG(adsb_rate),2) adsb_rate,
             MAX(CASE WHEN adsb_range BETWEEN 0 AND 500 THEN adsb_range END) adsb_range,
             MAX(ais_on) ais_on, MAX(adsb_on) adsb_on,
-            MAX(mission_on) mission_on, MAX(marine_on) marine_on
+            MAX(mission_on) mission_on, MAX(marine_on) marine_on,
+            MAX(airband_on) airband_on
             FROM samples WHERE ts >= ? GROUP BY (ts / ?) ORDER BY ts""",
             (bucket,bucket,since,bucket)).fetchall()
         summary=con.execute("""SELECT COUNT(*) samples, MAX(ais_fresh) ais_peak,
@@ -179,6 +189,7 @@ def report(period="24h"):
             ROUND(AVG(ais_rate),2) ais_avg, ROUND(AVG(adsb_rate),2) adsb_avg,
             SUM(CASE WHEN mission_on=1 THEN 1 ELSE 0 END) mission_minutes,
             SUM(CASE WHEN marine_on=1 THEN 1 ELSE 0 END) marine_minutes,
+            SUM(CASE WHEN airband_on=1 THEN 1 ELSE 0 END) airband_minutes,
             COUNT(ais_fresh) fresh_ais_samples
             FROM samples WHERE ts >= ?""",(since,)).fetchone()
     return {"ok":True,"read_only":True,"period":period,"summary":dict(summary),
