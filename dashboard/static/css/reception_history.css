@@ -38,3 +38,8 @@
 #tab-reception-analytics .rx-panel--atis .rx-metric small{display:block;font-size:.76rem;color:#94a3b8;margin-top:7px}
 #tab-reception-analytics .rx-atis-summary{display:flex;flex-wrap:wrap;gap:12px 28px;border-top:1px solid #344357;margin-top:10px;padding-top:13px;font-size:.87rem;color:#a8bdcf}
 #tab-reception-analytics .rx-atis-summary strong{color:#fbbf24}
+
+/* Destructive statistics control: native SDRCC toolbar size and spacing. */
+#tab-reception-analytics .rx-toolbar .rx-reset-all{min-width:142px;border-color:#a94e60;color:#fecdd3;background:rgba(103,26,46,.38)}
+#tab-reception-analytics .rx-toolbar .rx-reset-all:hover:not(:disabled){background:rgba(148,37,58,.46);border-color:#f87171;color:#fff1f2}
+#tab-reception-analytics .rx-toolbar .rx-reset-all:disabled{opacity:.55;cursor:wait}

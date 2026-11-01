@@ -2881,6 +2881,24 @@ def api_reception_analytics():
     try:return jsonify(reception_analytics.report(request.args.get("period","24h")))
     except ValueError as error:return jsonify({"ok":False,"error":str(error)}),400
 
+@app.route("/api/reception-analytics/reset", methods=["POST"])
+def api_reception_analytics_reset():
+    """Confirm before permanently deleting Reception Analytics samples."""
+    payload=request.get_json(silent=True)
+    if (not request.is_json or not isinstance(payload,dict) or
+            payload.get("confirm")!="RESET_ALL_RECEPTION_ANALYTICS"):
+        return jsonify({"ok":False,"error":"Explicit reset confirmation required"}),400
+    try:
+        result=reception_analytics.reset_all_stats()
+        write_log("Reception Analytics reset: "+
+            f"{result['deleted_reception_samples']} RF samples and "+
+            f"{result['deleted_atis_events']} ATIS events")
+        return jsonify(result)
+    except Exception:
+        app.logger.exception("Reception Analytics reset failed")
+        return jsonify({"ok":False,"error":"Could not reset statistics; check SDRCC logs"}),500
+
+
 @app.route("/api/hf-monitor", methods=["GET"])
 def api_hf_monitor():
     """Expose HF configuration and measured live runtime."""

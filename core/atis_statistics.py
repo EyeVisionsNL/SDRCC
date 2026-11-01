@@ -46,6 +46,8 @@ def _connect():
         if column not in existing:
             db.execute(f"ALTER TABLE atis_events ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0")
     db.execute("CREATE INDEX IF NOT EXISTS atis_events_ts ON atis_events(ts)")
+    db.execute("""CREATE TABLE IF NOT EXISTS stats_meta (
+        key TEXT PRIMARY KEY, value REAL NOT NULL)""")
     return db
 
 def _time(value):
@@ -84,6 +86,9 @@ def _near(db,when,code=None):
 
 def _store(db,kind,args):
     """Return the new valid event only once, after decoder deduplication."""
+    cutoff=db.execute("SELECT value FROM stats_meta WHERE key='reset_epoch'").fetchone()
+    if args and cutoff and args[0]<=cutoff[0]:
+        return None  # Ignore ATIS observations queued before Reset All.
     if kind=="candidate":
         (when,)=args
         if _near(db,when) is None:
@@ -220,3 +225,11 @@ def report(since,until):
       "photo_scope":"server-side credited photo lookup, independent of browser",
       "retention_days":DAYS
     }
+
+
+def reset_runtime_counters():
+    """Reset only statistics health counters; never restart decoder workers."""
+    global _dropped,_match_dropped,_photo_dropped
+    global _error,_match_error,_photo_error
+    _dropped=_match_dropped=_photo_dropped=0
+    _error=_match_error=_photo_error=None

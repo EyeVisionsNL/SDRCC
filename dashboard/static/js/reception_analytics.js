@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const el=n=>document.getElementById(n),NS="http://www.w3.org/2000/svg";
-let period="24h",busy=false;
+let period="24h",busy=false,resetting=false;
 const fmt=(v,d=0)=>v==null||!Number.isFinite(Number(v))?"—":Number(v).toLocaleString("en-GB",{maximumFractionDigits:d});
 function node(parent,tag,attrs,content){
  const n=document.createElementNS(NS,tag);
@@ -126,5 +126,40 @@ async function refresh(){
 }
 el("analytics-period")?.addEventListener("change",e=>{period=e.target.value;void refresh();});
 el("analytics-refresh")?.addEventListener("click",()=>void refresh());
+el("analytics-reset-all")?.addEventListener("click",async()=>{
+ if(busy||resetting)return;
+ const confirmed=window.confirm(
+   "Reset ALL Reception Analytics statistics?\n\n"+
+   "This permanently clears AIS and ADS-B reception history, all six "+
+   "receiver activity timelines, and Marine Traffic ATIS statistics.\n\n"+
+   "Mission History, recordings, settings and active receivers are unaffected.\n\n"+
+   "This cannot be undone. Continue?"
+ );
+ if(!confirmed)return;
+ resetting=true;
+ const button=el("analytics-reset-all");
+ button.disabled=true;
+ el("analytics-updated").textContent="Resetting Reception Analytics history…";
+ try{
+   const response=await fetch("/api/reception-analytics/reset",{
+     method:"POST",headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({confirm:"RESET_ALL_RECEPTION_ANALYTICS"}),
+     cache:"no-store"
+   });
+   const result=await response.json();
+   if(!response.ok||!result.ok)throw Error(result.error||"Reset failed");
+   await refresh();
+   el("analytics-updated").textContent="Statistics reset at "+
+     new Date(result.reset_at).toLocaleString()+" · "+
+     fmt(result.deleted_reception_samples)+" reception samples and "+
+     fmt(result.deleted_atis_events)+" ATIS events cleared. "+
+     "New samples appear automatically.";
+ }catch(error){
+   el("analytics-updated").textContent="Statistics reset failed: "+error.message;
+ }finally{
+   resetting=false;
+   button.disabled=false;
+ }
+});
 window.addEventListener("sdrcc:tab-changed",e=>{if(e.detail?.tab==="reception-analytics")void refresh();});
 })();

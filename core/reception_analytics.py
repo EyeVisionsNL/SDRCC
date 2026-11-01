@@ -4,6 +4,7 @@ Historical pre-0.69.16 AIS totals were not freshness-checked. They remain stored
 but are deliberately excluded from validated vessel and distance charts.
 """
 from __future__ import annotations
+from contextlib import closing
 import logging
 import math
 import sqlite3
@@ -35,6 +36,8 @@ def connect():
                       ("radio_receiver_on", "INTEGER")):
         if col not in columns:
             db.execute(f"ALTER TABLE samples ADD COLUMN {col} {kind}")
+    db.execute("""CREATE TABLE IF NOT EXISTS stats_meta (
+        key TEXT PRIMARY KEY, value REAL NOT NULL)""")
     return db
 
 
@@ -146,6 +149,9 @@ def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, a
         if radio_receiver_on is None: radio_receiver_on = radio_receiver_status
     ts = int(time.time())
     with connect() as con:
+        cutoff=con.execute("SELECT value FROM stats_meta WHERE key='reset_epoch'").fetchone()
+        if cutoff and ts <= cutoff[0]:
+            return  # An old in-flight sample must not repopulate reset history.
         con.execute("""INSERT OR REPLACE INTO samples
             (ts,ais_on,ais_targets,ais_rate,ais_range,adsb_on,adsb_targets,
             adsb_rate,adsb_range,ais_fresh,ais_valid_range,mission_on,marine_on,airband_on,ais_catcher_total,radio_receiver_on)
@@ -251,3 +257,45 @@ def report(period="24h"):
             "sampling_error":_last_sample_error,
             "retention_days":90,"sample_interval_seconds":60,
             "updated_at":datetime.now(timezone.utc).isoformat()}
+
+
+def reset_all_stats():
+    """Clear only the two Reception Analytics stats datasets.
+
+    The persistent reset cutoff also rejects delayed samples/ATIS events from
+    before the reset. RF services, settings, photographs and Mission History
+    are untouched. Both DELETEs and both cutoffs use one SQLite transaction.
+    """
+    global _last_sample_error
+    from core import atis_statistics
+
+    # Ensure older installed DBs have completed their schema migrations.
+    with closing(atis_statistics._connect()):
+        pass
+    with closing(connect()) as db:
+        db.execute("ATTACH DATABASE ? AS marine_atis", (str(atis_statistics.DB),))
+        try:
+            with db:
+                epoch = time.time()
+                reception_rows = db.execute("SELECT COUNT(*) FROM main.samples").fetchone()[0]
+                atis_rows = db.execute("SELECT COUNT(*) FROM marine_atis.atis_events").fetchone()[0]
+                db.execute("DELETE FROM main.samples")
+                db.execute("DELETE FROM marine_atis.atis_events")
+                db.execute("""INSERT INTO main.stats_meta(key,value)
+                    VALUES ('reset_epoch',?)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value""",(epoch,))
+                db.execute("""INSERT INTO marine_atis.stats_meta(key,value)
+                    VALUES ('reset_epoch',?)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value""",(epoch,))
+        finally:
+            db.execute("DETACH DATABASE marine_atis")
+    atis_statistics.reset_runtime_counters()
+    _last_sample_error=None
+    return {
+        "ok":True,
+        "reset_at":datetime.fromtimestamp(epoch,timezone.utc).isoformat(),
+        "deleted_reception_samples":reception_rows,
+        "deleted_atis_events":atis_rows,
+        "scope":"reception_analytics",
+        "receivers_unchanged":True,
+    }

@@ -1291,7 +1291,10 @@
 <h2>📈 Reception Analytics</h2><p>Compare reception with active SDRCC functions across time.</p></div>
 <div class="rx-toolbar"><label for="analytics-period">Time range</label><select id="analytics-period">
 <option value="24h">Last 24 hours</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select>
-<button type="button" class="control-button" id="analytics-refresh">↻ Refresh</button></div></header>
+<button type="button" class="control-button" id="analytics-refresh">↻ Refresh</button>
+<button type="button" class="control-button rx-reset-all" id="analytics-reset-all"
+    title="Clear Reception Analytics and Marine ATIS statistics"
+    aria-label="Reset all Reception Analytics statistics">↺ Reset All Stats</button></div></header>
 <div class="rx-columns">
 <section class="card rx-panel rx-panel--adsb">
 <div class="rx-panel-title"><div><h3>✈ ADS-B Reception</h3><p>readsb · aircraft seen in the last 60 seconds</p></div><span class="rx-status">AVIATION</span></div>
