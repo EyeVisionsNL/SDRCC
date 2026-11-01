@@ -4,6 +4,7 @@ Historical pre-0.69.16 AIS totals were not freshness-checked. They remain stored
 but are deliberately excluded from validated vessel and distance charts.
 """
 from __future__ import annotations
+import logging
 import math
 import sqlite3
 import subprocess
@@ -16,6 +17,7 @@ from core import config, mission_engine, receiver_monitor
 DB = Path(__file__).resolve().parent.parent / "data" / "analytics" / "reception.sqlite3"
 _lock = threading.Lock()
 _started = False
+_last_sample_error = None
 
 
 def connect():
@@ -154,9 +156,17 @@ def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, a
 
 
 def worker():
+    global _last_sample_error
+    logger = logging.getLogger(__name__)
     while True:
-        try: sample_once()
-        except Exception: pass  # Statistics must never interfere with receivers.
+        try:
+            sample_once()
+            _last_sample_error = None
+        except Exception as exc:
+            # The collector must not stop RF reception, but failures must be
+            # visible rather than silently displaying stale graphs forever.
+            _last_sample_error = f"{type(exc).__name__}: {exc}"[:250]
+            logger.exception("Reception Analytics sampling failed")
         time.sleep(60)
 
 
@@ -172,7 +182,8 @@ def report(period="24h"):
     windows = {"24h":(86400,300), "7d":(604800,3600), "30d":(2592000,10800)}
     if period not in windows: raise ValueError("Invalid analytics period")
     span, bucket = windows[period]
-    since = int(time.time())-span
+    now = int(time.time())
+    since = now-span
     with connect() as con:
         con.row_factory=sqlite3.Row
         rows=con.execute("""SELECT (ts / ?) * ? AS ts,
@@ -192,6 +203,8 @@ def report(period="24h"):
             MAX(COALESCE(ais_catcher_total,
                 CASE WHEN ais_fresh IS NULL THEN ais_targets END)) ais_total_peak,
             MIN(CASE WHEN ais_fresh IS NOT NULL THEN ts END) first_fresh_ais,
+            MIN(CASE WHEN ais_catcher_total IS NOT NULL THEN ts END) first_new_total,
+            MAX(CASE WHEN ais_fresh IS NULL AND ais_targets IS NOT NULL THEN ts END) last_legacy_total,
             MIN(CASE WHEN COALESCE(ais_catcher_total,
                 CASE WHEN ais_fresh IS NULL THEN ais_targets END) IS NOT NULL
                 THEN ts END) first_total_ais,
@@ -207,11 +220,15 @@ def report(period="24h"):
         # Report a current comparison only for samples no more than 180 sec old.
         latest=con.execute("""SELECT ts,ais_catcher_total,ais_fresh
             FROM samples WHERE ts >= ? ORDER BY ts DESC LIMIT 1""",
-            (int(time.time())-180,)).fetchone()
+            (now-180,)).fetchone()
+        newest=con.execute("SELECT MAX(ts) FROM samples").fetchone()[0]
     info=dict(summary)
     info["current_catcher_total"] = latest["ais_catcher_total"] if latest else None
     info["current_ais_fresh"] = latest["ais_fresh"] if latest else None
+    info["last_sample_ts"] = newest
     return {"ok":True,"read_only":True,"period":period,"summary":info,
-            "series":[dict(row) for row in rows],"bucket_seconds":bucket,"period_seconds":span,
+            "series":[dict(row) for row in rows],"bucket_seconds":bucket,
+            "window_start":since,"window_end":now,"period_seconds":span,
+            "sampling_error":_last_sample_error,
             "retention_days":90,"sample_interval_seconds":60,
             "updated_at":datetime.now(timezone.utc).isoformat()}

@@ -10,10 +10,10 @@ function node(parent,tag,attrs,content){
  if(content!==undefined)n.textContent=content;
  parent.append(n);return n;
 }
-function plot(id,rows,key,color,label){
- return plotSeries(id,rows,[{key,color}],label);
+function plot(id,rows,key,color,label,windowStart,windowEnd,bucket){
+ return plotSeries(id,rows,[{key,color}],label,windowStart,windowEnd,bucket);
 }
-function plotSeries(id,rows,lines,label){
+function plotSeries(id,rows,lines,label,windowStart,windowEnd,bucket){
  const svg=el(id);svg.replaceChildren();svg.setAttribute("viewBox","0 0 640 174");
  svg.setAttribute("role","img");svg.setAttribute("aria-label",label);
  const left=47,right=631,top=18,bottom=136;
@@ -22,9 +22,12 @@ function plotSeries(id,rows,lines,label){
  if(!values.length){node(svg,"text",{x:320,y:84,fill:"#94a3b8","text-anchor":"middle","font-size":15},"No samples for this period");return;}
  const max=Math.max(1,...values);
  node(svg,"text",{x:left,y:12,fill:"#cbd5e1","font-size":12},fmt(max,1));
- const first=rows[0].ts,last=rows[rows.length-1].ts,span=Math.max(1,last-first);
+ // Use the selected 24h/7d/30d time interval, not the earliest available sample.
+ // This keeps AIS and ADS-B on the same horizontal scale after upgrades.
+ const first=windowStart,last=windowEnd,span=Math.max(1,last-first);
+ const largestGap=Math.max(2*bucket, 2);
  for(const line of lines){
-  let points=[];
+  let points=[], previousTs=null;
   const flush=()=>{
    if(points.length>1)node(svg,"polyline",{points:points.join(" "),fill:"none",stroke:line.color,"stroke-width":2.8,"stroke-linecap":"round","stroke-linejoin":"round"});
    else if(points.length===1){const [x,y]=points[0].split(",");node(svg,"circle",{cx:x,cy:y,r:3,fill:line.color});}
@@ -32,7 +35,11 @@ function plotSeries(id,rows,lines,label){
   };
   for(const row of rows){
    const val=row[line.key];
-   if(val==null||!Number.isFinite(Number(val))){flush();continue;}
+   if(val==null||!Number.isFinite(Number(val))){flush();previousTs=null;continue;}
+   if(previousTs!==null && row.ts-previousTs>largestGap)flush();
+   previousTs=row.ts;
+   // Never draw a point outside the requested time window.
+   if(row.ts<first||row.ts>last)continue;
    points.push((left+(right-left)*(row.ts-first)/span).toFixed(2)+","+(bottom-Number(val)/max*(bottom-top)).toFixed(2));
   }
   flush();
@@ -75,19 +82,27 @@ async function refresh(){
    "rx-mission-minutes":fmt(s.mission_minutes),"rx-marine-minutes":fmt(s.marine_minutes),
    "rx-airband-minutes":fmt(s.airband_minutes)};
   Object.entries(fields).forEach(([k,v])=>el(k).textContent=v);
-  for(const [id,key,color] of [["rx-adsb-count","adsb_targets","#a78bfa"],["rx-adsb-messages","adsb_rate","#fbbf24"],["rx-ais-messages","ais_rate","#2dd4bf"]])plot(id,rows,key,color,key);
+  const start=d.window_start,end=d.window_end,bucket=d.bucket_seconds;
+  for(const [id,key,color] of [["rx-adsb-count","adsb_targets","#a78bfa"],["rx-adsb-messages","adsb_rate","#fbbf24"],["rx-ais-messages","ais_rate","#2dd4bf"]])plot(id,rows,key,color,key,start,end,bucket);
   plotSeries("rx-ais-count",rows,[
     {key:"ais_total",color:"#38bdf8"},
     {key:"ais_targets",color:"#2dd4bf"}
-  ],"AIS-Catcher total targets compared with recent verified vessel positions");
-  const totalStart=s.first_total_ais?new Date(s.first_total_ais*1000).toLocaleString():"not available";
-  const verifiedStart=s.first_fresh_ais?new Date(s.first_fresh_ais*1000).toLocaleString():"not yet available";
-  el("rx-ais-coverage").textContent="All-target history from "+totalStart+
-    " · verified history from "+verifiedStart+
-    " · missing measurements remain blank · peak verified in this period: "+fmt(s.ais_peak);
+  ],"AIS-Catcher total targets compared with recent verified vessel positions",start,end,bucket);
+  const stamp=t=>t?new Date(t*1000).toLocaleString():"not available";
+  const gapStart=s.last_legacy_total?stamp(s.last_legacy_total):null;
+  const gapEnd=s.first_new_total?stamp(s.first_new_total):null;
+  const gap=gapStart&&gapEnd
+    ? " · Total-target data not recorded between "+gapStart+" and "+gapEnd
+    : gapStart&&!gapEnd?" · Total-target sampling has not resumed yet":"";
+  el("rx-ais-coverage").textContent="Total-target history starts "+stamp(s.first_total_ais)+
+    " · verified history starts "+stamp(s.first_fresh_ais)+gap+
+    " · historical peak verified: "+fmt(s.ais_peak);
   activity(d);
   el("rx-ais-status").textContent=s.fresh_ais_samples?"Verified · ≤5 minutes":"Awaiting fresh AIS";
-  el("analytics-updated").textContent="Updated "+new Date(d.updated_at).toLocaleTimeString()+" · "+fmt(s.samples)+" samples · every 60 seconds";
+  const age=s.last_sample_ts==null?null:Math.round(d.window_end-s.last_sample_ts);
+  const lastStatus=age==null?"no samples recorded":age>180?"last sample "+Math.ceil(age/60)+" min ago":"latest sample "+Math.max(0,age)+" sec ago";
+  const error=d.sampling_error?" · collector error: "+d.sampling_error:"";
+  el("analytics-updated").textContent="Updated "+new Date(d.updated_at).toLocaleTimeString()+" · "+fmt(s.samples)+" samples · "+lastStatus+error;
  }catch(e){el("analytics-updated").textContent="Reception history unavailable: "+e.message;}
  finally{busy=false;}
 }
