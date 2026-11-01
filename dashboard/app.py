@@ -2881,19 +2881,6 @@ def api_reception_analytics():
     try:return jsonify(reception_analytics.report(request.args.get("period","24h")))
     except ValueError as error:return jsonify({"ok":False,"error":str(error)}),400
 
-@app.route("/api/reception-analytics/atis-photo", methods=["POST"])
-def api_reception_analytics_atis_photo():
-    """Count only browser-confirmed vessel photos for a recent decoded ATIS."""
-    if not get_features().get("traffic_voice"):
-        abort(404)
-    item=request.get_json(silent=True) or {}
-    if not isinstance(item,dict):
-        return jsonify({"ok":False,"error":"Invalid payload"}),400
-    ok=atis_statistics.photo_loaded(item.get("received_epoch"),item.get("atis_code"),
-                                    item.get("mmsi"),item.get("source"))
-    return jsonify({"ok":ok}),200 if ok else 400
-
-
 @app.route("/api/hf-monitor", methods=["GET"])
 def api_hf_monitor():
     """Expose HF configuration and measured live runtime."""
