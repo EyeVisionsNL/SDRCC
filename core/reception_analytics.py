@@ -29,7 +29,7 @@ def connect():
     columns = {c[1] for c in db.execute("PRAGMA table_info(samples)")}
     for col, kind in (("ais_fresh", "INTEGER"), ("ais_valid_range", "REAL"),
                       ("mission_on", "INTEGER"), ("marine_on", "INTEGER"),
-                      ("airband_on", "INTEGER")):
+                      ("airband_on", "INTEGER"), ("ais_catcher_total", "INTEGER")):
         if col not in columns:
             db.execute(f"ALTER TABLE samples ADD COLUMN {col} {kind}")
     return db
@@ -126,6 +126,8 @@ def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, a
     a = receiver_monitor.get_ais_metrics(ais_on)
     b = receiver_monitor.get_adsb_metrics(adsb_on)
     ais_count, ais_range = fresh_ais() if a.get("available") else (None,None)
+    # Unfiltered AIS-Catcher ships.json count, matching its viewer.
+    catcher_total = a.get("targets") if a.get("available") else None
     if mission_on is None or marine_on is None or airband_on is None:
         mission_status, marine_status, airband_status = service_activity()
         if mission_on is None: mission_on = mission_status
@@ -135,8 +137,8 @@ def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, a
     with connect() as con:
         con.execute("""INSERT OR REPLACE INTO samples
             (ts,ais_on,ais_targets,ais_rate,ais_range,adsb_on,adsb_targets,
-            adsb_rate,adsb_range,ais_fresh,ais_valid_range,mission_on,marine_on,airband_on)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            adsb_rate,adsb_range,ais_fresh,ais_valid_range,mission_on,marine_on,airband_on,ais_catcher_total)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
             ts, int(ais_on), ais_count,
             num(a.get("messages_per_second")) if a.get("available") else None,
             ais_range, int(adsb_on),
@@ -146,7 +148,8 @@ def sample_once(ais_on=None, adsb_on=None, *, mission_on=None, marine_on=None, a
             ais_count, ais_range,
             int(bool(mission_on)) if mission_on is not None else None,
             int(bool(marine_on)) if marine_on is not None else None,
-            int(bool(airband_on)) if airband_on is not None else None))
+            int(bool(airband_on)) if airband_on is not None else None,
+            catcher_total))
         con.execute("DELETE FROM samples WHERE ts < ?", (ts-90*86400,))
 
 
@@ -173,7 +176,10 @@ def report(period="24h"):
     with connect() as con:
         con.row_factory=sqlite3.Row
         rows=con.execute("""SELECT (ts / ?) * ? AS ts,
-            ROUND(AVG(ais_fresh),1) ais_targets, ROUND(AVG(ais_rate),2) ais_rate,
+            ROUND(AVG(ais_fresh),1) ais_targets,
+            ROUND(AVG(COALESCE(ais_catcher_total,
+                CASE WHEN ais_fresh IS NULL THEN ais_targets END)),1) ais_total,
+            ROUND(AVG(ais_rate),2) ais_rate,
             MAX(CASE WHEN ais_valid_range BETWEEN 0 AND 300 THEN ais_valid_range END) ais_range,
             ROUND(AVG(adsb_targets),1) adsb_targets, ROUND(AVG(adsb_rate),2) adsb_rate,
             MAX(CASE WHEN adsb_range BETWEEN 0 AND 500 THEN adsb_range END) adsb_range,
@@ -183,6 +189,12 @@ def report(period="24h"):
             FROM samples WHERE ts >= ? GROUP BY (ts / ?) ORDER BY ts""",
             (bucket,bucket,since,bucket)).fetchall()
         summary=con.execute("""SELECT COUNT(*) samples, MAX(ais_fresh) ais_peak,
+            MAX(COALESCE(ais_catcher_total,
+                CASE WHEN ais_fresh IS NULL THEN ais_targets END)) ais_total_peak,
+            MIN(CASE WHEN ais_fresh IS NOT NULL THEN ts END) first_fresh_ais,
+            MIN(CASE WHEN COALESCE(ais_catcher_total,
+                CASE WHEN ais_fresh IS NULL THEN ais_targets END) IS NOT NULL
+                THEN ts END) first_total_ais,
             MAX(adsb_targets) adsb_peak,
             MAX(CASE WHEN ais_valid_range BETWEEN 0 AND 300 THEN ais_valid_range END) ais_range,
             MAX(CASE WHEN adsb_range BETWEEN 0 AND 500 THEN adsb_range END) adsb_range,
@@ -192,7 +204,14 @@ def report(period="24h"):
             SUM(CASE WHEN airband_on=1 THEN 1 ELSE 0 END) airband_minutes,
             COUNT(ais_fresh) fresh_ais_samples
             FROM samples WHERE ts >= ?""",(since,)).fetchone()
-    return {"ok":True,"read_only":True,"period":period,"summary":dict(summary),
+        # Report a current comparison only for samples no more than 180 sec old.
+        latest=con.execute("""SELECT ts,ais_catcher_total,ais_fresh
+            FROM samples WHERE ts >= ? ORDER BY ts DESC LIMIT 1""",
+            (int(time.time())-180,)).fetchone()
+    info=dict(summary)
+    info["current_catcher_total"] = latest["ais_catcher_total"] if latest else None
+    info["current_ais_fresh"] = latest["ais_fresh"] if latest else None
+    return {"ok":True,"read_only":True,"period":period,"summary":info,
             "series":[dict(row) for row in rows],"bucket_seconds":bucket,"period_seconds":span,
             "retention_days":90,"sample_interval_seconds":60,
             "updated_at":datetime.now(timezone.utc).isoformat()}

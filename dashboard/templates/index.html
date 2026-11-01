@@ -1303,12 +1303,17 @@
 <div class="rx-plot"><h4>Received messages</h4><p>Messages per second</p><svg id="rx-adsb-messages"></svg></div>
 </section>
 <section class="card rx-panel rx-panel--ais">
-<div class="rx-panel-title"><div><h3>🚢 AIS Reception</h3><p>Validated vessel positions received in the last 5 minutes</p></div><span class="rx-status" id="rx-ais-status">VERIFYING</span></div>
-<div class="rx-metrics">
-<div class="rx-metric"><span>Peak live vessels</span><strong id="rx-ais-peak">—</strong></div>
+<div class="rx-panel-title"><div><h3>🚢 AIS Reception</h3><p>AIS-Catcher targets versus recently verified vessel positions</p></div><span class="rx-status" id="rx-ais-status">VERIFYING</span></div>
+<div class="rx-metrics rx-metrics--four">
+<div class="rx-metric"><span>AIS-Catcher · last sample</span><strong id="rx-ais-total-now">—</strong></div>
+<div class="rx-metric"><span>Verified ≤5 min · last sample</span><strong id="rx-ais-fresh-now">—</strong></div>
 <div class="rx-metric"><span>Maximum range</span><strong id="rx-ais-range">—</strong></div>
 <div class="rx-metric"><span>Average rate</span><strong id="rx-ais-rate">—</strong></div></div>
-<div class="rx-plot"><h4>Live AIS vessels</h4><p>Recent valid MMSI positions (no cached/stale vessels)</p><svg id="rx-ais-count"></svg></div>
+<div class="rx-plot"><h4>AIS vessel counts</h4><p>Both measurements come from AIS-Catcher, with different selection rules</p>
+<div class="rx-plot-legend"><span class="rx-key"><span class="rx-dot" style="--key-color:#38bdf8"></span>All AIS-Catcher targets</span>
+<span class="rx-key"><span class="rx-dot" style="--key-color:#2dd4bf"></span>Verified positions ≤5 min</span></div>
+<svg id="rx-ais-count"></svg>
+<p id="rx-ais-coverage" class="rx-history-coverage">Checking available AIS history…</p></div>
 <div class="rx-plot"><h4>Received messages</h4><p>Messages per second</p><svg id="rx-ais-messages"></svg></div>
 </section></div>
 <section class="card rx-panel rx-panel--activity">
@@ -1323,7 +1328,7 @@
 <p class="rx-note">Bright = active · muted = inactive · deep blue = no sample. Hover a segment to see its status. Airband activity recording starts with v0.69.18; earlier Airband status is unknown.</p>
 </section>
 <p id="analytics-updated" class="rx-note">Loading history…</p>
-<p class="rx-note">History retention: 90 days. AIS range is calculated from valid coordinates and the station position, capped at 300 NM. Older unverified AIS totals remain stored but are not shown as live vessels.</p>
+<p class="rx-note">History retention: 90 days. The AIS-Catcher total includes all targets in its ships list. Verified AIS includes only unique MMSIs with validated coordinates received within five minutes. Range is measured from the station position with a 300 NM plausibility limit. Current values and historical peaks are different measurements.</p>
 </div></section>
 <section class="tab-page" id="tab-mission-analytics">
     <div class="mission-analytics-layout">

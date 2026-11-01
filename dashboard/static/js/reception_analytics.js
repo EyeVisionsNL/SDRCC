@@ -11,23 +11,33 @@ function node(parent,tag,attrs,content){
  parent.append(n);return n;
 }
 function plot(id,rows,key,color,label){
+ return plotSeries(id,rows,[{key,color}],label);
+}
+function plotSeries(id,rows,lines,label){
  const svg=el(id);svg.replaceChildren();svg.setAttribute("viewBox","0 0 640 174");
  svg.setAttribute("role","img");svg.setAttribute("aria-label",label);
  const left=47,right=631,top=18,bottom=136;
  for(let i=0;i<5;i++){let y=top+i*(bottom-top)/4;node(svg,"line",{x1:left,x2:right,y1:y,y2:y,stroke:"#40506a","stroke-opacity":".6"});}
- const v=rows.map(r=>r[key]).filter(x=>x!=null&&Number.isFinite(Number(x))).map(Number);
- if(!v.length){node(svg,"text",{x:320,y:84,fill:"#94a3b8","text-anchor":"middle","font-size":15},"No reliable samples yet");return;}
- const max=Math.max(1,...v);node(svg,"text",{x:left,y:12,fill:"#cbd5e1","font-size":12},fmt(max,1));
- const first=rows[0].ts,last=rows[rows.length-1].ts,span=Math.max(1,last-first);let points=[];
- const flush=()=>{
-   if(points.length>1)node(svg,"polyline",{points:points.join(" "),fill:"none",stroke:color,"stroke-width":2.8,"stroke-linecap":"round","stroke-linejoin":"round"});
-   else if(points.length===1){const [x,y]=points[0].split(",");node(svg,"circle",{cx:x,cy:y,r:3,fill:color});}
+ const values=lines.flatMap(line=>rows.map(r=>r[line.key]).filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number));
+ if(!values.length){node(svg,"text",{x:320,y:84,fill:"#94a3b8","text-anchor":"middle","font-size":15},"No samples for this period");return;}
+ const max=Math.max(1,...values);
+ node(svg,"text",{x:left,y:12,fill:"#cbd5e1","font-size":12},fmt(max,1));
+ const first=rows[0].ts,last=rows[rows.length-1].ts,span=Math.max(1,last-first);
+ for(const line of lines){
+  let points=[];
+  const flush=()=>{
+   if(points.length>1)node(svg,"polyline",{points:points.join(" "),fill:"none",stroke:line.color,"stroke-width":2.8,"stroke-linecap":"round","stroke-linejoin":"round"});
+   else if(points.length===1){const [x,y]=points[0].split(",");node(svg,"circle",{cx:x,cy:y,r:3,fill:line.color});}
    points=[];
- };
- for(const row of rows){const n=row[key];if(n==null||!Number.isFinite(Number(n))){flush();continue;}
-   points.push((left+(right-left)*(row.ts-first)/span).toFixed(2)+","+(bottom-Number(n)/max*(bottom-top)).toFixed(2));}
- flush();
- const date=s=>new Date(s*1000).toLocaleString(undefined,{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+  };
+  for(const row of rows){
+   const val=row[line.key];
+   if(val==null||!Number.isFinite(Number(val))){flush();continue;}
+   points.push((left+(right-left)*(row.ts-first)/span).toFixed(2)+","+(bottom-Number(val)/max*(bottom-top)).toFixed(2));
+  }
+  flush();
+ }
+ const date=ts=>new Date(ts*1000).toLocaleString(undefined,{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
  node(svg,"text",{x:left,y:168,fill:"#94a3b8","font-size":11},date(first));
  node(svg,"text",{x:right,y:168,fill:"#94a3b8","font-size":11,"text-anchor":"end"},date(last));
 }
@@ -55,7 +65,9 @@ async function refresh(){
   const response=await fetch("/api/reception-analytics?period="+period,{cache:"no-store"});
   if(!response.ok)throw Error("HTTP "+response.status);
   const d=await response.json(),s=d.summary||{},rows=d.series||[];
-  const fields={"rx-adsb-peak":fmt(s.adsb_peak),"rx-ais-peak":fmt(s.ais_peak),
+  const fields={"rx-adsb-peak":fmt(s.adsb_peak),
+   "rx-ais-total-now":fmt(s.current_catcher_total),
+   "rx-ais-fresh-now":fmt(s.current_ais_fresh),
    "rx-adsb-range":s.adsb_range==null?"—":fmt(s.adsb_range,1)+" NM",
    "rx-ais-range":s.ais_range==null?"—":fmt(s.ais_range,1)+" NM",
    "rx-adsb-rate":s.adsb_avg==null?"—":fmt(s.adsb_avg,2)+" msg/s",
@@ -63,7 +75,16 @@ async function refresh(){
    "rx-mission-minutes":fmt(s.mission_minutes),"rx-marine-minutes":fmt(s.marine_minutes),
    "rx-airband-minutes":fmt(s.airband_minutes)};
   Object.entries(fields).forEach(([k,v])=>el(k).textContent=v);
-  for(const [id,key,color] of [["rx-adsb-count","adsb_targets","#a78bfa"],["rx-adsb-messages","adsb_rate","#fbbf24"],["rx-ais-count","ais_targets","#38bdf8"],["rx-ais-messages","ais_rate","#2dd4bf"]])plot(id,rows,key,color,key);
+  for(const [id,key,color] of [["rx-adsb-count","adsb_targets","#a78bfa"],["rx-adsb-messages","adsb_rate","#fbbf24"],["rx-ais-messages","ais_rate","#2dd4bf"]])plot(id,rows,key,color,key);
+  plotSeries("rx-ais-count",rows,[
+    {key:"ais_total",color:"#38bdf8"},
+    {key:"ais_targets",color:"#2dd4bf"}
+  ],"AIS-Catcher total targets compared with recent verified vessel positions");
+  const totalStart=s.first_total_ais?new Date(s.first_total_ais*1000).toLocaleString():"not available";
+  const verifiedStart=s.first_fresh_ais?new Date(s.first_fresh_ais*1000).toLocaleString():"not yet available";
+  el("rx-ais-coverage").textContent="All-target history from "+totalStart+
+    " · verified history from "+verifiedStart+
+    " · missing measurements remain blank · peak verified in this period: "+fmt(s.ais_peak);
   activity(d);
   el("rx-ais-status").textContent=s.fresh_ais_samples?"Verified · ≤5 minutes":"Awaiting fresh AIS";
   el("analytics-updated").textContent="Updated "+new Date(d.updated_at).toLocaleTimeString()+" · "+fmt(s.samples)+" samples · every 60 seconds";
