@@ -66,8 +66,8 @@
     let loadedVesselPhotoSource = "";
     const atisPhotosReported = new Set();
 
-    async function recordLoadedAtisPhoto(mmsi, source) {
-        const latest = lastPayload?.atis?.latest;
+    async function recordLoadedAtisPhoto(mmsi, source, eventSnapshot = null) {
+        const latest = eventSnapshot || lastPayload?.atis?.latest;
         const code = String(latest?.atis_code || "");
         const epoch = Date.parse(String(latest?.received_at || "")) / 1000;
         if (!vesselPhotosEnabled || !latest?.fresh || !/^9\d{9}$/.test(code)
@@ -306,6 +306,8 @@
         const imo = String(match.imo || "").trim();
         const eni = String(match.eni || "").trim();
         const identityKey = [mmsi, shipname.toUpperCase(), imo, eni].join("|");
+        const atisEventAtLookup = lastPayload?.atis?.latest
+            ? {...lastPayload.atis.latest} : null;
         if (identityKey === vesselPhotoKey && Date.now() < vesselPhotoRetryAfter) {
             const cached=byId("traffic-voice-vessel-photo");
             if(cached?.complete && cached.naturalWidth>0 && loadedVesselPhotoSource)
@@ -360,7 +362,7 @@
                 if (requestId === vesselPhotoRequest && vesselPhotosEnabled && image.naturalWidth>0) {
                     image.style.display = "";
                     loadedVesselPhotoSource=String(result.source||"vessel photo");
-                    void recordLoadedAtisPhoto(mmsi,loadedVesselPhotoSource);
+                    void recordLoadedAtisPhoto(mmsi,loadedVesselPhotoSource,atisEventAtLookup);
                 }
             };
             image.onerror = () => {

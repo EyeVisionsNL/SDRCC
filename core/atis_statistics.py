@@ -42,8 +42,12 @@ def _time(value):
 
 def _enqueue(kind,*args):
     global _dropped
-    try:_q.put_nowait((kind,args))
-    except queue.Full:_dropped+=1
+    try:
+        _q.put_nowait((kind,args))
+        return True
+    except queue.Full:
+        _dropped+=1
+        return False
 
 def candidate(epoch):
     """An ATIS-like phasing pattern was found, regardless of valid checksum."""
@@ -62,8 +66,7 @@ def photo_loaded(epoch,code,mmsi,source):
     source=str(source or "").strip()[:80]
     if (when is None or not re.fullmatch(r"9[0-9]{9}",code)
         or not re.fullmatch(r"[0-9]{9}",mmsi) or not source):return False
-    _enqueue("photo",when,code,mmsi,source)
-    return True
+    return _enqueue("photo",when,code,mmsi,source)
 
 def _near(db,when,code=None):
     rows=db.execute("""SELECT id,code FROM atis_events
