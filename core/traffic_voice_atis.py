@@ -679,11 +679,6 @@ def _publish_result(result: dict[str, Any], received_epoch: float) -> None:
             return
         _last_result = projected
         _valid_count += 1
-    try:
-        from core import marine_replay
-        marine_replay.enqueue_atis(projected)
-    except Exception:
-        pass  # Passive recorder must not affect ATIS decoding.
 
 
 def _decode_worker() -> None:

@@ -233,11 +233,6 @@ class MarineRecordingStore:
         if len(clip["pcm"]) >= int(self.sample_rate * 2 * 0.08):
             clip["pcm"] = bytes(clip["pcm"])
             self._completed.append(clip)
-            try:
-                from core import marine_replay
-                marine_replay.enqueue_recording(clip, self.sample_rate)
-            except Exception:
-                pass  # Passive archive must not interrupt live audio.
         self._active = None
 
     def list_recordings(self) -> list[dict[str, Any]]:

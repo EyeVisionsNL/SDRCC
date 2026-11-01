@@ -71,7 +71,7 @@ from core import satdump as satdump_core
 from core import satellite_view as satellite_view_core
 from core import traffic_voice as traffic_voice_core
 from core import traffic_voice_audio
-from core import marine_replay, reception_analytics
+from core import reception_analytics
 from core import traffic_voice_controller
 from core import traffic_voice_vessel_photo
 from core import traffic_voice_rensendriessen_image
@@ -2880,19 +2880,6 @@ def api_reception_analytics():
     try:return jsonify(reception_analytics.report(request.args.get("period","24h")))
     except ValueError as error:return jsonify({"ok":False,"error":str(error)}),400
 
-@app.route("/api/marine-replay", methods=["GET"])
-def api_marine_replay():
-    if not get_features().get("traffic_voice"):abort(404)
-    try:return jsonify(marine_replay.list_replays(request.args.get("limit",50),request.args.get("offset",0)))
-    except ValueError:return jsonify({"ok":False,"error":"Invalid pagination"}),400
-
-@app.route("/api/marine-replay/audio/<recording_id>", methods=["GET"])
-def api_marine_replay_audio(recording_id):
-    if not get_features().get("traffic_voice"):abort(404)
-    path=marine_replay.audio_path(recording_id)
-    if path is None:abort(404)
-    return send_file(path,mimetype="audio/wav",conditional=True,max_age=0)
-
 @app.route("/api/hf-monitor", methods=["GET"])
 def api_hf_monitor():
     """Expose HF configuration and measured live runtime."""
@@ -5363,7 +5350,6 @@ def run():
     threading.Thread(target=update_manager.check_remote_version, name="update-check", daemon=True).start()
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
-    marine_replay.start_worker()
     reception_analytics.start_worker()
     emergency_monitor.sync_worker()
     app.run(

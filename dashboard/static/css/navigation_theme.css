@@ -151,5 +151,4 @@
 }
 
 /* New tabs reuse SDRCC native active bar and corner styling. */
-.tab-button[data-tab="marine-replay"]{--tab-accent:#36cee1}
 .tab-button[data-tab="reception-analytics"]{--tab-accent:#61c7ec}

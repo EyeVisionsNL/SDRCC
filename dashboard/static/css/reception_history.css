@@ -1,18 +1,28 @@
-/* SDRCC native corner framing and dark radar-style panels. */
-.history-workspace{display:grid;gap:14px;padding:14px;min-width:0}
-.history-hero{position:relative;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;padding:20px 22px;overflow:hidden;border:1px solid #38617e;border-radius:14px;background:linear-gradient(115deg,#16354c,#0c1d30 75%);box-shadow:0 12px 28px #020b1999}
-.history-hero::before,.history-corner::before{content:"";position:absolute;top:0;left:0;width:35px;height:35px;pointer-events:none;border-top:3px solid #4bc9ea;border-left:3px solid #4bc9ea;border-top-left-radius:12px}
-.history-hero::after,.history-corner::after{content:"";position:absolute;bottom:0;right:0;width:35px;height:35px;pointer-events:none;border-bottom:3px solid #3b94c3;border-right:3px solid #3b94c3;border-bottom-right-radius:12px}
-.history-hero h2{color:#eff9ff;font-size:1.4rem;margin:3px 0}.history-hero p{color:#b2c7d7;margin:3px 0}.history-eyebrow{color:#6fddf6;font-size:.69rem;font-weight:800;letter-spacing:.14em}
-.history-actionbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.history-actionbar select,.history-actionbar button{padding:9px 13px;border:1px solid #45738d;border-radius:8px;background:#173850;color:#f0f9ff;font-weight:700}
-.history-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.history-stat,.history-chart,.replay-entry{position:relative;min-width:0;overflow:hidden;border:1px solid #345572!important;border-radius:13px!important;background:linear-gradient(145deg,#122b43,#0a1c2c)!important;box-shadow:0 8px 22px #020b1966}
-.history-stat{padding:16px}.history-stat::before{position:absolute;content:"";top:0;left:0;width:35px;height:2px;background:#55c8ed}.history-stat span{display:block;color:#9fc2d9;font-size:.8rem;font-weight:700}.history-stat strong{display:block;color:#effaff;font-size:1.62rem;margin:8px 0 4px}.history-stat small{color:#86b8d1}
-.history-chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.history-chart{padding:14px}.history-chart h3{color:#e8f8ff;margin:0 0 4px;font-size:1rem}.history-chart p{color:#9bc0d4;font-size:.8rem}.history-chart svg{display:block;width:100%;min-height:140px}
-.history-note{color:#9fc3d9;font-size:.84rem;line-height:1.5}.history-list{display:grid;gap:12px}
-.replay-entry{padding:15px!important}.replay-entry-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.replay-entry-info{min-width:0}.replay-entry-info strong{color:#f1f9ff;overflow-wrap:anywhere}.replay-entry-info p{color:#b2c8d6;font-size:.81rem;margin:5px 0}
-.replay-match{font-size:.7rem;letter-spacing:.045em;color:#b6becb;font-weight:800}.replay-match.matched{color:#4fdcb0}.replay-identity{color:#9ecce3}
-.replay-details{display:grid;gap:12px;border-top:1px solid #34536b;padding-top:12px;margin-top:12px}.replay-audio{width:min(100%,650px);height:42px}.replay-photo-row{display:flex;flex-wrap:wrap;gap:12px}.replay-photo{max-width:190px;max-height:150px;object-fit:contain;border-radius:10px}.replay-map{width:min(100%,680px);height:300px;border:1px solid #487d95;border-radius:10px;background:#112839}.replay-map[hidden],.replay-photo[hidden]{display:none!important}
-.history-pagination{display:flex;justify-content:flex-end;gap:10px}.history-pagination button:disabled{opacity:.45}
-@media(max-width:850px){.history-chart-grid{grid-template-columns:1fr}.history-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:520px){.history-hero{padding:16px}.replay-entry-head{flex-direction:column}.history-stat strong{font-size:1.25rem}}
+/* Native SDRCC full-width analytical panels, matching Mission Analytics theme. */
+#tab-reception-analytics .rx-page{--rx-air:#a78bfa;--rx-sea:#38bdf8;--rx-context:#2dd4bf;display:grid;gap:14px;padding:14px;min-width:0}
+#tab-reception-analytics .rx-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;position:relative;overflow:hidden;border-left:3px solid var(--rx-context);background:linear-gradient(105deg,rgba(45,212,191,.08),transparent 44%)}
+#tab-reception-analytics .rx-header h2{color:#7dd3fc;margin:2px 0 6px}#tab-reception-analytics .rx-header p{color:#a7bad0;margin:0}
+#tab-reception-analytics .rx-eyebrow{color:#6bd3e9;letter-spacing:.1em;font-size:.74rem;font-weight:800;display:block;margin-bottom:7px}
+#tab-reception-analytics .rx-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}#tab-reception-analytics .rx-toolbar label{font-size:.82rem;color:#a9b9cb}
+#tab-reception-analytics .rx-toolbar select{background:#152438;color:#e2e8f0;padding:9px 12px;border:1px solid #4b647e;border-radius:8px;font:inherit}
+#tab-reception-analytics .rx-toolbar .control-button{width:auto;min-width:118px;margin:0}
+#tab-reception-analytics .rx-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch}
+#tab-reception-analytics .rx-panel{--panel-accent:var(--rx-air);min-width:0;position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--panel-accent) 35%,#334155);background:linear-gradient(145deg,color-mix(in srgb,var(--panel-accent) 7%,#1e293b),#1e293b 44%);box-shadow:inset 3px 0 0 var(--panel-accent),0 0 15px #0004}
+#tab-reception-analytics .rx-panel--ais{--panel-accent:var(--rx-sea)}#tab-reception-analytics .rx-panel--activity{--panel-accent:var(--rx-context)}
+#tab-reception-analytics .rx-panel::after,#tab-reception-analytics .rx-header::after{content:"";position:absolute;right:-22px;top:-22px;width:64px;height:64px;border-radius:50%;pointer-events:none;background:color-mix(in srgb,var(--panel-accent,var(--rx-context)) 16%,transparent)}
+#tab-reception-analytics .rx-panel-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid #334155;padding-bottom:11px;margin-bottom:13px}
+#tab-reception-analytics .rx-panel-title h3{margin:0;color:color-mix(in srgb,var(--panel-accent) 78%,#e2e8f0);font-size:1.15rem}#tab-reception-analytics .rx-panel-title p{margin:5px 0 0;font-size:.82rem;color:#94a3b8}
+#tab-reception-analytics .rx-status{color:#94a3b8;font-size:.72rem;font-weight:750;letter-spacing:.04em}
+#tab-reception-analytics .rx-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:14px}
+#tab-reception-analytics .rx-metric{min-width:0;border:1px solid #344357;border-radius:9px;padding:13px;background:#02061755}
+#tab-reception-analytics .rx-metric span{display:block;color:#a5b6c8;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;min-height:2.1em}
+#tab-reception-analytics .rx-metric strong{display:block;color:var(--panel-accent);font-size:1.38rem;line-height:1.25;font-variant-numeric:tabular-nums;margin-top:8px;overflow-wrap:anywhere}
+#tab-reception-analytics .rx-plot{min-width:0;border:1px solid #334155;border-radius:10px;background:#02061733;padding:12px 12px 5px;margin-top:10px}
+#tab-reception-analytics .rx-plot h4{font-size:.91rem;color:#cbd5e1;margin:0 0 3px}#tab-reception-analytics .rx-plot p{color:#94a3b8;font-size:.75rem;margin:0 0 6px}
+#tab-reception-analytics .rx-plot svg{display:block;width:100%;height:178px;overflow:hidden}
+#tab-reception-analytics .rx-activity-meta{display:flex;align-items:center;gap:10px 19px;flex-wrap:wrap;margin:7px 0 14px;color:#a8bdcf;font-size:.81rem}
+#tab-reception-analytics .rx-key{display:inline-flex;align-items:center;gap:7px}#tab-reception-analytics .rx-dot{width:10px;height:10px;border-radius:3px;background:var(--key-color)}
+#tab-reception-analytics #rx-activity-chart{display:block;width:100%;height:auto;min-height:186px;background:#02061733;border:1px solid #334155;border-radius:10px}
+#tab-reception-analytics .rx-note{font-size:.8rem;color:#94a3b8;line-height:1.5;margin:8px 0 0}
+@media(max-width:960px){#tab-reception-analytics .rx-columns{grid-template-columns:1fr}}
+@media(max-width:520px){#tab-reception-analytics .rx-page{padding:10px}#tab-reception-analytics .rx-panel{padding:14px}#tab-reception-analytics .rx-metrics{gap:6px}#tab-reception-analytics .rx-metric{padding:9px}#tab-reception-analytics .rx-metric strong{font-size:1.1rem}}

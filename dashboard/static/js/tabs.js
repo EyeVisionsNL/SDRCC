@@ -3,7 +3,7 @@ export function setupTabs() {
     const pages = document.querySelectorAll(".tab-page");
     const header = document.querySelector(".topbar");
     const bannerSceneByTab = {
-        system: "system", radio: "radio", "radio-view": "radio", "traffic-voice": "traffic", "marine-replay": "marine", "hf-monitor": "receiver",
+        system: "system", radio: "radio", "radio-view": "radio", "traffic-voice": "traffic", "hf-monitor": "receiver",
         mission: "satellite", "mission-planner": "satellite", images: "satellite", history: "satellite",
         "reception-analytics": "logs", "mission-analytics": "satellite", logs: "logs",
     };
