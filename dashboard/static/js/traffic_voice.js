@@ -63,6 +63,28 @@
     let vesselPhotoKey = "";
     let vesselPhotoRequest = 0;
     let vesselPhotoRetryAfter = 0;
+    let loadedVesselPhotoSource = "";
+    const atisPhotosReported = new Set();
+
+    async function recordLoadedAtisPhoto(mmsi, source) {
+        const latest = lastPayload?.atis?.latest;
+        const code = String(latest?.atis_code || "");
+        const epoch = Date.parse(String(latest?.received_at || "")) / 1000;
+        if (!vesselPhotosEnabled || !latest?.fresh || !/^9\d{9}$/.test(code)
+            || !Number.isFinite(epoch) || Math.abs(Date.now()/1000-epoch)>120
+            || !/^\d{9}$/.test(String(mmsi||"")) || !source) return;
+        const key = epoch.toFixed(3)+"|"+code+"|"+mmsi;
+        if (atisPhotosReported.has(key)) return;
+        atisPhotosReported.add(key);
+        if (atisPhotosReported.size>240) atisPhotosReported.clear();
+        try {
+            const r = await fetch("/api/reception-analytics/atis-photo",{
+                method:"POST",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({received_epoch:epoch,atis_code:code,mmsi:String(mmsi),source:String(source)})
+            });
+            if(!r.ok)atisPhotosReported.delete(key);
+        }catch(_){atisPhotosReported.delete(key);}
+    }
 
     function byId(id) {
         return document.getElementById(id);
@@ -228,6 +250,7 @@
         vesselPhotoMmsi = "";
         vesselPhotoKey = "";
         vesselPhotoRetryAfter = 0;
+        loadedVesselPhotoSource = "";
         const card = byId("traffic-voice-vessel-photo-card");
         const image = byId("traffic-voice-vessel-photo");
         if (card) card.hidden = true;
@@ -283,9 +306,15 @@
         const imo = String(match.imo || "").trim();
         const eni = String(match.eni || "").trim();
         const identityKey = [mmsi, shipname.toUpperCase(), imo, eni].join("|");
-        if (identityKey === vesselPhotoKey && Date.now() < vesselPhotoRetryAfter) return;
+        if (identityKey === vesselPhotoKey && Date.now() < vesselPhotoRetryAfter) {
+            const cached=byId("traffic-voice-vessel-photo");
+            if(cached?.complete && cached.naturalWidth>0 && loadedVesselPhotoSource)
+                void recordLoadedAtisPhoto(mmsi,loadedVesselPhotoSource);
+            return;
+        }
         vesselPhotoMmsi = mmsi;
         vesselPhotoKey = identityKey;
+        loadedVesselPhotoSource = "";
         vesselPhotoRetryAfter = Number.POSITIVE_INFINITY;
         const requestId = ++vesselPhotoRequest;
         const card = byId("traffic-voice-vessel-photo-card");
@@ -328,8 +357,10 @@
                 return;
             }
             image.onload = () => {
-                if (requestId === vesselPhotoRequest && vesselPhotosEnabled) {
+                if (requestId === vesselPhotoRequest && vesselPhotosEnabled && image.naturalWidth>0) {
                     image.style.display = "";
+                    loadedVesselPhotoSource=String(result.source||"vessel photo");
+                    void recordLoadedAtisPhoto(mmsi,loadedVesselPhotoSource);
                 }
             };
             image.onerror = () => {

@@ -72,6 +72,7 @@ from core import satellite_view as satellite_view_core
 from core import traffic_voice as traffic_voice_core
 from core import traffic_voice_audio
 from core import reception_analytics
+from core import atis_statistics
 from core import traffic_voice_controller
 from core import traffic_voice_vessel_photo
 from core import traffic_voice_rensendriessen_image
@@ -2880,6 +2881,19 @@ def api_reception_analytics():
     try:return jsonify(reception_analytics.report(request.args.get("period","24h")))
     except ValueError as error:return jsonify({"ok":False,"error":str(error)}),400
 
+@app.route("/api/reception-analytics/atis-photo", methods=["POST"])
+def api_reception_analytics_atis_photo():
+    """Count only browser-confirmed vessel photos for a recent decoded ATIS."""
+    if not get_features().get("traffic_voice"):
+        abort(404)
+    item=request.get_json(silent=True) or {}
+    if not isinstance(item,dict):
+        return jsonify({"ok":False,"error":"Invalid payload"}),400
+    ok=atis_statistics.photo_loaded(item.get("received_epoch"),item.get("atis_code"),
+                                    item.get("mmsi"),item.get("source"))
+    return jsonify({"ok":ok}),200 if ok else 400
+
+
 @app.route("/api/hf-monitor", methods=["GET"])
 def api_hf_monitor():
     """Expose HF configuration and measured live runtime."""
@@ -5351,6 +5365,7 @@ def run():
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
     reception_analytics.start_worker()
+    atis_statistics.start_worker()
     emergency_monitor.sync_worker()
     app.run(
         host="0.0.0.0",

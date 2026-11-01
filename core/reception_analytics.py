@@ -226,7 +226,13 @@ def report(period="24h"):
     info["current_catcher_total"] = latest["ais_catcher_total"] if latest else None
     info["current_ais_fresh"] = latest["ais_fresh"] if latest else None
     info["last_sample_ts"] = newest
+    from core import atis_statistics
+    try:
+        atis=atis_statistics.report(since,now)
+    except (OSError,sqlite3.Error) as exc:
+        atis={"candidates":None,"decoded":None,"photos":None,"error":str(exc)}
     return {"ok":True,"read_only":True,"period":period,"summary":info,
+            "atis":atis,
             "series":[dict(row) for row in rows],"bucket_seconds":bucket,
             "window_start":since,"window_end":now,"period_seconds":span,
             "sampling_error":_last_sample_error,

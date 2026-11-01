@@ -553,7 +553,10 @@ def _refine_candidate(
     return start_sample + best[2], best[3], best[1], best[0]
 
 
-def decode_samples(samples: np.ndarray, sample_rate: int = SAMPLE_RATE_HZ) -> list[dict[str, Any]]:
+def decode_samples(
+    samples: np.ndarray, sample_rate: int = SAMPLE_RATE_HZ, *,
+    candidate_observer=None,
+) -> list[dict[str, Any]]:
     """Decode complete, validated ATIS packets from mono float audio."""
     if sample_rate < 8_000:
         raise ValueError("ATIS decoding requires an audio sample rate of at least 8 kHz")
@@ -611,6 +614,11 @@ def decode_samples(samples: np.ndarray, sample_rate: int = SAMPLE_RATE_HZ) -> li
         )
         if matches < minimum_matches or score < _PHASING_MIN_SCORE:
             continue
+        if candidate_observer is not None:
+            try:
+                candidate_observer(refined_start)
+            except Exception:
+                pass  # Passive reception metrics never affect decoding.
         decoded = _decode_packet(
             discriminator, refined_start, sample_rate, bit_rate, score,
         )
@@ -679,6 +687,11 @@ def _publish_result(result: dict[str, Any], received_epoch: float) -> None:
             return
         _last_result = projected
         _valid_count += 1
+    try:
+        from core import atis_statistics
+        atis_statistics.decoded(received_epoch, projected.get("atis_code"))
+    except Exception:
+        pass  # Passive reception metrics must never affect audio.
 
 
 def _decode_worker() -> None:
@@ -720,7 +733,17 @@ def _decode_worker() -> None:
             if unscanned_samples < scan_interval:
                 continue
             unscanned_samples = 0
-            for decoded in decode_samples(buffer, SAMPLE_RATE_HZ):
+            def observe_candidate(sample_index):
+                event_epoch = packet_epoch - (len(buffer)-float(sample_index))/SAMPLE_RATE_HZ
+                try:
+                    from core import atis_statistics
+                    atis_statistics.candidate(event_epoch)
+                except Exception:
+                    pass
+
+            for decoded in decode_samples(
+                buffer, SAMPLE_RATE_HZ, candidate_observer=observe_candidate,
+            ):
                 offset_from_end = len(buffer) - int(decoded["sample_index"])
                 received_epoch = packet_epoch - offset_from_end / SAMPLE_RATE_HZ
                 _publish_result(decoded, received_epoch)

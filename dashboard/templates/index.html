@@ -1316,6 +1316,20 @@
 <p id="rx-ais-coverage" class="rx-history-coverage">Checking historical coverage and gaps between receiver versions…</p></div>
 <div class="rx-plot"><h4>Received messages</h4><p>Messages per second</p><svg id="rx-ais-messages"></svg></div>
 </section></div>
+<section class="card rx-panel rx-panel--atis" aria-label="Marine Traffic ATIS statistics">
+<div class="rx-panel-title"><div><h3>🎙 Marine Traffic · ATIS Statistics</h3>
+<p>Detected radio ATIS patterns, decoded identities, and confirmed vessel photographs</p></div>
+<span class="rx-status">ATIS · MARINE VOICE</span></div>
+<div class="rx-metrics">
+<div class="rx-metric"><span>ATIS candidates detected</span><strong id="rx-atis-received">—</strong><small>Detected phasing patterns</small></div>
+<div class="rx-metric"><span>Successfully decoded</span><strong id="rx-atis-decoded">—</strong><small>Validated ATIS packets</small></div>
+<div class="rx-metric"><span>Photo successfully loaded</span><strong id="rx-atis-photos">—</strong><small>Confirmed vessel image</small></div>
+</div>
+<div class="rx-atis-summary">
+<span>Decode rate: <strong id="rx-atis-decode-rate">—</strong></span>
+<span>Photo match rate: <strong id="rx-atis-photo-rate">—</strong></span></div>
+<p class="rx-note" id="rx-atis-note">New statistics start after this update. ATIS candidates are detected phasing patterns, not every voice call. Photos count only after an image loads with Ship photos enabled in Traffic Voice.</p>
+</section>
 <section class="card rx-panel rx-panel--activity">
 <div class="rx-panel-title"><div><h3>◷ Receiver activity timeline</h3><p>Understand when other SDRCC functions were running</p></div><span class="rx-status">ACTIVITY CONTEXT</span></div>
 <div class="rx-activity-meta">

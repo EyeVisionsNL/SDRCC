@@ -97,6 +97,19 @@ async function refresh(){
   el("rx-ais-coverage").textContent="Total-target history starts "+stamp(s.first_total_ais)+
     " · verified history starts "+stamp(s.first_fresh_ais)+gap+
     " · historical peak verified: "+fmt(s.ais_peak);
+  const atis=d.atis||{};
+  const atisFields={
+    "rx-atis-received":fmt(atis.candidates),
+    "rx-atis-decoded":fmt(atis.decoded),
+    "rx-atis-photos":fmt(atis.photos),
+    "rx-atis-decode-rate":atis.decode_percent==null?"—":fmt(atis.decode_percent,1)+"%",
+    "rx-atis-photo-rate":atis.photo_percent==null?"—":fmt(atis.photo_percent,1)+"%"
+  };
+  Object.entries(atisFields).forEach(([id,value])=>el(id).textContent=value);
+  if (atis.error||atis.last_error||atis.dropped_queue_events)
+    el("rx-atis-note").textContent="ATIS statistics notice: "+
+      (atis.error||atis.last_error||"event queue overflow")+
+      " · dropped events: "+fmt(atis.dropped_queue_events);
   activity(d);
   el("rx-ais-status").textContent=s.fresh_ais_samples?"Verified · ≤5 minutes":"Awaiting fresh AIS";
   const age=s.last_sample_ts==null?null:Math.round(d.window_end-s.last_sample_ts);
