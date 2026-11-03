@@ -29,6 +29,10 @@ _runtime: dict[str, Any] = {"mqtt": "OFF", "adsb": "OFF", "ais": "OFF", "last_er
 _recent: dict[str, float] = {}
 _presence: dict[str, int] = {}
 _announced: set[str] = set()
+_active_targets: dict[str, dict[str, Any]] = {}
+ADSB_LOST_SECONDS = 90
+AIS_LOST_SECONDS = 180
+ACTIVE_SYNC_SECONDS = 30
 AIS_REPEAT_SECONDS = 5 * 60  # Per MMSI: repeat moving, freshly observed vessels.
 ADSB_REPEAT_SECONDS = 5 * 60  # Per ICAO hex: repeat moving, freshly observed aircraft.
 _map_recent: dict[str, dict[str, Any]] = {}  # Five-minute qualified AIS highlights; RAM only.
@@ -256,7 +260,12 @@ def _load_history() -> dict:
     history = [event for event in history if isinstance(event, dict) and event.get("source") != "p2000"]
     last_sent = state.get("last_sent") if isinstance(state.get("last_sent"), dict) else {}
     last_sent = {key: value for key, value in last_sent.items() if not str(key).startswith("p2000:")}
-    return {"history": history[:50], "last_sent": last_sent}
+    active = state.get("active_targets", {})
+    if not isinstance(active, dict):
+        active = {}
+    active = {str(key): dict(item) for key, item in list(active.items())[:200]
+              if isinstance(item, dict) and str(key).startswith(("adsb:", "ais:"))}
+    return {"history": history[:50], "last_sent": last_sent, "active_targets": active}
 
 
 def _purge_legacy_p2000_history() -> None:
@@ -265,7 +274,9 @@ def _purge_legacy_p2000_history() -> None:
         return
     raw = _read_json(STATE_FILE)
     sanitized = _load_history()
-    if raw.get("history") != sanitized["history"] or raw.get("last_sent") != sanitized["last_sent"]:
+    if (raw.get("history") != sanitized["history"] or
+            raw.get("last_sent") != sanitized["last_sent"] or
+            raw.get("active_targets", {}) != sanitized["active_targets"]):
         _atomic(STATE_FILE, sanitized)
 
 
@@ -274,6 +285,7 @@ def _store_event(event: dict, *, send_mqtt: bool = True) -> None:
         state = _load_history()
         state["history"] = ([event] + state["history"])[:50]
         state["last_sent"] = {key: val for key, val in _recent.items() if time.time()-val < 86400}
+        state["active_targets"] = {key: dict(value) for key, value in _active_targets.items()}
         _atomic(STATE_FILE, state)
         client = _mqtt_client
         cfg = settings()
@@ -288,6 +300,64 @@ def _store_event(event: dict, *, send_mqtt: bool = True) -> None:
         except Exception as error:
             with _lock:
                 _runtime["last_error"] = "MQTT publish failed: " + str(error)[:160]
+
+
+def _notification_id(source: str, identity: str) -> str:
+    """Stable per-target Home Assistant notification ID, never for P2000."""
+    return "sdrcc_" + source + "_" + re.sub(r"[^a-z0-9]", "_", identity.lower())
+
+
+def _save_active_targets() -> None:
+    """Preserve notification presence across an SDRCC worker restart."""
+    with _lock:
+        state = _load_history()
+        state["active_targets"] = {key: dict(value) for key, value in _active_targets.items()}
+        _atomic(STATE_FILE, state)
+
+
+def _clear_target(key: str, *, reason: str) -> None:
+    """Publish one clear event without touching existing emergency alarm topic."""
+    target = _active_targets.pop(key, None)
+    _presence.pop(key, None)
+    _announced.discard(key)
+    _recent.pop(key, None)
+    if target is None:
+        return
+    _save_active_targets()
+    event = {
+        "id": hashlib.sha256((key + ":clear:" + str(time.time())).encode()).hexdigest()[:16],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source": target["source"], "category": target["category"],
+        "identity": target["identity"], "label": target["label"],
+        "kind": "no_longer_observed", "reason": reason,
+        "title": target["category"].replace("_", " ").title() + " no longer observed",
+        "detail": target["label"] + " is no longer observed by SDRCC.",
+        "notification_id": _notification_id(target["source"], target["identity"]),
+        "last_seen": datetime.fromtimestamp(target["last_seen"], timezone.utc).isoformat(),
+    }
+    with _lock:
+        client, active = _mqtt_client, _mqtt_ha_active
+    if client is not None and active:
+        try:
+            result = client.publish("sdrcc/emergency/cleared", json.dumps(event), qos=1, retain=False)
+            if result.rc != 0:
+                with _lock:
+                    _runtime["last_error"] = "MQTT clear publish failed: " + str(result.rc)
+        except Exception as error:
+            with _lock:
+                _runtime["last_error"] = "MQTT clear publish failed: " + str(error)[:160]
+
+
+def _expire_targets(data: dict, *, now: float | None = None) -> None:
+    """A stale signal never means an actual emergency has ended."""
+    current = time.time() if now is None else now
+    for key, target in list(_active_targets.items()):
+        if not data["categories"].get(target["category"], False):
+            _clear_target(key, reason="category_disabled")
+            continue
+        timeout = ADSB_LOST_SECONDS if target["source"] == "adsb" else AIS_LOST_SECONDS
+        if current - target["last_seen"] >= timeout:
+            _clear_target(key, reason="position_stale")
 
 
 def speed_knots(source: str, item: dict) -> float | None:
@@ -333,8 +403,7 @@ def _target_event(
     now = time.time()
     radius = radius_for_category(data, category)
     if distance > radius + 2:
-        _presence.pop(key, None)
-        _announced.discard(key)
+        _clear_target(key, reason="out_of_range")
         return
     if distance > radius:
         return
@@ -350,6 +419,9 @@ def _target_event(
     # Position freshness and the radius are checked on each source poll.
     if _presence[key] < 2:
         return
+    if key in _active_targets:
+        # Fresh qualifying reception renews presence, even without a reminder.
+        _active_targets[key]["last_seen"] = now
     repeat = key in _announced
     if repeat and not moving_enough(source, ground_speed_knots):
         return
@@ -358,6 +430,10 @@ def _target_event(
         return
     _recent[key] = now
     _announced.add(key)
+    _active_targets[key] = {
+        "source": source, "category": category, "identity": identity,
+        "label": label, "last_seen": now,
+    }
     event = {
         "id": hashlib.sha256((key + ":" + str(now)).encode()).hexdigest()[:16],
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -365,6 +441,7 @@ def _target_event(
         "title": category.replace("_", " ").title() + " nearby",
         "detail": label + " detected within " + str(radius) + " km.",
         "identity": identity, "label": label,
+        "notification_id": _notification_id(source, identity),
         "distance_km": round(distance, 1), "radius_km": radius,
     }
     if ground_speed_knots is not None:
@@ -558,6 +635,7 @@ def _close_mqtt() -> None:
 def _loop(cancel: threading.Event) -> None:
     _presence.clear()
     _announced.clear()
+    _active_targets.clear()
     with _lock:
         _map_recent.clear()
     try:
@@ -567,6 +645,16 @@ def _loop(cancel: threading.Event) -> None:
         _recent.clear()
         _recent.update({str(k): float(v) for k, v in state["last_sent"].items()
                         if isinstance(v, (int, float)) and now - v < 86400})
+        for key, target in state.get("active_targets", {}).items():
+            stamp = target.get("last_seen")
+            source, identity, category = target.get("source"), target.get("identity"), target.get("category")
+            if (source in ("adsb", "ais") and isinstance(identity, str) and
+                    key == source + ":" + identity and
+                    category in ("lifeliner", "police_helicopter", "knrm", "waterpolitie") and
+                    isinstance(stamp, (int, float)) and math.isfinite(stamp) and
+                    0 < stamp <= now + 30 and isinstance(target.get("label"), str)):
+                _active_targets[key] = target
+                _announced.add(key)
         data = settings()
         try:
             _start_mqtt(data)
@@ -577,6 +665,7 @@ def _loop(cancel: threading.Event) -> None:
         # Warm up to avoid firing for all aircraft already in range during startup.
         cancel.wait(60)
         reconnect_after = time.monotonic() + 30
+        last_active_sync = time.monotonic()
         while not cancel.is_set():
             # Read settings on every poll so a radius/category/identity save is
             # effective without interrupting the live receiver observations.
@@ -594,8 +683,23 @@ def _loop(cancel: threading.Event) -> None:
             except Exception as error:
                 with _lock:
                     _runtime["last_error"] = str(error)[:160]
+            try:
+                _expire_targets(data)
+                if _active_targets and time.monotonic() - last_active_sync >= ACTIVE_SYNC_SECONDS:
+                    _save_active_targets()
+                    last_active_sync = time.monotonic()
+            except Exception as error:
+                with _lock:
+                    _runtime["last_error"] = "Presence expiry failed: " + str(error)[:140]
             cancel.wait(5)
     finally:
+        # A regular restart keeps presence; an explicit disable clears notices.
+        if not data["enabled"] or not data["ha_notifications"]:
+            for key in list(_active_targets):
+                try:
+                    _clear_target(key, reason="monitor_disabled")
+                except Exception:
+                    pass
         _close_mqtt()
         with _lock:
             _runtime["adsb"] = "OFF"
