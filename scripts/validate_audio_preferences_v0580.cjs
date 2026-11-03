@@ -8,7 +8,7 @@ function boot(blocked=false) {
     const element = () => ({value:'', options:[], handlers:{}, addEventListener(e,fn){this.handlers[e]=fn;}});
     const filter = element(), denoise = element();
     denoise.options = ['off','speex','rnnoise'].map(value => ({value}));
-    const audio = {src:'', dataset:{}, getAttribute(){return this.src;}, play:async()=>{plays++;}, pause(){}, load(){}, removeAttribute(){this.src='';}};
+    const audio = {src:'', dataset:{}, getAttribute(){return this.src;}, play:async()=>{plays++;}, pause(){}, load(){}, addEventListener(){}, removeAttribute(){this.src='';}};
     const nodes = {'traffic-voice-speech-filter':filter,'traffic-voice-denoise':denoise,'traffic-voice-audio':audio};
     const storage = {getItem:k=>{if(blocked)throw Error(); return saved.get(k)||null;},setItem:(k,v)=>{if(blocked)throw Error();saved.set(k,v);}};
     const ctx = {console, localStorage:storage,document:{hidden:true,readyState:'loading',getElementById:id=>nodes[id]||null,querySelector:()=>null,addEventListener:(e,fn)=>{if(e==='DOMContentLoaded')initialize=fn;}},window:{addEventListener(){},setInterval(){return 1;},localStorage:storage}};
