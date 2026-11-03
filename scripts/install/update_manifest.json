@@ -1809,14 +1809,5 @@
   "scripts/validate_traffic_voice_action_recovery.cjs": [
     "5d5ae47035d85d2c5175c0a81e1cb4b97659965f1605e37b2908ea4a6ea2ac02",
     "517d32821d5272661de12f214f21d1bfe82c89731ba712e0039b74ec64aa0438"
-  ],
-  "docs/emergency-monitor-implementation-plan.md": [
-    "82fb10970e0e345817e45bf1150c9ead9c71892ed388801f51a5ee249905e2b4"
-  ],
-  "docs/emergency-monitor-home-assistant.md": [
-    "cb060f00c436878c88c3ba2538f7e60972dee2c0b686fd339b045d6c827e142e"
-  ],
-  "tests/test_emergency_monitor_lifecycle.py": [
-    "bbd1e0a6fdb2eb8a905383331b82cc1bede1ba2da99a36e60118e586c3401a8d"
   ]
 }
