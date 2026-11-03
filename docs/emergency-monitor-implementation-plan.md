@@ -90,3 +90,12 @@ This dependency was already installed by the tester as version **2.1.0**.
 ## Why v0.67.6?
 
 The first v0.67.5 beta erroneously included incoming P2000 support. Removing that is a correction that must reach installations already running v0.67.5. The updater skips same-version updates; v0.67.6 ensures delivery without disturbing `main`.
+
+## Presence lifecycle — develop v0.70.3
+
+- Readsb ADS-B and AIS-catcher positions remain checked every five seconds.
+- After **90 seconds without a new qualified ADS-B position** or **180 seconds for AIS**, SDRCC emits one separate `sdrcc/emergency/cleared` MQTT event (QoS 1, retain false). A confirmed observation beyond the configured category radius + 2 km clears immediately.
+- Detection events on `sdrcc/emergency/events` retain their existing shape and repeat cooldown, with one new stable `notification_id` field. Clear events use `kind: no_longer_observed`, the same ID, `reason` and `last_seen`.
+- Active target sessions are persisted and recovered across a normal SDRCC worker restart. Explicitly stopping the monitor or HA output closes current sessions.
+- **Only SDRCC presence is tracked**, never the state of an actual incident. All P2000 receive/forward/automation behavior remains owned by Home Assistant and unchanged.
+- HA must create/dismiss notifications using the deterministic ID. See [Home Assistant example](emergency-monitor-home-assistant.md). Old notifications without an ID must be dismissed once manually.
