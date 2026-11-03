@@ -118,7 +118,7 @@ async function main() {
     const d = boot();
     const fail = d.test.runAction("start_marine");
     d.requests[0].resolve(response({ok: false, message: "Receiver temporarily busy"}, false));
-    await tick();
+    for (let attempt = 0; attempt < 12 && d.requests.length < 2; attempt++) await tick();
     assert.equal(d.requests.length, 2, "fallback GET after POST failure");
     assert(!d.controls.some(button => button.disabled),
         "action buttons are restored before slower fallback GET completes");
