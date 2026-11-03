@@ -14,7 +14,7 @@ function boot(blocked=false) {
     const ctx = {console, localStorage:storage,document:{hidden:true,readyState:'loading',getElementById:id=>nodes[id]||null,querySelector:()=>null,addEventListener:(e,fn)=>{if(e==='DOMContentLoaded')initialize=fn;}},window:{addEventListener(){},setInterval(){return 1;},localStorage:storage}};
     vm.runInNewContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.test = {renderAudio};})();'), ctx);
     initialize();
-    const render = (mode,available=true) => ctx.test.renderAudio({selected_mode:mode,audio:{stream_url:'/api/traffic-voice/audio-stream',denoisers:{speex:{available},rnnoise:{available}}}});
+    const render = (mode,available=true) => ctx.test.renderAudio({selected_mode:mode,service:{active:true},audio:{stream_url:'/api/traffic-voice/audio-stream',denoisers:{speex:{available},rnnoise:{available}}}});
     return {filter,denoise,audio,render,plays:()=>plays};
 }
 (async()=>{
