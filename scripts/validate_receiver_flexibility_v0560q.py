@@ -7,6 +7,17 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+import importlib.util
+
+# The managed updater runs this hardware-independent regression against the
+# installed venv before dependency repair. On older/minimal installations,
+# PyYAML may be missing even though the source/receiver safety checks pass.
+# Skip only this optional simulation until the preparation step restores it.
+if importlib.util.find_spec("yaml") is None:
+    print("SKIP: PyYAML unavailable for optional receiver simulation; "
+          "the SDRCC preparation step repairs the virtual environment.", flush=True)
+    raise SystemExit(0)
+
 import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))

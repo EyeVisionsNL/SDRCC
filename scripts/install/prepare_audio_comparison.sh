@@ -10,6 +10,30 @@ MODEL="rnnoise_data-0b50c45.tar.gz"
 MODEL_SHA="4ac81c5c0884ec4bd5907026aaae16209b7b76cd9d7f71af582094a2f98f4b43"
 case "$MODE" in --install|--refresh|--check) ;; *) echo 'Unknown mode'; exit 2;; esac
 [[ -f "$PROJECT_ROOT/VERSION" ]] || { echo 'Not an SDRCC project'; exit 2; }
+
+# Existing minimal installs can have an incomplete venv. The older managed
+# updater invokes its optional receiver simulation before this preparation
+# step; that simulation now skips only when PyYAML is missing. Repair the
+# runtime dependency here, BEFORE the updater's second validation and
+# before any service is stopped or source files are installed.
+VENV_PYTHON="$PROJECT_ROOT/venv/bin/python"
+if [[ "$MODE" == --install && -x "$VENV_PYTHON" ]] \
+  && ! "$VENV_PYTHON" -c 'import yaml' >/dev/null 2>&1; then
+  PROJECT_USER="$(stat -c '%U' "$PROJECT_ROOT")"
+  echo "SDRCC dependency repair: restoring PyYAML in the existing virtual environment."
+  if [[ "$EUID" == 0 && "$PROJECT_USER" != root ]]; then
+    runuser -u "$PROJECT_USER" -- "$VENV_PYTHON" -m pip install \
+      --disable-pip-version-check --no-input --only-binary=:all: 'PyYAML>=6,<7'
+  else
+    "$VENV_PYTHON" -m pip install \
+      --disable-pip-version-check --no-input --only-binary=:all: 'PyYAML>=6,<7'
+  fi
+  "$VENV_PYTHON" -c 'import yaml' || {
+    echo "FAIL: PyYAML is still unavailable in the SDRCC virtual environment."
+    exit 1
+  }
+fi
+
 # --refresh remains a compatibility option for older updater helpers.
 if [[ "$MODE" == --refresh && ! -f "$RUNTIME/BUILD-PROVENANCE" ]]; then exit 0; fi
 bash "$SCRIPT_DIR/prepare_iss_sstv_decoder.sh" "$PROJECT_ROOT" "$MODE"
