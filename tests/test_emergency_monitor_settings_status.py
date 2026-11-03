@@ -103,7 +103,7 @@ class EmergencyMonitorStatusTests(unittest.TestCase):
             observed.append(data["radius_km"])
             cancel.stopped = True
 
-        with patch.object(em, "settings", side_effect=[self.old, changed]), \
+        with patch.object(em, "settings", side_effect=[self.old, changed, changed]), \
              patch.object(em, "_load_history", return_value={"last_sent": {}, "history": []}), \
              patch.object(em, "_purge_legacy_p2000_history"), \
              patch.object(em, "_start_mqtt"), \
