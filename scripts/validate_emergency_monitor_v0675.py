@@ -98,6 +98,8 @@ def check():
     assert not monitor.moving_enough("ais", None)
     assert not monitor.moving_enough("adsb", None)
     captured = []
+    old_persist = monitor._save_active_targets
+    monitor._save_active_targets = lambda: None  # Offline validation never writes presence.
     old_writer = monitor._store_event
     old_presence = dict(monitor._presence)
     old_announced = set(monitor._announced)
@@ -267,6 +269,7 @@ def check():
             assert len(captured) == 2 and captured[-1].get("repeat") is True, name
     finally:
         monitor._store_event = old_writer
+        monitor._save_active_targets = old_persist
         monitor._presence.clear()
         monitor._presence.update(old_presence)
         monitor._announced.clear()
