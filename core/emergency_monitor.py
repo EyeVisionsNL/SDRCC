@@ -312,6 +312,7 @@ def _save_active_targets() -> None:
     with _lock:
         state = _load_history()
         state["active_targets"] = {key: dict(value) for key, value in _active_targets.items()}
+        state["last_sent"] = {key: val for key, val in _recent.items() if time.time()-val < 86400}
         _atomic(STATE_FILE, state)
 
 
@@ -693,8 +694,13 @@ def _loop(cancel: threading.Event) -> None:
                     _runtime["last_error"] = "Presence expiry failed: " + str(error)[:140]
             cancel.wait(5)
     finally:
-        # A regular restart keeps presence; an explicit disable clears notices.
-        if not data["enabled"] or not data["ha_notifications"]:
+        # Read the current settings: a disable may stop the worker before its
+        # next poll has reloaded the updated configuration.
+        try:
+            closing_settings = settings()
+        except Exception:
+            closing_settings = data if "data" in locals() else _DEFAULT
+        if not closing_settings["enabled"] or not closing_settings["ha_notifications"]:
             for key in list(_active_targets):
                 try:
                     _clear_target(key, reason="monitor_disabled")
