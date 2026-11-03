@@ -455,7 +455,6 @@ def install_privileged_helpers(source: Path, install_user: str) -> None:
         "scripts/sdrcc_disable_self_autostart.py": "/usr/local/sbin/sdrcc-disable-self-autostart",
         "scripts/sdrcc_sync_readsb_position.py": "/usr/local/sbin/sdrcc-sync-readsb-position",
         "scripts/sdrcc_update.py": "/usr/local/sbin/sdrcc-update",
-        "scripts/sdrcc_external_update.py": "/usr/local/sbin/sdrcc-external-update",
     }
     for relative, target in helpers.items():
         run(
@@ -473,9 +472,6 @@ def install_privileged_helpers(source: Path, install_user: str) -> None:
         "/etc/sudoers.d/sdrcc-update":
             f'{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""\n',
     }
-    rules["/etc/sudoers.d/sdrcc-external-update"] = (
-        f"{install_user} ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-external-update ais-catcher, /usr/local/sbin/sdrcc-external-update satdump, /usr/local/sbin/sdrcc-external-update readsb, /usr/local/sbin/sdrcc-external-update rtl-airband\n"
-    )
     rules["/etc/sudoers.d/sdrcc-update-services"] = "".join(
         f"{install_user} ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block {action} {service}\n"
         for service in (*UPDATE_RESTORE_SERVICES, "sdrcc-traffic-voice.service")
@@ -487,6 +483,20 @@ def install_privileged_helpers(source: Path, install_user: str) -> None:
         os.chmod(temporary, 0o440)
         run(["/usr/sbin/visudo", "-cf", temporary], check=True)
         os.replace(temporary, target)
+
+
+def retire_legacy_external_updater() -> None:
+    """Retire the old elevated helper after a successful SDRCC release update."""
+    if run(["/usr/bin/systemctl", "is-active", "--quiet",
+            "sdrcc-external-update.service"], timeout=10).returncode == 0:
+        log("Legacy external update worker still active; cleanup deferred.")
+        return
+    for target in ("/etc/sudoers.d/sdrcc-external-update",
+                   "/usr/local/sbin/sdrcc-external-update"):
+        try:
+            Path(target).unlink(missing_ok=True)
+        except OSError as error:
+            log(f"Legacy external updater cleanup failed for {target}: {error}")
 
 
 def home_position(project: Path, install_user: str) -> tuple[str, str]:
@@ -720,6 +730,7 @@ def worker() -> int:
                 raise RuntimeError(f"Installed VERSION mismatch: expected {target}, got {installed}")
 
             mark_installed_channel(project, branch, install_user, install_group)
+            retire_legacy_external_updater()
             service_restore = restore_update_service_plan(project)
             success_message = (
                 f"SDRCC updated successfully to {target}."

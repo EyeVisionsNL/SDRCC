@@ -90,7 +90,6 @@ RECEIVER_ROLE_HELPER = Path("/usr/local/sbin/sdrcc-apply-receiver-roles")
 AIS_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-ais-autostart")
 SDRCC_AUTOSTART_HELPER = Path("/usr/local/sbin/sdrcc-disable-self-autostart")
 SDRCC_UPDATE_HELPER = Path("/usr/local/sbin/sdrcc-update")
-EXTERNAL_UPDATE_HELPER = Path("/usr/local/sbin/sdrcc-external-update")
 AIS_CONTROL_SERVICE = "ais-catcher-control.service"
 WEATHER_GAIN_RESULT_PREFIX = "SDRCC_WEATHER_GAIN="
 UPDATE_SERVICE_STATE_FILE = PROJECT_ROOT / "data" / "state" / "update_service_state.json"
@@ -4988,80 +4987,16 @@ def _prepare_receiver_work_for_update():
 
 @app.route("/api/external-updates", methods=["GET"])
 def api_external_updates():
-    """Explicit/cached read-only discovery, independent of SDRCC code updates."""
-    refresh = str(request.args.get("refresh") or "").lower() in {"1", "true", "yes"}
-    return jsonify(external_updates.snapshot(refresh=refresh))
-
-
-@app.route("/api/external-updates/install", methods=["POST"])
-@receiver_manager.service_control_serialized
-def api_external_update_install():
-    """Allow only pinned products; active missions and receiver bindings block updates."""
-    body = request.get_json(silent=True)
-    product = body.get("software") if isinstance(body, dict) else None
-    if product not in {"ais-catcher", "satdump", "readsb", "rtl-airband"}:
-        return jsonify({"ok": False, "message": "Unsupported external update product."}), 400
-    if (update_manager.get_status().get("worker") or {}).get("state") in {
-        "queued", "starting", "downloading", "validating",
-        "backing_up", "installing", "restarting",
-    }:
-        return jsonify({"ok": False, "message": "SDRCC code update is still active."}), 409
-    if external_updates.worker_status().get("state") in {
-        "queued", "starting", "backing_up", "installing", "verifying", "restoring",
-    }:
-        return jsonify({"ok": False, "message": "An external update is already running."}), 409
-
-    blockers = _update_receiver_runtime_blockers()
-    binding = receiver_manager.binding_status()
-    reservations = receiver_manager.get_status().get("canonical_reservations") or {}
-    if blockers or reservations or binding.get("transaction") or binding.get("recovery"):
-        return jsonify({
-            "ok": False,
-            "message": "Finish active missions, receiver reservations or receiver recovery first.",
-            "runtime_blockers": blockers,
-        }), 409
-
-    # Package updates must not disconnect a running ADS-B or Traffic Voice
-    # receiver. The detached worker repeats this check before installation.
-    busy_unit = {
-        "readsb": "readsb.service",
-        "rtl-airband": "sdrcc-traffic-voice.service",
-    }.get(product)
-    if busy_unit and service_state(busy_unit).get("active"):
-        return jsonify({"ok": False, "message":
-                        f"Stop {busy_unit} using SDRCC before upgrading."}), 409
-
-    if not EXTERNAL_UPDATE_HELPER.is_file():
-        return jsonify({"ok": False, "message":
-                        "External update helper is not installed yet. Reinstall the SDRCC update helper."}), 503
-    available = external_updates.snapshot(refresh=True)
-    entry = next((row for row in available["software"] if row["id"] == product), None)
-    if not entry or not entry["can_install"]:
-        return jsonify({"ok": False, "message":
-                        "No verified update is available for this installed package."}), 409
-    result = run_command(["sudo", "-n", str(EXTERNAL_UPDATE_HELPER), product], timeout=30)
-    if result.returncode != 0:
-        failure = external_updates.explain_launch_failure(
-            result.returncode, result.stdout, result.stderr)
-        write_log(
-            f"External {product} update launch failed: rc={result.returncode}; "
-            f"code={failure['code']}; stderr={(result.stderr or '')[-500:]}")
-        return jsonify({"ok": False, **failure}), 503
-    try:
-        response = json.loads((result.stdout or "").strip())
-    except (ValueError, TypeError):
-        response = {"ok": False, "code": "invalid_helper_response",
-                    "message": "The external updater returned an unreadable response."}
-    return jsonify(response), 202 if response.get("ok") else 503
+    """Read only locally installed versions; never download or install packages."""
+    return jsonify(external_updates.snapshot())
 
 
 @app.route("/api/update/install", methods=["POST"])
 @receiver_manager.service_control_serialized
 def api_update_install():
-    if external_updates.worker_status().get("state") in {
-        "queued", "starting", "backing_up", "installing", "verifying", "restoring",
-    }:
-        return jsonify({"ok": False, "message": "External software update is still running."}), 409
+    # Guard an already-running legacy external worker during migration.
+    if service_state("sdrcc-external-update.service").get("active"):
+        return jsonify({"ok": False, "message": "A legacy external update is still running."}), 409
     status = update_manager.check_remote_version()
     if status.get("check_error"):
         return jsonify({

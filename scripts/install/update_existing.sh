@@ -165,6 +165,10 @@ if [[ "$HTTP" != 200 ]]; then
   echo "Backup: $BACKUP"
   exit 4
 fi
+# Retire the former standalone updater grant only after dashboard health checks.
+if ! systemctl is-active --quiet sdrcc-external-update.service; then
+  sudo rm -f /etc/sudoers.d/sdrcc-external-update /usr/local/sbin/sdrcc-external-update
+fi
 echo "PASS: SDRCC $(tr -d '[:space:]' < "$PROJECT_ROOT/VERSION"); dashboard HTTP 200"
 echo "Existing station, ISS Voice, Traffic Voice and receiver configuration preserved."
 echo "This update did not replace the existing Home Position."

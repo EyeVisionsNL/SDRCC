@@ -254,7 +254,6 @@ sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_disable_ais_au
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_disable_self_autostart.py" /usr/local/sbin/sdrcc-disable-self-autostart
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_sync_readsb_position.py" /usr/local/sbin/sdrcc-sync-readsb-position
 sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_update.py" /usr/local/sbin/sdrcc-update
-sudo install -o root -g root -m 0755 "$PROJECT_ROOT/scripts/sdrcc_external_update.py" /usr/local/sbin/sdrcc-external-update
 
 say "Install sudoers boundaries"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
@@ -296,9 +295,6 @@ eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-disable-self-autostart
 EOF
 cat >"$tmp/sdrcc-update" <<EOF
 eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-update ""
-EOF
-cat >"$tmp/sdrcc-external-update" <<EOF
-eyeuser ALL=(root) NOPASSWD: /usr/local/sbin/sdrcc-external-update ais-catcher, /usr/local/sbin/sdrcc-external-update satdump, /usr/local/sbin/sdrcc-external-update readsb, /usr/local/sbin/sdrcc-external-update rtl-airband
 EOF
 cat >"$tmp/sdrcc-update-services" <<EOF
 eyeuser ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block start readsb.service

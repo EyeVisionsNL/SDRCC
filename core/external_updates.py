@@ -1,491 +1,90 @@
-"""Read-only discovery of third-party packages used by SDRCC.
+"""Read-only local inventory of external radio software used by SDRCC.
 
-Checks run only on explicit request (cached between refreshes). The update
-worker is a separate, narrowly sudo-authorized systemd unit.
+No upstream checks, package changes, standalone update worker or elevation.
+Compatible runtime upgrades may be included only in tested SDRCC releases.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import re
 import shutil
 import subprocess
-import threading
-import time
-from urllib.request import Request, urlopen
 
-WORKER_STATUS = Path("/var/lib/sdrcc/external-update-status.json")
-WORKER_UNIT = "sdrcc-external-update.service"
-RELEASE_API = "https://api.github.com/repos/jvde-github/AIS-catcher/releases/latest"
-RELEASE_PAGE = "https://github.com/jvde-github/AIS-catcher/releases"
-SATDUMP_PAGE = "https://github.com/SatDump/SatDump/releases"
-SATDUMP_RELEASE_API = "https://api.github.com/repos/SatDump/SatDump/releases/latest"
-AIRBAND_PAGE = "https://github.com/rtl-airband/RTLSDR-Airband/releases"
-AIRBAND_RELEASE_API = "https://api.github.com/repos/rtl-airband/RTLSDR-Airband/releases/latest"
-READSB_PAGE = "https://github.com/wiedehopf/readsb/tree/dev"
-READSB_VERSION_URL = "https://raw.githubusercontent.com/wiedehopf/readsb/dev/version"
-AIRBAND_PROVENANCE = Path("/opt/sdrcc/traffic_voice/share/BUILD-PROVENANCE")
 AIRBAND_BINARY = Path("/opt/sdrcc/traffic_voice/bin/rtl_airband")
-CACHE_SECONDS = 900
-_LOCK = threading.RLock()
-_CACHE: dict = {"checked_at": 0.0, "ais_release": None, "error": None,
-                "satdump_release": None, "airband_release": None,
-                "readsb_upstream": None, "errors": {}}
-VERSION_RE = re.compile(r"(?i)\b(?:ais[- ]?catcher)\s+v?(\d+\.\d+(?:\.\d+)?)\b")
-TAG_RE = re.compile(r"^v(\d+\.\d+(?:\.\d+)?)$")
+AIRBAND_PROVENANCE = Path("/opt/sdrcc/traffic_voice/share/BUILD-PROVENANCE")
 
 
 def command(args, timeout=5):
     try:
-        done = subprocess.run(args, capture_output=True, text=True,
-                              check=False, timeout=timeout)
-        return (done.stdout or "") + "\n" + (done.stderr or "")
+        result = subprocess.run(args, capture_output=True, text=True,
+                                check=False, timeout=timeout)
+        if result.returncode:
+            return ""
+        return (result.stdout or "") + "\n" + (result.stderr or "")
     except (OSError, subprocess.SubprocessError):
         return ""
 
 
-def ais_version(output):
-    match = VERSION_RE.search(output or "")
-    return match.group(1) if match else None
+def package_version(name):
+    output = command(["/usr/bin/dpkg-query", "-W", "-f=${Version}", name]).strip()
+    return output if re.search(r"\d", output) else None
 
 
-def version_tuple(value):
-    if not value or not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", value):
-        return None
-    return tuple(int(x) for x in (value.split(".") + ["0"])[:3])
-
-
-def _check_ais_release():
-    req = Request(RELEASE_API, headers={
-        "User-Agent": "SDRCC-external-release-check",
-        "Accept": "application/vnd.github+json",
-    })
-    with urlopen(req, timeout=6) as response:
-        payload = json.loads(response.read(65536))
-    tag = payload.get("tag_name")
-    if not isinstance(tag, str) or not TAG_RE.fullmatch(tag):
-        raise ValueError("Unexpected AIS-catcher release tag")
-    link = payload.get("html_url")
-    if not isinstance(link, str) or not link.startswith(RELEASE_PAGE + "/tag/"):
-        link = RELEASE_PAGE + "/tag/" + tag
-    assets = []
-    for entry in payload.get("assets", []):
-        name, digest, url = entry.get("name"), entry.get("digest"), entry.get("browser_download_url")
-        if (isinstance(name, str)
-                and re.fullmatch(r"ais-catcher_ubuntu_[a-z]+_(?:amd64|arm64|armhf)\.deb", name)
-                and isinstance(digest, str)
-                and re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
-                and isinstance(url, str)
-                and url == f"https://github.com/jvde-github/AIS-catcher/releases/download/{tag}/{name}"
-                and 0 < int(entry.get("size") or 0) <= 50_000_000):
-            assets.append({"name": name, "digest": digest, "url": url,
-                           "size": entry["size"]})
-    return {"version": tag[1:], "tag": tag, "url": link,
-            "published_at": payload.get("published_at"), "assets": assets}
-
-
-def apt_ais_installed():
-    return "install ok installed" in command(
-        ["/usr/bin/dpkg-query", "-W", "-f=${Status}", "ais-catcher"]).lower()
-
-
-def matching_ais_asset(upstream):
-    """Select a checksum-verified official package for the exact installed OS."""
-    try:
-        os_release = Path("/etc/os-release").read_text(encoding="utf-8")
-    except OSError:
-        return None
-    def os_field(key):
-        for line in os_release.splitlines():
-            name, separator, value = line.partition("=")
-            if separator and name == key:
-                return value.strip().strip('"')
-        return ""
-    if os_field("ID") != "ubuntu":
-        return None
-    codename = os_field("VERSION_CODENAME")
-    arch = command(["/usr/bin/dpkg", "--print-architecture"]).strip()
-    if not re.fullmatch(r"[a-z]{3,16}", codename) or arch not in ("amd64", "arm64", "armhf"):
-        return None
-    asset_name = f"ais-catcher_ubuntu_{codename}_{arch}.deb"
-    return next((entry for entry in upstream.get("assets", [])
-                 if entry.get("name") == asset_name), None)
-
-
-def _github_stable_release(url, page, prefix=""):
-    """Fetch a validated published stable release; prereleases are excluded."""
-    request = Request(url, headers={
-        "User-Agent": "SDRCC-external-release-check",
-        "Accept": "application/vnd.github+json",
-    })
-    with urlopen(request, timeout=6) as response:
-        payload = json.loads(response.read(128 * 1024))
-    tag = payload.get("tag_name")
-    if (not isinstance(tag, str) or
-            not re.fullmatch(re.escape(prefix) + r"\d+\.\d+(?:\.\d+)?", tag)
-            or payload.get("draft") or payload.get("prerelease")):
-        raise ValueError("Unexpected stable release tag")
-    version = tag[len(prefix):]
-    return {"version": version, "tag": tag, "url": page + "/tag/" + tag,
-            "published_at": payload.get("published_at")}
-
-
-def _readsb_development_version():
-    """readsb deliberately has no stable GitHub release feed. Check dev/version."""
-    request = Request(READSB_VERSION_URL, headers={
-        "User-Agent": "SDRCC-external-release-check",
-        "Cache-Control": "no-cache",
-    })
-    with urlopen(request, timeout=6) as response:
-        version = response.read(128).decode("utf-8").strip()
-    if version_tuple(version) is None:
-        raise ValueError("Invalid readsb dev version")
-    return {"version": version, "url": READSB_PAGE, "channel": "dev"}
-
-
-def release(refresh=False):
-    with _LOCK:
-        if refresh or not _CACHE["checked_at"] or time.time() - _CACHE["checked_at"] > CACHE_SECONDS:
-            sources = {
-                "ais_release": _check_ais_release,
-                "satdump_release": lambda: _github_stable_release(
-                    SATDUMP_RELEASE_API, SATDUMP_PAGE),
-                "airband_release": lambda: _github_stable_release(
-                    AIRBAND_RELEASE_API, AIRBAND_PAGE, prefix="v"),
-                "readsb_upstream": _readsb_development_version,
-            }
-            errors = {}
-            # Independent sources must not block one another, and must not
-            # turn a successful check into an ambiguous global failure.
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                results = {name: executor.submit(fetch) for name, fetch in sources.items()}
-                for name, future in results.items():
-                    try:
-                        _CACHE[name] = future.result()
-                    except Exception as exc:
-                        _CACHE[name] = None
-                        errors[name] = str(exc)[:180]
-            _CACHE["errors"] = errors
-            _CACHE["error"] = errors.get("ais_release")
-            _CACHE["checked_at"] = time.time()
-        return dict(_CACHE, errors=dict(_CACHE.get("errors") or {}))
-
-
-def installed_satdump_version(package, binary):
-    """Prefer local binary/version; do not pretend a source build is APT-managed."""
-    if not binary:
-        return None, "not-installed"
-    # SatDump 1.2.2 supports `satdump version` (not `--version`).
-    output = command([binary, "version"], timeout=4)
-    match = re.search(r"(?i)\bsatdump\s*(?:version\s*)?v?(\d+\.\d+(?:\.\d+)?)\b", output)
-    if match:
-        return match.group(1), "binary"
-    if package:
-        return package, "apt"
-    # The clean installer pins 1.2.2, but an unrecognised local binary may
-    # have been replaced later. Never mark it current based on that assumption.
-    return None, "non-apt-unverified"
-
-
-def installed_airband_version():
-    if not AIRBAND_BINARY.is_file():
-        return None, "not-installed"
-    try:
-        provenance = AIRBAND_PROVENANCE.read_text(encoding="utf-8")
-    except OSError:
-        provenance = ""
-    match = re.search(r"(?m)^RTLSDR-Airband\s+v?(\d+\.\d+(?:\.\d+)?)\s*$", provenance)
-    if match:
-        return match.group(1), "SDRCC patched"
-    output = command([str(AIRBAND_BINARY), "-v"], timeout=4)
-    match = re.search(r"(?i)\b(?:RTLSDR-Airband|rtl_airband)\s+v?(\d+\.\d+(?:\.\d+)?)\b", output)
-    if match:
-        return match.group(1), "binary"
-    return None, "unverified custom binary"
-
-
-def newer_than(local, upstream):
-    """Compare only clean numeric release versions, never unknown text."""
-    if not local or not upstream:
-        return None
-    match = re.search(r"(?<!\d)(\d+\.\d+(?:\.\d+)?)(?!\d)", local)
-    parsed = version_tuple(match.group(1)) if match else None
-    target = version_tuple(upstream)
-    if parsed is None or target is None:
-        return None
-    return parsed < target
-
-
-def _apt_version(package, field):
-    result = command(["/usr/bin/apt-cache", "policy", package])
-    match = re.search(r"^\s*" + re.escape(field) + r":\s*(\S+)", result, re.M)
-    value = match.group(1) if match else None
-    return None if value in (None, "(none)") else value
-
-
-def _apt_newer(installed, candidate):
-    if not installed or not candidate:
-        return False
-    try:
-        return subprocess.run(
-            ["/usr/bin/dpkg", "--compare-versions", candidate, "gt", installed],
-            timeout=3, capture_output=True, check=False,
-        ).returncode == 0
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-
-def explain_launch_failure(returncode, stdout="", stderr=""):
-    """Turn a failed privileged launcher into actionable, bounded UI feedback."""
-    try:
-        answer = json.loads((stdout or "").strip())
-    except (TypeError, ValueError):
-        answer = None
-    if isinstance(answer, dict) and answer.get("ok") is False:
-        label = str(answer.get("message") or "").strip()
-        if label:
-            return {"code": str(answer.get("code") or "helper_rejected")[:48],
-                    "message": label[:240]}
-    error = str(stderr or "").strip()
-    lowered = error.lower()
-    if any(part in lowered for part in (
-            "a password is required", "not allowed to execute",
-            "is not in the sudoers", "is not in sudoers",
-            "sudo: a terminal is required", "authentication is required")):
-        return {"code": "sudo_permission",
-                "message": "SDRCC external updater is not authorized by sudo. "
-                           "The update helper permissions need repair."}
-    if any(part in lowered for part in (
-            "no such file or directory", "command not found", "permission denied")):
-        return {"code": "helper_missing_or_unexecutable",
-                "message": "The installed external update helper cannot run. "
-                           "The privileged helper needs repair."}
-    if "already exists" in lowered or "already loaded" in lowered:
-        return {"code": "unit_already_exists",
-                "message": "A previous external update systemd unit is still registered."}
-    return {"code": "launch_failed",
-            "message": "External updater failed to launch (exit "
-                       + str(returncode) + "). Check the SDRCC service log."}
-
-
-def worker_status():
-    try:
-        data = json.loads(WORKER_STATUS.read_text(encoding="utf-8"))
-    except (FileNotFoundError, ValueError, OSError):
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    if data.get("state") in {"starting", "backing_up", "installing", "verifying", "restoring"}:
-        if command(["/usr/bin/systemctl", "is-active", WORKER_UNIT]).strip() != "active":
-            return {**data, "state": "interrupted",
-                    "message": "External update worker interrupted; check backup and logs."}
-    return data
-
-
-def readsb_upgrade_preflight(installed, version_output, upstream):
-    """Return (eligible, reason) for an original SDRCC readsb installation.
-
-    Legacy source-built binaries have no Debian package to downgrade. Only
-    an exact, stopped, systemd-managed SDRCC binary can be migrated in place.
-    """
-    if installed != "3.16.15":
-        return False, "Only SDRCC's existing readsb 3.16.15 can use this pinned upgrade"
-    if not re.search(r"(?<![a-z0-9])cc0d099(?![a-z0-9])",
-                     version_output or "", flags=re.I):
-        return False, "Installed readsb build commit differs from SDRCC's pinned cc0d099"
-    if upstream != "3.16.20":
-        return False, "Pinned readsb 3.16.20 source needs review against the upstream dev branch"
-    binary = shutil.which("readsb")
-    if not binary:
-        return False, "readsb executable cannot be located"
-    path = Path(binary)
-    if (str(path) not in ("/usr/bin/readsb", "/usr/local/bin/readsb")
-            or path.is_symlink() or not path.is_file()):
-        return False, "readsb executable has an unsupported location or is a symlink"
-
-    package = command(["/usr/bin/dpkg-query", "-W", "-f=${Status}", "readsb"])
-    if "install ok installed" in package.lower():
-        ownership = command(["/usr/bin/dpkg-query", "-S", str(path)])
-        if not re.search(r"(?m)^readsb(?::[a-z0-9_-]+)?:\s", ownership):
-            return False, (
-                "The active readsb executable is not owned by the readsb package; "
-                "possible legacy source installation")
-        return True, "Pinned 3.16.20 package update ready; stop ADS-B reception first"
-
-    # dpkg-query -S exits 1 for an unowned path. Its diagnostic text
-    # depends on LANGUAGE/LC_MESSAGES and can appear on stdout or stderr;
-    # never use a particular English substring to decide ownership.
-    # Verify the dpkg database responds correctly before accepting rc=1.
-    health = command(["/usr/bin/dpkg-query", "-W", "-f=${Status}", "dpkg"])
-    if "install ok installed" not in health.lower():
-        return False, "dpkg database health check failed; refusing readsb migration"
-    try:
-        import os
-        owner = subprocess.run(
-            ["/usr/bin/dpkg-query", "-S", str(path)],
-            capture_output=True, text=True, timeout=5, check=False,
-            env={**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"})
-    except (OSError, subprocess.SubprocessError):
-        return False, "Unable to query Debian ownership of the legacy readsb binary"
-    if owner.returncode == 0:
-        return False, "Legacy readsb executable belongs to another Debian package"
-    if owner.returncode != 1:
-        return False, (
-            "Debian ownership query failed (exit " + str(owner.returncode)
-            + "); refusing readsb migration")
-    # Exit 1 with a working dpkg database means no package claims this file.
-    # No localized error-message parsing is needed.
-
-    # The service must invoke the same executable; no custom unit migration.
-    unit = command(["/usr/bin/systemctl", "show", "--property=ExecStart",
-                    "--value", "readsb.service"])
-    if not re.search(r"(?<!\S)path=" + re.escape(str(path)) + r"(?=[;\s]|$)", unit):
-        return False, "readsb service uses another executable; manual migration required"
-    return True, "Legacy SDRCC binary detected; safe in-place upgrade with backup available"
-
+def entry(identifier, name, version, present, source, uncertainty):
+    return {
+        "id": identifier, "name": name, "installed": version,
+        "status": "installed" if present and version else "unknown" if present else "missing",
+        "source": source,
+        "reason": ("Version detected locally" if present and version else
+                   uncertainty if present else "Optional component not installed"),
+    }
 
 
 def snapshot(refresh=False):
-    ais_installed = ais_version(command(["AIS-catcher", "-v"]))
-    if not ais_installed and shutil.which("AIS-catcher"):
-        ais_installed = ais_version(command(["AIS-catcher", "--version"]))
-    ais_package = command(["/usr/bin/dpkg-query", "-W", "-f=${Version}", "ais-catcher"]).strip()
-    if not ais_installed and ais_package:
-        match = re.search(r"(\d+\.\d+(?:\.\d+)?)", ais_package)
-        if match:
-            ais_installed = match.group(1)
+    """Return only local versions; refresh is accepted for legacy callers."""
+    ais = shutil.which("AIS-catcher")
+    ais_out = command([ais, "-v"]) if ais else ""
+    if ais and not ais_out:
+        ais_out = command([ais, "--version"])
+    match = re.search(r"(?i)\bais[- ]?catcher\s+(?:version\s+)?v?(\d+\.\d+(?:\.\d+)?)", ais_out)
+    ais_version = match.group(1) if match else (package_version("ais-catcher") if ais else None)
 
-    upstream = release(refresh=refresh)
-    ais_latest = upstream.get("ais_release") or {}
-    sat_latest = upstream.get("satdump_release") or {}
-    readsb_latest = upstream.get("readsb_upstream") or {}
-    air_latest = upstream.get("airband_release") or {}
-    errors = upstream.get("errors") or {}
-    candidate = _apt_version("satdump", "Candidate")
-    installed_pkg = _apt_version("satdump", "Installed")
-    satdump_binary = shutil.which("satdump")
-    sat_installed, sat_method = installed_satdump_version(installed_pkg, satdump_binary)
-    satdump_upgrade = bool(satdump_binary and installed_pkg and candidate and
-                           _apt_newer(installed_pkg, candidate))
-    sat_upstream_newer = newer_than(sat_installed, sat_latest.get("version"))
-    readsb_info = command(["readsb", "--version"])
-    readsb_match = re.search(r"readsb version:\s*(\d+\.\d+(?:\.\d+)?)",
-                            readsb_info, re.I)
-    readsb_installed = readsb_match.group(1) if readsb_match else None
-    air_installed, air_method = installed_airband_version()
-    readsb_newer = newer_than(readsb_installed, readsb_latest.get("version"))
-    air_newer = newer_than(air_installed, air_latest.get("version"))
-    readsb_can_install, readsb_guard_reason = readsb_upgrade_preflight(
-        readsb_installed, readsb_info, readsb_latest.get("version"))
-    readsb_can_install = bool(readsb_can_install and readsb_newer)
-    air_provenance = ""
-    try:
-        air_provenance = AIRBAND_PROVENANCE.read_text(encoding="utf-8")
-    except OSError:
-        pass
-    air_can_install = bool(
-        air_installed == "5.2.0" and air_method == "SDRCC patched"
-        and "61c5c4061967752da6b491a924664d72184b38fa" in air_provenance
-        and "SDRCC v0.56.0f auto-gain patch" in air_provenance
-        and "SDRCC v0.56.0w scan-interval patch" in air_provenance
-        and air_latest.get("version") == "6.2.0" and air_newer)
-    ais_upgrade = bool(ais_installed and ais_latest.get("version") and
-                       version_tuple(ais_latest["version"]) and version_tuple(ais_installed)
-                       and version_tuple(ais_latest["version"]) > version_tuple(ais_installed))
-    ais_manageable = bool(apt_ais_installed() and matching_ais_asset(ais_latest))
-    ais_can_install = ais_upgrade and ais_manageable
+    sat = shutil.which("satdump")
+    sat_out = command([sat, "version"], timeout=4) if sat else ""
+    match = re.search(r"(?i)\bsatdump\s*(?:version\s*)?v?(\d+\.\d+(?:\.\d+)?)", sat_out)
+    sat_version = match.group(1) if match else (package_version("satdump") if sat else None)
 
-    if satdump_upgrade:
-        sat_status = "update"
-        sat_reason = "Ubuntu APT update available"
-    elif sat_method == "not-installed":
-        sat_status, sat_reason = "missing", "SatDump is not installed"
-    elif errors.get("satdump_release"):
-        sat_status, sat_reason = "manual", "Stable release check unavailable"
-    elif sat_upstream_newer:
-        sat_status, sat_reason = "review", (
-            "New stable release found; non-APT builds need a manual compatibility review"
-            if not installed_pkg else "Newer upstream release; check your Ubuntu package")
-    elif sat_upstream_newer is None:
-        sat_status, sat_reason = "manual", (
-            "Source build: exact installed version could not be verified"
-            if not installed_pkg else "Installed package version could not be compared")
-    elif (version_tuple(sat_installed) is not None
-          and version_tuple(sat_latest.get("version")) is not None
-          and version_tuple(sat_installed) > version_tuple(sat_latest["version"])):
-        # Ubuntu can ship newer packages than the last GitHub stable tag.
-        # Do not label a 1.2.3 binary as "current stable 1.2.2".
-        sat_status, sat_reason = "ahead", (
-            "Installed version is newer than the latest tagged stable release; "
-            "likely a distribution or development build")
-    else:
-        sat_status, sat_reason = "current", (
-            "Current stable release (nightly builds excluded)"
-            if not installed_pkg else "No newer stable release or Ubuntu package")
+    readsb = shutil.which("readsb")
+    readsb_out = command([readsb, "--version"]) if readsb else ""
+    match = re.search(r"(?i)\breadsb\s+(?:version\s*:\s*|v)(\d+\.\d+(?:\.\d+)?)", readsb_out)
+    readsb_version = match.group(1) if match else (package_version("readsb") if readsb else None)
 
-    if readsb_installed is None:
-        readsb_status = "missing" if not shutil.which("readsb") else "manual"
-        readsb_reason = "Version not detected"
-    elif errors.get("readsb_upstream"):
-        readsb_status, readsb_reason = "manual", "Development version check unavailable"
-    elif readsb_newer:
-        readsb_status, readsb_reason = "review", readsb_guard_reason
-    elif readsb_newer is False:
-        readsb_status, readsb_reason = "current", "Current with upstream dev branch"
-    else:
-        readsb_status, readsb_reason = "manual", "Version comparison unavailable"
+    air_present = AIRBAND_BINARY.is_file()
+    provenance = ""
+    if air_present:
+        try:
+            provenance = AIRBAND_PROVENANCE.read_text(encoding="utf-8")
+        except OSError:
+            pass
+    match = re.search(r"(?m)^RTLSDR-Airband\s+v?(\d+\.\d+(?:\.\d+)?)\s*$", provenance)
+    if not match and air_present:
+        match = re.search(r"(?i)\b(?:RTLSDR-Airband|rtl_airband)\s+v?(\d+\.\d+(?:\.\d+)?)",
+                          command([str(AIRBAND_BINARY), "-v"], timeout=4))
+    air_version = match.group(1) if match else None
 
-    if air_method == "not-installed":
-        air_status, air_reason = "missing", "Traffic Voice component not installed"
-    elif errors.get("airband_release"):
-        air_status, air_reason = "manual", "Stable release check unavailable"
-    elif air_newer:
-        air_status, air_reason = "review", (
-            "New stable version; SDRCC Auto Gain and scan interval patches need porting")
-    elif air_newer is False:
-        air_status, air_reason = "current", "No newer stable release; SDRCC patches retained"
-    else:
-        air_status, air_reason = "manual", (
-            "Installed binary version could not be verified; SDRCC patches may differ")
-
-    rows = [
-        {"id": "ais-catcher", "name": "AIS-catcher", "installed": ais_installed,
-         "latest": ais_latest.get("version"), "available": ais_upgrade,
-         "can_install": ais_can_install,
-         "status": "update" if ais_can_install else
-                   "review" if ais_upgrade else
-                   "current" if ais_installed and ais_latest.get("version") else "manual",
-         "source": "Official GitHub stable release",
-         "url": ais_latest.get("url") or RELEASE_PAGE,
-         "reason": (errors.get("ais_release") or "Installed version unavailable")
-             if not (ais_installed and ais_latest.get("version")) else
-             ("New upstream release available" if ais_can_install else
-              "New release requires package/platform review" if ais_upgrade else "Up to date")},
-        {"id": "satdump", "name": "SatDump", "installed": sat_installed or
-         ("Source installation (version unknown)" if sat_method == "non-apt-unverified" else None),
-         "latest": sat_latest.get("version"), "available": satdump_upgrade or sat_upstream_newer is True,
-         "can_install": satdump_upgrade, "status": sat_status,
-         "source": "Official stable releases + Ubuntu APT",
-         "url": sat_latest.get("url") or SATDUMP_PAGE,
-         "reason": sat_reason},
-        {"id": "readsb", "name": "readsb", "installed": readsb_installed,
-         "latest": readsb_latest.get("version"), "available": readsb_newer is True,
-         "can_install": readsb_can_install, "status": "update" if readsb_can_install else readsb_status,
-         "source": "GitHub development branch (not a stable release)",
-         "url": READSB_PAGE,
-         "reason": readsb_guard_reason if readsb_can_install else readsb_reason},
-        {"id": "rtl-airband", "name": "RTLSDR-Airband",
-         "installed": (air_installed + (" (" + air_method + ")" if air_method == "SDRCC patched" else ""))
-                     if air_installed else None,
-         "latest": air_latest.get("version"), "available": air_newer is True,
-         "can_install": air_can_install, "status": "update" if air_can_install else air_status,
-         "source": "Official stable releases / local build provenance",
-         "url": air_latest.get("url") or AIRBAND_PAGE,
-         "reason": "Patched 6.2.0 build available; stop Traffic Voice before updating" if air_can_install else air_reason},
-    ]
-    return {"ok": True, "software": rows, "worker": worker_status(),
-            "release_check_error": errors.get("ais_release"),
-            "release_check_errors": errors,
-            "checked_at": datetime.now(timezone.utc).isoformat()}
+    return {
+        "ok": True,
+        "software": [
+            entry("ais-catcher", "AIS-catcher", ais_version, bool(ais),
+                  "Local executable / installed package", "AIS executable found; version unknown"),
+            entry("satdump", "SatDump", sat_version, bool(sat),
+                  "Local executable / installed package", "SatDump executable found; version unknown"),
+            entry("readsb", "readsb", readsb_version, bool(readsb),
+                  "Local executable / installed package", "readsb executable found; version unknown"),
+            entry("rtl-airband", "RTLSDR-Airband", air_version, air_present,
+                  "SDRCC patched build" if provenance and air_version else "Local Traffic Voice binary",
+                  "Traffic Voice binary found; version unknown"),
+        ],
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
