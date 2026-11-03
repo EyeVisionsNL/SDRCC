@@ -413,15 +413,15 @@ def _target_event(
         _presence.pop(key, None)
         return
     _presence[key] = min(_presence.get(key, 0) + 1, 3)
+    if key in _active_targets:
+        # A single fresh sample immediately renews restored session presence.
+        _active_targets[key]["last_seen"] = now
     # Both sources: first alert after two eligible samples, then at most one
     # reminder per five minutes per target identity. Reminders require reported
     # movement (AIS >= 2 kn, ADS-B >= 30 kn), even if motion_only is disabled.
     # Position freshness and the radius are checked on each source poll.
     if _presence[key] < 2:
         return
-    if key in _active_targets:
-        # Fresh qualifying reception renews presence, even without a reminder.
-        _active_targets[key]["last_seen"] = now
     repeat = key in _announced
     if repeat and not moving_enough(source, ground_speed_knots):
         return
