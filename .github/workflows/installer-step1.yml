@@ -88,6 +88,11 @@ jobs:
           node --check dashboard/static/js/external_updates.js
           node scripts/validate_external_updates_ui.cjs
           bash -n install.sh uninstall.sh scripts/install/provision_external.sh
+      - name: Check slow-browser Voice start/stop recovery
+        run: |
+          node --check dashboard/static/js/traffic_voice.js
+          node scripts/validate_traffic_voice_action_recovery.cjs
+          node scripts/validate_audio_preferences_v0580.cjs
       - name: Validate Map Lab JavaScript
         run: node --check dashboard/static/js/traffic_map_lab.js
       - name: Check MapLibre 6 map boot and error handling

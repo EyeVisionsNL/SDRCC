@@ -6,6 +6,8 @@
     const channelListExportEndpoint = "/api/traffic-voice/channel-list.xlsx";
     const channelListImportEndpoint = "/api/traffic-voice/channel-list/import";
     let refreshTimer = null;
+    let refreshOperation = 0;
+    let refreshController = null;
     let actionBusy = false;
     let settingsDirty = false;
     let lastPayload = null;
@@ -1075,24 +1077,48 @@
     }
 
     async function refresh(force = false) {
-        if (!force && document.hidden) return;
+        // A status read from before a start/stop transaction must never
+        // overwrite the newer state, especially on slower computers.
+        if (actionBusy || (!force && document.hidden)) return;
         const page = byId("tab-traffic-voice");
         if (!force && (!page || !page.classList.contains("active"))) return;
+        // Avoid overlapping three-second polls; explicit refresh replaces
+        // any old request and invalidates even an already queued response.
+        if (refreshController && !force) return;
+        if (refreshController) refreshController.abort();
+        const operation = ++refreshOperation;
+        const controller = new AbortController();
+        refreshController = controller;
+        const timeout = window.setTimeout(() => controller.abort(), 12000);
         try {
-            const response = await fetch(endpoint, {cache: "no-store"});
+            const response = await fetch(endpoint, {cache: "no-store", signal: controller.signal});
             const payload = await response.json();
+            if (operation !== refreshOperation || actionBusy || controller.signal.aborted) return;
             if (!response.ok && !payload.validation) {
                 throw new Error(payload.error || "HTTP " + response.status);
             }
             render(payload);
         } catch (error) {
-            renderError(error);
+            if (operation !== refreshOperation || actionBusy) return;
+            renderError(new Error(controller.signal.aborted
+                ? "Status request timed out; retrying automatically." : error.message));
+        } finally {
+            window.clearTimeout(timeout);
+            if (refreshController === controller) refreshController = null;
         }
     }
 
     async function runAction(action, extra = {}) {
         if (actionBusy) return false;
         actionBusy = true;
+        // A status request that started before this transaction is obsolete.
+        ++refreshOperation;
+        if (refreshController) refreshController.abort();
+        if (action === "stop") {
+            // Close the browser-side audio client before stopping the service.
+            if (playingRecordingId) stopRecordingReplay(false);
+            stopAudio();
+        }
         const pending = {
             start_marine: "Starting Marine + AIS transaction…",
             start_airband: "Starting Airband + ADS-B transaction…",
@@ -1100,9 +1126,11 @@
             apply_settings: "Applying receiver settings…",
         };
         text("traffic-voice-action-message", pending[action] || "Working…");
-        document.querySelectorAll(".traffic-voice-button")
-            .forEach(button => button.setAttribute("disabled", ""));
+        const controls = Array.from(document.querySelectorAll(".traffic-voice-button"),
+            button => ({button, disabled: button.disabled}));
+        controls.forEach(({button}) => { button.disabled = true; });
         let succeeded = false;
+        let actionSnapshot = null;
         try {
             const response = await fetch(actionEndpoint, {
                 method: "POST",
@@ -1116,12 +1144,19 @@
             text("traffic-voice-action-message", payload.message);
             settingsDirty = false;
             succeeded = true;
+            // The POST already returns a post-transaction status snapshot.
+            if (payload.snapshot?.service && Array.isArray(payload.snapshot.modes)) {
+                actionSnapshot = payload.snapshot;
+            }
         } catch (error) {
             text("traffic-voice-action-message", "Action failed: " + error.message);
         } finally {
             actionBusy = false;
-            renderChannelListControls();
-            await refresh(true);
+            // Do not leave the interface locked if the next status GET fails.
+            controls.forEach(({button, disabled}) => { button.disabled = disabled; });
+            if (actionSnapshot) render(actionSnapshot);
+            else if (lastPayload) render(lastPayload);
+            if (!actionSnapshot) await refresh(true);
         }
         return succeeded;
     }
@@ -1293,7 +1328,9 @@
             settingsDirty = true;
             text("traffic-voice-scan-interval-value", Math.round(Number(event.target.value)) + " ms/ch");
         });
-        document.addEventListener("visibilitychange", refresh);
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) void refresh(true);
+        });
         refreshTimer = window.setInterval(refresh, 3000);
         renderAisAutoButton();
     }
