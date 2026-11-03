@@ -11,6 +11,7 @@ on:
       - 'dashboard/static/css/mission_sounds.css'
       - 'tests/test_advanced_maintenance_layout.py'
       - 'tests/test_emergency_monitor_settings_status.py'
+      - 'tests/test_emergency_monitor_lifecycle.py'
       - 'scripts/validate_emergency_monitor_v0675.py'
       - 'scripts/install/update_manifest.json'
       - 'core/external_updates.py'
@@ -40,6 +41,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_advanced_maintenance_layout.py' -v
       - name: Check radius-save and worker-status regression
         run: python -m unittest discover -s tests -p 'test_emergency_monitor_settings_status.py' -v
+      - name: Check stale emergency presence and MQTT clear lifecycle
+        run: python -m unittest discover -s tests -p 'test_emergency_monitor_lifecycle.py' -v
       - name: Check Emergency Monitor AIS and ADS-B alert lifecycle
         run: python scripts/validate_emergency_monitor_v0675.py
       - name: Verify read-only external software inventory
