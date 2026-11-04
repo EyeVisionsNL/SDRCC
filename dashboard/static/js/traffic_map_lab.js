@@ -176,11 +176,18 @@
     let trackLoading = false;
     let trackRefreshPending = false;
 
+    // Only MMSI 245730000, independent of generic AIS ship type 99.
+    const RIGEL_MMSI = "245730000";
+    const rigelOverride = ship => String(ship.id) === RIGEL_MMSI
+        ? {...ship, render_profile:"rigel",
+            special_profile_evidence:"RIGEL · Zeekadetkorps Maassluis · photo-inspired 3D model (illustrative)"}
+        : ship;
     const validTargets = (rows, kind) => {
         if (!Array.isArray(rows)) return [];
         return rows.filter(row => row && row.type === kind && Number.isFinite(row.lon)
             && Number.isFinite(row.lat) && Math.abs(row.lon) <= 180
-            && Math.abs(row.lat) <= 90).slice(0, 2000);
+            && Math.abs(row.lat) <= 90).slice(0, 2000)
+            .map(row => kind === "ais" ? rigelOverride(row) : row);
     };
     // Local tangent plane: metres from the AIS antenna become geographic coordinates.
     // The reported bow/stern/port/starboard offsets define real hull size.
@@ -271,7 +278,7 @@
         "container_barge","gas_barge","chemical_barge","powder_barge",
         "convoy_cargo","convoy_tanker","offshore_supply",
         "research_vessel","cable_vessel","offshore_construction",
-        "crane_ship"
+        "crane_ship","rigel"
     ]);
     const hullMinLength = profile => profile === "tug" ? 8 : smallHullProfiles.has(profile) ? 5
         : mediumHullProfiles.has(profile) ? 12 : 30;
@@ -303,6 +310,7 @@
         cable_vessel:"Cable-laying ship: cable reel and stern guide (illustrative)",
         offshore_construction:"Offshore construction vessel: heavy work deck and crane (illustrative)",
         crane_ship:"Heavy-lift / crane vessel with deck crane (illustrative)",
+        rigel:"Historic RIGEL: black hull, cream bridge, ochre masts and funnel (illustrative)",
     });
     function hullGeometry(ship) {
         if (ship.is_offshore_structure ||
@@ -335,7 +343,22 @@
         const flatEnds = ["barge_cargo","barge_tanker","container_barge","gas_barge",
             "chemical_barge","powder_barge","convoy_cargo",
             "convoy_tanker","pushboat"].includes(ship.render_profile);
-        const pts = flatEnds ? [
+        // Fine bow and rounded cruiser stern, scaled from AIS dimensions.
+        const pts = ship.render_profile === "rigel" ? [
+            at(-stern,-port*.53),at(-stern,starboard*.53),
+            at(-stern+length*.04,starboard*.80),
+            at(-stern+length*.12,starboard*.96),
+            at(-stern+length*.24,starboard),
+            at(bow-length*.31,starboard*.98),
+            at(bow-length*.13,starboard*.73),
+            at(bow-length*.045,starboard*.36),at(bow,midpoint),
+            at(bow-length*.045,-port*.36),
+            at(bow-length*.13,-port*.73),
+            at(bow-length*.31,-port*.98),
+            at(-stern+length*.24,-port),
+            at(-stern+length*.12,-port*.96),
+            at(-stern+length*.04,-port*.80),
+        ] : flatEnds ? [
             at(-stern, -port*.83), at(-stern, starboard*.83),
             at(-stern+length*.035, starboard),
             at(bow-length*.035, starboard),
@@ -384,7 +407,8 @@
                     inland_convoy_barges: ship.inland_convoy_barges,
                     beam_m: ship.beam_m, draught_m: ship.draught_m,
                     heading: ship.heading,
-                    display_height_m: ["watertaxi","krve","pleasure","sailing","catamaran","fishing","water_supply"].includes(ship.render_profile)
+                    display_height_m: ship.render_profile === "rigel" ? 3.15
+                        : ["watertaxi","krve","pleasure","sailing","catamaran","fishing","water_supply"].includes(ship.render_profile)
                         ? Math.min(1.8, Math.max(.9,
                             (Number(ship.to_port) + Number(ship.to_starboard)) * .45))
                         : ["barge_cargo","barge_tanker","container_barge","gas_barge",
@@ -548,7 +572,7 @@
                 "catamaran", "fishing", "sailing", "dredger", "crane_workboat",
                 "pilot", "rescue", "port_service", "oil_response",
                 "offshore_supply", "research_vessel", "cable_vessel",
-                "offshore_construction", "crane_ship"].includes(profile)) continue;
+                "offshore_construction", "crane_ship", "rigel"].includes(profile)) continue;
             const info = detailsById.get(String(ship.id));
             if (!info) continue;
             const {to_bow:bow, to_stern:stern, to_port:port,
@@ -578,6 +602,61 @@
 
             // Added model families use real AIS dimensions and orientation only.
             // Cargo/loading state, deck equipment and superstructure are schematic.
+
+            if (profile === "rigel") {
+                // Custom RIGEL training vessel; all positions follow live AIS.
+                const x = f => -stern + length*f;
+                add(x(.045),x(.945),-port*.87,starboard*.87,"rigel-deck",.22);
+                for (const side of [-1,1]) {
+                    const inner = side<0 ? -port*.93 : starboard*.82;
+                    const outer = side<0 ? -port*.82 : starboard*.93;
+                    add(x(.06),x(.88),inner,outer,"rigel-bulwark",.64,.18);
+                    add(x(.07),x(.88),inner,outer,"rigel-rail-top",.12,.82);
+                    for (const f of [.1,.22,.34,.46,.58,.70,.82])
+                        add(x(f),x(f+.012),inner,outer,"rigel-stanchion",.48,.94);
+                }
+                add(x(.76),x(.94),-port*.70,starboard*.70,"rigel-forecastle",.46,.22);
+                add(x(.89),x(.947),-port*.37,starboard*.37,"rigel-bow-rail",.30,.68);
+                add(x(.08),x(.28),-port*.63,starboard*.63,"rigel-aft-deck",.22,.22);
+                add(x(.12),x(.19),-port*.32,starboard*.32,"rigel-aft-hatch",.32,.44);
+                add(x(.81),x(.87),-port*.22,starboard*.22,"rigel-forward-hatch",.30,.68);
+                // Cream two-tier bridge with wraparound dark glazing.
+                add(x(.43),x(.71),-port*.67,starboard*.67,"rigel-house",2.18,.23);
+                add(x(.48),x(.695),-port*.60,starboard*.60,"rigel-bridge",2.28,2.41);
+                for (const side of [-1,1]) {
+                    const l = side<0 ? -port*.615 : starboard*.55;
+                    const r = side<0 ? -port*.55 : starboard*.615;
+                    add(x(.49),x(.684),l,r,"rigel-bridge-glass",.88,3.55);
+                    for (const f of [.49,.54,.59,.64])
+                        add(x(f),x(f+.009),l,r,"rigel-window-frame",1.0,3.52);
+                    add(x(.455),x(.695),l,r,"rigel-lower-portholes",.36,1.34);
+                }
+                add(x(.683),x(.701),-port*.56,starboard*.56,"rigel-front-glass",1.01,3.48);
+                add(x(.47),x(.72),-port*.68,starboard*.68,"rigel-roof",.25,4.70);
+                add(x(.49),x(.70),-port*.62,starboard*.62,"rigel-roof-rail",.13,4.95);
+                // Tall charcoal funnel behind wheelhouse with cream stripe.
+                add(x(.34),x(.406),-port*.22,starboard*.22,"rigel-funnel",3.95,.40);
+                add(x(.345),x(.40),-port*.235,starboard*.235,"rigel-funnel-band",.28,3.60);
+                add(x(.337),x(.411),-port*.24,starboard*.24,"rigel-funnel-cap",.22,4.35);
+                // Signature ochre masts, cross-trees and yards.
+                for (const mast of [
+                    {f:.17,h:9.0,y:6.2,width:.47},
+                    {f:.635,h:11.2,y:8.3,width:.68},
+                    {f:.79,h:5.6,y:4.1,width:.35},
+                ]) {
+                    const half=Math.max(.09,beam*.017);
+                    add(x(mast.f)-half,x(mast.f)+half,-half,half,"rigel-mast",mast.h,.25);
+                    add(x(mast.f)-half*.8,x(mast.f)+half*.8,
+                        -port*mast.width,starboard*mast.width,"rigel-yard",.13,mast.y);
+                    add(x(mast.f)-half*.85,x(mast.f)+half*.85,
+                        -port*.28,starboard*.28,"rigel-crosstree",.13,mast.h*.72);
+                }
+                add(x(.39),x(.48),starboard*.70,starboard*.90,"rigel-lifeboat",.58,.72);
+                add(x(.38),x(.47),-port*.90,-port*.70,"rigel-lifeboat",.58,.72);
+                add(x(.22),x(.27),-port*.21,starboard*.21,"rigel-winch",.67,.25);
+                add(x(.73),x(.76),-port*.21,starboard*.21,"rigel-bollard",.38,.25);
+                continue;
+            }
 
             // AIS 90/99 special-purpose vessels: shape only when the Python
             // backend provides a positively matched profile. Scale every deck
