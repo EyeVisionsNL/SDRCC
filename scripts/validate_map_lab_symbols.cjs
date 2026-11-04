@@ -1001,6 +1001,51 @@ class FakeMap {
         change.id === "sdrcc-ais-fallback-icons" && change.value === "none"),
         "hiding AIS must hide zoomed-in fallback vessels too");
 
+    // RIGEL (Zeekadetkorps Maassluis): only the real AIS identity receives
+    // the photo-inspired silhouette, even if other ships share a name/type.
+    const rigelFixture = {
+        type:"ais", id:"245730000", name:"RIGEL",callsign:"PC8261",
+        lon:4.315,lat:51.91,course:214,hull_heading:214,
+        to_bow:34,to_stern:14,to_port:4,to_starboard:4,
+        length_m:48,beam_m:8,shipclass:5,shiptype:99,
+        hull_available:true,render_profile:"service",validation_state:"verified",
+    };
+    data.ais.targets = [
+        rigelFixture,
+        {...rigelFixture,id:"245730001",name:"RIGEL",lon:4.32},
+        {...rigelFixture,id:"245730002",name:"ANOTHER SHIP",lon:4.325},
+    ];
+    await node("refresh-now").listeners.click();
+    const vesselPoints = instance.sources["sdrcc-ais"].data.features;
+    assert.equal(vesselPoints[0].properties.render_profile,"rigel",
+        "RIGEL must use its dedicated ship profile");
+    assert(vesselPoints[0].properties.special_profile_evidence.includes("Zeekadetkorps Maassluis"));
+    assert(vesselPoints.slice(1).every(v=>v.properties.render_profile==="service"),
+        "same-name or same-type ships must not get RIGEL's profile");
+    const rigelHulls = instance.sources["sdrcc-ais-hulls"].data.features;
+    const rigelHull = rigelHulls.find(f=>f.properties.id==="245730000");
+    assert(rigelHull && rigelHull.geometry.coordinates[0].length>=15,
+        "RIGEL requires an individual tapered bow and cruiser stern");
+    assert.equal(rigelHull.properties.display_height_m,3.15);
+    const rigelParts = instance.sources["sdrcc-ais-decks"].data.features
+        .filter(f=>f.properties.id==="245730000");
+    for (const part of ["rigel-house","rigel-bridge","rigel-bridge-glass",
+                        "rigel-funnel","rigel-mast","rigel-yard","rigel-rail-top",
+                        "rigel-lifeboat"]) {
+        assert(rigelParts.some(f=>f.properties.part===part),
+            "RIGEL heritage model missing "+part);
+    }
+    assert(rigelParts.length>=35,"RIGEL must have a detailed 3D superstructure");
+    assert(instance.sources["sdrcc-ais-decks"].data.features
+        .filter(f=>f.properties.id!=="245730000")
+        .every(f=>!f.properties.part.startsWith("rigel-")),
+        "other ships must never inherit RIGEL deck details");
+    assert(rigelParts.every(f=>f.geometry.coordinates[0].every(point=>
+        point.every(Number.isFinite))),"RIGEL geometry must remain finite");
+    assert(JSON.stringify(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"])
+        .includes("#121820"),"RIGEL requires a distinctive black hull");
+    console.log("PASS: RIGEL bespoke 3D hull, funnel, bridge, masts and strict MMSI override");
+
     console.log("PASS: 104 AIS/aircraft sprites including AIS class 10 helicopters, photo fallback, original tug and Class B models, "
         + "emergency/ATIS matched rings, visibility, nameplates and 3D");
 })().catch(error => {console.error(error); process.exitCode = 1;});
