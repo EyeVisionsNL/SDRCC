@@ -160,3 +160,43 @@ jobs:
           git add android/update.json
           git commit -m "Android: publish signed mobile APK update metadata for $TAG"
           git push origin HEAD:develop
+
+      # The installed APK always reads /main/android/update.json, not develop.
+      # Announce a version on main only after its signed APK was published.
+      - name: Offer published APK via production Android update button
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          TAG="sdrcc-mobile-v$VERSION_CODE"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          git fetch origin main
+          git switch -c sdrcc-mobile-feed-main origin/main
+          python3 - "$VERSION_CODE" "$VERSION_NAME" "$GITHUB_REPOSITORY" <<'PY'
+          import json
+          import pathlib
+          import sys
+          code = int(sys.argv[1])
+          name = sys.argv[2]
+          repo = sys.argv[3]
+          target = pathlib.Path("android/update.json")
+          previous = json.loads(target.read_text(encoding="utf-8"))
+          if int(previous.get("version_code", 0)) > code:
+              raise SystemExit("Refusing to downgrade production Android update feed")
+          payload = {
+              "version_code": code,
+              "version_name": name,
+              "apk_url": f"https://github.com/{repo}/releases/download/sdrcc-mobile-v{code}/SDRCC-Mobile.apk",
+          }
+          target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+          PY
+          if git diff --quiet -- android/update.json; then
+            echo "Production Android update feed is already current"
+          else
+            git add android/update.json
+            git commit -m "Android: offer signed mobile $VERSION_NAME via update button"
+            git push origin HEAD:main
+          fi
