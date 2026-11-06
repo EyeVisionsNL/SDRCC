@@ -14,6 +14,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.content.Context;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.view.inputmethod.InputMethodManager;
 import android.text.InputType;
 import android.view.Gravity;
@@ -85,10 +89,21 @@ public final class MainActivity extends Activity {
     private String currentHost;
     private int currentPort;
     private String currentPageUrl;
+    private final BroadcastReceiver marineAudioReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            updateNativeAudioUi();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        IntentFilter audioEvents = new IntentFilter(MarineAudioService.ACTION_STATE);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(marineAudioReceiver, audioEvents, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(marineAudioReceiver, audioEvents);
+        }
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         String stored = preferences().getString(PREF_HOST, "");
@@ -348,6 +363,8 @@ public final class MainActivity extends Activity {
         webSettings.setJavaScriptEnabled(true); // Existing SDRCC Mobile requires JS.
         webSettings.setDomStorageEnabled(true);  // Map addresses / last tab.
         webSettings.setMediaPlaybackRequiresUserGesture(true);
+        // Only the native APK advertises a background-capable Marine audio path.
+        webSettings.setUserAgentString(webSettings.getUserAgentString() + " SDRCCAndroid/1");
         webSettings.setSupportMultipleWindows(false);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(false);
         webSettings.setAllowFileAccess(false);
@@ -695,6 +712,12 @@ public final class MainActivity extends Activity {
                 return false;
             }
             Uri uri = request.getUrl();
+            if ("sdrcc-audio".equals(uri.getScheme())) {
+                if (currentPageUrl != null && currentPageUrl.equals(view.getUrl())) {
+                    handleNativeAudioCommand(uri);
+                }
+                return true; // Never send native audio commands to the external browser.
+            }
             if (isStationUri(uri)) {
                 return false;
             }
@@ -717,6 +740,9 @@ public final class MainActivity extends Activity {
             if (!pageFailed && loadingCover != null) {
                 clearConnectionTimeout();
                 loadingCover.setVisibility(View.GONE);
+            }
+            if (currentPageUrl != null && currentPageUrl.equals(url)) {
+                updateNativeAudioUi();
             }
         }
 
@@ -807,6 +833,62 @@ public final class MainActivity extends Activity {
         }
     }
 
+    /** One-way native command channel: only a top-level, trusted station page can trigger it. */
+    private void handleNativeAudioCommand(Uri uri) {
+        String command = uri.getHost();
+        if ("stop".equals(command)) {
+            stopService(new Intent(this, MarineAudioService.class));
+            // Explicit STOP action also clears the native service's audio resources.
+            startService(new Intent(this, MarineAudioService.class)
+                    .setAction(MarineAudioService.ACTION_STOP));
+            updateNativeAudioUi();
+            return;
+        }
+        if (!"start".equals(command) || currentPageUrl == null) return;
+        String filter = uri.getQueryParameter("filter");
+        String denoise = uri.getQueryParameter("denoise");
+        if (!("off".equals(filter) || "light".equals(filter) ||
+                "normal".equals(filter) || "strong".equals(filter)) ||
+                !("off".equals(denoise) || "speex".equals(denoise) ||
+                        "rnnoise".equals(denoise))) return;
+        float volume;
+        try {
+            volume = Float.parseFloat(uri.getQueryParameter("volume"));
+        } catch (NumberFormatException | NullPointerException error) {
+            volume = .85f;
+        }
+        if (!Float.isFinite(volume)) volume = .85f;
+        Uri endpoint = Uri.parse(currentPageUrl).buildUpon()
+                .path("/api/traffic-voice/audio-stream")
+                .clearQuery()
+                .appendQueryParameter("mode", "marine_ais")
+                .appendQueryParameter("speech_filter", filter)
+                .appendQueryParameter("denoise", denoise)
+                .appendQueryParameter("live", String.valueOf(System.currentTimeMillis()))
+                .build();
+        Intent playback = new Intent(this, MarineAudioService.class)
+                .setAction(MarineAudioService.ACTION_START)
+                .putExtra(MarineAudioService.EXTRA_URL, endpoint.toString())
+                .putExtra(MarineAudioService.EXTRA_VOLUME, volume);
+        // Service starts in direct response to a user's playback button.
+        startForegroundService(playback);
+        if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 203);
+        }
+        updateNativeAudioUi();
+    }
+
+    private void updateNativeAudioUi() {
+        if (webView == null || currentPageUrl == null ||
+                !currentPageUrl.equals(webView.getUrl())) return;
+        String code = "window.sdrccNativeAudioStatus && window.sdrccNativeAudioStatus("
+                + JSONObject.quote(MarineAudioService.state()) + ","
+                + MarineAudioService.isListening() + ");";
+        webView.evaluateJavascript(code, null);
+    }
+
     @Override
     protected void onPause() {
         if (webView != null) webView.onPause();
@@ -817,6 +899,7 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
+        updateNativeAudioUi();
     }
 
     @Override
@@ -827,6 +910,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        unregisterReceiver(marineAudioReceiver);
         destroyPreviousWebView();
         super.onDestroy();
     }
