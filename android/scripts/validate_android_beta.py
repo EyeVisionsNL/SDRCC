@@ -171,8 +171,10 @@ def validate() -> None:
             "SDRCC_ANDROID_KEYSTORE_BASE64" in signed_release and
             "gh release create" in signed_release and
             "android/update.json" in signed_release and
-            "git push origin HEAD:develop" in signed_release,
-            "Stable signed release publishing contract is missing")
+            "git push origin HEAD:develop" in signed_release and
+            "git push origin HEAD:main" in signed_release and
+            "gh release view" in signed_release,
+            "Stable signed release and production update-feed publishing contract is missing")
     require('ANDROID  ·  0.1 BETA' not in java and
             'SDRCC Android  ·  BETA' not in java,
             "Stale hard-coded beta label found")
