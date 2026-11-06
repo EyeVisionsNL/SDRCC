@@ -1,6 +1,6 @@
-# SDRCC Mobile — Android v2.0.0
+# SDRCC Mobile — Android v2.0.3
 
-**Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.0)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v7/SDRCC-Mobile.apk)
+**Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.3)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v10/SDRCC-Mobile.apk)
 
 SDRCC Mobile is the Android companion to the existing SDRCC server. The host can be a desktop PC, mini-PC, laptop, or server that meets SDRCC's supported Linux installation requirements; its physical size makes no difference to the Android app. It shows the same live data as the SDRCC computer: Marine Voice, AIS and ATIS matches, recordings, aircraft, satellite passes, mission controls, and service status. It does **not** install or run a second receiver server.
 
@@ -74,6 +74,27 @@ Tailscale creates a private, encrypted connection between the computer running S
 
 Official reference: [Tailscale Linux setup](https://tailscale.com/docs/install/linux) · [Tailscale Android setup](https://tailscale.com/docs/install/android).
 
+## Android v2.0.3 — Marine background listening
+
+Live Marine VHF now uses a native Android foreground **media playback service**
+instead of the WebView audio element. After tapping **Start Live Audio** in the
+Android app, listening continues with the display locked or with the app in the
+background. A persistent **SDRCC · Marine Voice** notification shows connection
+status and includes **Stop**. The native player reopens its *listening-only*
+WAV connection after idle timeouts and short Wi-Fi/VPN interruptions; it never
+restarts the Marine Voice or AIS receivers.
+
+Android 13+ may ask to allow notifications when you first start playback.
+Allowing this makes the Stop notification easier to find. Battery management
+can still terminate audio on heavily restricted devices, so allow background
+activity for SDRCC Mobile (and Tailscale if used).
+
+**Important:** The Android APK opens the mobile page provided by the SDRCC
+computer. Update the SDRCC server to a revision containing the new
+`dashboard/static/mobile/index.html` before testing v2.0.3; otherwise the
+older page still uses WebView audio. Browsers and the PWA continue to use their
+previous HTML5 audio path; only the native Android app receives background audio.
+
 ## 2. Configure the live AIS map
 
 1. Open the **Marine** tab in SDRCC Mobile.
@@ -107,7 +128,7 @@ Marine recordings can be replayed and saved while live reception continues. ADS-
 ## 4. Update SDRCC Mobile (without uninstalling)
 
 1. Open **SDRCC Mobile** and tap **↓** in the top toolbar. This is also available as **App-update controleren** on the connection screen.
-2. The stable v2.0.0 app reads `android/update.json` from the public **main** branch over HTTPS, separately from the station's private SDRCC API.
+2. The stable v2.0.3 app reads `android/update.json` from the public **main** branch over HTTPS, separately from the station's private SDRCC API.
 3. If there is a newer signed version, tap **APK openen**. The official versioned GitHub Release APK opens in the phone browser.
 4. Open the downloaded APK and choose **Update / Bijwerken**, **not Uninstall / Verwijderen**.
 5. Launch SDRCC Mobile. Your saved SDRCC server address and Android app settings should still be present.
@@ -118,12 +139,12 @@ The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was
 
 ## 5. Technical details
 
-- Android package: `nl.eyevisions.sdrcc.mobile` · version name: `2.0.0` · versionCode: `7`.
+- Android package: `nl.eyevisions.sdrcc.mobile` · version name: `2.0.3` · versionCode: `10`.
 - Android 8.0 minimum (`minSdk 26`); Java 17, Gradle 8.9, Android Gradle Plugin 8.7.3 and compile SDK 35 to build.
 - Open `android/` in Android Studio, or run `gradle :app:testDebugUnitTest :app:assembleDebug` from that directory. Debug builds are **not** stable upgrade packages.
 - The production APK is built and signed by **SDRCC Mobile Signed Release** using the repository's protected Android signing secrets, then published as an immutable GitHub Release. New versions must increase `versionCode`.
-- The app requests only Android INTERNET permission. It has no JavaScript-to-native bridge, camera, microphone, or unrestricted WebView file access. Links to external photographers open in the phone browser.
+- The app requests INTERNET, foreground media-playback, WAKE_LOCK, and Android 13+ notification permission. It has no JavaScript-to-native bridge, camera, microphone, or unrestricted WebView file access. Audio controls use an intercepted, top-level station-only URL scheme. Links to external photographers open in the phone browser.
 - SDRCC and the embedded maps communicate over HTTP on your trusted LAN or private encrypted Tailscale VPN. Do not expose the station to the public internet with port forwarding.
 - Keep a **secure offline backup** of your private Android signing keystore and passwords. Never add the `.p12` file, secret contents, or passwords to GitHub source control or support messages.
 
-**SDRCC v0.67.0** on the computer running SDRCC and **SDRCC Mobile v2.0.0** on Android are two separate version numbers. Update SDRCC itself with **System → Advanced Maintenance** on that computer; use the Android **↓** button only to update the phone app.
+**SDRCC** on the computer running SDRCC and **SDRCC Mobile v2.0.3** on Android are two separate version numbers. Update SDRCC itself with **System → Advanced Maintenance** on that computer; use the Android **↓** button only to update the phone app.
