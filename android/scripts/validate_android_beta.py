@@ -77,7 +77,7 @@ def validate() -> None:
             "Native foreground Marine playback and reconnect contract missing")
     require("startForegroundService(playback)" in java and
             '"sdrcc-audio".equals(uri.getScheme())' in java and
-            '"SDRCCAndroid/1"' in java and
+            "SDRCCAndroid/1" in java and
             "Context.RECEIVER_NOT_EXPORTED" in java and
             "request.isForMainFrame()" in java and
             "currentPageUrl.equals(view.getUrl())" in java,
