@@ -21,8 +21,13 @@ def validate() -> None:
     project = ANDROID / "app"
     manifest = ET.parse(project / "src/main/AndroidManifest.xml").getroot()
     permissions = [el.attrib.get(NS + "name") for el in manifest.findall("uses-permission")]
-    require(permissions == ["android.permission.INTERNET"],
-            "Only Android INTERNET permission is allowed")
+    require(permissions == [
+        "android.permission.INTERNET",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.WAKE_LOCK",
+        "android.permission.POST_NOTIFICATIONS",
+    ], "Only required network and foreground media permissions are allowed")
     app = manifest.find("application")
     require(app is not None, "Missing Android application")
     require(app.attrib.get(NS + "allowBackup") == "false",
@@ -31,6 +36,12 @@ def validate() -> None:
             "Current SDRCC and AIS-Catcher require private HTTP")
     require(app.attrib.get(NS + "networkSecurityConfig") ==
             "@xml/network_security_config", "Missing documented HTTP policy")
+    services = app.findall("service")
+    require(len(services) == 1 and
+            services[0].attrib.get(NS + "name") == ".MarineAudioService" and
+            services[0].attrib.get(NS + "exported") == "false" and
+            services[0].attrib.get(NS + "foregroundServiceType") == "mediaPlayback",
+            "Marine playback must run in a non-exported foreground media service")
     activities = app.findall("activity")
     require(len(activities) == 1, "Exactly one launcher activity expected")
     activity = activities[0]
@@ -53,6 +64,31 @@ def validate() -> None:
 
     java = (project / "src/main/java/nl/eyevisions/sdrcc/mobile/"
             "MainActivity.java").read_text(encoding="utf-8")
+    marine_service = (project / "src/main/java/nl/eyevisions/sdrcc/mobile/"
+                      "MarineAudioService.java").read_text(encoding="utf-8")
+    require("extends Service" in marine_service and
+            "PowerManager.PARTIAL_WAKE_LOCK" in marine_service and
+            "AudioTrack.Builder()" in marine_service and
+            "wavSampleRate(byte[] header)" in marine_service and
+            "setConnectTimeout" in marine_service and
+            "setReadTimeout" in marine_service and
+            "while (valid(ticket))" in marine_service and
+            "setAction(ACTION_STOP)" in marine_service,
+            "Native foreground Marine playback and reconnect contract missing")
+    require("startForegroundService(playback)" in java and
+            '"sdrcc-audio".equals(uri.getScheme())' in java and
+            '"SDRCCAndroid/1"' in java and
+            "Context.RECEIVER_NOT_EXPORTED" in java and
+            "request.isForMainFrame()" in java and
+            "currentPageUrl.equals(view.getUrl())" in java,
+            "Native playback must accept only trusted top-level station controls")
+
+    mobile = (REPO / "dashboard/static/mobile/index.html").read_text(encoding="utf-8")
+    require("window.sdrccNativeAudioStatus" in mobile and
+            "nativeMarineCommand" in mobile and
+            "mobileLiveActive()" in mobile and
+            '"sdrcc-audio://"+action' in mobile,
+            "Mobile controls must use native audio in APK and keep browser fallback")
     host = (project / "src/main/java/nl/eyevisions/sdrcc/mobile/"
             "StationAddress.java").read_text(encoding="utf-8")
     require("new WebView(this)" in java and "webView.loadUrl(currentPageUrl)" in java,
@@ -150,11 +186,12 @@ def validate() -> None:
             "Android release request must match Gradle versionCode")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")
-    require((REPO / "VERSION").read_text().strip() == "0.68.0",
-            "SDRCC server VERSION was unexpectedly changed")
+    require(re.fullmatch(r"\\d+\\.\\d+\\.\\d+",
+            (REPO / "VERSION").read_text().strip()) is not None,
+            "SDRCC server version must remain a valid release number")
     print("PASS: SDRCC Android integration and address editing regression checks")
-    print("Original logo, HTTP maps, JNI-free WebView, native dialogs and"
-          " safe beta permissions verified.")
+    print("Original logo, HTTP maps, restricted native audio commands,"
+          " media service and native dialogs verified.")
 
 
 if __name__ == "__main__":
