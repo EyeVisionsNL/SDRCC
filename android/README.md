@@ -1,6 +1,8 @@
-# SDRCC Mobile — Android v2.0.3
+# SDRCC Mobile — Android v2.0.4
 
-**Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.3)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v10/SDRCC-Mobile.apk)
+**Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.4)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v11/SDRCC-Mobile.apk)
+
+**Update an existing installation:** Tap **↓** in the Android app's top bar, confirm **APK openen**, then accept Android's installation prompt. The button checks the published `main/android/update.json` feed; the installed app and private SDRCC station remain in place.
 
 SDRCC Mobile is the Android companion to the existing SDRCC server. The host can be a desktop PC, mini-PC, laptop, or server that meets SDRCC's supported Linux installation requirements; its physical size makes no difference to the Android app. It shows the same live data as the SDRCC computer: Marine Voice, AIS and ATIS matches, recordings, aircraft, satellite passes, mission controls, and service status. It does **not** install or run a second receiver server.
 
