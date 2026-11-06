@@ -312,6 +312,11 @@ public final class MainActivity extends Activity {
     }
 
     private void loadStation(URI stationPage) {
+        if (currentPageUrl != null && !currentPageUrl.equals(stationPage.toString())
+                && MarineAudioService.isListening()) {
+            startService(new Intent(this, MarineAudioService.class)
+                    .setAction(MarineAudioService.ACTION_STOP));
+        }
         destroyPreviousWebView();
         currentHost = stationPage.getHost().toLowerCase(Locale.ROOT);
         currentPort = stationPage.getPort();
@@ -837,8 +842,7 @@ public final class MainActivity extends Activity {
     private void handleNativeAudioCommand(Uri uri) {
         String command = uri.getHost();
         if ("stop".equals(command)) {
-            stopService(new Intent(this, MarineAudioService.class));
-            // Explicit STOP action also clears the native service's audio resources.
+            // Explicit STOP action clears audio resources without restarting receivers.
             startService(new Intent(this, MarineAudioService.class)
                     .setAction(MarineAudioService.ACTION_STOP));
             updateNativeAudioUi();
