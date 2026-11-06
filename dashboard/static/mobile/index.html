@@ -818,6 +818,33 @@ let lastMatch="",lastPhotoMmsi="",lastPhotoKey="",lastPhotoRetryAfter=0,currentS
 let atisCardPulseTimer=null;
 const liveAudio=$("liveaudio"),replayAudio=$("replay"),savedRecordings=new Set();
 let streamUrl="",voiceActive=false,audioAttempt=0;
+const nativeMarineAudio=/\bSDRCCAndroid\/1\b/.test(navigator.userAgent);
+let nativeAudioListening=false;
+function mobileLiveActive(){
+  return nativeMarineAudio?nativeAudioListening:Boolean(liveAudio.getAttribute("src"));
+}
+// Native Android's foreground service owns continuous Marine audio playback.
+// Navigation is intercepted only by SDRCC's own app WebView, never by browsers.
+function nativeMarineCommand(action){
+  const params=new URLSearchParams({
+    filter:mobileAudioSettings.filter,
+    denoise:effectiveMobileDenoise(),
+    volume:String(mobileAudioSettings.volume)
+  });
+  window.location.href="sdrcc-audio://"+action+"?"+params.toString();
+}
+window.sdrccNativeAudioStatus=(status,active)=>{
+  if(!nativeMarineAudio)return;
+  nativeAudioListening=Boolean(active);
+  $("audiotoggle").textContent=nativeAudioListening?"■ Stop Live Audio":"▶ Start Live Audio";
+  $("audiotoggle").setAttribute("aria-pressed",String(nativeAudioListening));
+  const labels={CONNECTING:"Connecting…",WAITING:"Waiting for marine VHF activity…",
+    LIVE:"LIVE · background audio",RECONNECTING:"Reconnecting audio stream…",OFF:"Off"};
+  $("audiostatus").textContent=labels[status]||"Off";
+  if(!nativeAudioListening)resumeLiveAfterReplay=false;
+  $("audiotoggle").disabled=!nativeAudioListening&&
+    (!isMobileFeatureAvailable("traffic_voice")||!mobileIsOnline());
+};
 const MOBILE_AUDIO_SETTINGS_KEY="sdrcc-mobile-marine-audio-v1";
 const MOBILE_SPEECH_FILTERS=["off","light","normal","strong"];
 const MOBILE_DENOISERS=["off","speex","rnnoise"];
@@ -867,7 +894,10 @@ function saveMobileAudioSettings(restartStream=false){
   try{localStorage.setItem(MOBILE_AUDIO_SETTINGS_KEY,JSON.stringify(mobileAudioSettings))}catch(_){}
   renderMobileAudioSettings();
   // Restart only the listener stream, never the receiver or ATIS decoder.
-  if(restartStream&&liveAudio.getAttribute("src")){stopLive();void startLive();}
+  if(restartStream&&mobileLiveActive()){
+    if(nativeMarineAudio)nativeMarineCommand("start");
+    else{stopLive();void startLive();}
+  }
 }
 $("mobile-audio-volume").addEventListener("input",event=>{
   const value=Number(event.target.value);
@@ -890,6 +920,14 @@ $("mobile-audio-denoise").addEventListener("change",event=>{
 renderMobileAudioSettings();
 
 function stopLive(){
+  if(nativeMarineAudio){
+    if(nativeAudioListening)nativeMarineCommand("stop");
+    nativeAudioListening=false;
+    $("audiotoggle").textContent="▶ Start Live Audio";
+    $("audiotoggle").setAttribute("aria-pressed","false");
+    $("audiostatus").textContent="Off";
+    return;
+  }
   audioAttempt++;
   liveAudio.pause();liveAudio.removeAttribute("src");liveAudio.load();
   $("audiotoggle").textContent="▶ Start Live Audio";
@@ -899,6 +937,14 @@ async function startLive(){
   if(!mobileIsOnline()){$("audiostatus").textContent="SDRCC unreachable; waiting for connection.";return}
   if(!voiceActive||!isMobileFeatureAvailable("traffic_voice")){
     $("audiostatus").textContent="Traffic Voice Marine is not running. Start it from the desktop dashboard.";
+    return;
+  }
+  if(nativeMarineAudio){
+    nativeAudioListening=true;
+    nativeMarineCommand("start");
+    $("audiotoggle").textContent="■ Stop Live Audio";
+    $("audiotoggle").setAttribute("aria-pressed","true");
+    $("audiostatus").textContent="Connecting…";
     return;
   }
   // The audio bridge reports stream_url only while packets arrived recently.
@@ -938,7 +984,7 @@ liveAudio.addEventListener("error",()=>{
   stopLive();$("audiostatus").textContent="Audio stream interrupted; tap again to listen.";
 });
 $("audiotoggle").onclick=()=>{
-  if(liveAudio.getAttribute("src")){stopLive();resumeLiveAfterReplay=false}
+  if(mobileLiveActive()){stopLive();resumeLiveAfterReplay=false}
   else{if(playingRecordingId)stopReplay(false);startLive()}
 };
 function stopReplay(resume=true){
@@ -953,9 +999,9 @@ async function playRecording(item){
     $("recordingmessage").textContent="SDRCC disconnected; the recording will not restart automatically.";
     return;
   }
-  const keepResume=resumeLiveAfterReplay||Boolean(liveAudio.getAttribute("src"));
+  const keepResume=resumeLiveAfterReplay||mobileLiveActive();
   if(playingRecordingId)stopReplay(false);
-  if(liveAudio.getAttribute("src"))stopLive();
+  if(mobileLiveActive())stopLive();
   resumeLiveAfterReplay=keepResume;playingRecordingId=item.id;
   replayAudio.src=item.play_url+"?replay="+Date.now();
   if(currentSnapshot)showRecordings(currentSnapshot);
@@ -968,9 +1014,11 @@ function renderAudioState(data){
   streamUrl=voiceActive?String(data.audio?.stream_url||""):"";
   // Always leave the control clickable. If Voice is unavailable, explain why.
   // A silent receiver is not a reason to disable a user's playback control.
-  $("audiotoggle").disabled=!isMobileFeatureAvailable("traffic_voice")||(!mobileIsOnline()&&!liveAudio.getAttribute("src")); // Keep Stop usable; never auto-reconnect audio.
-  if(!voiceActive&&liveAudio.getAttribute("src"))stopLive();
-  if(!liveAudio.getAttribute("src")){
+  $("audiotoggle").disabled=!mobileLiveActive()&&
+    (!isMobileFeatureAvailable("traffic_voice")||!mobileIsOnline());
+  if(!voiceActive&&mobileLiveActive())stopLive();
+  if(nativeMarineAudio&&mobileLiveActive())return; // Service provides live/reconnect state.
+  if(!mobileLiveActive()){
     $("audiostatus").textContent=data.selected_mode!=="marine_ais"
       ?"Traffic Voice is not in Marine mode"
       : !voiceActive?"Traffic Voice Marine is inactive"
