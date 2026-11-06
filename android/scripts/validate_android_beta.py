@@ -186,7 +186,7 @@ def validate() -> None:
             "Android release request must match Gradle versionCode")
     require("com.android.application" in gradle and "targetSdk 34" in gradle,
             "Unexpected Android build setup")
-    require(re.fullmatch(r"\\d+\\.\\d+\\.\\d+",
+    require(re.fullmatch(r"\d+\.\d+\.\d+",
             (REPO / "VERSION").read_text().strip()) is not None,
             "SDRCC server version must remain a valid release number")
     print("PASS: SDRCC Android integration and address editing regression checks")
