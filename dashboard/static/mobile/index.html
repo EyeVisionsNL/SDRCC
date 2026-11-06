@@ -841,7 +841,7 @@ window.sdrccNativeAudioStatus=(status,active)=>{
   const labels={CONNECTING:"Connecting…",WAITING:"Waiting for marine VHF activity…",
     LIVE:"LIVE · background audio",RECONNECTING:"Reconnecting audio stream…",OFF:"Off"};
   $("audiostatus").textContent=labels[status]||"Off";
-  if(!nativeAudioListening)resumeLiveAfterReplay=false;
+  // A replay may still need to resume the listener after native STOP completes.
   $("audiotoggle").disabled=!nativeAudioListening&&
     (!isMobileFeatureAvailable("traffic_voice")||!mobileIsOnline());
 };
