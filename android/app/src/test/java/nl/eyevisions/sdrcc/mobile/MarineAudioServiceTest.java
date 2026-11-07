@@ -2,7 +2,10 @@ package nl.eyevisions.sdrcc.mobile;
 
 import org.junit.Test;
 import java.io.IOException;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public final class MarineAudioServiceTest {
     private byte[] header(int rate) {
@@ -20,6 +23,35 @@ public final class MarineAudioServiceTest {
         bytes[34] = 16; // 16-bit
         System.arraycopy("data".getBytes(java.nio.charset.StandardCharsets.US_ASCII), 0, bytes, 36, 4);
         return bytes;
+    }
+
+    @Test
+    public void reassemblesPcm16FramesAcrossOddNetworkReads() {
+        MarineAudioService.Pcm16FrameAssembler frames =
+                new MarineAudioService.Pcm16FrameAssembler();
+        byte[] firstRead = {1, 2, 3};
+        int firstCount = frames.alignRead(firstRead, firstRead.length);
+        assertEquals(2, firstCount);
+        assertArrayEquals(new byte[]{1, 2}, java.util.Arrays.copyOf(firstRead, firstCount));
+        assertTrue(frames.hasPendingByte());
+        assertEquals(1, frames.readOffset());
+
+        // The next HTTP read starts at offset 1 so the carried byte can occupy byte 0.
+        byte[] secondRead = {0, 4, 5, 6};
+        int secondCount = frames.alignRead(secondRead, 3);
+        assertEquals(4, secondCount);
+        assertArrayEquals(new byte[]{3, 4, 5, 6}, java.util.Arrays.copyOf(secondRead, secondCount));
+        assertFalse(frames.hasPendingByte());
+    }
+
+    @Test
+    public void cleanQuietStreamEndReturnsToWaiting() {
+        assertEquals("WAITING", MarineAudioService.retryState(true));
+    }
+
+    @Test
+    public void failedStreamStillShowsReconnect() {
+        assertEquals("RECONNECTING", MarineAudioService.retryState(false));
     }
 
     @Test

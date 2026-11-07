@@ -160,11 +160,39 @@ public final class MarineAudioService extends Service {
         return rate;
     }
 
+    /** Carries odd PCM16 bytes across arbitrary HTTP read boundaries. */
+    static final class Pcm16FrameAssembler {
+        private int pendingByte = -1;
+
+        int readOffset() { return pendingByte >= 0 ? 1 : 0; }
+
+        boolean hasPendingByte() { return pendingByte >= 0; }
+
+        int alignRead(byte[] buffer, int count) {
+            int aligned = count;
+            if (pendingByte >= 0) {
+                buffer[0] = (byte) pendingByte;
+                aligned++;
+                pendingByte = -1;
+            }
+            if ((aligned & 1) != 0) {
+                pendingByte = buffer[aligned - 1] & 255;
+                aligned--;
+            }
+            return aligned;
+        }
+    }
+
+    static String retryState(boolean cleanEnd) {
+        return cleanEnd ? "WAITING" : "RECONNECTING";
+    }
+
     private void listen(String address, float volume, int ticket) {
         int failures = 0;
         while (valid(ticket)) {
             HttpURLConnection active = null;
             AudioTrack audio = null;
+            boolean cleanEnd = false;
             try {
                 active = (HttpURLConnection) new URL(address).openConnection();
                 connection = active;
@@ -198,17 +226,26 @@ public final class MarineAudioService extends Service {
                     audio.setVolume(volume);
                     audio.play();
                     if (valid(ticket)) setState("WAITING");
+                    Pcm16FrameAssembler frames = new Pcm16FrameAssembler();
                     byte[] buffer = new byte[4096];
                     while (valid(ticket)) {
-                        int count = stream.read(buffer);
-                        if (count < 0) break; // Server closes after a quiet timeout.
+                        int readOffset = frames.readOffset();
+                        int count = stream.read(buffer, readOffset, buffer.length - readOffset);
+                        if (count < 0) {
+                            if (frames.hasPendingByte())
+                                throw new EOFException("Incomplete PCM16 sample");
+                            cleanEnd = true; // The server closes a quiet stream normally.
+                            break;
+                        }
                         if (count == 0) continue;
+                        int alignedCount = frames.alignRead(buffer, count);
+                        if (alignedCount == 0) continue;
                         if ("WAITING".equals(state) || "RECONNECTING".equals(state)) {
                             setState("LIVE");
                         }
                         int offset = 0;
-                        while (offset < count && valid(ticket)) {
-                            int wrote = audio.write(buffer, offset, count - offset);
+                        while (offset < alignedCount && valid(ticket)) {
+                            int wrote = audio.write(buffer, offset, alignedCount - offset);
                             if (wrote <= 0) throw new IOException("Audio output stalled");
                             offset += wrote;
                         }
@@ -227,7 +264,7 @@ public final class MarineAudioService extends Service {
                 if (active != null) active.disconnect();
             }
             if (!valid(ticket)) break;
-            setState("RECONNECTING");
+            setState(retryState(cleanEnd));
             long pause = failures >= 5 ? 15000 : Math.min(6000, 1500L * Math.max(1, failures));
             try { Thread.sleep(pause); }
             catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
