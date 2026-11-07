@@ -544,7 +544,7 @@ public final class MainActivity extends Activity {
             } catch (Exception exception) {
                 String detail = String.valueOf(exception.getMessage());
                 if (detail.length() > 140) detail = detail.substring(0, 140);
-                result = "Android-netwerktest: " +
+                result = "Android network test: " +
                         exception.getClass().getSimpleName() + ": " + detail;
             } finally {
                 if (connection != null) connection.disconnect();
@@ -758,7 +758,7 @@ public final class MainActivity extends Activity {
                         ? currentHost : request.getUrl().getHost();
                 showLoadError("WebView error " + error.getErrorCode() + ": " + explanation
                         + "\nHost: " + location + ". Wi-Fi or VPN will work."
-                        + "\nAndroid-netwerktest wordt uitgevoerd…");
+                        + "\nRunning Android network test…");
                 probeStationAfterWebError(view);
             }
         }

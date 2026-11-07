@@ -109,7 +109,7 @@ def validate() -> None:
     require("RadarView(this)" in java, "SDRCC native radar splash missing")
     require('changeHostButton.setVisibility(View.VISIBLE);' in java,
             "The host editor must be reachable while connecting")
-    require('Button clearAddress = button("× Wissen");' in java,
+    require('Button clearAddress = button("× Clear");' in java,
             "The operator must have an explicit way to clear a stored address")
     require("input.setShowSoftInputOnFocus(true)" in java,
             "Android host text field must open the keyboard")
@@ -125,12 +125,12 @@ def validate() -> None:
             "new URL(target).openConnection()" in java and
             "setInstanceFollowRedirects(false)" in java,
             "VPN/WebView main-frame diagnostic must report actual errors without redirect")
-    require("via wifi of een privé-Tailscale-VPN" in java and
+    require("over Wi-Fi or Tailscale VPN" in java and
             "Controleer het IP-adres en de wifi-verbinding." not in java,
             "Obsolete Wi-Fi-only connection errors must be removed")
     require('Button update = button("↓");' in java and
             "checkForAppUpdate()" in java and
-            'Button updateApp = button("↓ App-update controleren");' in java,
+            'Button updateApp = button("↓ Check for app updates");' in java,
             "App update button must be available when connected and disconnected")
     require('"https://raw.githubusercontent.com/EyeVisionsNL/SDRCC/main/android/update.json"' in java,
             "Production app must fetch stable update metadata from main")
@@ -138,7 +138,7 @@ def validate() -> None:
             'APP_UPDATE_MAX_BYTES' in java and
             'AppUpdatePolicy.evaluate(' in java and
             'setInstanceFollowRedirects(false)' in java and
-            '"APK openen"' in java and
+            '"Open APK"' in java and
             'new Thread(() ->' in java,
             "Update must verify a bounded public feed and ask before browser APK handoff")
     policy = (project / "src/main/java/nl/eyevisions/sdrcc/mobile/"
