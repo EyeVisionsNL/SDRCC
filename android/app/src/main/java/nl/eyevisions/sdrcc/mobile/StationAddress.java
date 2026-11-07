@@ -19,11 +19,11 @@ public final class StationAddress {
 
     public static URI parse(String entered) {
         if (entered == null) {
-            throw new IllegalArgumentException("Vul het IP-adres van je mini-pc in.");
+            throw new IllegalArgumentException("Enter your SDRCC PC's IP address.");
         }
         String text = entered.trim();
         if (text.isEmpty()) {
-            throw new IllegalArgumentException("Vul het IP-adres van je mini-pc in.");
+            throw new IllegalArgumentException("Enter your SDRCC PC's IP address.");
         }
         if (!text.contains("://")) {
             text = "http://" + text;
@@ -32,14 +32,14 @@ public final class StationAddress {
         try {
             uri = new URI(text);
         } catch (URISyntaxException exception) {
-            throw new IllegalArgumentException("Gebruik bijvoorbeeld 192.168.1.50:8080.");
+            throw new IllegalArgumentException("Use e.g. 192.168.1.50:8080.");
         }
         if (!"http".equalsIgnoreCase(uri.getScheme())) {
-            throw new IllegalArgumentException("Deze beta gebruikt HTTP via wifi of een VPN.");
+            throw new IllegalArgumentException("Use HTTP over Wi-Fi or VPN.");
         }
         String host = uri.getHost();
         if (host == null || !HOST.matcher(host).matches() || host.contains("..")) {
-            throw new IllegalArgumentException("Gebruik een geldig IP-adres of een lokale hostnaam.");
+            throw new IllegalArgumentException("Enter a valid IP address or local hostname.");
         }
         int port = uri.getPort();
         if (port == -1) {
@@ -50,7 +50,7 @@ public final class StationAddress {
                 uri.getRawFragment() != null ||
                 (uri.getRawPath() != null && !uri.getRawPath().isEmpty()
                         && !"/".equals(uri.getRawPath()))) {
-            throw new IllegalArgumentException("Gebruik alleen het adres en eventueel de poort.");
+            throw new IllegalArgumentException("Enter only the address and optional port.");
         }
         String canonicalHost = host.toLowerCase(Locale.ROOT);
         return URI.create("http://" + canonicalHost + ":" + port

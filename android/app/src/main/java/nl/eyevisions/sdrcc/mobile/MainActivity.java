@@ -211,13 +211,13 @@ public final class MainActivity extends Activity {
         content.addView(radar, new LinearLayout.LayoutParams(dp(170), dp(170)));
 
         TextView description = text(
-                "Verbind met je SDRCC mini-pc via wifi of een privé-Tailscale-VPN. "
-                        + "AIS en ADS-B blijven op hun bestaande HTTP-poorten werken.",
+                "Connect to your SDRCC mini PC over Wi-Fi or Tailscale VPN. "
+                        + "AIS and ADS-B use existing HTTP ports.",
                 14, MUTED);
         description.setPadding(0, dp(8), 0, dp(16));
         content.addView(description);
 
-        TextView hostLabel = text("IP-adres of hostnaam van de mini-pc", 14, ACCENT);
+        TextView hostLabel = text("SDRCC mini PC IP address or hostname", 14, ACCENT);
         hostLabel.setGravity(Gravity.START);
         hostLabel.setPadding(0, 0, 0, dp(8));
         content.addView(hostLabel);
@@ -231,7 +231,7 @@ public final class MainActivity extends Activity {
         input.setTextSize(16);
         input.setTextColor(TEXT);
         input.setHintTextColor(MUTED);
-        input.setHint("Bijv. 192.168.1.50:8080");
+        input.setHint("e.g. 192.168.1.50:8080");
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         input.setBackground(surface(SURFACE, 0xFF54747B, 9));
         input.setPadding(dp(14), dp(12), dp(14), dp(12));
@@ -246,10 +246,10 @@ public final class MainActivity extends Activity {
         editorParams.topMargin = dp(8);
         content.addView(editControls, editorParams);
 
-        Button editAddress = button("✎ Adres bewerken");
+        Button editAddress = button("✎ Edit address");
         editControls.addView(editAddress,
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
-        Button clearAddress = button("× Wissen");
+        Button clearAddress = button("× Clear");
         LinearLayout.LayoutParams clearParams = new LinearLayout.LayoutParams(
                 dp(102), ViewGroup.LayoutParams.MATCH_PARENT);
         clearParams.leftMargin = dp(8);
@@ -278,12 +278,12 @@ public final class MainActivity extends Activity {
         validation.setPadding(0, dp(8), 0, dp(8));
         content.addView(validation);
 
-        Button connect = button("▶ Verbinden met SDRCC");
+        Button connect = button("▶ Connect to SDRCC");
         LinearLayout.LayoutParams connectParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(54));
         connectParams.topMargin = dp(7);
         content.addView(connect, connectParams);
-        Button updateApp = button("↓ App-update controleren");
+        Button updateApp = button("↓ Check for app updates");
         LinearLayout.LayoutParams updateParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
         updateParams.topMargin = dp(10);
@@ -301,9 +301,8 @@ public final class MainActivity extends Activity {
         });
 
         TextView note = text(
-                "De app opent het bestaande SDRCC Mobile-dashboard. "
-                        + "Geen extra SDR-diensten of nieuwe ontvangerinstellingen nodig. "
-                        + "Later kun je dezelfde verbinding via Tailscale VPN gebruiken.",
+                "Opens your SDRCC Mobile dashboard. "
+                        + "No extra SDR services or setup needed.",
                 12, MUTED);
         note.setPadding(0, dp(24), 0, 0);
         content.addView(note);
@@ -343,13 +342,13 @@ public final class MainActivity extends Activity {
                 0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
         Button refresh = button("⟳");
-        refresh.setContentDescription("SDRCC verversen");
+        refresh.setContentDescription("Refresh SDRCC");
         bar.addView(refresh, new LinearLayout.LayoutParams(dp(44), dp(42)));
         Button update = button("↓");
-        update.setContentDescription("Android app-update controleren");
+        update.setContentDescription("Check for Android app updates");
         bar.addView(update, new LinearLayout.LayoutParams(dp(42), dp(42)));
         Button settings = button("⚙");
-        settings.setContentDescription("SDRCC adres wijzigen");
+        settings.setContentDescription("Change SDRCC address");
         LinearLayout.LayoutParams settingsParams = new LinearLayout.LayoutParams(dp(44), dp(42));
         settingsParams.leftMargin = dp(8);
         bar.addView(settings, settingsParams);
@@ -402,7 +401,7 @@ public final class MainActivity extends Activity {
         brand.setLetterSpacing(.09f);
         brand.setPadding(0, dp(12), 0, dp(2));
         overlay.addView(brand);
-        TextView stationCaption = text("VERBINDEN MET JE SDRCC-STATION", 10, MUTED);
+        TextView stationCaption = text("CONNECTING TO YOUR SDRCC STATION", 10, MUTED);
         stationCaption.setLetterSpacing(.08f);
         stationCaption.setPadding(0, 0, 0, dp(3));
         overlay.addView(stationCaption);
@@ -424,23 +423,23 @@ public final class MainActivity extends Activity {
                 dp(18), ViewGroup.LayoutParams.WRAP_CONTENT);
         indicatorParams.rightMargin = dp(8);
         statusPanel.addView(loadingIndicator, indicatorParams);
-        loadingText = text("Verbinden met " + currentHost + "…", 14, MUTED);
+        loadingText = text("Connecting to " + currentHost + "…", 14, MUTED);
         loadingText.setGravity(Gravity.CENTER);
         statusPanel.addView(loadingText, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView networkHint = text("Wifi of privé-VPN  ·  poort " + currentPort,
+        TextView networkHint = text("Wi-Fi or private VPN  ·  port " + currentPort,
                 12, MUTED);
         networkHint.setPadding(0, dp(8), 0, dp(2));
         overlay.addView(networkHint);
 
-        retryButton = button("↻ Opnieuw proberen");
+        retryButton = button("↻ Try again");
         retryButton.setVisibility(View.GONE);
         LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
         retryParams.topMargin = dp(10);
         overlay.addView(retryButton, retryParams);
-        changeHostButton = button("✎ IP-adres wijzigen");
+        changeHostButton = button("✎ Change IP address");
         // The operator must be able to correct an incorrect stored IP immediately.
         // Do not hide this button while the native radar connection screen is open.
         changeHostButton.setVisibility(View.VISIBLE);
@@ -483,12 +482,11 @@ public final class MainActivity extends Activity {
         if (loadingIndicator != null) {
             loadingIndicator.setTextColor(ACCENT);
         }
-        loadingText.setText("Verbinden met " + currentHost + "…");
+        loadingText.setText("Connecting to " + currentHost + "…");
         clearConnectionTimeout();
         loadTimeout = () -> {
-            showLoadError("SDRCC reageert niet binnen 20 seconden via wifi of VPN."
-                    + " Controleer het adres en de netwerkverbinding."
-                    + "\nAndroid-netwerktest wordt uitgevoerd…");
+            showLoadError("No response from SDRCC after 20 seconds. Check the address and Wi-Fi/VPN connection."
+                    + "\nRunning Android network test…");
             probeStationAfterWebError(webView);
         };
         // Probe with the app's own HTTP stack as a second diagnostic signal.
@@ -539,14 +537,14 @@ public final class MainActivity extends Activity {
                 connection.setInstanceFollowRedirects(false);
                 connection.setUseCaches(false);
                 int status = connection.getResponseCode();
-                result = "Android-netwerktest: HTTP " + status +
+                result = "Android network test: HTTP " + status +
                         (status >= 200 && status < 400
-                                ? " (mini-pc bereikbaar; probleem zit in WebView)."
-                                : " (mini-pc antwoordt met HTTP-fout).");
+                                ? " (mini PC is reachable; the issue is in WebView)."
+                                : " (mini PC returned an HTTP error).");
             } catch (Exception exception) {
                 String detail = String.valueOf(exception.getMessage());
                 if (detail.length() > 140) detail = detail.substring(0, 140);
-                result = "Android-netwerktest: " +
+                result = "Android network test: " +
                         exception.getClass().getSimpleName() + ": " + detail;
             } finally {
                 if (connection != null) connection.disconnect();
@@ -609,17 +607,17 @@ public final class MainActivity extends Activity {
     private void checkForAppUpdate() {
         if (updateCheckBusy) return;
         updateCheckBusy = true;
-        Toast.makeText(this, "SDRCC app-update controleren…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Checking for SDRCC app updates…", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
             try {
                 JSONObject feed = new JSONObject(readUpdateFeed());
                 Object rawCode = feed.opt("version_code");
                 if (!(rawCode instanceof Integer) && !(rawCode instanceof Long)) {
-                    throw new IOException("Het versieveld van de updatebron is ongeldig.");
+                    throw new IOException("The update feed's version field is invalid.");
                 }
                 long code = ((Number) rawCode).longValue();
                 if (code < Integer.MIN_VALUE || code > Integer.MAX_VALUE) {
-                    throw new IOException("De aangeboden versiecode is ongeldig.");
+                    throw new IOException("The offered version code is invalid.");
                 }
                 int offeredCode = (int) code;
                 String name = feed.optString("version_name", "").trim();
@@ -630,29 +628,28 @@ public final class MainActivity extends Activity {
                     if (isFinishing() || isDestroyed()) return;
                     AlertDialog.Builder dialog = new AlertDialog.Builder(this);
                     if (status == AppUpdatePolicy.Status.UNPUBLISHED) {
-                        dialog.setTitle("Nog geen ondertekende app-release")
-                                .setMessage("De updatecontrole is bereikbaar, maar er staat "
-                                        + "nog geen officieel ondertekende Android-APK op GitHub. "
-                                        + "Je huidige app blijft gewoon werken.")
+                        dialog.setTitle("No signed app release yet")
+                                .setMessage("The update feed is reachable, but there is no officially signed "
+                                        + "Android APK on GitHub yet. Your current app will keep working.")
                                 .setPositiveButton("OK", null);
                     } else if (status == AppUpdatePolicy.Status.INVALID) {
-                        dialog.setTitle("Update tijdelijk niet beschikbaar")
-                                .setMessage("GitHub geeft een onvolledig of onjuist "
-                                        + "updatebericht. Er wordt geen APK geopend.")
+                        dialog.setTitle("Update temporarily unavailable")
+                                .setMessage("GitHub returned an incomplete or invalid update feed. "
+                                        + "No APK will be opened.")
                                 .setPositiveButton("OK", null);
                     } else if (status == AppUpdatePolicy.Status.UP_TO_DATE) {
-                        dialog.setTitle("SDRCC Mobile is bijgewerkt")
-                                .setMessage("Geen nieuwere Android-app gepubliceerd. "
-                                        + "Geïnstalleerd: " + appVersionLabel() + ".")
+                        dialog.setTitle("SDRCC Mobile is up to date")
+                                .setMessage("No newer Android app is available. "
+                                        + "Installed: " + appVersionLabel() + ".")
                                 .setPositiveButton("OK", null);
                     } else {
-                        dialog.setTitle("Nieuwe SDRCC Mobile-versie")
-                                .setMessage("Versie " + name + " is beschikbaar. "
-                                        + "De officiële GitHub APK wordt in je browser geopend. "
-                                        + "Android vraagt zelf toestemming voor de installatie. "
-                                        + "Je SDRCC mini-pc blijft draaien.")
-                                .setNegativeButton("Annuleren", null)
-                                .setPositiveButton("APK openen", (whichDialog, which) ->
+                        dialog.setTitle("New SDRCC Mobile version")
+                                .setMessage("Version " + name + " is available. "
+                                        + "The signed GitHub APK will open in your browser. "
+                                        + "Android will ask you to confirm installation. "
+                                        + "Your SDRCC station will keep running.")
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Open APK", (whichDialog, which) ->
                                         openExternal(Uri.parse(link)));
                     }
                     dialog.show();
@@ -665,10 +662,10 @@ public final class MainActivity extends Activity {
                 handler.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     new AlertDialog.Builder(this)
-                            .setTitle("Updatecontrole niet beschikbaar")
-                            .setMessage("Kan de openbare GitHub-updatebron niet controleren. "
-                                    + "Controleer internet op je telefoon. Details: " + failure
-                                    + "\nDe SDRCC-ontvangst blijft actief.")
+                            .setTitle("Update check unavailable")
+                            .setMessage("Could not check GitHub for an update. Check your phone's internet connection. "
+                                    + "Details: " + failure
+                                    + "\nSDRCC reception will keep running.")
                             .setPositiveButton("OK", null)
                             .show();
                 });
@@ -759,9 +756,9 @@ public final class MainActivity extends Activity {
                 if (explanation.length() > 140) explanation = explanation.substring(0, 140);
                 String location = request.getUrl() == null
                         ? currentHost : request.getUrl().getHost();
-                showLoadError("WebView-fout " + error.getErrorCode() + ": " + explanation
-                        + "\nHost: " + location + ". Wifi of VPN mag allebei."
-                        + "\nAndroid-netwerktest wordt uitgevoerd…");
+                showLoadError("WebView error " + error.getErrorCode() + ": " + explanation
+                        + "\nHost: " + location + ". Wi-Fi or VPN will work."
+                        + "\nRunning Android network test…");
                 probeStationAfterWebError(view);
             }
         }
@@ -771,7 +768,7 @@ public final class MainActivity extends Activity {
                 WebView view, WebResourceRequest request, WebResourceResponse response) {
             if (request.isForMainFrame() && response.getStatusCode() >= 400) {
                 showLoadError("SDRCC geeft HTTP " + response.getStatusCode()
-                        + ". Controleer de mini-pc en het adres.");
+                        + ". Check your SDRCC PC and address.");
             }
         }
 
@@ -785,8 +782,8 @@ public final class MainActivity extends Activity {
         @Override
         public boolean onRenderProcessGone(
                 WebView view, android.webkit.RenderProcessGoneDetail detail) {
-            showConnectionScreen("De Android WebView is gestopt. "
-                    + "Controleer de verbinding en probeer opnieuw.");
+            showConnectionScreen("Android WebView stopped. "
+                    + "Check the connection and try again.");
             return true;
         }
     }
