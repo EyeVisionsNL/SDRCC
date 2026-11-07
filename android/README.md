@@ -1,8 +1,8 @@
-# SDRCC Mobile — Android v2.0.4
+# SDRCC Mobile — Android v2.0.5
 
-**Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.4)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v11/SDRCC-Mobile.apk)
+**Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.5)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v12/SDRCC-Mobile.apk)
 
-**Update an existing installation:** Tap **↓** in the Android app's top bar, confirm **APK openen**, then accept Android's installation prompt. The button checks the published `main/android/update.json` feed; the installed app and private SDRCC station remain in place.
+**Update an existing installation:** Tap **↓** in the Android app's top bar, confirm **Open APK**, then accept Android's installation prompt. The button checks the published `main/android/update.json` feed; the installed app and private SDRCC station remain in place.
 
 SDRCC Mobile is the Android companion to the existing SDRCC server. The host can be a desktop PC, mini-PC, laptop, or server that meets SDRCC's supported Linux installation requirements; its physical size makes no difference to the Android app. It shows the same live data as the SDRCC computer: Marine Voice, AIS and ATIS matches, recordings, aircraft, satellite passes, mission controls, and service status. It does **not** install or run a second receiver server.
 
@@ -12,13 +12,13 @@ SDRCC Mobile is the Android companion to the existing SDRCC server. The host can
 2. Open the **official signed APK** link above in your Android browser.
 3. Open the downloaded `SDRCC-Mobile.apk`. If Android asks, allow installation from this browser.
 4. Tap **Install**. Start **SDRCC Mobile**.
-5. Enter the address of the computer running SDRCC, for example `192.168.1.50` or `192.168.1.50:8080`, and tap **Verbinden met SDRCC**.
+5. Enter the address of the computer running SDRCC, for example `192.168.1.50` or `192.168.1.50:8080`, and tap **Connect to SDRCC**.
 
 Only enter a station address you control. The phone must be on the same trusted Wi-Fi network or connected to the private Tailscale network as your SDRCC computer. SDRCC normally runs on HTTP port 8080; AIS-Catcher normally uses 8119, and readsb/tar1090 uses port 80.
 
 <p align="center"><img src="../images/android-startup.webp" alt="Android station connection screen with editable SDRCC server address" width="260"></p>
 
-If the station is temporarily unreachable, select **IP-adres wijzigen** on the radar connection screen. Use **Adres bewerken** or **Wissen** to correct the saved address. The app also reports relevant Android/WebView connection failures.
+If the station is temporarily unreachable, select **Change IP address** on the radar connection screen. Use **Edit address** or **Clear** to correct the saved address. The app also reports relevant Android/WebView connection failures.
 
 ### Connect from outside home Wi-Fi with Tailscale
 
@@ -60,9 +60,9 @@ Tailscale creates a private, encrypted connection between the computer running S
 **Step C — Connect SDRCC Mobile over Tailscale**
 
 1. Open **SDRCC Mobile** on Android.
-2. Choose **IP-adres wijzigen** or **Adres bewerken** on its connection screen.
+2. Choose **Change IP address** or **Edit address** on its connection screen.
 3. Enter **your SDRCC computer's Tailscale IPv4 address**, optionally followed by SDRCC's port `8080`. For the example above, enter `100.101.102.103:8080` (do **not** enter the phone's own Tailscale IP).
-4. Tap **Verbinden met SDRCC**. Your SDRCC computer must be switched on, SDRCC must be running, and both Tailscale devices must be connected.
+4. Tap **Connect to SDRCC**. Your SDRCC computer must be switched on, SDRCC must be running, and both Tailscale devices must be connected.
 5. In **System → Settings → Map Connections**, use the **SDRCC computer's Tailscale IP** for the embedded map URLs if the maps do not open remotely:
 
    | Mobile map | Example address |
@@ -75,6 +75,10 @@ Tailscale creates a private, encrypted connection between the computer running S
 **Test with Wi-Fi switched off:** activate mobile data, leave Tailscale connected, and open `http://YOUR-TAILSCALE-IP:8080/static/mobile/index.html` in your phone browser (replacing the placeholder with your SDRCC computer's real address). Then open SDRCC Mobile using that same IP. If SDRCC works but an AIS/ADS-B map does not, verify the map's URL, the relevant service, its listening interface/port and the computer's firewall or tailnet access policy. The update button downloads Android APKs from GitHub separately; it is **not** the SDRCC computer's Tailscale connection.
 
 Official reference: [Tailscale Linux setup](https://tailscale.com/docs/install/linux) · [Tailscale Android setup](https://tailscale.com/docs/install/android).
+
+## Android v2.0.5 — English connection screen
+
+The connection screen and update messages are now in English, with shorter setup text. The app still opens your existing SDRCC Mobile dashboard and does not configure extra SDR services.
 
 ## Android v2.0.3 — Marine background listening
 
@@ -129,10 +133,10 @@ Marine recordings can be replayed and saved while live reception continues. ADS-
 
 ## 4. Update SDRCC Mobile (without uninstalling)
 
-1. Open **SDRCC Mobile** and tap **↓** in the top toolbar. This is also available as **App-update controleren** on the connection screen.
-2. The stable v2.0.3 app reads `android/update.json` from the public **main** branch over HTTPS, separately from the station's private SDRCC API.
-3. If there is a newer signed version, tap **APK openen**. The official versioned GitHub Release APK opens in the phone browser.
-4. Open the downloaded APK and choose **Update / Bijwerken**, **not Uninstall / Verwijderen**.
+1. Open **SDRCC Mobile** and tap **↓** in the top toolbar. This is also available as **Check for app updates** on the connection screen.
+2. The stable v2.0.5 app reads `android/update.json` from the public **main** branch over HTTPS, separately from the station's private SDRCC API.
+3. If there is a newer signed version, tap **Open APK**. The official versioned GitHub Release APK opens in the phone browser.
+4. Open the downloaded APK and choose **Update**, **not Uninstall**.
 5. Launch SDRCC Mobile. Your saved SDRCC server address and Android app settings should still be present.
 
 The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was successfully tested on an Android phone without uninstalling. The release uses the same permanent signing key, with **v2.0.0 (code 7)** as its new public version. The button never silently installs APKs, and an Android update never stops the SDRCC computer's receiver services.
@@ -141,7 +145,7 @@ The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was
 
 ## 5. Technical details
 
-- Android package: `nl.eyevisions.sdrcc.mobile` · version name: `2.0.3` · versionCode: `10`.
+- Android package: `nl.eyevisions.sdrcc.mobile` · version name: `2.0.5` · versionCode: `12`.
 - Android 8.0 minimum (`minSdk 26`); Java 17, Gradle 8.9, Android Gradle Plugin 8.7.3 and compile SDK 35 to build.
 - Open `android/` in Android Studio, or run `gradle :app:testDebugUnitTest :app:assembleDebug` from that directory. Debug builds are **not** stable upgrade packages.
 - The production APK is built and signed by **SDRCC Mobile Signed Release** using the repository's protected Android signing secrets, then published as an immutable GitHub Release. New versions must increase `versionCode`.
@@ -149,4 +153,4 @@ The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was
 - SDRCC and the embedded maps communicate over HTTP on your trusted LAN or private encrypted Tailscale VPN. Do not expose the station to the public internet with port forwarding.
 - Keep a **secure offline backup** of your private Android signing keystore and passwords. Never add the `.p12` file, secret contents, or passwords to GitHub source control or support messages.
 
-**SDRCC** on the computer running SDRCC and **SDRCC Mobile v2.0.3** on Android are two separate version numbers. Update SDRCC itself with **System → Advanced Maintenance** on that computer; use the Android **↓** button only to update the phone app.
+**SDRCC** on the computer running SDRCC and **SDRCC Mobile v2.0.5** on Android are two separate version numbers. Update SDRCC itself with **System → Advanced Maintenance** on that computer; use the Android **↓** button only to update the phone app.
