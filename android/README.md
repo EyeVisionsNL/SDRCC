@@ -96,10 +96,13 @@ can still terminate audio on heavily restricted devices, so allow background
 activity for SDRCC Mobile (and Tailscale if used).
 
 **Important:** The Android APK opens the mobile page provided by the SDRCC
-computer. Update the SDRCC server to a revision containing the new
-`dashboard/static/mobile/index.html` before testing v2.0.3; otherwise the
-older page still uses WebView audio. Browsers and the PWA continue to use their
-previous HTML5 audio path; only the native Android app receives background audio.
+computer. Native background audio requires SDRCC server **v0.70.5 or later**,
+which includes the Android audio handoff in `dashboard/static/mobile/index.html`.
+If Android shows **“Audio stream waiting for connection…”**, the server page is
+still using the WebView audio path; update SDRCC from **System → Advanced
+Maintenance**, refresh SDRCC Mobile, then start Live Audio again. Browsers and
+the PWA continue to use their previous HTML5 audio path; only the native Android
+app receives background audio.
 
 ## 2. Configure the live AIS map
 
