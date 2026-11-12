@@ -164,6 +164,18 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 #adsb>.panel.mobile-drop-before{border-top:4px solid #7dd3fc}
 #adsb>.panel.mobile-drop-after{border-bottom:4px solid #7dd3fc}
 @media(prefers-reduced-motion:reduce){#adsb>.panel.mobile-dragging{transition:none}}
+
+/* Fullscreen 3D within Mobile: keep the AIS map and audio running. */
+.mobile-map-switch{display:flex;gap:8px;margin:9px 0;align-items:center}
+.mobile-map-switch button{flex:1;min-width:0;padding:8px 9px;font-size:13px}
+.mobile-map-switch button[aria-pressed="true"]{background:#175277;border-color:#68caf7;color:#fff}
+.mobile-map-3d-view[hidden]{display:none!important}
+.mobile-map-3d-view{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;background:#071321;padding-top:env(safe-area-inset-top)}
+.mobile-map-3d-bar{flex:0 0 auto;display:flex;align-items:center;gap:12px;min-height:53px;padding:7px 12px;background:#10253e;border-bottom:1px solid #477996}
+.mobile-map-3d-bar button{flex:0 0 auto;padding:8px 11px}
+.mobile-map-3d-bar strong{font-size:14px;color:#d9eeff}
+#mobile-map-3d-frame{display:block;flex:1;min-height:0;width:100%;border:0;background:#081828}
+body.mobile-map-3d-open{overflow:hidden}
 </style></head><body><header class="mobile-brand-banner" aria-label="SDRCC Mobile">
 <span class="mobile-radar" aria-hidden="true"></span>
 <span class="mobile-brand-copy"><strong>SDRCC</strong><span id="mobile-scene-title" class="mobile-brand-subtitle">Mobile · Marine Traffic</span></span>
@@ -173,7 +185,7 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 <small>Connect to the same Wi-Fi network or your private Tailscale VPN. Reception continues on the mini-PC; live audio may need to be started again.</small></div>
 <button type="button" id="network-retry">↻ Retry</button>
 </div><main>
-<section id="marine"><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Map</button></div><iframe id="aismap" class="map" title="AIS-Catcher map" loading="eager"></iframe><p id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden>Checking AIS highlighting…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Latest ATIS / AIS match</h2><div id="match">Waiting for live ATIS data…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · Control</h2><span id="marinestate" class="state-indicator unknown" role="status">Loading status…</span></div><p class="muted">Control marine VHF and ATIS. AIS-Catcher runs independently.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Start Marine</button><button id="marine-stop" class="stop" disabled>■ Stop Marine</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · Vessels</h2><span id="ais-service-state" class="state-indicator unknown">Loading status…</span></div><p class="muted control-description">AIS positions for the map and ATIS matching, independent of Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ Start AIS</button><button id="ais-service-stop" class="stop" type="button" disabled>■ Stop AIS</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-voice-audio" class="panel">
+<section id="marine"><div id="mobile-ais-map" class="panel"><div class="row"><h2>🚢 Marine Traffic · AIS</h2><button id="mapreload">↻ Map</button></div><div class="mobile-map-switch" role="group" aria-label="Marine map view"><button id="mobile-map-2d" type="button" aria-pressed="true">▣ 2D AIS</button><button id="mobile-map-3d" type="button" aria-pressed="false" aria-controls="mobile-map-3d-view" aria-expanded="false">◩ 3D Map</button></div><iframe id="aismap" class="map" title="AIS-Catcher map" loading="eager"></iframe><p id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden>Checking AIS highlighting…</p></div><div class="panel" id="matchpanel"><h2>🎙️ Latest ATIS / AIS match</h2><div id="match">Waiting for live ATIS data…</div><div id="atis" class="statusline"></div><div id="photo"></div></div><div id="mobile-voice-control" class="panel control-panel"><div class="row"><h2>🎙️ Marine Traffic · Control</h2><span id="marinestate" class="state-indicator unknown" role="status">Loading status…</span></div><p class="muted">Control marine VHF and ATIS. AIS-Catcher runs independently.</p><div class="control-buttons"><button id="marine-start" class="start" disabled>▶ Start Marine</button><button id="marine-stop" class="stop" disabled>■ Stop Marine</button></div><p id="marine-action-message" class="muted system-status" role="status" aria-live="polite"></p></div><div id="mobile-ais-control" class="panel control-panel"><div class="row"><h2>📡 AIS-Catcher · Vessels</h2><span id="ais-service-state" class="state-indicator unknown">Loading status…</span></div><p class="muted control-description">AIS positions for the map and ATIS matching, independent of Marine Voice.</p><div class="control-buttons"><button id="ais-service-start" class="start" type="button" disabled>▶ Start AIS</button><button id="ais-service-stop" class="stop" type="button" disabled>■ Stop AIS</button></div><p id="ais-service-detail" class="service-control-subtitle"></p><p id="ais-service-message" class="service-control-message muted" role="status" aria-live="polite"></p></div><div id="mobile-voice-audio" class="panel">
 <details id="mobile-audio-filters" class="mobile-audio-filters">
   <summary>🎚️ Audio Filters <span id="mobile-audio-filter-summary">Normal · Noise off</span></summary>
   <div class="mobile-audio-filter-grid">
@@ -223,7 +235,7 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 <p class="muted">Mission planning and manual starts stay on the mini-PC. Receiver safety remains active.</p></div>
 </section>
 <section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ System Overview</h2><button id="system-refresh" type="button">↻ Refresh</button></div><p class="muted">Live receiver and service status.</p><div id="systemstatus" aria-live="polite">Loading system status…</div><h2 style="margin-top:18px">Available Components</h2><div id="mobile-feature-status" class="feature-summary" role="status" aria-live="polite">Checking installed components…</div><div id="mobile-feature-list" class="feature-list"></div></div><div class="panel"><h2>⚙️ Settings</h2><details id="mobile-map-settings" class="sys-settings"><summary>Map Connections</summary><p class="muted">These addresses are stored only on this device.</p><label id="mobile-ais-setting">AIS-Catcher Map URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label id="mobile-adsb-setting">ADS-B Map URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Save Map Addresses</button></details><a class="action" href="/" target="_blank" rel="noopener">Open Desktop Dashboard ↗</a></div></section>
-</main><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>System</button></nav><script>
+</main><div id="mobile-map-3d-view" class="mobile-map-3d-view" hidden role="dialog" aria-modal="true" aria-label="3D Marine Traffic map"><div class="mobile-map-3d-bar"><button id="mobile-map-return-2d" type="button">← 2D AIS</button><strong>Marine Traffic · 3D Map</strong></div><iframe id="mobile-map-3d-frame" title="SDRCC 3D Map Lab" loading="lazy" src="about:blank"></iframe></div><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>System</button></nav><script>
 const $=id=>document.getElementById(id);
 /* Device-local Marine panel arrangement. Visual flex order keeps AIS iframe mounted
    so dragging cards cannot reload the map or reset its view/ATIS highlight. */
@@ -613,6 +625,44 @@ function setMap(id,key){
 $("aisurl").value=localStorage.getItem("sdrcc-mobile-ais")||location.protocol+"//"+location.hostname+":8119/";$("adsburl").value=localStorage.getItem("sdrcc-mobile-adsb")||location.protocol+"//"+location.hostname+"/tar1090/";
 $("save").onclick=()=>{for(const [id,key,frame] of [["aisurl","sdrcc-mobile-ais","aismap"],["adsburl","sdrcc-mobile-adsb","adsbmap"]]){const url=$(id).value.trim();if(url&&!/^https?:\/\//i.test(url)){alert("Enter a complete http(s) URL");return}localStorage.setItem(key,url);if(mobileCapabilitySnapshot?.components?.[frame==="aismap"?"ais":"adsb"]?.available!==false)setMap(frame,key)}alert("Map addresses saved")};
 $("mapreload").onclick=()=>{const f=$("aismap");if(f.src&&f.src!=="about:blank")f.src=f.src};
+/* Lazy 3D viewer: the existing AIS-Catcher frame and audio remain mounted.
+   A browser/Android Back event returns to the very same 2D map. */
+const MOBILE_3D_MAP_URL="/map-lab?mode=3d&mobile=1";
+function showMobile3dMap(){
+  const view=$("mobile-map-3d-view");if(!view.hidden)return;
+  $("mobile-map-3d-frame").src=MOBILE_3D_MAP_URL;
+  view.hidden=false;document.body.classList.add("mobile-map-3d-open");
+  $("mobile-map-2d").setAttribute("aria-pressed","false");
+  $("mobile-map-3d").setAttribute("aria-pressed","true");
+  $("mobile-map-3d").setAttribute("aria-expanded","true");
+  $("mobile-map-return-2d").focus();
+}
+function hideMobile3dMap(){
+  const view=$("mobile-map-3d-view");if(view.hidden)return;
+  view.hidden=true;document.body.classList.remove("mobile-map-3d-open");
+  $("mobile-map-3d-frame").src="about:blank";
+  $("mobile-map-2d").setAttribute("aria-pressed","true");
+  $("mobile-map-3d").setAttribute("aria-pressed","false");
+  $("mobile-map-3d").setAttribute("aria-expanded","false");
+  $("mobile-map-3d").focus();
+}
+function returnMobile2d(){
+  if(history.state?.sdrccMobileMap3d)history.back();
+  else hideMobile3dMap();
+}
+$("mobile-map-2d").addEventListener("click",returnMobile2d);
+$("mobile-map-3d").addEventListener("click",()=>{
+  if(!$("mobile-map-3d-view").hidden)return;
+  try{history.pushState({sdrccMobileMap3d:true},"","#mobile-map-3d")}catch(_){}
+  showMobile3dMap();
+});
+$("mobile-map-return-2d").addEventListener("click",returnMobile2d);
+window.addEventListener("popstate",()=>{
+  if(history.state?.sdrccMobileMap3d)showMobile3dMap();
+  else hideMobile3dMap();
+});
+if(history.state?.sdrccMobileMap3d)showMobile3dMap();
+
 const highlightFrame=$("aismap");
 let highlightReady=false,highlightLastSent="",highlightPending=null;
 function aisHighlightOrigin(){

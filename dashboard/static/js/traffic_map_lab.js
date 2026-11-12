@@ -128,6 +128,10 @@
         return;
     }
 
+    // Keep regular desktop Map Lab in 2D; Mobile 3D requests zoom to ship models.
+    const mobileMapQuery = window.location ? new URLSearchParams(window.location.search) : null;
+    const mobileEmbedded3d = mobileMapQuery?.get("mobile") === "1"
+        && mobileMapQuery?.get("mode") === "3d";
     const empty = {type: "FeatureCollection", features: []};
     let map;
     try {
@@ -135,7 +139,7 @@
         map = new maplibregl.Map({
             container: "map",
             style: "https://tiles.openfreemap.org/styles/liberty",
-            center: [4.35, 51.91], zoom: 11, pitch: 0,
+            center: [4.35, 51.91], zoom: mobileEmbedded3d ? 15 : 11, pitch: 0,
             canvasContextAttributes: {antialias: true},
         });
     } catch (error) {
@@ -146,7 +150,7 @@
     map.addControl(new maplibregl.NavigationControl({showCompass: true}), "top-right");
     map.addControl(new maplibregl.ScaleControl({maxWidth: 130}), "bottom-left");
     let loaded = false;
-    let mode3d = false;
+    let mode3d = mobileEmbedded3d;
     let resetCenter = [4.35, 51.91];
     let initialCenterSet = false;
     let inFlight = false;
@@ -2575,7 +2579,7 @@
         setLayerVisibility("adsb", el("layer-adsb").checked);
     });
     el("reset-view").addEventListener("click", () => {
-        map.easeTo({center: resetCenter, zoom: 11, bearing: mode3d ? -22 : 0, pitch: mode3d ? 62 : 0});
+        map.easeTo({center: resetCenter, zoom: mobileEmbedded3d ? 15 : 11, bearing: mode3d ? -22 : 0, pitch: mode3d ? 62 : 0});
     });
     el("refresh-now").addEventListener("click", refresh);
     window.setInterval(refresh, 10000);

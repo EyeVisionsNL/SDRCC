@@ -54,6 +54,24 @@ def validate() -> None:
     ):
         require(marker in html, f"Existing Mobile feature disappeared: {marker}")
 
+    # 3D opens from Mobile without replacing the 2D AIS iframe or live audio.
+    require('id="mobile-map-2d"' in html and
+            'id="mobile-map-3d"' in html and
+            'id="mobile-map-return-2d"' in html and
+            'id="mobile-map-3d-frame"' in html and
+            'const MOBILE_3D_MAP_URL="/map-lab?mode=3d&mobile=1";' in script and
+            'history.pushState({sdrccMobileMap3d:true}' in script and
+            'window.addEventListener("popstate"' in script and
+            '$("mobile-map-3d-frame").src="about:blank";' in script,
+            "Mobile 3D map navigation or native back support is missing")
+    map_lab_script = (ROOT / "dashboard/static/js/traffic_map_lab.js").read_text(encoding="utf-8")
+    map_lab_template = (ROOT / "dashboard/templates/traffic_map_lab.html").read_text(encoding="utf-8")
+    require('let mode3d = mobileEmbedded3d;' in map_lab_script and
+            'zoom: mobileEmbedded3d ? 15 : 11' in map_lab_script and
+            'setMode(mode3d)' in map_lab_script and
+            "mobile-map-embed" in map_lab_template,
+            "Mobile map should start tilted while desktop Map Lab remains 2D")
+
     # SDRCC Mobile visual polish must not change any receiver operations.
     require('id="ais-highlight-status" class="muted" role="status" aria-live="polite" hidden' in html,
             "Keep AIS highlight plumbing but hide its technical status copy")
