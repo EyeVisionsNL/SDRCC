@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import sys
+import os
+import signal
 import json
 import subprocess
 import threading
@@ -2207,6 +2209,7 @@ def autopilot_start_recording():
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         bufsize=1,
+        start_new_session=True,  # Isolate SatDump and its children for reliable Stop Mission.
     )
     autopilot_runtime["process"] = process
     autopilot_runtime["stop_requested"] = False
@@ -4229,13 +4232,25 @@ def _stop_active_mission(receiver_id=None, *, hardware_loss=False):
     process = autopilot_runtime.get("process")
     process_stopped = False
     if process is not None and process.poll() is None:
-        write_log(f"STOP MISSION: proces {process.pid} beëindigen")
-        process.terminate()
+        write_log(f"STOP MISSION: proces {process.pid} en onderliggende processen beëindigen")
+        # Only use killpg for jobs started in their own session by SDRCC.
+        # A legacy, non-isolated process must never receive a group-wide signal.
+        try:
+            isolated = os.getpgid(process.pid) == process.pid
+        except ProcessLookupError:
+            isolated = False
+        if isolated:
+            os.killpg(process.pid, signal.SIGTERM)
+        else:
+            process.terminate()
         try:
             process.wait(timeout=8)
         except subprocess.TimeoutExpired:
             write_log(f"STOP MISSION: proces {process.pid} reageert niet; kill")
-            process.kill()
+            if isolated:
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
             process.wait(timeout=5)
         process_stopped = True
 
@@ -5236,6 +5251,74 @@ def receiver_hardware_worker():
         except Exception as error:
             receiver_manager._binding_message = str(error)
         time.sleep(3)
+
+
+
+@app.route("/api/receiver-recovery", methods=["POST"])
+def api_receiver_recovery():
+    """Manual recovery of one idle receiver; never override a live mission."""
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or payload.get("confirm") != "RECOVER_RECEIVER":
+        return jsonify({"ok": False, "message": "Explicit recovery confirmation required."}), 400
+
+    receiver_id = payload.get("receiver_id")
+    device = device_manager.get_device(receiver_id)
+    if device is None:
+        return jsonify({"ok": False, "message": "Unknown receiver."}), 400
+
+    try:
+        # Prevent the automatic planner from reclaiming the device mid-recovery.
+        mission_scheduler_core.set_scheduler_mode("MANUAL")
+        reconcile_idle_autopilot_runtime()
+        mission = mission_engine_core.get_mission_status()
+        process = autopilot_runtime.get("process")
+        running_process = process is not None and process.poll() is None
+        simulator = mission_simulator.get_status().get("simulator") or {}
+        busy = (
+            mission.get("active_job") is not None
+            or running_process
+            or any(autopilot_runtime.get(key) for key in (
+                "prepared", "locked", "record_started", "iss_execution_active"
+            ))
+            or bool(simulator.get("active"))
+        )
+        if busy:
+            return jsonify({
+                "ok": False,
+                "message": "A mission or simulator is still active. Stop it first, then retry recovery.",
+                "scheduler_mode": "MANUAL",
+            }), 409
+
+        hf_session = hf_monitor_controller.get_session()
+        if hf_session and receiver_registry.resolve_id(
+            (hf_session.get("receiver") or {}).get("registry_id")
+        ) == device["registry_id"]:
+            return jsonify({
+                "ok": False,
+                "message": "HF Monitor still owns this receiver. Stop its session first.",
+            }), 409
+
+        result = receiver_manager.recover_idle_receiver(
+            device["registry_id"], service_state=service_state
+        )
+        receiver_authority.invalidate_cache()
+        result["scheduler_mode"] = "MANUAL"
+        write_log(
+            f"RECEIVER RECOVERY: {device['number']} - "
+            f"reservation={result['released_stale_reservation']}, "
+            f"hardware_recovery={result['cleared_hardware_recovery']}; services unchanged"
+        )
+        return jsonify(result)
+    except (ValueError, RuntimeError) as error:
+        write_log(f"RECEIVER RECOVERY blocked: {device['number']} - {error}")
+        return jsonify({
+            "ok": False,
+            "message": str(error),
+            "scheduler_mode": "MANUAL",
+        }), 409
+    except Exception as error:
+        write_log(f"RECEIVER RECOVERY failed: {device['number']} - {error}")
+        return jsonify({"ok": False, "message": "Receiver recovery failed; check SDRCC logs."}), 500
 
 
 @app.route('/api/receiver-bindings', methods=['POST'])
