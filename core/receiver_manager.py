@@ -642,7 +642,7 @@ def restore_handover(
     if device and device.get("presence") == "MISSING":
         with _LOCK:
             stored = _load_state()
-            pending = stored.setdefault("hardware_recovery", {}).setdefault(canonical, {"services": [], "status": "WAITING"})
+            pending = _current_hardware_recovery(stored, canonical)
             for item in services:
                 if item.get("was_active") and (item.get("stopped_by_sdrcc") or item.get("stop_status") in {"STOPPING", "STOPPED"}):
                     if item["service"] not in pending["services"]:
