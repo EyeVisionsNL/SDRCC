@@ -5305,7 +5305,7 @@ def api_receiver_recovery():
             process is not None and process.poll() is None
         ) or any(autopilot_runtime.get(key) for key in (
             "prepared", "locked", "record_started", "iss_execution_active"
-        )):
+        ))):
             return jsonify({
                 "ok": False,
                 "message": "Mission became active during recovery preparation; no receiver state was cleared.",
