@@ -44,9 +44,9 @@ jobs:
         run: python -m unittest discover -s tests -p test_receiver_manual_recovery.py -v
       - name: Validate updater manifest against the complete source
         run: python scripts/install/check_update.py . .
-      - name: Validate legacy updates and interrupted mission recovery
+      - name: Validate historical compatibility, mission recovery and update freshness
         run: |
           python scripts/validate_update_manifest_scope.py
           python scripts/validate_update_06719_compat.py
           python scripts/validate_update_autopilot_idle_v0657.py
-          python scripts/validate_release_update_v0590.py
+          python scripts/validate_update_freshness.py
