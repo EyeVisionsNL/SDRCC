@@ -5267,8 +5267,7 @@ def api_receiver_recovery():
         return jsonify({"ok": False, "message": "Unknown receiver."}), 400
 
     try:
-        # Prevent the automatic planner from reclaiming the device mid-recovery.
-        mission_scheduler_core.set_scheduler_mode("MANUAL")
+        # Inspect live work before changing the global scheduler mode.
         reconcile_idle_autopilot_runtime()
         mission = mission_engine_core.get_mission_status()
         process = autopilot_runtime.get("process")
@@ -5286,7 +5285,6 @@ def api_receiver_recovery():
             return jsonify({
                 "ok": False,
                 "message": "A mission or simulator is still active. Stop it first, then retry recovery.",
-                "scheduler_mode": "MANUAL",
             }), 409
 
         hf_session = hf_monitor_controller.get_session()
@@ -5296,6 +5294,22 @@ def api_receiver_recovery():
             return jsonify({
                 "ok": False,
                 "message": "HF Monitor still owns this receiver. Stop its session first.",
+            }), 409
+
+        # Only after proving the receiver idle, pause automatic mission starts.
+        mission_scheduler_core.set_scheduler_mode("MANUAL")
+        # Re-check after the mode transition in case AUTO started a job meanwhile.
+        recheck = mission_engine_core.get_mission_status()
+        process = autopilot_runtime.get("process")
+        if (recheck.get("active_job") is not None or (
+            process is not None and process.poll() is None
+        ) or any(autopilot_runtime.get(key) for key in (
+            "prepared", "locked", "record_started", "iss_execution_active"
+        )):
+            return jsonify({
+                "ok": False,
+                "message": "Mission became active during recovery preparation; no receiver state was cleared.",
+                "scheduler_mode": "MANUAL",
             }), 409
 
         result = receiver_manager.recover_idle_receiver(
@@ -5314,7 +5328,6 @@ def api_receiver_recovery():
         return jsonify({
             "ok": False,
             "message": str(error),
-            "scheduler_mode": "MANUAL",
         }), 409
     except Exception as error:
         write_log(f"RECEIVER RECOVERY failed: {device['number']} - {error}")
