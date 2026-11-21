@@ -1,14 +1,18 @@
-name: Receiver recovery validation
+name: Receiver recovery release validation
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, 'fix/receiver-recovery-0708']
     paths:
       - 'core/receiver_manager.py'
       - 'dashboard/app.py'
-      - 'tests/test_receiver_manual_recovery.py'
+      - 'dashboard/templates/index.html'
       - 'dashboard/static/js/receiver_inventory.js'
+      - 'dashboard/static/css/receiver_inventory.css'
+      - 'scripts/validate_receiver_flexibility_v0560q.py'
+      - 'tests/test_receiver_manual_recovery.py'
       - 'scripts/install/update_manifest.json'
+      - 'VERSION'
       - '.github/workflows/receiver-recovery-validation.yml'
   workflow_dispatch:
 
@@ -16,19 +20,33 @@ permissions:
   contents: read
 
 jobs:
-  verify-source:
+  release-preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.14']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Compile all deployed Python before release
-        run: python -m compileall -q core dashboard
-      - name: Validate receiver recovery JavaScript
+          python-version: ${{ matrix.python-version }}
+      - name: Install isolated test dependency
+        run: python -m pip install --disable-pip-version-check PyYAML
+      - name: Compile all deployed Python and update scripts
+        run: python -m compileall -q core dashboard scripts
+      - name: Verify receiver UI JavaScript syntax
         run: node --check dashboard/static/js/receiver_inventory.js
-      - name: Install minimal test requirements
-        run: python -m pip install PyYAML
-      - name: Guarded recovery regression tests
+      - name: Existing receiver and update preflight (36 cases)
+        run: python scripts/validate_receiver_flexibility_v0560q.py
+      - name: New guarded receiver recovery tests (5 cases)
         run: python -m unittest discover -s tests -p test_receiver_manual_recovery.py -v
+      - name: Validate updater manifest against the complete source
+        run: python scripts/install/check_update.py . .
+      - name: Validate legacy updates and interrupted mission recovery
+        run: |
+          python scripts/validate_update_manifest_scope.py
+          python scripts/validate_update_06719_compat.py
+          python scripts/validate_update_autopilot_idle_v0657.py
+          python scripts/validate_release_update_v0590.py

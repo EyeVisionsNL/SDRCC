@@ -303,8 +303,8 @@ class Flexibility(unittest.TestCase):
         self.assertIn('value === "__UNBOUND__" ? "" : value',javascript)
         self.assertIn('receiver-hardware-panel',javascript)
         self.assertIn('grid-column: 1 / -1',stylesheet)
-        self.assertIn('receiver_inventory.css?v=0.56.0q-r3',template)
-        self.assertIn('receiver_inventory.js?v=0.56.0q-r3',template)
+        self.assertIn('receiver_inventory.css?v=0.70.8',template)
+        self.assertIn('receiver_inventory.js?v=0.70.8',template)
     def test_operator_can_recover_pending_with_different_replacement(self):
         self.usb_add('A');self.usb_add('B')
         with self.assertRaises(RuntimeError):
