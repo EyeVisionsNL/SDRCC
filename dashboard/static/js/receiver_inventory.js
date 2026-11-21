@@ -58,8 +58,10 @@
     }
 
     let editing = false;
+    let recovering = false;
+    let recoveryFeedback = "";
     function render(data) {
-        if (editing) return;
+        if (editing || recovering) return;
         const root = document.getElementById("receiver-inventory");
         const status = document.getElementById("receiver-inventory-status");
         if (!root) return;
@@ -92,6 +94,7 @@
                     ${detail("Active services", displayList(receiver.active_services), "receiver-inventory-detail-wide")}
                 </dl>
                 <div class="receiver-inventory-tags">${capabilities.map((item) => `<span class="receiver-inventory-tag">${esc(roleLabels[String(item).toLowerCase()] || item)}</span>`).join("")}</div>
+                <div class="receiver-recovery-actions"><button type="button" class="control-button receiver-recovery-button" data-receiver-id="${esc(receiver.canonical_id)}">↺ Recover receiver</button></div>
             </article>`;
         }).join("");
 
@@ -122,6 +125,32 @@
                 <span><button type="submit">Apply bindings</button><button type="button" id="receiver-binding-cancel">Cancel</button></span></div>
                 <p id="receiver-binding-result" role="status"></p>
             </form></article>`);
+        root.querySelectorAll(".receiver-recovery-button").forEach((button) => {
+            button.addEventListener("click", async () => {
+                const receiverId = button.dataset.receiverId;
+                if (!window.confirm(
+                    `Recover ${receiverId.toUpperCase()}? This switches the scheduler to MANUAL and clears stale state only if USB is present and no receiver service or mission is active. Existing services will not be started automatically.`
+                )) return;
+                recovering = true;
+                button.disabled = true;
+                if (status) status.textContent = `Checking ${receiverId} for safe recovery...`;
+                try {
+                    const response = await fetch("/api/receiver-recovery", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({receiver_id: receiverId, confirm: "RECOVER_RECEIVER"}),
+                    });
+                    const result = await response.json();
+                    if (!response.ok || !result.ok) throw new Error(result.message || "Recovery failed");
+                    recoveryFeedback = result.message + " Scheduler: MANUAL.";
+                } catch (error) {
+                    recoveryFeedback = "Recovery blocked: " + error.message;
+                } finally {
+                    recovering = false;
+                    await load();
+                }
+            });
+        });
         document.getElementById("receiver-binding-edit").onclick = () => {
             editing = true;
             document.getElementById("receiver-binding-form").hidden = false;
@@ -150,7 +179,7 @@
             } catch (error) { resultElement.textContent = error.message; }
             finally { button.disabled = false; }
         };
-        if (status) status.textContent = `${items.length} receiver slots · ${hardware.ok ? detected.length + " USB receivers" : "USB status UNKNOWN"}`;
+        if (status) status.textContent = `${items.length} receiver slots · ${hardware.ok ? detected.length + " USB receivers" : "USB status UNKNOWN"}${recoveryFeedback ? " · " + recoveryFeedback : ""}`;
     }
 
     async function load() {
