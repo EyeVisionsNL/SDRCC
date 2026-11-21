@@ -4966,7 +4966,8 @@ def _prepare_receiver_work_for_update():
         receiver_status = get_reconciled_receiver_manager_status(recover=True)
         reservations = receiver_status.get("canonical_reservations") or {}
         binding = receiver_manager.binding_status()
-        if reservations or binding.get("transaction") or binding.get("recovery"):
+        if (reservations or binding.get("transaction")
+                or receiver_manager.has_pending_hardware_recovery(binding.get("recovery"))):
             restore_errors = _restore_update_service_plan()
             return {
                 "ok": False,

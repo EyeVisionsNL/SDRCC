@@ -887,6 +887,25 @@ def hardware_ready(receiver_id):
         return not state.get('binding_transaction') and device['registry_id'] not in state.get('hardware_recovery', {})
 
 
+def has_pending_hardware_recovery(recoveries) -> bool:
+    """Only outstanding service intents or malformed/attention state block updates.
+
+    A missing device can leave an empty WAITING observation. The live
+    hardware presence gate still blocks receiver *use*, but not a safe update.
+    """
+    if not recoveries:
+        return False
+    if not isinstance(recoveries, dict):
+        return True
+    return any(
+        not isinstance(recovery, dict)
+        or not isinstance(recovery.get("services"), list)
+        or bool(recovery["services"])
+        or str(recovery.get("status") or "WAITING").upper() != "WAITING"
+        for recovery in recoveries.values()
+    )
+
+
 def binding_status():
     with _LOCK:
         state = _load_state()
@@ -1042,11 +1061,25 @@ def hardware_tick(*, service_state, service_action, wait_for_service, stop_recei
                 continue
             with _LOCK:
                 state = _load_state()
-                recovery = _current_hardware_recovery(state, key)
-                for service in active + _previous_active.get(key, []):
-                    if service not in recovery['services']: recovery['services'].append(service)
                 reservation = deepcopy(state['reservations'].get(key))
-                _save_state(state)
+                pending_services = active + _previous_active.get(key, [])
+                existing = state.get('hardware_recovery', {}).get(key)
+                if pending_services:
+                    recovery = _current_hardware_recovery(state, key)
+                    for service in pending_services:
+                        if service not in recovery['services']:
+                            recovery['services'].append(service)
+                    _save_state(state)
+                elif (
+                    isinstance(existing, dict)
+                    and isinstance(existing.get('services'), list)
+                    and not existing['services']
+                    and str(existing.get('status') or 'WAITING').upper() == 'WAITING'
+                ):
+                    # Missing USB alone is not a pending service restoration.
+                    # Avoid recreating a phantom maintenance/update lock.
+                    state['hardware_recovery'].pop(key, None)
+                    _save_state(state)
             # Executor stop runs outside the manager lock: watcher cleanup needs it.
             stop_receiver(key, reservation)
             for service in services:

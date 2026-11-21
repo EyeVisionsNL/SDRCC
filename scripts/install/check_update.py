@@ -43,21 +43,39 @@ for name, allowed in manifest.items():
     if target.exists() and hashlib.sha256(target.read_bytes()).hexdigest() not in allowed:
         raise SystemExit(f"FAIL: locally modified source {name}; review before updating")
 
+def pending_recovery_receivers(recoveries):
+    """Empty WAITING entries are observations, not unfinished service work."""
+    if not recoveries:
+        return []
+    if not isinstance(recoveries, dict):
+        return ["invalid-recovery-data"]
+    return [
+        str(receiver_id)
+        for receiver_id, recovery in recoveries.items()
+        if (
+            not isinstance(recovery, dict)
+            or not isinstance(recovery.get("services"), list)
+            or bool(recovery["services"])
+            or str(recovery.get("status") or "WAITING").upper() != "WAITING"
+        )
+    ]
+
+
 state = project / "data/state/receiver_manager.json"
 if state.exists():
     data = json.loads(state.read_text())
-    if any(
-        data.get(key)
-        for key in (
-            "reservations",
-            "reservation",
-            "binding_transaction",
-            "hardware_recovery",
-        )
-    ):
+    blockers = [
+        key for key in ("reservations", "reservation", "binding_transaction")
+        if data.get(key)
+    ]
+    pending = pending_recovery_receivers(data.get("hardware_recovery"))
+    if pending:
+        blockers.append("hardware_recovery: " + ", ".join(pending))
+    if blockers:
         raise SystemExit(
             "FAIL: receiver activity, binding transaction or hardware recovery is pending. "
-            "Resolve it in the dashboard and retry."
+            "Blocked by: " + "; ".join(blockers)
+            + ". Resolve it in the dashboard and retry."
         )
 
 print(
