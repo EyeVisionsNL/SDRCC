@@ -343,3 +343,13 @@
     .receiver-hardware-binding { grid-template-columns: 1fr auto; }
     .receiver-hardware-binding code { grid-column: 1 / -1; grid-row: 2; }
 }
+
+.receiver-recovery-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+.receiver-recovery-button {
+    font-size: .68rem;
+    padding: 5px 10px;
+}
