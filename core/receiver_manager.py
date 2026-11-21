@@ -1119,3 +1119,85 @@ def defer_missing_service(service):
                 _save_state(state)
                 return True
     return False
+
+
+def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState) -> dict[str, Any]:
+    """Operator recovery for one *idle* receiver; never reset another slot.
+
+    The caller must first put the scheduler in MANUAL and verify there is no
+    active mission or non-systemd receiver session. This second boundary checks
+    actual USB presence, service observations and persisted ownership while
+    serialized with the hardware observer. It deliberately does not kill
+    processes, change bindings or start services.
+    """
+    from core import receiver_hardware
+    from core.device_manager import get_conflicting_services
+
+    device = get_device(receiver_id)
+    if device is None:
+        raise ValueError(f"Unknown receiver: {receiver_id}")
+    canonical = device["registry_id"]
+    services = get_conflicting_services(canonical)
+    released = None
+    with _tick_lock:
+        snapshot = receiver_hardware.scan(refresh=True)
+        if not snapshot.get("ok") or snapshot.get("ambiguous"):
+            raise RuntimeError(snapshot.get("error") or "USB discovery unavailable")
+        if receiver_hardware.presence(device.get("serial"), snapshot) != "PRESENT":
+            raise RuntimeError(
+                f"{device['number']}: USB hardware missing or unbound. "
+                "Reconnect or correct the receiver binding; software recovery cannot restore missing hardware."
+            )
+        with _LOCK:
+            state = _load_state()
+            if state.get("binding_transaction"):
+                raise RuntimeError("A receiver binding transaction is pending; resolve it first.")
+            if canonical in state.get("manual_unbound", []):
+                raise RuntimeError("This receiver is intentionally unbound; select its USB binding first.")
+
+            # Do not lose a live service or active handover by overwriting state.
+            for service in services:
+                observed = service_state(service)
+                if observed.get("active") or str(observed.get("state") or "").lower() not in {"inactive", "failed"}:
+                    raise RuntimeError(
+                        f"{service} is not confirmed stopped. Stop the active service before recovery."
+                    )
+
+            reservation = state["reservations"].get(canonical)
+            if reservation is not None:
+                released = deepcopy(reservation)
+                released["released_at"] = _now()
+                released["release_detail"] = "Explicit operator recovery of idle receiver"
+                released["status"] = "RELEASED"
+                if isinstance(released.get("handover"), dict):
+                    # Preserve evidence that original services were NOT restored.
+                    released["handover"]["status"] = "ABANDONED_OPERATOR_RECOVERY"
+                    released["handover"]["operator_recovered_at"] = released["released_at"]
+                state["last_releases"][canonical] = released
+                state["reservations"].pop(canonical, None)
+
+            had_recovery = canonical in state.get("hardware_recovery", {})
+            state.get("hardware_recovery", {}).pop(canonical, None)
+            _previous_active.pop(canonical, None)
+            if reservation is not None or had_recovery:
+                _save_state(state)
+
+    if released is not None or had_recovery:
+        event_bus.publish_receiver(
+            "WARNING", "Receiver manually recovered",
+            f"{device['number']}: stale idle ownership cleared by operator; no services auto-started",
+            data={"receiver_id": device["runtime_id"], "mission_key": (released or {}).get("mission_key"),
+                  "had_hardware_recovery": had_recovery},
+        )
+    return {
+        "ok": True,
+        "receiver_id": device["runtime_id"],
+        "receiver_number": device["number"],
+        "released_stale_reservation": released is not None,
+        "cleared_hardware_recovery": had_recovery,
+        "services_left_stopped": services,
+        "message": (
+            f"{device['number']} recovery complete. USB is present; stale state cleared. "
+            "No services were started. Start ADS-B/AIS manually and verify reception."
+        ),
+    }
