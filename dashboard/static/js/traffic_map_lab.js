@@ -1923,9 +1923,11 @@
             },
         });
         map.addSource("sdrcc-ais-decks",{type:"geojson",data:empty});
+        // Show wheelhouses and other vessel structures as soon as the 3D hull
+        // appears (zoom 14), without enlarging geometry or changing 2D mode.
         map.addLayer({
             id:"sdrcc-ais-hull-decks",type:"fill-extrusion",
-            source:"sdrcc-ais-decks",minzoom:15,
+            source:"sdrcc-ais-decks",minzoom:HULL_MIN_ZOOM,
             layout:{visibility:"none"},
             paint:{
                 "fill-extrusion-color":["match",["get","part"],

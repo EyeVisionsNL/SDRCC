@@ -606,7 +606,14 @@ class FakeMap {
     assert(instance.layers["sdrcc-ais-hull-decks"].paint["fill-extrusion-color"]
         .includes("#ffd31a"),"water taxi roof must be yellow");
     assert(decks.every(f=>f.geometry.coordinates[0].every(p=>p.every(Number.isFinite))));
-    assert.equal(instance.layers["sdrcc-ais-hull-decks"].minzoom,15);
+    // Harbour-scale 3D ships must show their structures one zoom level earlier:
+    // decks/wheelhouses appear together with the hull at zoom 14, not 15.
+    assert.equal(instance.layers["sdrcc-ais-hull-decks"].minzoom,14);
+    assert.equal(instance.layers["sdrcc-ais-hull-decks"].minzoom,
+        instance.layers["sdrcc-ais-hull-3d"].minzoom,
+        "3D vessel structures must not appear later than their hulls");
+    assert.equal(instance.layers["sdrcc-ais-hull-decks"].layout.visibility,"none",
+        "3D deck geometry must remain off by default in 2D mode");
     assert.equal(instance.layers["sdrcc-ais-hull-decks"].type,"fill-extrusion");
     assert(instance.layers["sdrcc-ais-hull-3d"].paint["fill-extrusion-color"]
         .includes !== undefined, "police hull paint layer must remain distinct");

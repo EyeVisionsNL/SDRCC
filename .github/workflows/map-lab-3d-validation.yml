@@ -1,0 +1,54 @@
+name: Map Lab 3D vessel release validation
+
+on:
+  push:
+    branches: [develop, 'feature/ship-3d-zoom14-07010']
+    paths:
+      - 'dashboard/static/js/traffic_map_lab.js'
+      - 'dashboard/templates/traffic_map_lab.html'
+      - 'scripts/validate_map_lab_symbols.cjs'
+      - 'scripts/validate_map_lab_boot.cjs'
+      - 'scripts/validate_water_supply_model.cjs'
+      - 'scripts/install/update_manifest.json'
+      - 'VERSION'
+      - '.github/workflows/map-lab-3d-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  map-3d-release-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Python source syntax and JavaScript syntax
+        run: |
+          python -m compileall -q core dashboard scripts
+          node --check dashboard/static/js/traffic_map_lab.js
+          node --check scripts/validate_map_lab_symbols.cjs
+      - name: Complete Map Lab geometry, symbol and 2D/3D regression suite
+        run: node scripts/validate_map_lab_symbols.cjs
+      - name: MapLibre map startup regression
+        run: node scripts/validate_map_lab_boot.cjs
+      - name: Specialized water supply 3D geometry regression
+        run: node scripts/validate_water_supply_model.cjs
+      - name: Full managed updater compatibility preflight (36 receiver tests)
+        run: |
+          python -m pip install --disable-pip-version-check PyYAML
+          python scripts/validate_receiver_flexibility_v0560q.py
+      - name: Verify all deployed file hashes approved for managed update
+        run: python scripts/install/check_update.py . .
+      - name: Verify update compatibility with existing installations
+        run: |
+          python scripts/validate_update_manifest_scope.py
+          python scripts/validate_update_06719_compat.py
+          python scripts/validate_update_autopilot_idle_v0657.py
+          python scripts/validate_update_freshness.py
