@@ -57,7 +57,6 @@ def validate() -> None:
     # 3D opens from Mobile without replacing the 2D AIS iframe or live audio.
     require('id="mobile-map-2d"' in html and
             'id="mobile-map-3d"' in html and
-            'id="mobile-map-return-2d"' in html and
             'id="mobile-map-3d-frame"' in html and
             'const MOBILE_3D_MAP_URL="/map-lab?mode=3d&mobile=1";' in script and
             'history.pushState({sdrccMobileMap3d:true}' in script and

@@ -21,7 +21,9 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
 /* Small map controls take no document height and do not intercept map gestures. */
 .map-tools{position:absolute;left:10px;top:10px;z-index:9;display:flex;align-items:center;flex-wrap:wrap;gap:5px;max-width:calc(100% - 365px);padding:5px;background:#0d2438e8;border:1px solid #3e6881;border-radius:10px;box-shadow:0 3px 12px #0008;pointer-events:none}
 .map-tools button{pointer-events:auto}
-.map-tools .tool-divider{height:23px;width:1px;background:#426d85;margin:0 2px}
+.map-overlay-controls{position:absolute;top:10px;right:60px;z-index:10;display:flex;align-items:flex-start;gap:6px;max-width:calc(100% - 365px);pointer-events:none}
+.map-overlay-controls>*{pointer-events:auto}
+.map-refresh-control{flex:0 0 auto;min-height:40px;padding:7px 10px;line-height:1}
 .speaker-photo-panel{position:absolute;left:10px;top:66px;z-index:8;width:min(255px,calc(100% - 25px));padding:9px;background:#0d2438ef;border:1px solid #44728d;border-radius:10px;box-shadow:0 5px 19px #0008;font-size:.8rem}
 .speaker-photo-panel[hidden],.speaker-photo-image[hidden]{display:none!important}
 .speaker-photo-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:6px}
@@ -31,20 +33,19 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
 .speaker-photo-link{display:block}
 .speaker-photo-name{display:block;margin-top:5px;font-weight:700;overflow-wrap:anywhere}
 .speaker-photo-credit{display:block;color:#a9cadc;font-size:.7rem;overflow-wrap:anywhere}
-.speaker-photo-toggle{position:absolute;left:10px;top:66px;z-index:8;padding:5px 9px;font-size:.78rem}
+.speaker-photo-toggle{flex:0 1 auto;min-width:0;padding:7px 9px;font-size:.78rem}
+.speaker-photo-toggle[aria-pressed="true"]{border-color:#56b7de;background:#146082;color:#fff}
 .speaker-photo-toggle[hidden]{display:none!important}
-@media(max-width:760px){.speaker-photo-panel,.speaker-photo-toggle{top:112px;left:8px}}
 .map-caption{font-size:.79rem;color:#9cbbd1;padding:9px 13px}
-.map-legend{position:absolute;right:60px;top:12px;z-index:8;width:min(300px,calc(100% - 78px));max-height:calc(100% - 24px);background:#0d2438f2;border:1px solid #44728d;border-radius:9px;box-shadow:0 5px 19px #0008;font-size:.84rem;color:#eaf4fd;pointer-events:auto}
-.map-legend:not([open]){width:min(247px,calc(100% - 78px))}
-.map-legend>summary{display:flex;align-items:center;gap:6px;padding:8px 10px;cursor:pointer;list-style:none;user-select:none;white-space:nowrap}
+.map-legend{position:relative;z-index:8;flex:0 1 auto;min-width:0;max-width:100%;font-size:.84rem;color:#eaf4fd;pointer-events:auto}
+.map-legend>summary{display:flex;align-items:center;gap:6px;min-height:40px;padding:7px 10px;background:#0d2438f2;border:1px solid #44728d;border-radius:9px;box-shadow:0 5px 19px #0008;cursor:pointer;list-style:none;user-select:none;white-space:nowrap}
 .map-legend>summary::-webkit-details-marker,.legend-more>summary::-webkit-details-marker{display:none}
 .map-legend>summary::after{content:"▾";margin-left:auto;color:#7fd8f4;transition:transform .16s ease}
 .map-legend[open]>summary::after{transform:rotate(180deg)}
 .map-legend summary:focus-visible{outline:2px solid #91dffc;outline-offset:-3px;border-radius:7px}
 .legend-heading{font-size:.83rem;font-weight:750}
 .legend-mini-status{font-size:.69rem;color:#acd3e7;font-variant-numeric:tabular-nums}
-.legend-content{padding:3px 10px 11px;max-height:min(65vh,calc(100dvh - 255px));overflow-y:auto;overscroll-behavior:contain;border-top:1px solid #31536a;scrollbar-color:#406d88 transparent;scrollbar-width:thin}
+.legend-content{position:absolute;top:calc(100% + 6px);right:0;width:min(320px,calc(100vw - 20px));padding:3px 10px 11px;max-height:min(65vh,calc(100dvh - 255px));overflow-y:auto;overscroll-behavior:contain;background:#0d2438f5;border:1px solid #31536a;border-radius:9px;box-shadow:0 5px 19px #0008;scrollbar-color:#406d88 transparent;scrollbar-width:thin}
 .legend-content .section-title{color:#82bddd;font-size:.7rem;font-weight:800;letter-spacing:.07em;margin:10px 0 7px;text-transform:uppercase}
 .legend-content .row{margin:7px 0}
 .legend-content .row .muted{max-width:105px}
@@ -97,19 +98,22 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
 .maplibregl-control-container .maplibregl-ctrl-attrib{color:#263847}
 .popup-title{font-weight:800;margin:0 0 6px;font-size:.97rem}
 .popup-line{font-size:.84rem;margin:4px 0;display:flex;justify-content:space-between;gap:14px;align-items:baseline;border-bottom:1px solid #27445a;padding-bottom:3px}.popup-line strong{font-weight:650;color:#a9cadc;flex-shrink:0}.popup-line span{text-align:right;overflow-wrap:anywhere}.traffic-detail{min-width:210px;max-width:340px;max-height:360px;overflow-y:auto;padding-right:3px}.traffic-detail--aircraft{max-height:min(62vh,520px)}.popup-photo{margin-top:6px;margin-bottom:10px;font-size:.8rem;color:#a9cadc}.popup-photo img{display:block;max-width:100%;width:100%;max-height:180px;object-fit:contain;background:#091b2b;border-radius:7px;margin-bottom:6px}.popup-photo a{color:#8bd8f5;display:block}
-@media(max-width:760px){.map-tools{right:55px;max-width:none;left:8px;top:8px}.map-legend{right:55px;top:86px;width:min(280px,calc(100% - 66px))}.map-legend:not([open]){width:min(245px,calc(100% - 66px))}.legend-content{max-height:min(55dvh,450px)}}
-@media(max-width:550px){.layout{padding:5px}#map{height:calc(100dvh - 50px);min-height:340px}.map-tools button{padding:6px 8px;font-size:.78rem}.map-tools .tool-divider{display:none}.map-caption{padding:6px 9px;font-size:.72rem}}
+@media(max-width:760px){.map-tools{right:55px;max-width:none;left:8px;top:8px}.map-overlay-controls{left:8px;right:55px;top:54px;max-width:none}.speaker-photo-panel{top:auto;left:auto;right:8px;bottom:calc(20px + env(safe-area-inset-bottom, 0px))}.legend-content{max-height:min(55dvh,450px)}}
+@media(max-width:550px){.layout{padding:5px}#map{height:calc(100dvh - 50px);min-height:340px}.map-tools button{padding:6px 8px;font-size:.78rem}.map-overlay-controls{gap:4px}.map-legend>summary{min-height:36px;padding:6px 8px}.legend-mini-status{display:none}.map-refresh-control,.speaker-photo-toggle{min-height:36px;padding:6px 8px;font-size:.76rem}.map-caption{padding:6px 9px;font-size:.72rem}}
 /* Only the Mobile 3D iframe gets fullscreen styling. */
 body.mobile-map-embed .layout{padding:0}
 body.mobile-map-embed .viewer{border:0;border-radius:0}
 body.mobile-map-embed #map{height:100dvh;min-height:0}
 @media(max-width:760px){
-  body.mobile-map-embed .map-tools{right:auto;width:max-content;max-width:calc(100% - 66px)}
-  body.mobile-map-embed .speaker-photo-panel,body.mobile-map-embed .speaker-photo-toggle{top:auto;left:auto;right:8px;bottom:calc(56px + env(safe-area-inset-bottom, 0px))}
+  body.mobile-map-embed .map-tools{display:none}
+  body.mobile-map-embed .map-overlay-controls{top:34px;left:8px;right:55px;align-items:center}
+  body.mobile-map-embed .map-legend{max-width:none}
+  body.mobile-map-embed .map-legend>summary{min-height:36px}
+  body.mobile-map-embed .map-refresh-control,body.mobile-map-embed .speaker-photo-toggle{min-height:36px}
+  body.mobile-map-embed .speaker-photo-panel{top:auto;left:auto;right:8px;bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
   body.mobile-map-embed .speaker-photo-panel{width:min(232px,calc(100% - 24px));max-height:min(36dvh,230px);overflow-y:auto}
-  body.mobile-map-embed .speaker-photo-toggle{max-width:calc(100% - 64px)}
 }
-body.mobile-map-embed #mode-2d,body.mobile-map-embed #mode-3d,body.mobile-map-embed .tool-divider,body.mobile-map-embed .map-caption{display:none}
+body.mobile-map-embed .map-caption{display:none}
 </style>
 <script defer src="{{ url_for('static', filename='js/traffic_map_rws.js') }}?v={{ asset_version }}"></script>
 <script type="module" src="{{ url_for('static', filename='js/traffic_map_lab.js') }}?v={{ asset_version }}"></script>
@@ -119,23 +123,14 @@ body.mobile-map-embed #mode-2d,body.mobile-map-embed #mode-3d,body.mobile-map-em
   <section class="viewer" aria-label="SDRCC AIS and ADS-B 2D/3D traffic map">
     <div class="map-stage">
       <div id="map" aria-label="Map of ships and aircraft"></div>
-      <div class="map-tools" role="group" aria-label="Map controls">
+      <div class="map-tools" role="group" aria-label="Map mode">
         <button type="button" id="mode-2d" aria-pressed="true">▣ 2D map</button>
         <button type="button" id="mode-3d" aria-pressed="false">◩ 3D</button>
-        <span class="tool-divider" aria-hidden="true"></span>
-        <button type="button" id="reset-view">⌖ Reset</button>
-        <button type="button" id="refresh-now">↻ Refresh</button>
       </div>
-      <aside id="speaker-photo-panel" class="speaker-photo-panel" aria-label="Possible speaker vessel photo" {{ 'hidden' if request.args.get('mobile') == '1' else '' }}>
-        <div class="speaker-photo-heading"><strong>🚢 Possible speaker</strong><button type="button" id="speaker-photo-hide" aria-label="Hide speaker photo">Hide</button></div>
-        <a id="speaker-photo-link" class="speaker-photo-link" target="_blank" rel="noopener noreferrer"><img id="speaker-photo-image" class="speaker-photo-image" alt="" hidden></a>
-        <span id="speaker-photo-name" class="speaker-photo-name">Waiting for validated Marine ATIS…</span>
-        <small id="speaker-photo-credit" class="speaker-photo-credit"></small>
-      </aside>
-      <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" {{ '' if request.args.get('mobile') == '1' else 'hidden' }}>🚢 Show speaker photo</button>
-      <details id="map-lab-legend" class="map-legend" aria-label="Map layers and legend">
-        <summary><span class="legend-heading">◈ Map dashboard</span><span id="legend-mini-status" class="legend-mini-status">AIS — · ADS-B —</span></summary>
-        <div class="legend-content">
+      <div class="map-overlay-controls" role="group" aria-label="Map legend and actions">
+        <details id="map-lab-legend" class="map-legend" aria-label="Map layers and legend">
+          <summary><span class="legend-heading">◈ Legend</span><span id="legend-mini-status" class="legend-mini-status">AIS — · ADS-B —</span></summary>
+          <div class="legend-content">
           <section id="rws-conditions" class="rws-conditions" aria-label="Getij en wind Hoek van Holland">
             <div class="rws-heading"><span>🌊 Getij &amp; wind · Hoek van Holland</span><button id="rws-refresh" type="button" title="Vernieuw Rijkswaterstaat-data" aria-label="Getij en wind vernieuwen">↻</button></div>
             <div id="rws-tide-summary" class="rws-tide-summary">Waterstand ophalen…</div>
@@ -178,7 +173,16 @@ body.mobile-map-embed #mode-2d,body.mobile-map-embed #mode-3d,body.mobile-map-em
             <p class="muted">Read-only positions from AIS-Catcher and readsb. VTS polygons come from the installed Rijnmond sector layer. Map Lab never starts or claims SDR receivers.</p>
           </details>
         </div>
-      </details>
+        </details>
+        <button type="button" id="refresh-now" class="map-refresh-control" title="Refresh map data" aria-label="Refresh map data">↻</button>
+        <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" aria-controls="speaker-photo-panel" aria-expanded="false" aria-pressed="false" {{ '' if request.args.get('mobile') == '1' else 'hidden' }}>🚢 Possible speaker</button>
+      </div>
+      <aside id="speaker-photo-panel" class="speaker-photo-panel" aria-label="Possible speaker vessel photo" {{ 'hidden' if request.args.get('mobile') == '1' else '' }}>
+        <div class="speaker-photo-heading"><strong>🚢 Possible speaker</strong><button type="button" id="speaker-photo-hide" aria-label="Hide speaker photo">Hide</button></div>
+        <a id="speaker-photo-link" class="speaker-photo-link" target="_blank" rel="noopener noreferrer"><img id="speaker-photo-image" class="speaker-photo-image" alt="" hidden></a>
+        <span id="speaker-photo-name" class="speaker-photo-name">Waiting for validated Marine ATIS…</span>
+        <small id="speaker-photo-credit" class="speaker-photo-credit"></small>
+      </aside>
     </div>
     <div id="map-error" role="alert"></div>
     <div class="map-caption">Live AIS/ADS-B from your receivers · zoom in for scaled vessel hulls · old AIS positions are faded · open the map legend for layers and explanations.</div>

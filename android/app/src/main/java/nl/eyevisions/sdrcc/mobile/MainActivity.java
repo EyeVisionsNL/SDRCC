@@ -77,6 +77,7 @@ public final class MainActivity extends Activity {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private WebView webView;
+    private View appBar;
     private View loadingCover;
     private TextView loadingText;
     private TextView loadingIndicator;
@@ -89,6 +90,24 @@ public final class MainActivity extends Activity {
     private String currentHost;
     private int currentPort;
     private String currentPageUrl;
+    private boolean mapModeSyncRunning;
+    private int mapModeSyncGeneration;
+    private final Runnable mapModeSync = new Runnable() {
+        @Override
+        public void run() {
+            WebView activeWebView = webView;
+            if (!mapModeSyncRunning || activeWebView == null) return;
+            final int generation = mapModeSyncGeneration;
+            activeWebView.evaluateJavascript(
+                    "!!document.body && document.body.classList.contains('mobile-map-3d-open')",
+                    value -> {
+                        if (!mapModeSyncRunning || generation != mapModeSyncGeneration
+                                || activeWebView != webView) return;
+                        setAppBarVisible(!"true".equals(value));
+                        handler.postDelayed(mapModeSync, 250L);
+                    });
+        }
+    };
     private final BroadcastReceiver marineAudioReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             updateNativeAudioUi();
@@ -155,6 +174,9 @@ public final class MainActivity extends Activity {
 
     private void destroyPreviousWebView() {
         clearConnectionTimeout();
+        stopMapModeSync();
+        setAppBarVisible(true);
+        appBar = null;
         if (webView != null) {
             webView.stopLoading();
             webView.loadUrl("about:blank");
@@ -165,6 +187,25 @@ public final class MainActivity extends Activity {
             webView.destroy();
             webView = null;
         }
+    }
+
+    private void setAppBarVisible(boolean visible) {
+        if (appBar == null) return;
+        int visibility = visible ? View.VISIBLE : View.GONE;
+        if (appBar.getVisibility() != visibility) appBar.setVisibility(visibility);
+    }
+
+    private void startMapModeSync() {
+        if (webView == null || mapModeSyncRunning) return;
+        mapModeSyncGeneration++;
+        mapModeSyncRunning = true;
+        handler.post(mapModeSync);
+    }
+
+    private void stopMapModeSync() {
+        mapModeSyncGeneration++;
+        mapModeSyncRunning = false;
+        handler.removeCallbacks(mapModeSync);
     }
 
     // Display the installed APK version instead of an outdated hard-coded label.
@@ -327,6 +368,7 @@ public final class MainActivity extends Activity {
         outer.setBackgroundColor(BG);
 
         LinearLayout bar = new LinearLayout(this);
+        appBar = bar;
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(9), 0, dp(9), 0);
@@ -461,6 +503,7 @@ public final class MainActivity extends Activity {
         browserContainer.addView(overlayScroll, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(outer);
+        startMapModeSync();
 
         refresh.setOnClickListener(v -> reloadStation());
         update.setOnClickListener(v -> checkForAppUpdate());
@@ -892,6 +935,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        stopMapModeSync();
         if (webView != null) webView.onPause();
         super.onPause();
     }
@@ -899,7 +943,10 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (webView != null) webView.onResume();
+        if (webView != null) {
+            webView.onResume();
+            startMapModeSync();
+        }
         updateNativeAudioUi();
     }
 
@@ -912,6 +959,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         unregisterReceiver(marineAudioReceiver);
+        stopMapModeSync();
         destroyPreviousWebView();
         super.onDestroy();
     }
