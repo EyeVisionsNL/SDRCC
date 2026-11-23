@@ -33,14 +33,17 @@
     // Match the existing collapsible Rijnmond VTS legend behaviour:
     // a small default-closed panel that remembers the user's preference.
     const legend = el("map-lab-legend");
-    const legendKey = mobileEmbedded3d
-        ? "sdrcc.mapLab.mobileLegendOpen"
-        : "sdrcc.mapLab.legendOpen";
     if (legend) {
-        try { legend.open = window.localStorage.getItem(legendKey) === "1"; }
-        catch (_) { /* Storage is optional, so the map stays available. */ }
+        if (mobileEmbedded3d) {
+            // Start every fullscreen mobile map session with the map unobstructed.
+            legend.open = false;
+        } else {
+            try { legend.open = window.localStorage.getItem("sdrcc.mapLab.legendOpen") === "1"; }
+            catch (_) { /* Storage is optional, so the map stays available. */ }
+        }
         legend.addEventListener("toggle", () => {
-            try { window.localStorage.setItem(legendKey, legend.open ? "1" : "0"); }
+            if (mobileEmbedded3d) return;
+            try { window.localStorage.setItem("sdrcc.mapLab.legendOpen", legend.open ? "1" : "0"); }
             catch (_) { /* Browser storage may be disabled. */ }
         });
     }
