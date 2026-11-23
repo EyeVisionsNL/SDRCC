@@ -56,7 +56,7 @@
     // Keep the harbour view clear on mobile until the operator opens this panel.
     let speakerVisible = !mobileEmbedded3d, speakerIdentity = "", speakerRetryAt = 0;
     let speakerRequest = 0;
-    if (mobileEmbedded3d) speakerShow.textContent = "🚢 Possible speaker";
+    if (mobileEmbedded3d) speakerShow.textContent = "🚢 Photo";
     try {
         const savedSpeakerVisibility = window.localStorage.getItem(speakerPhotoKey);
         if (savedSpeakerVisibility === "1") speakerVisible = true;

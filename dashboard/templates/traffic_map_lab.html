@@ -176,10 +176,10 @@ body.mobile-map-embed .map-caption{display:none}
         </div>
         </details>
         <button type="button" id="refresh-now" class="map-refresh-control" title="Refresh map data" aria-label="Refresh map data">↻</button>
-        <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" aria-controls="speaker-photo-panel" aria-expanded="false" aria-pressed="false" {{ '' if request.args.get('mobile') == '1' else 'hidden' }}>🚢 Possible speaker</button>
+        <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" aria-controls="speaker-photo-panel" aria-expanded="false" aria-pressed="false" {{ '' if request.args.get('mobile') == '1' else 'hidden' }}>🚢 Photo</button>
       </div>
       <aside id="speaker-photo-panel" class="speaker-photo-panel" aria-label="Possible speaker vessel photo" {{ 'hidden' if request.args.get('mobile') == '1' else '' }}>
-        <div class="speaker-photo-heading"><strong>🚢 Possible speaker</strong><button type="button" id="speaker-photo-hide" aria-label="Hide speaker photo">Hide</button></div>
+        <div class="speaker-photo-heading"><strong>🚢 Photo</strong><button type="button" id="speaker-photo-hide" aria-label="Hide speaker photo">Hide</button></div>
         <a id="speaker-photo-link" class="speaker-photo-link" target="_blank" rel="noopener noreferrer"><img id="speaker-photo-image" class="speaker-photo-image" alt="" hidden></a>
         <span id="speaker-photo-name" class="speaker-photo-name">Waiting for validated Marine ATIS…</span>
         <small id="speaker-photo-credit" class="speaker-photo-credit"></small>
