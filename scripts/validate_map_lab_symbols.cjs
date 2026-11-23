@@ -46,8 +46,13 @@ for (const id of ["mode-2d","mode-3d","refresh-now"]) {
     assert.equal(markup.split('id="' + id + '"').length, 2, "missing/duplicate control " + id);
 }
 assert(!markup.includes('grid-template-columns:minmax(0,1fr) 280px'));
-assert(markup.includes('.legend-content{max-height:') === false ||
-       markup.includes('.legend-content{padding:'), "expanded legend must scroll");
+const legendRuleStart = markup.indexOf('.legend-content{');
+const legendRuleEnd = markup.indexOf('}', legendRuleStart);
+const legendRule = legendRuleStart >= 0 && legendRuleEnd > legendRuleStart
+    ? markup.slice(legendRuleStart, legendRuleEnd)
+    : "";
+assert(legendRule.includes('max-height:') && legendRule.includes('overflow-y:auto'),
+    "expanded legend must scroll");
 for (const id of ["layer-ais","layer-adsb","layer-station","layer-vts",
                   "layer-emergency","layer-atis","atis-auto-focus","atis-focus-zoom","atis-focus-zoom-value","layer-tracks","track-status","track-duration","track-duration-value","show-names","feed-status"]) {
     assert(markup.includes('id="' + id + '"'), "missing existing control " + id);
