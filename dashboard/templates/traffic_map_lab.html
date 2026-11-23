@@ -109,6 +109,7 @@ body.mobile-map-embed #map{height:100dvh;min-height:0}
   body.mobile-map-embed .map-overlay-controls{top:34px;left:8px;right:55px;align-items:center}
   body.mobile-map-embed .map-legend{max-width:none}
   body.mobile-map-embed .map-legend>summary{min-height:36px}
+  body.mobile-map-embed .legend-content{left:0;right:auto;width:min(320px,calc(100vw - 20px))}
   body.mobile-map-embed .map-refresh-control,body.mobile-map-embed .speaker-photo-toggle{min-height:36px}
   body.mobile-map-embed .speaker-photo-panel{top:auto;left:auto;right:8px;bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
   body.mobile-map-embed .speaker-photo-panel{width:min(232px,calc(100% - 24px));max-height:min(36dvh,230px);overflow-y:auto}
@@ -175,10 +176,10 @@ body.mobile-map-embed .map-caption{display:none}
         </div>
         </details>
         <button type="button" id="refresh-now" class="map-refresh-control" title="Refresh map data" aria-label="Refresh map data">↻</button>
-        <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" aria-controls="speaker-photo-panel" aria-expanded="false" aria-pressed="false" {{ '' if request.args.get('mobile') == '1' else 'hidden' }}>🚢 Possible speaker</button>
+        <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" aria-controls="speaker-photo-panel" aria-expanded="false" aria-pressed="false" {{ '' if request.args.get('mobile') == '1' else 'hidden' }}>🚢 Photo</button>
       </div>
       <aside id="speaker-photo-panel" class="speaker-photo-panel" aria-label="Possible speaker vessel photo" {{ 'hidden' if request.args.get('mobile') == '1' else '' }}>
-        <div class="speaker-photo-heading"><strong>🚢 Possible speaker</strong><button type="button" id="speaker-photo-hide" aria-label="Hide speaker photo">Hide</button></div>
+        <div class="speaker-photo-heading"><strong>🚢 Photo</strong><button type="button" id="speaker-photo-hide" aria-label="Hide speaker photo">Hide</button></div>
         <a id="speaker-photo-link" class="speaker-photo-link" target="_blank" rel="noopener noreferrer"><img id="speaker-photo-image" class="speaker-photo-image" alt="" hidden></a>
         <span id="speaker-photo-name" class="speaker-photo-name">Waiting for validated Marine ATIS…</span>
         <small id="speaker-photo-credit" class="speaker-photo-credit"></small>
