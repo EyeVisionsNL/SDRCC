@@ -33,7 +33,9 @@
     // Match the existing collapsible Rijnmond VTS legend behaviour:
     // a small default-closed panel that remembers the user's preference.
     const legend = el("map-lab-legend");
-    const legendKey = "sdrcc.mapLab.legendOpen";
+    const legendKey = mobileEmbedded3d
+        ? "sdrcc.mapLab.mobileLegendOpen"
+        : "sdrcc.mapLab.legendOpen";
     if (legend) {
         try { legend.open = window.localStorage.getItem(legendKey) === "1"; }
         catch (_) { /* Storage is optional, so the map stays available. */ }
@@ -59,7 +61,9 @@
     } catch (_) { /* optional storage */ }
     function showSpeakerPanel() {
         speakerPanel.hidden = !speakerVisible;
-        speakerShow.hidden = speakerVisible;
+        speakerShow.hidden = speakerVisible && !mobileEmbedded3d;
+        speakerShow.setAttribute("aria-pressed", String(speakerVisible));
+        speakerShow.setAttribute("aria-expanded", String(speakerVisible));
     }
     function setSpeakerVisible(value) {
         speakerVisible = value;
@@ -69,7 +73,8 @@
         if (value) void refreshSpeakerPhoto(atisTarget);
     }
     el("speaker-photo-hide").addEventListener("click",()=>setSpeakerVisible(false));
-    speakerShow.addEventListener("click",()=>setSpeakerVisible(true));
+    speakerShow.addEventListener("click",()=>setSpeakerVisible(
+        mobileEmbedded3d ? !speakerVisible : true));
     showSpeakerPanel();
     async function refreshSpeakerPhoto(match) {
         if(!speakerVisible) return;
@@ -154,11 +159,11 @@
             + ". Check WebGL support; your existing SDRCC maps are unaffected.");
         return;
     }
-    map.addControl(new maplibregl.NavigationControl({showCompass: true}), "top-right");
+    map.addControl(new maplibregl.NavigationControl({showCompass: false}), "top-right");
     map.addControl(new maplibregl.ScaleControl({maxWidth: 130}), "bottom-left");
     let loaded = false;
     let mode3d = mobileEmbedded3d;
-    let resetCenter = [4.35, 51.91];
+    let stationCenter = [4.35, 51.91];
     let initialCenterSet = false;
     let inFlight = false;
     let overlayBusy = false;
@@ -2440,9 +2445,9 @@
             if (!data.ok) throw new Error("Traffic data unavailable");
             if (Array.isArray(data.center) && data.center.length === 2
                     && data.center.every(Number.isFinite)) {
-                resetCenter = data.center;
+                stationCenter = data.center;
                 if (!initialCenterSet && loaded) {
-                    map.jumpTo({center: resetCenter});
+                    map.jumpTo({center: stationCenter});
                     initialCenterSet = true;
                 }
             }
@@ -2586,9 +2591,6 @@
     el("show-names").addEventListener("change", () => {
         setLayerVisibility("ais", el("layer-ais").checked);
         setLayerVisibility("adsb", el("layer-adsb").checked);
-    });
-    el("reset-view").addEventListener("click", () => {
-        map.easeTo({center: resetCenter, zoom: mobileEmbedded3d ? 15 : 11, bearing: mode3d ? -22 : 0, pitch: mode3d ? 62 : 0});
     });
     el("refresh-now").addEventListener("click", refresh);
     window.setInterval(refresh, 10000);

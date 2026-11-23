@@ -31,7 +31,7 @@ assert(markup.includes('<details id="map-lab-legend" class="map-legend"'),
     "layer controls must live in a floating native details legend");
 assert(markup.includes('<div class="map-stage">'));
 assert(!markup.includes('<aside class="side">'), "legacy sidebar still steals map space");
-// The map must start at the top, with 2D/3D, Reset and Refresh floating over it.
+// The map must start at the top, with map modes and compact floating map actions.
 assert(!markup.includes('<header>'), "oversized page header still steals map height");
 assert(!markup.includes('SDRCC Radio View'), "redundant dashboard link must be removed");
 assert(!markup.includes('class="toolbar"'), "old toolbar must not reserve vertical space");
@@ -42,13 +42,17 @@ const controlIndex = markup.indexOf('<div class="map-tools"');
 const legendIndex = markup.indexOf('<details id="map-lab-legend"');
 assert(mapIndex >= 0 && controlIndex > mapIndex && legendIndex > controlIndex,
     "map mode controls and legend must overlay the map in the same stage");
-for (const id of ["mode-2d","mode-3d","reset-view","refresh-now"]) {
+for (const id of ["mode-2d","mode-3d","refresh-now"]) {
     assert.equal(markup.split('id="' + id + '"').length, 2, "missing/duplicate control " + id);
 }
 assert(!markup.includes('grid-template-columns:minmax(0,1fr) 280px'));
-assert(markup.includes('.map-legend:not([open])'), "legend must be compact when closed");
-assert(markup.includes('.legend-content{max-height:') === false ||
-       markup.includes('.legend-content{padding:'), "expanded legend must scroll");
+const legendRuleStart = markup.indexOf('.legend-content{');
+const legendRuleEnd = markup.indexOf('}', legendRuleStart);
+const legendRule = legendRuleStart >= 0 && legendRuleEnd > legendRuleStart
+    ? markup.slice(legendRuleStart, legendRuleEnd)
+    : "";
+assert(legendRule.includes('max-height:') && legendRule.includes('overflow-y:auto'),
+    "expanded legend must scroll");
 for (const id of ["layer-ais","layer-adsb","layer-station","layer-vts",
                   "layer-emergency","layer-atis","atis-auto-focus","atis-focus-zoom","atis-focus-zoom-value","layer-tracks","track-status","track-duration","track-duration-value","show-names","feed-status"]) {
     assert(markup.includes('id="' + id + '"'), "missing existing control " + id);

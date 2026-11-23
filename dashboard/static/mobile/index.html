@@ -170,11 +170,9 @@ body[data-mobile-tab] main .panel.state-off .control-buttons .start:not(:disable
 .mobile-map-switch button{flex:1;min-width:0;padding:8px 9px;font-size:13px}
 .mobile-map-switch button[aria-pressed="true"]{background:#175277;border-color:#68caf7;color:#fff}
 .mobile-map-3d-view[hidden]{display:none!important}
-.mobile-map-3d-view{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;background:#071321;padding-top:env(safe-area-inset-top)}
-.mobile-map-3d-bar{flex:0 0 auto;display:flex;align-items:center;gap:12px;min-height:53px;padding:7px 12px;background:#10253e;border-bottom:1px solid #477996}
-.mobile-map-3d-bar button{flex:0 0 auto;padding:8px 11px}
-.mobile-map-3d-bar strong{font-size:14px;color:#d9eeff}
-#mobile-map-3d-frame{display:block;flex:1;min-height:0;width:100%;border:0;background:#081828}
+.mobile-map-3d-view{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;overflow:hidden;background:#071321}
+#mobile-map-3d-frame{position:relative;z-index:1;display:block;flex:1;min-height:0;width:100%;border:0;background:#081828}
+#mobile-map-dismiss-edge{position:absolute;z-index:2;top:0;left:0;right:0;height:30px;background:transparent;touch-action:none}
 body.mobile-map-3d-open{overflow:hidden}
 </style></head><body><header class="mobile-brand-banner" aria-label="SDRCC Mobile">
 <span class="mobile-radar" aria-hidden="true"></span>
@@ -235,7 +233,7 @@ body.mobile-map-3d-open{overflow:hidden}
 <p class="muted">Mission planning and manual starts stay on the mini-PC. Receiver safety remains active.</p></div>
 </section>
 <section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ System Overview</h2><button id="system-refresh" type="button">↻ Refresh</button></div><p class="muted">Live receiver and service status.</p><div id="systemstatus" aria-live="polite">Loading system status…</div><h2 style="margin-top:18px">Available Components</h2><div id="mobile-feature-status" class="feature-summary" role="status" aria-live="polite">Checking installed components…</div><div id="mobile-feature-list" class="feature-list"></div></div><div class="panel"><h2>⚙️ Settings</h2><details id="mobile-map-settings" class="sys-settings"><summary>Map Connections</summary><p class="muted">These addresses are stored only on this device.</p><label id="mobile-ais-setting">AIS-Catcher Map URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label id="mobile-adsb-setting">ADS-B Map URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Save Map Addresses</button></details><a class="action" href="/" target="_blank" rel="noopener">Open Desktop Dashboard ↗</a></div></section>
-</main><div id="mobile-map-3d-view" class="mobile-map-3d-view" hidden role="dialog" aria-modal="true" aria-label="3D Marine Traffic map"><div class="mobile-map-3d-bar"><button id="mobile-map-return-2d" type="button">← 2D AIS</button><strong>Marine Traffic · 3D Map</strong></div><iframe id="mobile-map-3d-frame" title="SDRCC 3D Map Lab" loading="lazy" src="about:blank"></iframe></div><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>System</button></nav><script>
+</main><div id="mobile-map-3d-view" class="mobile-map-3d-view" hidden role="dialog" aria-modal="true" aria-label="3D Marine Traffic map. Swipe down from the top edge or use Android Back to return to Marine controls."><div id="mobile-map-dismiss-edge" aria-hidden="true"></div><iframe id="mobile-map-3d-frame" title="SDRCC 3D Map Lab" tabindex="0" loading="lazy" src="about:blank"></iframe></div><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>System</button></nav><script>
 const $=id=>document.getElementById(id);
 /* Device-local Marine panel arrangement. Visual flex order keeps AIS iframe mounted
    so dragging cards cannot reload the map or reset its view/ATIS highlight. */
@@ -635,7 +633,7 @@ function showMobile3dMap(){
   $("mobile-map-2d").setAttribute("aria-pressed","false");
   $("mobile-map-3d").setAttribute("aria-pressed","true");
   $("mobile-map-3d").setAttribute("aria-expanded","true");
-  $("mobile-map-return-2d").focus();
+  $("mobile-map-3d-frame").focus();
 }
 function hideMobile3dMap(){
   const view=$("mobile-map-3d-view");if(view.hidden)return;
@@ -650,13 +648,26 @@ function returnMobile2d(){
   if(history.state?.sdrccMobileMap3d)history.back();
   else hideMobile3dMap();
 }
+const mobileMapDismissEdge=$("mobile-map-dismiss-edge");
+let mobileMapDismissStart=null;
+mobileMapDismissEdge.addEventListener("pointerdown",event=>{
+  if(event.pointerType==="mouse")return;
+  mobileMapDismissStart={pointerId:event.pointerId,x:event.clientX,y:event.clientY};
+  try{mobileMapDismissEdge.setPointerCapture(event.pointerId)}catch(_){}
+});
+mobileMapDismissEdge.addEventListener("pointerup",event=>{
+  const start=mobileMapDismissStart;mobileMapDismissStart=null;
+  if(!start||event.pointerId!==start.pointerId)return;
+  const dx=event.clientX-start.x,dy=event.clientY-start.y;
+  if(dy>=80&&Math.abs(dx)<Math.max(60,dy*.7))returnMobile2d();
+});
+mobileMapDismissEdge.addEventListener("pointercancel",()=>{mobileMapDismissStart=null});
 $("mobile-map-2d").addEventListener("click",returnMobile2d);
 $("mobile-map-3d").addEventListener("click",()=>{
   if(!$("mobile-map-3d-view").hidden)return;
   try{history.pushState({sdrccMobileMap3d:true},"","#mobile-map-3d")}catch(_){}
   showMobile3dMap();
 });
-$("mobile-map-return-2d").addEventListener("click",returnMobile2d);
 window.addEventListener("popstate",()=>{
   if(history.state?.sdrccMobileMap3d)showMobile3dMap();
   else hideMobile3dMap();

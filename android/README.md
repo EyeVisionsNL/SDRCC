@@ -1,6 +1,6 @@
-# SDRCC Mobile — Android v2.0.5
+# SDRCC Mobile — Android v2.0.7
 
-**Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.5)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v12/SDRCC-Mobile.apk)
+**Official signed APK:** [Download SDRCC-Mobile.apk (v2.0.7)](https://github.com/EyeVisionsNL/SDRCC/releases/download/sdrcc-mobile-v14/SDRCC-Mobile.apk)
 
 **Update an existing installation:** Tap **↓** in the Android app's top bar, confirm **Open APK**, then accept Android's installation prompt. The button checks the published `main/android/update.json` feed; the installed app and private SDRCC station remain in place.
 
@@ -137,7 +137,7 @@ Marine recordings can be replayed and saved while live reception continues. ADS-
 ## 4. Update SDRCC Mobile (without uninstalling)
 
 1. Open **SDRCC Mobile** and tap **↓** in the top toolbar. This is also available as **Check for app updates** on the connection screen.
-2. The stable v2.0.5 app reads `android/update.json` from the public **main** branch over HTTPS, separately from the station's private SDRCC API.
+2. The stable v2.0.7 app reads `android/update.json` from the public **main** branch over HTTPS, separately from the station's private SDRCC API.
 3. If there is a newer signed version, tap **Open APK**. The official versioned GitHub Release APK opens in the phone browser.
 4. Open the downloaded APK and choose **Update**, **not Uninstall**.
 5. Launch SDRCC Mobile. Your saved SDRCC server address and Android app settings should still be present.
@@ -148,7 +148,7 @@ The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was
 
 ## 5. Technical details
 
-- Android package: `nl.eyevisions.sdrcc.mobile` · version name: `2.0.5` · versionCode: `12`.
+- Android package: `nl.eyevisions.sdrcc.mobile` · version name: `2.0.7` · versionCode: `14`.
 - Android 8.0 minimum (`minSdk 26`); Java 17, Gradle 8.9, Android Gradle Plugin 8.7.3 and compile SDK 35 to build.
 - Open `android/` in Android Studio, or run `gradle :app:testDebugUnitTest :app:assembleDebug` from that directory. Debug builds are **not** stable upgrade packages.
 - The production APK is built and signed by **SDRCC Mobile Signed Release** using the repository's protected Android signing secrets, then published as an immutable GitHub Release. New versions must increase `versionCode`.
@@ -156,4 +156,4 @@ The **signed v0.1.0-beta2 (code 5) → signed v0.1.0-beta3 (code 6)** update was
 - SDRCC and the embedded maps communicate over HTTP on your trusted LAN or private encrypted Tailscale VPN. Do not expose the station to the public internet with port forwarding.
 - Keep a **secure offline backup** of your private Android signing keystore and passwords. Never add the `.p12` file, secret contents, or passwords to GitHub source control or support messages.
 
-**SDRCC** on the computer running SDRCC and **SDRCC Mobile v2.0.5** on Android are two separate version numbers. Update SDRCC itself with **System → Advanced Maintenance** on that computer; use the Android **↓** button only to update the phone app.
+**SDRCC** on the computer running SDRCC and **SDRCC Mobile v2.0.7** on Android are two separate version numbers. Update SDRCC itself with **System → Advanced Maintenance** on that computer; use the Android **↓** button only to update the phone app.
