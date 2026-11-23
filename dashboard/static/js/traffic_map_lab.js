@@ -2,6 +2,9 @@
 (async () => {
     "use strict";
     const el = id => document.getElementById(id);
+    const mobileMapQuery = window.location ? new URLSearchParams(window.location.search) : null;
+    const mobileEmbedded3d = mobileMapQuery?.get("mobile") === "1"
+        && mobileMapQuery?.get("mode") === "3d";
     // Preserve the selected AIS track window independently of the legend.
     const trackMinutesKey = "sdrcc.mapLab.trackMinutes";
     let trackMinutes = 15;
@@ -42,11 +45,18 @@
     // Independent visibility preference for the Possible Speaker photo.
     const speakerPanel = el("speaker-photo-panel");
     const speakerShow = el("speaker-photo-show");
-    const speakerPhotoKey = "sdrcc.mapLab.speakerPhotoVisible";
-    let speakerVisible = true, speakerIdentity = "", speakerRetryAt = 0;
+    const speakerPhotoKey = mobileEmbedded3d
+        ? "sdrcc.mapLab.mobileSpeakerPhotoVisible"
+        : "sdrcc.mapLab.speakerPhotoVisible";
+    // Keep the harbour view clear on mobile until the operator opens this panel.
+    let speakerVisible = !mobileEmbedded3d, speakerIdentity = "", speakerRetryAt = 0;
     let speakerRequest = 0;
-    try { speakerVisible = window.localStorage.getItem(speakerPhotoKey) !== "0"; }
-    catch (_) { /* optional storage */ }
+    if (mobileEmbedded3d) speakerShow.textContent = "🚢 Possible speaker";
+    try {
+        const savedSpeakerVisibility = window.localStorage.getItem(speakerPhotoKey);
+        if (savedSpeakerVisibility === "1") speakerVisible = true;
+        else if (savedSpeakerVisibility === "0") speakerVisible = false;
+    } catch (_) { /* optional storage */ }
     function showSpeakerPanel() {
         speakerPanel.hidden = !speakerVisible;
         speakerShow.hidden = speakerVisible;
@@ -129,9 +139,6 @@
     }
 
     // Keep regular desktop Map Lab in 2D; Mobile 3D requests zoom to ship models.
-    const mobileMapQuery = window.location ? new URLSearchParams(window.location.search) : null;
-    const mobileEmbedded3d = mobileMapQuery?.get("mobile") === "1"
-        && mobileMapQuery?.get("mode") === "3d";
     const empty = {type: "FeatureCollection", features: []};
     let map;
     try {

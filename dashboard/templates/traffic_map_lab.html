@@ -103,6 +103,12 @@ button:focus-visible{outline:2px solid #9eeaff;outline-offset:2px}
 body.mobile-map-embed .layout{padding:0}
 body.mobile-map-embed .viewer{border:0;border-radius:0}
 body.mobile-map-embed #map{height:100dvh;min-height:0}
+@media(max-width:760px){
+  body.mobile-map-embed .map-tools{right:auto;width:max-content;max-width:calc(100% - 66px)}
+  body.mobile-map-embed .speaker-photo-panel,body.mobile-map-embed .speaker-photo-toggle{top:auto;left:auto;right:8px;bottom:calc(56px + env(safe-area-inset-bottom, 0px))}
+  body.mobile-map-embed .speaker-photo-panel{width:min(232px,calc(100% - 24px));max-height:min(36dvh,230px);overflow-y:auto}
+  body.mobile-map-embed .speaker-photo-toggle{max-width:calc(100% - 64px)}
+}
 body.mobile-map-embed #mode-2d,body.mobile-map-embed #mode-3d,body.mobile-map-embed .tool-divider,body.mobile-map-embed .map-caption{display:none}
 </style>
 <script defer src="{{ url_for('static', filename='js/traffic_map_rws.js') }}?v={{ asset_version }}"></script>
@@ -120,13 +126,13 @@ body.mobile-map-embed #mode-2d,body.mobile-map-embed #mode-3d,body.mobile-map-em
         <button type="button" id="reset-view">⌖ Reset</button>
         <button type="button" id="refresh-now">↻ Refresh</button>
       </div>
-      <aside id="speaker-photo-panel" class="speaker-photo-panel" aria-label="Possible speaker vessel photo">
+      <aside id="speaker-photo-panel" class="speaker-photo-panel" aria-label="Possible speaker vessel photo" {{ 'hidden' if request.args.get('mobile') == '1' else '' }}>
         <div class="speaker-photo-heading"><strong>🚢 Possible speaker</strong><button type="button" id="speaker-photo-hide" aria-label="Hide speaker photo">Hide</button></div>
         <a id="speaker-photo-link" class="speaker-photo-link" target="_blank" rel="noopener noreferrer"><img id="speaker-photo-image" class="speaker-photo-image" alt="" hidden></a>
         <span id="speaker-photo-name" class="speaker-photo-name">Waiting for validated Marine ATIS…</span>
         <small id="speaker-photo-credit" class="speaker-photo-credit"></small>
       </aside>
-      <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" hidden>🚢 Show speaker photo</button>
+      <button type="button" id="speaker-photo-show" class="speaker-photo-toggle" {{ '' if request.args.get('mobile') == '1' else 'hidden' }}>🚢 Show speaker photo</button>
       <details id="map-lab-legend" class="map-legend" aria-label="Map layers and legend">
         <summary><span class="legend-heading">◈ Map dashboard</span><span id="legend-mini-status" class="legend-mini-status">AIS — · ADS-B —</span></summary>
         <div class="legend-content">
