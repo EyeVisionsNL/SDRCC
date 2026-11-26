@@ -2,9 +2,14 @@ name: Receiver recovery release validation
 
 on:
   push:
-    branches: [develop, 'fix/receiver-update-gate-0709']
+    branches: [develop, 'fix/receiver-update-gate-0709', 'fix/receiver-reliability-07015']
     paths:
       - 'core/receiver_manager.py'
+      - 'core/receiver_reliability.py'
+      - 'core/traffic_voice_controller.py'
+      - 'core/receiver_monitor.py'
+      - 'dashboard/static/mobile/index.html'
+      - 'tests/test_receiver_reliability.py'
       - 'scripts/install/check_update.py'
       - 'tests/test_update_receiver_gate.py'
       - 'dashboard/app.py'
@@ -42,10 +47,16 @@ jobs:
         run: node --check dashboard/static/js/receiver_inventory.js
       - name: Existing receiver and update preflight (36 cases)
         run: python scripts/validate_receiver_flexibility_v0560q.py
-      - name: New guarded receiver recovery tests (5 cases)
+      - name: Guarded manual and automatic receiver recovery tests
         run: python -m unittest discover -s tests -p test_receiver_manual_recovery.py -v
+      - name: Crash-loop lifecycle and bounded recovery policy
+        run: python -m unittest discover -s tests -p test_receiver_reliability.py -v
       - name: Receiver update gate regression (empty vs genuine recovery)
         run: python -m unittest discover -s tests -p test_update_receiver_gate.py -v
+      - name: Verify mobile UI and existing Map Lab symbol regression
+        run: |
+          python scripts/validate_mobile_ui.py
+          node scripts/validate_map_lab_symbols.cjs
       - name: Validate updater manifest against the complete source
         run: python scripts/install/check_update.py . .
       - name: Validate historical compatibility, mission recovery and update freshness

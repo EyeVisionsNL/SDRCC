@@ -97,6 +97,96 @@ class ReceiverManualRecoveryTests(unittest.TestCase):
             receiver_manager.recover_idle_receiver("sdr2", service_state=self.stopped)
         self.assertIn("receiver02", receiver_manager._load_state()["hardware_recovery"])
 
+    def test_manual_recovery_stops_only_confirmed_restart_loop(self):
+        self.write({})
+        state = {"active": False, "state": "activating", "sub_state": "auto-restart"}
+        actions = []
+
+        def action(operation, service):
+            actions.append((operation, service))
+            state.update(state="inactive", sub_state="dead")
+            return True
+
+        result = receiver_manager.recover_idle_receiver(
+            "sdr2", service_state=lambda _: dict(state), service_action=action,
+            wait_for_service=lambda *_: state["state"] == "inactive",
+        )
+        self.assertEqual(actions, [("stop", "readsb.service")])
+        self.assertEqual(result["stopped_restart_loops"], ["readsb.service"])
+
+    def test_manual_recovery_does_not_stop_loop_if_another_service_is_active(self):
+        self.write({})
+        def observe(service):
+            if service == "readsb.service":
+                return {"active": False, "state": "activating", "sub_state": "auto-restart"}
+            return {"active": True, "state": "active"}
+        with patch("core.device_manager.get_conflicting_services", return_value=["readsb.service", "voice.service"]):
+            with patch.object(receiver_manager, "_result_ok") as action:
+                with self.assertRaisesRegex(RuntimeError, "not confirmed stopped"):
+                    receiver_manager.recover_idle_receiver(
+                        "sdr2", service_state=observe, service_action=action, wait_for_service=lambda *_: True,
+                    )
+                action.assert_not_called()
+
+    def _run_crash_worker(self, *, healthy=False, other_busy=False, reserved=False, idle=False):
+        self.write({})
+        state = {"active": False, "state": "inactive" if idle else "activating",
+                 "sub_state": "dead" if idle else "auto-restart", "restart_count": 3}
+        actions = []
+        logs = []
+
+        def observe(service):
+            if service == "readsb.service":
+                return dict(state)
+            return {"active": other_busy, "state": "active" if other_busy else "inactive"}
+
+        def action(operation, service):
+            actions.append((operation, service))
+            if operation == "stop":
+                state.update(active=False, state="inactive", sub_state="dead")
+            elif healthy:
+                state.update(active=True, state="active", sub_state="running")
+            else:
+                state.update(active=False, state="activating", sub_state="auto-restart")
+            return True
+
+        with patch.object(receiver_manager, "_crash_budgets", {}), \
+             patch.object(receiver_manager, "get_assigned_device", side_effect=lambda plugin: self.device("sdr2") if plugin == "adsb" else None), \
+             patch.object(receiver_manager, "hardware_ready", return_value=True), \
+             patch.object(receiver_manager, "service_action_block", return_value={"reason": "reserved"} if reserved else None), \
+             patch("core.device_manager.get_conflicting_services", return_value=["readsb.service", "voice.service"]):
+            kwargs = dict(service_state=observe, service_action=action,
+                          wait_for_service=lambda _, expected, __: state["state"] == expected,
+                          verify=lambda _: {"healthy": healthy}, observe=lambda _: {"healthy": healthy},
+                          log=logs.append)
+            receiver_manager.recover_crashed_services(**kwargs)
+            receiver_manager.recover_crashed_services(**kwargs)
+            exhausted = receiver_manager.crash_recovery_exhausted("readsb.service")
+        return actions, exhausted, logs
+
+    def test_auto_recovery_restores_only_assigned_receiver(self):
+        actions, exhausted, logs = self._run_crash_worker(healthy=True)
+        self.assertEqual(actions, [("stop", "readsb.service"), ("start", "readsb.service")])
+        self.assertFalse(exhausted)
+        self.assertTrue(any("runtime verified" in item for item in logs))
+
+    def test_auto_recovery_stops_after_two_unsuccessful_attempts(self):
+        actions, exhausted, logs = self._run_crash_worker()
+        self.assertEqual(actions, [
+            ("stop", "readsb.service"), ("start", "readsb.service"),
+            ("stop", "readsb.service"), ("start", "readsb.service"),
+            ("stop", "readsb.service"),
+        ])
+        self.assertTrue(exhausted)
+        self.assertTrue(any("retry budget exhausted" in item for item in logs))
+
+    def test_auto_recovery_respects_other_services_reservation_and_manual_stop(self):
+        for args in ({"other_busy": True}, {"reserved": True}, {"idle": True}):
+            with self.subTest(args=args):
+                actions, exhausted, _ = self._run_crash_worker(**args)
+                self.assertEqual(actions, [])
+                self.assertFalse(exhausted)
+
     def test_idle_receiver_recovery_is_idempotent(self):
         self.write({})
         first = receiver_manager.recover_idle_receiver("sdr2", service_state=self.stopped)

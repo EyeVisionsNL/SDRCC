@@ -17,7 +17,7 @@ import json
 import time
 from uuid import uuid4
 
-from core import event_bus
+from core import event_bus, receiver_reliability
 from core.device_manager import get_assigned_device, get_device, get_devices
 from core.receiver_registry import resolve_id, resolve_runtime_id
 
@@ -861,6 +861,8 @@ _binding_message = 'Waiting for hardware observation'
 _previous_active = {}
 _hardware_recovery_generation = uuid4().hex
 _tick_lock = RLock()
+_crash_budgets = {}
+_CRASH_SERVICES = {"ais": "ais-catcher.service", "adsb": "readsb.service"}
 
 
 def _current_hardware_recovery(state, key):
@@ -922,6 +924,95 @@ def service_control_serialized(function):
         with _LOCK:
             return function(*args, **kwargs)
     return wrapped
+
+
+def crash_recovery_exhausted(service):
+    """Display-only recovery outcome; never performs a service action."""
+    record = _crash_budgets.get(service)
+    return bool(record and record[1].exhausted)
+
+
+def reset_crash_recovery(plugin_id):
+    with _LOCK:
+        _crash_budgets.pop(_CRASH_SERVICES.get(plugin_id), None)
+
+
+@service_control_serialized
+def recover_crashed_services(*, service_state, service_action, wait_for_service,
+                             verify, observe, log, allowed=lambda: True):
+    """Recover a requested, repeatedly crashing AIS/readsb unit using existing authority.
+
+    No USB reset, binding change, reservation removal or auto-start of idle units.
+    The same manager lock protects service actions and mission reservations.
+    """
+    from core.device_manager import get_conflicting_services
+    for plugin, service in _CRASH_SERVICES.items():
+        if not allowed():
+            return
+        device = get_assigned_device(plugin)
+        if not device or not hardware_ready(device["registry_id"]):
+            continue
+        canonical = device["registry_id"]
+        observed = service_state(service)
+        record = _crash_budgets.get(service)
+        if record and record[0] != canonical:
+            _crash_budgets.pop(service, None)
+            record = None
+        if not record and not receiver_reliability.restarting(observed):
+            continue
+        if not record:
+            record = (canonical, receiver_reliability.RecoveryBudget())
+            _crash_budgets[service] = record
+        budget = record[1]
+        if observed.get("active"):
+            budget.observe(observed, time.monotonic(),
+                           healthy=observe(plugin).get("healthy", False))
+            continue
+        if not budget.observe(observed, time.monotonic()):
+            continue
+        if service_action_block(plugin, "start") is not None:
+            continue
+        conflicts = get_conflicting_services(canonical)
+        if service not in conflicts or any(
+            not receiver_reliability.stopped(service_state(other))
+            for other in conflicts if other != service
+        ):
+            continue
+        # Never use a receiver that was reassigned or claimed between observations.
+        if not allowed() or not receiver_reliability.restarting(service_state(service)):
+            continue
+        while budget.take_attempt():
+            log(f"RECEIVER AUTO RECOVERY: {device['number']} {service}; attempt {budget.attempts}/2")
+            try:
+                result = service_action("stop", service)
+                if not _result_ok(result) or not wait_for_service(service, "inactive", 15):
+                    raise RuntimeError("Receiver service stop not confirmed")
+                if not allowed():
+                    return
+                result = service_action("start", service)
+                if _result_ok(result) and verify(plugin).get("healthy"):
+                    log(f"RECEIVER AUTO RECOVERY: {device['number']} {service} running; runtime verified")
+                    break
+                observed = service_state(service)
+                if observed.get("active") and not receiver_reliability.restarting(observed):
+                    log(f"RECEIVER AUTO RECOVERY: {device['number']} service active; runtime verification requires attention")
+                    break
+                if not receiver_reliability.restarting(observed) and not receiver_reliability.stopped(observed):
+                    raise RuntimeError("Receiver transition not confirmed")
+            except Exception as error:
+                log(f"RECEIVER AUTO RECOVERY: {device['number']} {error}")
+                break
+        else:
+            # Both attempts failed, or a previously recovered service failed again
+            # before the healthy observation window elapsed. Halt the systemd loop.
+            budget.exhausted = True
+            try:
+                result = service_action("stop", service)
+                if not _result_ok(result) or not wait_for_service(service, "inactive", 15):
+                    raise RuntimeError("Final stop not confirmed")
+                log(f"RECEIVER AUTO RECOVERY: {device['number']} FAILED; retry budget exhausted; service stopped")
+            except Exception as error:
+                log(f"RECEIVER AUTO RECOVERY: {device['number']} FAILED; {error}")
 
 
 def bind_hardware(*, privileged_apply, service_state, mapping=None):
@@ -1121,6 +1212,7 @@ def cancel_service_recovery(plugin_id):
     from core.device_manager import get_role_handover_services
     cancelled = set(get_role_handover_services(plugin_id))
     with _LOCK:
+        reset_crash_recovery(plugin_id)
         state = _load_state()
         recoveries = state.get('hardware_recovery', {})
         for key, recovery in list(recoveries.items()):
@@ -1154,14 +1246,15 @@ def defer_missing_service(service):
     return False
 
 
-def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState) -> dict[str, Any]:
+def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState,
+                          service_action=None, wait_for_service=None) -> dict[str, Any]:
     """Operator recovery for one *idle* receiver; never reset another slot.
 
     The caller must first put the scheduler in MANUAL and verify there is no
     active mission or non-systemd receiver session. This second boundary checks
     actual USB presence, service observations and persisted ownership while
-    serialized with the hardware observer. It deliberately does not kill
-    processes, change bindings or start services.
+    serialized with the hardware observer. It may stop a confirmed restart loop,
+    but does not kill live services, change bindings or start services.
     """
     from core import receiver_hardware
     from core.device_manager import get_conflicting_services
@@ -1172,6 +1265,7 @@ def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState) -> d
     canonical = device["registry_id"]
     services = get_conflicting_services(canonical)
     released = None
+    stopped_restart_loops = []
     with _tick_lock:
         snapshot = receiver_hardware.scan(refresh=True)
         if not snapshot.get("ok") or snapshot.get("ambiguous"):
@@ -1189,12 +1283,29 @@ def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState) -> d
                 raise RuntimeError("This receiver is intentionally unbound; select its USB binding first.")
 
             # Do not lose a live service or active handover by overwriting state.
+            loops = []
             for service in services:
                 observed = service_state(service)
-                if observed.get("active") or str(observed.get("state") or "").lower() not in {"inactive", "failed"}:
-                    raise RuntimeError(
-                        f"{service} is not confirmed stopped. Stop the active service before recovery."
-                    )
+                if receiver_reliability.stopped(observed):
+                    continue
+                if (service in _CRASH_SERVICES.values() and receiver_reliability.restarting(observed)
+                        and service_action is not None and wait_for_service is not None):
+                    loops.append(service)
+                    continue
+                raise RuntimeError(
+                    f"{service} is not confirmed stopped. Stop the active service before recovery."
+                )
+            for service in loops:
+                if not receiver_reliability.restarting(service_state(service)):
+                    raise RuntimeError(f"{service} changed state during recovery preparation")
+                result = service_action("stop", service)
+                if not _result_ok(result) or not wait_for_service(service, "inactive", 15):
+                    raise RuntimeError(f"{service}: restart loop stop not confirmed")
+                stopped_restart_loops.append(service)
+            if any(not receiver_reliability.stopped(service_state(service)) for service in services):
+                raise RuntimeError("Receiver services did not remain stopped")
+            for service in services:
+                _crash_budgets.pop(service, None)
 
             reservation = state["reservations"].get(canonical)
             if reservation is not None:
@@ -1229,6 +1340,7 @@ def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState) -> d
         "released_stale_reservation": released is not None,
         "cleared_hardware_recovery": had_recovery,
         "services_left_stopped": services,
+        "stopped_restart_loops": stopped_restart_loops,
         "message": (
             f"{device['number']} recovery complete. USB is present; stale state cleared. "
             "No services were started. Start ADS-B/AIS manually and verify reception."
