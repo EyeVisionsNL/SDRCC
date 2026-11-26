@@ -129,7 +129,7 @@
             button.addEventListener("click", async () => {
                 const receiverId = button.dataset.receiverId;
                 if (!window.confirm(
-                    `Recover ${receiverId.toUpperCase()}? This switches the scheduler to MANUAL and clears stale state only if USB is present and no receiver service or mission is active. Existing services will not be started automatically.`
+                    `Recover ${receiverId.toUpperCase()}? This switches the scheduler to MANUAL. A confirmed receiver restart loop may be stopped; live services and missions are protected. Services will not be started automatically.`
                 )) return;
                 recovering = true;
                 button.disabled = true;

@@ -17,7 +17,7 @@ import os
 import threading
 from typing import Any, Callable
 
-from core import config, mission_engine, receiver_manager, receiver_registry, traffic_voice
+from core import config, mission_engine, receiver_manager, receiver_registry, traffic_voice, receiver_reliability
 
 
 VOICE_SERVICE = "sdrcc-traffic-voice.service"
@@ -47,7 +47,7 @@ def _session_service_states(
 ) -> dict[str, dict[str, Any]]:
     return {
         service: {
-            "active": bool((states.get(service) or {}).get("active")),
+            "active": bool((states.get(service) or {}).get("active") or receiver_reliability.restarting(states.get(service) or {})),
             "state": str((states.get(service) or {}).get("state") or "unknown"),
         }
         for service in (VOICE_SERVICE, AIS_SERVICE, ADSB_SERVICE)
@@ -202,7 +202,8 @@ def _restore(
 
     for service in (VOICE_SERVICE, AIS_SERVICE, ADSB_SERVICE):
         wanted = bool((previous.get(service) or {}).get("active"))
-        current = bool((service_state(service) or {}).get("active"))
+        observed = service_state(service) or {}
+        current = bool(observed.get("active") or receiver_reliability.transitional(observed))
         if current and not wanted:
             try:
                 actions.append(_apply_service(
@@ -215,12 +216,18 @@ def _restore(
 
     for service in (ADSB_SERVICE, AIS_SERVICE, VOICE_SERVICE):
         wanted = bool((previous.get(service) or {}).get("active"))
-        current = bool((service_state(service) or {}).get("active"))
+        observed = service_state(service) or {}
+        current = bool(observed.get("active"))
         if wanted and not current:
             if receiver_manager.defer_missing_service(service):
                 actions.append({"service": service, "action": "deferred_until_hardware_returns"})
                 continue
             try:
+                if receiver_reliability.transitional(observed):
+                    actions.append(_apply_service(
+                        "stop", service, service_action=service_action,
+                        wait_for_service=wait_for_service,
+                    ))
                 actions.append(_apply_service(
                     "start", service,
                     service_action=service_action,
@@ -228,6 +235,8 @@ def _restore(
                 ))
             except Exception as error:  # noqa: BLE001
                 errors.append(str(error))
+        elif wanted and not wait_for_service(service, "active", 15):
+            errors.append(f"{service}: restored active state not confirmed")
     return actions, errors
 
 
@@ -298,7 +307,8 @@ def start_mode(
                 "service_authority": "existing_dashboard_systemctl_path",
             }
 
-        if existing_session is not None and not voice_active:
+        if (existing_session is not None and not voice_active
+                and existing_session.get("mode") != mode_id):
             _, restore_errors = _restore(
                 existing_session["previous_services"],
                 existing_session["previous_assignments"],
@@ -350,7 +360,8 @@ def start_mode(
                     service_action=service_action,
                     wait_for_service=wait_for_service,
                 ))
-            if bool((service_state(inactive_service) or {}).get("active")):
+            inactive_observation = service_state(inactive_service) or {}
+            if inactive_observation.get("active") or receiver_reliability.transitional(inactive_observation):
                 actions.append(_apply_service(
                     "stop", inactive_service,
                     service_action=service_action,

@@ -43,7 +43,7 @@ from core import plugin_manager as plugin_manager_core
 from core import plugin_capabilities as plugin_capabilities_core
 from core import execution_plan_consumer as execution_plan_consumer_core
 from core import execution_journal as execution_journal_core
-from core import receiver_manager
+from core import receiver_manager, receiver_reliability
 from core import receiver_authority
 from core import receiver_registry
 from core import receiver_runtime as receiver_runtime_core
@@ -229,7 +229,7 @@ def run_command(command, timeout=60):
 
 
 def run_systemctl(action, service):
-    return run_command(["sudo", "-n", "systemctl", action, service], timeout=30)
+    return run_command(["sudo", "-n", "systemctl", action, service], timeout=60 if action == "stop" else 30)
 
 
 def run_systemctl_for_update(action, service):
@@ -310,6 +310,10 @@ def service_state(service_name):
                 service_name,
                 "--property=MainPID",
                 "--property=ActiveEnterTimestampMonotonic",
+                "--property=ActiveState",
+                "--property=SubState",
+                "--property=Result",
+                "--property=NRestarts",
             ],
             text=True,
             capture_output=True,
@@ -322,6 +326,11 @@ def service_state(service_name):
     except (OSError, subprocess.SubprocessError):
         details = {}
 
+    active_text = details.get("ActiveState") or active_text
+    try:
+        restart_count = int(details.get("NRestarts") or 0)
+    except (ValueError, TypeError):
+        restart_count = 0
     try:
         main_pid = int(details.get("MainPID") or 0)
     except (TypeError, ValueError):
@@ -349,6 +358,10 @@ def service_state(service_name):
         "state": active_text if active_text else "unknown",
         "enabled": enabled_text if enabled_text else "unknown",
         "main_pid": main_pid,
+        "sub_state": details.get("SubState"),
+        "restart_count": restart_count,
+        "result": details.get("Result"),
+        "recovery_exhausted": receiver_manager.crash_recovery_exhausted(service_name),
         "active_age_seconds": (
             round(active_age_seconds, 1)
             if active_age_seconds is not None
@@ -467,10 +480,16 @@ def _derive_service_lifecycle(plugin_id, service_states, authority_role, metrics
             lifecycle_state = "ATTENTION"
             detail = "readsb is active, but receiver or runtime-file verification failed."
 
-    can_start = active_count == 0
+    override = receiver_reliability.lifecycle_override(members)
+    if override:
+        lifecycle_state, detail = override
+    if not active_count and any(item.get("recovery_exhausted") for item in members):
+        lifecycle_state = "FAILED"
+        detail = "Automatic receiver recovery exhausted; use Recover Receiver or Start to retry."
+    can_start = bool(members) and all(receiver_reliability.stopped(item) for item in members)
     if plugin_id == "ais" and lifecycle_state == "PARTIAL":
         can_start = True
-    can_stop = active_count > 0
+    can_stop = active_count > 0 or any(receiver_reliability.transitional(item) for item in members)
 
     return {
         "plugin_id": plugin_id,
@@ -1181,6 +1200,12 @@ def _restore_service_group(plugin_id, previous_states):
     for service in reversed(stop_order):
         if not bool((previous_states.get(service) or {}).get("active")):
             continue
+        observed = service_state(service)
+        if receiver_reliability.transitional(observed):
+            stop_result = run_systemctl("stop", service)
+            if stop_result.returncode != 0 or not wait_for_service(service, "inactive", 15):
+                restored.append({"operation": "stop", "service": service, "state_reached": False})
+                continue
         result = run_systemctl("start", service)
         reached = result.returncode == 0 and wait_for_service(service, "active", 15)
         restored.append({
@@ -1439,6 +1464,13 @@ def handle_service_action(action_id, action):
         f"({', '.join(service_group)})"
     )
 
+    if systemctl_action == "start" and any(
+        receiver_reliability.transitional(item) for item in before_states.values()
+    ):
+        return jsonify({"ok": False, "message": "Receiver is transitioning. Stop it or use Recover Receiver before starting."}), 409
+    if systemctl_action in {"start", "restart"}:
+        receiver_manager.reset_crash_recovery(plugin_id)
+
     action_results = []
     for operation, target in steps:
         write_log(f"{label}: systemctl {operation} {target}")
@@ -1473,7 +1505,7 @@ def handle_service_action(action_id, action):
             return jsonify({
                 "ok": False,
                 "message": (
-                    f"{label} failed at {target}; previous service states were restored."
+                    f"{label} failed at {target}; " + ("previous service states were restored." if all(item.get("state_reached") for item in restore_results) else "rollback incomplete; inspect service state.")
                 ),
                 "before": before,
                 "after": after,
@@ -1618,15 +1650,20 @@ def monitor_record_process(process):
 
 def wait_for_service(service_name, expected_state, timeout=15):
     deadline = time.monotonic() + timeout
-
+    active_since = None
+    stable_start = expected_state == "active" and service_name in {"readsb.service", "ais-catcher.service"}
     while time.monotonic() < deadline:
-        current_state = service_state(service_name)["state"]
-
-        if current_state == expected_state:
-            return True
-
+        observed = service_state(service_name)
+        if observed["state"] == expected_state and not receiver_reliability.restarting(observed):
+            if not stable_start:
+                return True
+            if active_since is None:
+                active_since = time.monotonic()
+            elif time.monotonic() - active_since >= 2:
+                return True
+        else:
+            active_since = None
         time.sleep(0.5)
-
     return False
 
 
@@ -5249,6 +5286,14 @@ def receiver_hardware_worker():
                 wait_for_service=wait_for_service,
                 stop_receiver=stop_receiver_for_hardware_loss,
                 privileged_apply=apply_receiver_service_configuration)
+            if not UPDATE_SERVICE_STATE_FILE.exists():
+                receiver_manager.recover_crashed_services(
+                    service_state=service_state, service_action=run_systemctl,
+                    wait_for_service=wait_for_service,
+                    verify=lambda plugin: _wait_for_plugin_lifecycle(plugin, "RUNNING"),
+                    observe=get_service_lifecycle_snapshot, log=write_log,
+                    allowed=lambda: not UPDATE_SERVICE_STATE_FILE.exists()
+                )
         except Exception as error:
             receiver_manager._binding_message = str(error)
         time.sleep(3)
@@ -5314,14 +5359,15 @@ def api_receiver_recovery():
             }), 409
 
         result = receiver_manager.recover_idle_receiver(
-            device["registry_id"], service_state=service_state
+            device["registry_id"], service_state=service_state,
+            service_action=run_systemctl, wait_for_service=wait_for_service,
         )
         receiver_authority.invalidate_cache()
         result["scheduler_mode"] = "MANUAL"
         write_log(
             f"RECEIVER RECOVERY: {device['number']} - "
             f"reservation={result['released_stale_reservation']}, "
-            f"hardware_recovery={result['cleared_hardware_recovery']}; services unchanged"
+            f"hardware_recovery={result['cleared_hardware_recovery']}; stopped_restart_loops={result['stopped_restart_loops']}"
         )
         return jsonify(result)
     except (ValueError, RuntimeError) as error:

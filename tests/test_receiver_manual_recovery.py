@@ -97,6 +97,37 @@ class ReceiverManualRecoveryTests(unittest.TestCase):
             receiver_manager.recover_idle_receiver("sdr2", service_state=self.stopped)
         self.assertIn("receiver02", receiver_manager._load_state()["hardware_recovery"])
 
+    def test_manual_recovery_stops_only_confirmed_restart_loop(self):
+        self.write({})
+        state = {"active": False, "state": "activating", "sub_state": "auto-restart"}
+        actions = []
+
+        def action(operation, service):
+            actions.append((operation, service))
+            state.update(state="inactive", sub_state="dead")
+            return True
+
+        result = receiver_manager.recover_idle_receiver(
+            "sdr2", service_state=lambda _: dict(state), service_action=action,
+            wait_for_service=lambda *_: state["state"] == "inactive",
+        )
+        self.assertEqual(actions, [("stop", "readsb.service")])
+        self.assertEqual(result["stopped_restart_loops"], ["readsb.service"])
+
+    def test_manual_recovery_does_not_stop_loop_if_another_service_is_active(self):
+        self.write({})
+        def observe(service):
+            if service == "readsb.service":
+                return {"active": False, "state": "activating", "sub_state": "auto-restart"}
+            return {"active": True, "state": "active"}
+        with patch("core.device_manager.get_conflicting_services", return_value=["readsb.service", "voice.service"]):
+            with patch.object(receiver_manager, "_result_ok") as action:
+                with self.assertRaisesRegex(RuntimeError, "not confirmed stopped"):
+                    receiver_manager.recover_idle_receiver(
+                        "sdr2", service_state=observe, service_action=action, wait_for_service=lambda *_: True,
+                    )
+                action.assert_not_called()
+
     def test_idle_receiver_recovery_is_idempotent(self):
         self.write({})
         first = receiver_manager.recover_idle_receiver("sdr2", service_state=self.stopped)

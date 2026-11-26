@@ -2,9 +2,12 @@ name: Receiver recovery release validation
 
 on:
   push:
-    branches: [develop, 'fix/receiver-update-gate-0709']
+    branches: [develop, 'fix/receiver-update-gate-0709', 'fix/receiver-reliability-07015']
     paths:
       - 'core/receiver_manager.py'
+      - 'core/receiver_reliability.py'
+      - 'core/traffic_voice_controller.py'
+      - 'tests/test_receiver_reliability.py'
       - 'scripts/install/check_update.py'
       - 'tests/test_update_receiver_gate.py'
       - 'dashboard/app.py'
@@ -44,6 +47,8 @@ jobs:
         run: python scripts/validate_receiver_flexibility_v0560q.py
       - name: New guarded receiver recovery tests (5 cases)
         run: python -m unittest discover -s tests -p test_receiver_manual_recovery.py -v
+      - name: Crash-loop lifecycle and bounded recovery policy
+        run: python -m unittest discover -s tests -p test_receiver_reliability.py -v
       - name: Receiver update gate regression (empty vs genuine recovery)
         run: python -m unittest discover -s tests -p test_update_receiver_gate.py -v
       - name: Validate updater manifest against the complete source
