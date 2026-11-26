@@ -1517,8 +1517,8 @@ function serviceStateTone(status){
   const lifecycle=String(status.lifecycle_state||"").toUpperCase();
   if(lifecycle==="RUNNING")return"on";
   if(lifecycle==="STOPPED")return"off";
-  if(["ATTENTION","PARTIAL"].includes(lifecycle))return"bad";
-  if(lifecycle==="STARTING")return"unknown";
+  if(["ATTENTION","PARTIAL","FAILED","RESTARTING"].includes(lifecycle))return"bad";
+  if(["STARTING","STOPPING"].includes(lifecycle))return"unknown";
   return status.can_stop?"bad":status.can_start?"off":"unknown";
 }
 function renderServiceControls(data){
@@ -1530,8 +1530,9 @@ function renderServiceControls(data){
     const lifecycle=String(status?.lifecycle_state||"UNKNOWN").toUpperCase();
     const tone=serviceStateTone(status);
     const label=lifecycle==="RUNNING"?"● ACTIVE":lifecycle==="STOPPED"?"○ STOPPED":
-      lifecycle==="STARTING"?"◌ STARTING":lifecycle==="PARTIAL"?"! PARTIALLY ACTIVE":
-      lifecycle==="ATTENTION"?"! ATTENTION REQUIRED":"○ UNKNOWN";
+      lifecycle==="STARTING"?"◌ STARTING":lifecycle==="STOPPING"?"◌ STOPPING":
+      lifecycle==="RESTARTING"?"! RESTARTING":lifecycle==="FAILED"?"! FAILED":
+      lifecycle==="PARTIAL"?"! PARTIALLY ACTIVE":lifecycle==="ATTENTION"?"! ATTENTION REQUIRED":"○ UNKNOWN";
     setServiceIndicator(badge,mobileIsOnline()?label:"○ STATUS STALE",mobileIsOnline()?tone:"unknown");
     detail.textContent=(!mobileIsOnline()? "Last known status: ":"")+
       (status?.detail||(!serviceSnapshot?"System status unavailable.":"No service status available."));
@@ -1622,7 +1623,7 @@ function lifecycleStatus(value){
   const state=String(value?.lifecycle_state||value?.state||"").toUpperCase();
   if(state==="RUNNING"||state==="ACTIVE")return"on";
   if(state==="STOPPED"||state==="INACTIVE")return"off";
-  if(["ATTENTION","PARTIAL","FAILED","ERROR"].includes(state))return"bad";
+  if(["ATTENTION","PARTIAL","FAILED","ERROR","RESTARTING"].includes(state))return"bad";
   return"unknown";
 }
 function renderSystem(data,updateStatus=null){

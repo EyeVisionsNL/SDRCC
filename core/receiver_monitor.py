@@ -18,7 +18,7 @@ from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from core import iss_voice_runtime, receiver_authority, receiver_registry
+from core import iss_voice_runtime, receiver_authority, receiver_registry, receiver_reliability
 
 
 READSB_AIRCRAFT_FILES = (
@@ -520,6 +520,7 @@ def get_adsb_metrics(
         "source": None,
         "runtime_files": {},
         "runtime_files_fresh": False,
+        "samples_processed": None,
         "runtime_ready": False,
         "detail": "readsb metrics niet beschikbaar",
     }
@@ -545,6 +546,8 @@ def get_adsb_metrics(
     result["runtime_files_fresh"] = all(
         item.get("fresh") is True for item in runtime_files.values()
     )
+    if runtime_files["statistics"].get("fresh"):
+        result["samples_processed"] = receiver_reliability.readsb_samples_processed(stats_payload)
     if not isinstance(payload, dict):
         result["detail"] = "ADS-B-service actief; aircraft.json niet gevonden"
         return result
@@ -582,7 +585,7 @@ def get_adsb_metrics(
         "max_range_nm": round(max(ranges), 1) if ranges else None,
         "source": source,
         "stats_source": stats_source,
-        "runtime_ready": bool(result["runtime_files_fresh"]),
+        "runtime_ready": bool(result["runtime_files_fresh"] and result["samples_processed"] != 0),
         "detail": f"{len(active_aircraft)} vliegtuigen gezien in de laatste 60 seconden",
     })
     return result

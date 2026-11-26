@@ -229,7 +229,7 @@ def run_command(command, timeout=60):
 
 
 def run_systemctl(action, service):
-    return run_command(["sudo", "-n", "systemctl", action, service], timeout=60 if action == "stop" else 30)
+    return run_command(["sudo", "-n", "systemctl", action, service], timeout=60 if action == "stop" and service == "readsb.service" else 30)
 
 
 def run_systemctl_for_update(action, service):
@@ -470,15 +470,21 @@ def _derive_service_lifecycle(plugin_id, service_states, authority_role, metrics
         if active_count == 0:
             lifecycle_state = "STOPPED"
             detail = "readsb is stopped."
-        elif runtime_verified and runtime_files_fresh:
+        elif runtime_verified and runtime_files_fresh and metrics.get("samples_processed") != 0:
             lifecycle_state = "RUNNING"
             detail = "readsb active; receiver serial and current runtime files verified."
+            if metrics.get("samples_processed") is not None:
+                detail += " Raw samples processed."
+            else:
+                detail += " Raw sample counter unavailable."
         elif newly_started:
             lifecycle_state = "STARTING"
             detail = "readsb is active; receiver and runtime-file verification is starting."
         else:
             lifecycle_state = "ATTENTION"
-            detail = "readsb is active, but receiver or runtime-file verification failed."
+            detail = ("readsb is active, but no raw samples have been processed."
+                      if metrics.get("samples_processed") == 0 and runtime_files_fresh
+                      else "readsb is active, but receiver or runtime-file verification failed.")
 
     override = receiver_reliability.lifecycle_override(members)
     if override:

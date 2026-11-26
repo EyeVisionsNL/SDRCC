@@ -1,5 +1,5 @@
 import unittest
-from core.receiver_reliability import RecoveryBudget, lifecycle_override, restarting, stopped, transitional
+from core.receiver_reliability import RecoveryBudget, lifecycle_override, restarting, stopped, transitional, readsb_samples_processed
 
 
 class ReliabilityTests(unittest.TestCase):
@@ -31,6 +31,11 @@ class ReliabilityTests(unittest.TestCase):
         budget = RecoveryBudget()
         self.assertFalse(budget.observe({'state': 'inactive'}, 0))
         self.assertFalse(budget.observe({'state': 'activating', 'sub_state': 'auto-restart', 'restart_count': 1}, 1))
+
+    def test_raw_sample_counter_not_aircraft_or_messages(self):
+        self.assertIsNone(readsb_samples_processed({"total": {"messages": 0}}))
+        self.assertEqual(readsb_samples_processed({"total": {"local": {"samples_processed": 0}}}), 0)
+        self.assertEqual(readsb_samples_processed({"total": {"local": {"samples_processed": 1234}, "messages": 0}}), 1234)
 
     def test_sustained_health_rearms_budget(self):
         budget = RecoveryBudget(attempts=2, exhausted=True)

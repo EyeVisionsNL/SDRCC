@@ -30,6 +30,22 @@ def lifecycle_override(observations):
     return None
 
 
+def readsb_samples_processed(stats):
+    """Optional raw-sample counter, not the number of aircraft or messages."""
+    if not isinstance(stats, dict):
+        return None
+    total = stats.get("total")
+    if not isinstance(total, dict):
+        return None
+    local = total.get("local")
+    if not isinstance(local, dict):
+        return None
+    value = local.get("samples_processed")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value if value >= 0 else None
+
+
 @dataclass
 class RecoveryBudget:
     attempts: int = 0
