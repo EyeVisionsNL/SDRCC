@@ -1,7 +1,129 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="530" height="160" viewBox="0 0 530 160">
-  <title>SDRCC Intelligence — UFO panorama</title>
-  <defs><linearGradient id="fade"><stop offset="0" stop-color="#031426"/><stop offset=".2" stop-color="#031426" stop-opacity=".95"/><stop offset=".5" stop-color="#031426" stop-opacity="0"/></linearGradient></defs>
-  <rect width="530" height="160" fill="#031426"/>
-  <image x="94" y="0" width="436" height="160" xlink:href="data:image/webp;base64,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"/>
-  <rect width="530" height="160" fill="url(#fade)"/>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1500" height="160" viewBox="0 0 1500 160">
+<title>SDRCC Intelligence — radio signals and UFO panorama</title>
+<defs>
+  <linearGradient id="sky"><stop stop-color="#031426"/><stop offset=".38" stop-color="#101b46"/><stop offset=".7" stop-color="#23144d"/><stop offset="1" stop-color="#071327"/></linearGradient>
+  <radialGradient id="nebula"><stop stop-color="#7048b9" stop-opacity=".48"/><stop offset="1" stop-color="#7048b9" stop-opacity="0"/></radialGradient>
+  <linearGradient id="fade"><stop stop-color="#17183f"/><stop offset=".2" stop-color="#17183f" stop-opacity=".7"/><stop offset=".6" stop-color="#17183f" stop-opacity="0"/></linearGradient>
+  <linearGradient id="horizon" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#22549a"/><stop offset="1" stop-color="#07162c"/></linearGradient>
+</defs>
+<rect width="1500" height="160" fill="url(#sky)"/>
+<ellipse cx="805" cy="65" rx="440" ry="99" fill="url(#nebula)"/>
+<circle cx="390" cy="6" r="1.2" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="563" cy="53" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="736" cy="100" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="909" cy="28" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1082" cy="75" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1255" cy="122" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1428" cy="50" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="506" cy="97" r="1.2" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="679" cy="25" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="852" cy="72" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1025" cy="119" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1198" cy="47" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1371" cy="94" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="449" cy="22" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="622" cy="69" r="1.2" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="795" cy="116" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="968" cy="44" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1141" cy="91" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="1314" cy="19" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="392" cy="66" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="565" cy="113" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="738" cy="41" r="1.2" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="911" cy="88" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="1084" cy="16" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1257" cy="63" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1430" cy="110" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="508" cy="38" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="681" cy="85" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="854" cy="13" r="1.2" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1027" cy="60" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1200" cy="107" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1373" cy="35" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="451" cy="82" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="624" cy="10" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="797" cy="57" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="970" cy="104" r="1.2" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1143" cy="32" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1316" cy="79" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="394" cy="7" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="567" cy="54" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="740" cy="101" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="913" cy="29" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1086" cy="76" r="1.2" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="1259" cy="123" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1432" cy="51" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="510" cy="98" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="683" cy="26" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="856" cy="73" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="1029" cy="120" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1202" cy="48" r="1.2" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1375" cy="95" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="453" cy="23" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="626" cy="70" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="799" cy="117" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="972" cy="45" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1145" cy="92" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1318" cy="20" r="1.2" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="396" cy="67" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="569" cy="114" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="742" cy="42" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="915" cy="89" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1088" cy="17" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1261" cy="64" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="1434" cy="111" r="1.2" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="512" cy="39" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="685" cy="86" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="858" cy="14" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1031" cy="61" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="1204" cy="108" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1377" cy="36" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="455" cy="83" r="1.2" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="628" cy="11" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="801" cy="58" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="974" cy="105" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1147" cy="33" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1320" cy="80" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="398" cy="8" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="571" cy="55" r="1.2" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="744" cy="102" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="917" cy="30" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1090" cy="77" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1263" cy="124" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1436" cy="52" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="514" cy="99" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="687" cy="27" r="1.2" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="860" cy="74" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1033" cy="121" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1206" cy="49" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="1379" cy="96" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="457" cy="24" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="630" cy="71" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="803" cy="118" r="1.2" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="976" cy="46" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="1149" cy="93" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1322" cy="21" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="400" cy="68" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="573" cy="115" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="746" cy="43" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="919" cy="90" r="1.2" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="1092" cy="18" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1265" cy="65" r="0.55" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1438" cy="112" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="516" cy="40" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="689" cy="87" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="862" cy="15" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<circle cx="1035" cy="62" r="1.2" fill="#c4d9ff" opacity="0.24"/>
+<circle cx="1208" cy="109" r="0.55" fill="#c4d9ff" opacity="0.37"/>
+<circle cx="1381" cy="37" r="0.55" fill="#c4d9ff" opacity="0.50"/>
+<circle cx="459" cy="84" r="0.55" fill="#c4d9ff" opacity="0.63"/>
+<circle cx="632" cy="12" r="0.55" fill="#c4d9ff" opacity="0.76"/>
+<path d="M370 160 Q850 38 1500 155 V160Z" fill="url(#horizon)" opacity=".7"/>
+<path d="M370 160 Q850 38 1500 155" fill="none" stroke="#59a2e9" stroke-opacity=".7" stroke-width="1.6"/>
+<path d="M540 87 H610 l8 -3 8 7 10 -12 8 16 12 -22 8 33 11 -45 9 58 10 -83 10 96 10 -69 9 49 12 -31 11 13 12 -5 H1040" stroke="#b58cff" stroke-width="1.7" opacity=".85" fill="none"/>
+<path d="M540 87 H610 l8 -3 8 7 10 -12 8 16 12 -22 8 33 11 -45 9 58 10 -83 10 96 10 -69 9 49 12 -31 11 13 12 -5 H1040" stroke="#8053e9" stroke-width="5" opacity=".17" fill="none"/>
+<g transform="translate(1064 0)">
+<image x="0" y="0" width="436" height="160" xlink:href="data:image/webp;base64,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"/>
+<rect width="436" height="160" fill="url(#fade)"/>
+</g>
 </svg>
