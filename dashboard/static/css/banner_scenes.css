@@ -67,3 +67,8 @@
 
 /* Local AI Intelligence: original UFO panorama, matching the existing banner sizing. */
 .topbar[data-banner-scene="intelligence"] { --banner-image:url('/static/assets/banners/intelligence-panorama.svg'); }
+
+/* Intelligence is a wide, continuous scene, not a small image at the right edge. */
+.topbar[data-banner-scene="intelligence"] .topbar-visuals { background-size:auto 100%; background-position:right center; }
+.topbar[data-banner-scene="intelligence"] .topbar-visuals::after { background:linear-gradient(90deg,#031426 0%,rgba(3,20,38,.88) 24%,rgba(3,20,38,.25) 43%,transparent 62%); }
+@media(max-width:760px) { .topbar[data-banner-scene="intelligence"] .topbar-visuals { background-position:right center; opacity:.6; } }

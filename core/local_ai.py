@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import http.client
 import json
+import logging
 import os
 from pathlib import Path
 import platform
@@ -38,6 +39,10 @@ MEMORY_LIMIT = 5 * GIB
 LOCK = threading.Lock()
 _progress = ""
 _error = ""
+_transfer = None
+_cancel = threading.Event()
+_installing = False
+log = logging.getLogger(__name__)
 bp = Blueprint("local_ai", __name__)
 
 
@@ -158,13 +163,34 @@ def preflight(install=False):
         raise RuntimeError("At least 5 GiB free disk space is required.")
 
 
+def check_cancel():
+    if _cancel.is_set():
+        raise RuntimeError("Local AI installation cancelled. You can retry.")
+
+
 def download(url, dest, expected, maximum):
+    global _transfer
     digest = hashlib.sha256()
     size = 0
+    started = time.monotonic()
+    _transfer = {"file": dest.name, "received_bytes": 0, "total_bytes": None,
+                 "bytes_per_second": 0, "stage": "connecting", "last_data": None}
+    log.info("Local AI: downloading %s", dest.name)
+    check_cancel()
     req = urllib.request.Request(url, headers={"User-Agent": "SDRCC-Local-AI/0.80"})
     with urllib.request.urlopen(req, timeout=45) as response, dest.open("xb") as output:
+        headers = getattr(response, "headers", {})
+        try:
+            total = int(headers.get("Content-Length", 0)) or None
+        except (TypeError, ValueError):
+            total = None
+        if total is not None and not 0 < total <= maximum:
+            raise RuntimeError("Unexpected download size.")
+        _transfer = dict(_transfer, total_bytes=total, stage="downloading")
+        read_chunk = getattr(response, "read1", response.read)
         while True:
-            chunk = response.read(1024 * 1024)
+            check_cancel()
+            chunk = read_chunk(1024 * 1024)
             if not chunk:
                 break
             size += len(chunk)
@@ -172,9 +198,18 @@ def download(url, dest, expected, maximum):
                 raise RuntimeError("Unexpected download size.")
             output.write(chunk)
             digest.update(chunk)
+            now = time.monotonic()
+            _transfer = dict(_transfer, received_bytes=size,
+                             bytes_per_second=round(size / max(0.001, now - started)),
+                             last_data=now)
+        check_cancel()
+    _transfer = dict(_transfer, stage="verifying", bytes_per_second=0)
+    if total is not None and size != total:
+        raise RuntimeError("Incomplete download. Please retry.")
     if digest.hexdigest() != expected:
         raise RuntimeError("Local AI download SHA-256 verification failed.")
-
+    log.info("Local AI: verified %s (%s bytes)", dest.name, size)
+    _transfer = None
 
 def install_assets():
     global _progress
@@ -196,6 +231,7 @@ def install_assets():
         archive = Path(temp) / asset
         _progress = "Downloading and verifying llama.cpp..."
         download(url, archive, engine_hash, 512 * 1024 ** 2)
+        check_cancel()
         _progress = "Extracting verified AI engine..."
         engine_dir = stage / "engine"
         engine_dir.mkdir()
@@ -206,32 +242,43 @@ def install_assets():
             raise RuntimeError("Verified engine archive did not contain an executable llama-server.")
         _progress = "Downloading and verifying Qwen3-4B (approximately 2.5 GB)..."
         download(MODEL_URL, stage / MODEL, MODEL_SHA, 3 * GIB)
+        check_cancel()
+        _progress = "Activating verified Local AI..."
         (stage / "receipt.json").write_text(json.dumps(receipt()), encoding="utf-8")
         os.replace(stage, AI_DIR)
     set_enabled(True)
 
 
 def _worker():
-    global _progress, _error
+    global _progress, _error, _transfer, _installing
     try:
         install_assets()
+        log.info("Local AI installation completed")
     except Exception as exc:
         _error = str(exc)[:400]
+        log.warning("Local AI installation failed: %s", exc)
     finally:
         _progress = ""
+        _transfer = None
+        _installing = False
+        _cancel.clear()
         LOCK.release()
 
 
 def start_install():
-    global _progress, _error
+    global _progress, _error, _transfer, _installing
     if not LOCK.acquire(blocking=False):
         raise RuntimeError("Local AI is busy.")
     _error = ""
+    _transfer = None
+    _cancel.clear()
+    _installing = True
     _progress = "Preparing Local AI..."
     try:
         threading.Thread(target=_worker, daemon=True, name="sdrcc-local-ai-install").start()
     except Exception:
         _progress = ""
+        _installing = False
         LOCK.release()
         raise
 
@@ -308,7 +355,13 @@ def infer(question):
 
 def status():
     total, available = hardware()
-    return {"enabled": enabled(), "installed": installed(), "busy": LOCK.locked(),
+    current = _transfer
+    transfer = dict(current) if current is not None else None
+    if transfer is not None:
+        last = transfer.pop("last_data", None)
+        transfer["seconds_since_data"] = round(max(0, time.monotonic() - last), 1) if last is not None else None
+    return {"download": transfer, "installing": _installing, "cancelling": _cancel.is_set(),
+            "enabled": enabled(), "installed": installed(), "busy": LOCK.locked(),
             "progress": _progress, "error": _error, "model": MODEL,
             "has_assets": AI_DIR.exists() or AI_DIR.is_symlink(),
             "engine": ENGINE, "ram_gib": round(total / GIB, 1),
@@ -339,6 +392,12 @@ def api_action():
         return jsonify(error="Invalid request."), 400
     action = body.get("action")
     try:
+        if action == "cancel_install":
+            current = _transfer
+            if not _installing or current is None or current.get("stage") not in ("connecting", "downloading"):
+                return jsonify(error="No cancellable download in progress."), 409
+            _cancel.set()
+            return jsonify(status()), 202
         if action == "install":
             start_install()
             return jsonify(status()), 202

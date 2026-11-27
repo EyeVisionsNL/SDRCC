@@ -1707,6 +1707,12 @@
         </div>
         <p class="muted">Optional component. Install only if wanted. Reception and SDRCC updates work without AI. This foundation release cannot yet access live reception or historical data.</p>
         <p id="local-ai-status" role="status" aria-live="polite">Open to check status.</p>
+        <div id="local-ai-transfer" hidden>
+            <progress id="local-ai-progress" max="100" aria-label="Local AI download progress" style="width:100%;height:18px;accent-color:#8b7cfb"></progress>
+            <p id="local-ai-transfer-text" class="muted"></p>
+            <button type="button" class="control-button" id="local-ai-cancel" disabled>Cancel download</button>
+        </div>
+        <p id="local-ai-install-error" role="status" aria-live="polite"></p>
         <div class="system-mission-tools-grid">
             <button type="button" class="control-button" id="local-ai-install" disabled>Install Local AI (~2.5 GB model)</button>
             <button type="button" class="control-button" id="local-ai-toggle" disabled>Enable Local AI</button>
