@@ -56,7 +56,7 @@ function setServiceState(pluginId, service) {
 }
 
 export function updateServiceButtons(data) {
-    document.querySelectorAll(".control-button").forEach(button => {
+    document.querySelectorAll(".control-button:not([data-local-ai-control])").forEach(button => {
         button.disabled = false;
         button.classList.remove(
             "disabled",

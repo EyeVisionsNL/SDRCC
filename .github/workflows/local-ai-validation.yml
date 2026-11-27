@@ -32,6 +32,8 @@ jobs:
           python -m py_compile core/local_ai.py core/features.py dashboard/app.py scripts/install/gui_installer.py tests/test_local_ai.py
           bash -n install.sh
           node --check dashboard/static/js/local_ai.js
+      - name: AI dashboard controls regression
+        run: node scripts/validate_local_ai_controls.cjs
       - name: Local AI tests (offline)
         run: python -m unittest discover -s tests -p 'test_local_ai.py' -v
       - name: Map regressions (offline)

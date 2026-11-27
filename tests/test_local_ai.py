@@ -130,8 +130,39 @@ class LocalAI(unittest.TestCase):
             self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads": 999, "max_tokens": 128}).status_code, 400)
             self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads": True, "max_tokens": 128}).status_code, 400)
             self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads": 1, "max_tokens": 128}).status_code, 200)
-        self.assertEqual(ai.settings(), {"threads": 1, "max_tokens": 128})
+        self.assertEqual(ai.settings(), {"threads": 1, "max_tokens": 128, "address_space_gib": 7})
         self.assertFalse(ai.enabled())
+
+    def test_address_space_migration(self):
+        self.assets.mkdir(parents=True)
+        (self.assets / "settings.json").write_text('{"threads":1,"max_tokens":512}')
+        self.assertEqual(ai.settings(), {"threads":1, "max_tokens":512, "address_space_gib":7})
+        self.assertEqual(ai.MEMORY_LIMIT, 7 * ai.GIB)
+        with patch.object(ai, "installed", return_value=True):
+            for limit in (4, 9, True, "7"):
+                self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads":1,"max_tokens":128,"address_space_gib":limit}).status_code, 400)
+            self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads":1,"max_tokens":128,"address_space_gib":8}).status_code, 200)
+        self.assertEqual(ai.settings()["address_space_gib"], 8)
+
+    def test_inference_uses_default_7gib_and_progress(self):
+        from unittest.mock import MagicMock
+        proc = MagicMock()
+        proc.poll.return_value = None
+        def request(port, key, path, payload=None, timeout=2):
+            if path == "/health":
+                self.assertEqual(ai._progress, "Loading model...")
+                return {}
+            self.assertEqual(ai._progress, "Generating answer...")
+            return {"choices":[{"message":{"content":"OK"}}]}
+        with patch.object(ai, "enabled", return_value=True), patch.object(ai, "installed", return_value=True), patch.object(ai, "preflight"), patch.object(ai, "binary", return_value=self.assets/"llama-server"), patch.object(ai.subprocess, "Popen", return_value=proc) as spawn, patch.object(ai, "local_request", side_effect=request):
+            result = self.client.post("/api/local-ai/chat", json={"question":"OK"})
+        self.assertEqual(result.get_json(), {"answer":"OK"})
+        args, kwargs = spawn.call_args
+        self.assertIn("--as=7516192768", args[0])
+        self.assertNotIn("--chat-template-kwargs", args[0])
+        self.assertIsNone(kwargs["stderr"])
+        proc.terminate.assert_called_once()
+        self.assertEqual(ai._progress, "")
 
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
