@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Optional SDRCC feature selection.
 
-Missing configuration intentionally means all features are enabled so existing
-installations retain their current behaviour after an update.
+Missing configuration enables legacy features but never enables optional Local AI.
 """
 from pathlib import Path
 import yaml
@@ -13,6 +12,7 @@ DEFAULT_FEATURES = {
     "satellite": True,
     "traffic_voice": True,
     "radio_receiver": True,
+    "local_ai": False,
 }
 
 def get_features():
@@ -24,7 +24,8 @@ def get_features():
     if isinstance(configured, dict):
         for name in features:
             if name in configured:
-                features[name] = bool(configured[name])
+                features[name] = (configured[name] is True if name == "local_ai"
+                                  else bool(configured[name]))
     return features
 
 def feature_enabled(name):
