@@ -2,7 +2,7 @@ import {getStatus} from "./api.js";
 import {setupTabs} from "./tabs.js?v=0.80.0";
 import {setupControls} from "./controls.js?v=0.56.0x";
 import {updateSystem} from "./system.js?v=0.54.0f";
-import {updateServices, updateServiceButtons} from "./services.js?v=0.54.0q-r3";
+import {updateServices, updateServiceButtons} from "./services.js?v=0.80.2";
 import {updateMissionEngine, updateNextPass, updateCountdown, updateServerOffset} from "./mission.js?v=0.54.0n-r1";
 import {updateLatestCapture, updateRecentCaptures} from "./capture.js?v=0.54.0l-r1";
 import {updateMissionTimeline} from "./timeline.js";
