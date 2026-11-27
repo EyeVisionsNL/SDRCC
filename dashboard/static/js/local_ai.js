@@ -7,7 +7,11 @@
   const install = by("local-ai-install"), toggle = by("local-ai-toggle");
   const remove = by("local-ai-remove"), send = by("local-ai-send");
   const question = by("local-ai-question"), answer = by("local-ai-answer");
-  let snapshot = null, pending = false, timer = null;
+  const page = by("tab-intelligence");
+  const threads = by("local-ai-threads"), tokens = by("local-ai-tokens");
+  const save = by("local-ai-save"), settingsResult = by("local-ai-settings-result");
+  let snapshot = null, pending = false, timer = null, dirty = false;
+  const visible = () => page.classList.contains("active");
   async function api(path, body) {
     const res = await fetch("/api/local-ai/" + path, body === undefined
       ? {cache: "no-store"} : {method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)});
@@ -23,7 +27,13 @@
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
     question.disabled = send.disabled = busy || !s?.enabled || !s?.installed;
     toggle.textContent = s?.enabled ? "Disable Local AI" : "Enable Local AI";
+    threads.disabled = tokens.disabled = save.disabled = busy || !s?.installed;
     if (!s) return;
+    for (const option of threads.options) option.disabled = Number(option.value) > s.max_threads;
+    if (!dirty && s.settings) {
+      threads.value = String(s.settings.threads);
+      tokens.value = String(s.settings.max_tokens);
+    }
     badge.textContent = s.busy ? "BUSY" : s.installed ? (s.enabled ? "ENABLED" : "DISABLED") : "NOT INSTALLED";
     status.textContent = [s.progress || (s.installed ? "Model and engine installed." : "AI is not installed."),
       s.ram_gib + " GiB RAM · " + s.available_gib + " GiB available · " + s.architecture,
@@ -31,10 +41,10 @@
   }
   function schedule() {
     clearTimeout(timer);
-    if (panel.open && snapshot?.busy && !pending) timer = setTimeout(refresh, 2000);
+    if (visible() && snapshot?.busy && !pending) timer = setTimeout(refresh, 2000);
   }
   async function refresh() {
-    if (!panel.open || pending) return;
+    if (!visible() || pending) return;
     try { snapshot = await api("status"); render(); }
     catch (err) { status.textContent = err.message; snapshot = null; render(); }
     schedule();
@@ -42,7 +52,7 @@
   async function act(action) {
     if (pending) return;
     pending = true; render();
-    try { snapshot = await api("action", {action}); }
+    try { snapshot = await api("action", {action}); dirty = false; }
     catch (err) { answer.textContent = err.message; }
     finally { pending = false; render(); schedule(); }
   }
@@ -61,8 +71,26 @@
     catch (err) { answer.textContent = err.message; }
     finally { pending = false; await refresh(); render(); }
   });
-  panel.addEventListener("toggle", () => {
-    if (panel.open) refresh(); else clearTimeout(timer);
+  threads.addEventListener("change", () => { dirty = true; });
+  tokens.addEventListener("change", () => { dirty = true; });
+  save.addEventListener("click", async () => {
+    if (pending) return;
+    pending = true; render();
+    try {
+      const data = await api("settings", {threads: Number(threads.value), max_tokens: Number(tokens.value)});
+      snapshot.settings = data.settings;
+      dirty = false;
+      settingsResult.textContent = "AI settings saved.";
+    } catch (err) { settingsResult.textContent = err.message; }
+    finally { pending = false; render(); }
+  });
+  by("local-ai-open")?.addEventListener("click", () => {
+    document.querySelector('.tab-button[data-tab="intelligence"]')?.click();
+  });
+  window.addEventListener("sdrcc:tab-changed", event => {
+    if (event.detail?.tab === "intelligence") refresh();
+    else clearTimeout(timer);
   });
   render();
+  if (visible()) refresh();
 })();
