@@ -28,6 +28,7 @@
     const s = snapshot;
     const busy = pending || !s || s.busy;
     install.hidden = !s || s.installed;
+    install.style.display = install.hidden ? "none" : "";
     install.disabled = busy || !!s?.installed;
     toggle.disabled = busy || !s?.installed;
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
@@ -68,7 +69,7 @@
   }
   function schedule() {
     clearTimeout(timer);
-    if (visible() && (chatting || !snapshot || snapshot.busy) && (!pending || chatting)) timer = setTimeout(refresh, chatting ? 800 : 2000);
+    if (visible() && (!pending || chatting)) timer = setTimeout(refresh, chatting ? 800 : snapshot?.busy || !snapshot ? 2000 : 5000);
   }
   async function refresh() {
     if (!visible() || (pending && !chatting) || refreshing) return;
@@ -99,7 +100,7 @@
   });
   send.addEventListener("click", async () => {
     const q = question.value.trim();
-    if (!q || pending) return;
+    if (!q || pending || send.disabled) return;
     epoch++; pending = true; chatting = true; answer.textContent = ""; render(); schedule();
     try { answer.textContent = (await api("chat", {question: q})).answer; }
     catch (err) { answer.textContent = err.message; }
@@ -117,7 +118,7 @@
       dirty = false;
       settingsResult.textContent = "AI settings saved.";
     } catch (err) { settingsResult.textContent = err.message; }
-    finally { pending = false; render(); }
+    finally { pending = false; render(); schedule(); }
   });
   by("local-ai-open")?.addEventListener("click", () => {
     document.querySelector('.tab-button[data-tab="intelligence"]')?.click();
