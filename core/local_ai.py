@@ -265,6 +265,7 @@ def status():
     total, available = hardware()
     return {"enabled": enabled(), "installed": installed(), "busy": LOCK.locked(),
             "progress": _progress, "error": _error, "model": MODEL,
+            "has_assets": AI_DIR.exists() or AI_DIR.is_symlink(),
             "engine": ENGINE, "ram_gib": round(total / GIB, 1),
             "available_gib": round(available / GIB, 1),
             "architecture": platform.machine()}
