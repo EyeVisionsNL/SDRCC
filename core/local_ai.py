@@ -355,7 +355,8 @@ def infer(question):
 
 def status():
     total, available = hardware()
-    transfer = dict(_transfer) if _transfer is not None else None
+    current = _transfer
+    transfer = dict(current) if current is not None else None
     if transfer is not None:
         last = transfer.pop("last_data", None)
         transfer["seconds_since_data"] = round(max(0, time.monotonic() - last), 1) if last is not None else None
@@ -392,7 +393,8 @@ def api_action():
     action = body.get("action")
     try:
         if action == "cancel_install":
-            if not _installing or _transfer is None or _transfer.get("stage") not in ("connecting", "downloading"):
+            current = _transfer
+            if not _installing or current is None or current.get("stage") not in ("connecting", "downloading"):
                 return jsonify(error="No cancellable download in progress."), 409
             _cancel.set()
             return jsonify(status()), 202
