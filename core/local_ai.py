@@ -26,7 +26,7 @@ from core import features
 ROOT = features.PROJECT_ROOT
 AI_DIR = ROOT / "data" / "local_ai"
 MODEL = "Qwen3-4B-Q4_K_M.gguf"
-MODEL_URL = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/a9a60d0/Qwen3-4B-Q4_K_M.gguf"
+MODEL_URL = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf"
 MODEL_SHA = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5"
 ENGINE = "b12711"
 ARCHIVES = {
@@ -64,6 +64,49 @@ def set_enabled(value):
             os.replace(temp, path)
         finally:
             temp.unlink(missing_ok=True)
+
+
+def max_threads():
+    return max(1, min(4, (os.cpu_count() or 1) - 1))
+
+
+def validate_settings(data):
+    if not isinstance(data, dict):
+        raise ValueError("Invalid AI settings.")
+    threads = data.get("threads")
+    tokens = data.get("max_tokens")
+    if type(threads) is not int or not 1 <= threads <= max_threads():
+        raise ValueError("Invalid CPU thread count.")
+    if type(tokens) is not int or tokens not in (128, 256, 384, 512):
+        raise ValueError("Invalid maximum answer length.")
+    return {"threads": threads, "max_tokens": tokens}
+
+
+def settings():
+    default = {"threads": min(2, max_threads()), "max_tokens": 384}
+    if AI_DIR.is_symlink():
+        return default
+    try:
+        return validate_settings(json.loads((AI_DIR / "settings.json").read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return default
+
+
+def save_settings(data):
+    validated = validate_settings(data)
+    if not installed():
+        raise RuntimeError("Install Local AI first.")
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=AI_DIR,
+                                     prefix=".settings-", delete=False) as f:
+        temp = Path(f.name)
+        try:
+            json.dump(validated, f)
+            f.flush()
+            os.fsync(f.fileno())
+            os.replace(temp, AI_DIR / "settings.json")
+        finally:
+            temp.unlink(missing_ok=True)
+    return validated
 
 
 def receipt():
@@ -216,14 +259,16 @@ def infer(question):
         raise RuntimeError("Install and enable Local AI first.")
     preflight()
     server = binary()
+    config = settings()
+    threads = str(config["threads"])
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     key = secrets.token_hex(32)
     cmd = ["nice", "-n", "15", "prlimit", f"--as={MEMORY_LIMIT}", "--cpu=180:190", "--",
            str(server), "--model", str(AI_DIR / MODEL), "--host", "127.0.0.1",
-           "--port", str(port), "--api-key", key, "--threads", "2",
-           "--threads-batch", "2", "--ctx-size", "4096", "--parallel", "1",
+           "--port", str(port), "--api-key", key, "--threads", threads,
+           "--threads-batch", threads, "--ctx-size", "4096", "--parallel", "1",
            "--n-gpu-layers", "0", "--batch-size", "128", "--ubatch-size", "128",
            "--reasoning", "off", "--chat-template-kwargs", '{"enable_thinking":false}']
     env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "LD_LIBRARY_PATH": str(server.parent)}
@@ -248,7 +293,7 @@ def infer(question):
                 {"role": "system", "content": "You are SDRCC Local AI. This foundation release has no access to live reception, history, system data, tools or receiver controls. Never claim otherwise. Answer in the user's language and say when you cannot verify something."},
                 {"role": "user", "content": question},
             ],
-            "max_tokens": 384, "temperature": 0.6, "stream": False,
+            "max_tokens": config["max_tokens"], "temperature": 0.6, "stream": False,
         }, timeout=100)
         return result["choices"][0]["message"]["content"]
     finally:
@@ -268,7 +313,8 @@ def status():
             "has_assets": AI_DIR.exists() or AI_DIR.is_symlink(),
             "engine": ENGINE, "ram_gib": round(total / GIB, 1),
             "available_gib": round(available / GIB, 1),
-            "architecture": platform.machine()}
+            "architecture": platform.machine(), "settings": settings(),
+            "max_threads": max_threads()}
 
 
 def change_allowed():
@@ -318,6 +364,22 @@ def api_action():
         return jsonify(status())
     except (OSError, RuntimeError, ValueError) as exc:
         return jsonify(error=str(exc)[:400]), 409
+
+
+@bp.post("/api/local-ai/settings")
+def api_settings():
+    if not change_allowed():
+        return jsonify(error="Invalid request origin or format."), 403
+    if not LOCK.acquire(blocking=False):
+        return jsonify(error="Local AI is busy."), 409
+    try:
+        return jsonify(settings=save_settings(request.get_json(silent=True)))
+    except ValueError as exc:
+        return jsonify(error=str(exc)[:400]), 400
+    except (OSError, RuntimeError) as exc:
+        return jsonify(error=str(exc)[:400]), 409
+    finally:
+        LOCK.release()
 
 
 @bp.post("/api/local-ai/chat")
