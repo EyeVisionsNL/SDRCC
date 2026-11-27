@@ -5,7 +5,7 @@ export function setupTabs() {
     const bannerSceneByTab = {
         system: "system", radio: "radio", "radio-view": "radio", "traffic-voice": "traffic", "hf-monitor": "receiver",
         mission: "satellite", "mission-planner": "satellite", images: "satellite", history: "satellite",
-        "reception-analytics": "logs", "mission-analytics": "satellite", logs: "logs",
+        "reception-analytics": "logs", "mission-analytics": "satellite", intelligence: "intelligence", logs: "logs",
     };
     function setBannerScene(tab) {
         if (header) header.dataset.bannerScene = bannerSceneByTab[tab] || "system";
