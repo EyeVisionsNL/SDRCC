@@ -97,6 +97,18 @@ class LocalAI(unittest.TestCase):
         finally:
             ai.LOCK.release()
 
+    def test_settings_saved_only_when_installed(self):
+        self.assertEqual(self.client.get("/api/local-ai/status").get_json()["settings"]["max_tokens"], 384)
+        self.assertFalse(self.assets.exists())
+        self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads": 1, "max_tokens": 128}).status_code, 409)
+        self.assets.mkdir(parents=True)
+        with patch.object(ai, "installed", return_value=True):
+            self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads": 999, "max_tokens": 128}).status_code, 400)
+            self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads": True, "max_tokens": 128}).status_code, 400)
+            self.assertEqual(self.client.post("/api/local-ai/settings", json={"threads": 1, "max_tokens": 128}).status_code, 200)
+        self.assertEqual(ai.settings(), {"threads": 1, "max_tokens": 128})
+        self.assertFalse(ai.enabled())
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
