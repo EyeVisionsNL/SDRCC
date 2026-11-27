@@ -484,6 +484,30 @@
                     <p class="control-result" id="sdrcc-update-result">Checking GitHub main for a newer SDRCC version...</p>
                 </section>
 
+                <details class="system-maintenance-group-v0540f" id="local-ai-panel">
+                    <summary class="system-maintenance-summary-v0540f">
+                        <span class="system-maintenance-copy-v0540f">
+                            <strong>Local AI Intelligence (Optional)</strong>
+                            <small>Qwen3-4B · Local CPU inference · No cloud service</small>
+                        </span>
+                        <span id="local-ai-badge">OPTIONAL</span>
+                    </summary>
+                    <div class="system-maintenance-body-v0540f">
+                        <p class="muted">Local AI is off by default. Install only if wanted; receiver services and updates work without AI. The foundation release does not yet access live reception or historical data.</p>
+                        <p id="local-ai-status" role="status" aria-live="polite">Open to check status.</p>
+                        <div class="system-mission-tools-grid">
+                            <button type="button" class="control-button" id="local-ai-install" disabled>Install Local AI (~2.5 GB model)</button>
+                            <button type="button" class="control-button" id="local-ai-toggle" disabled>Enable Local AI</button>
+                            <button type="button" class="control-button" id="local-ai-remove" disabled>Remove Local AI</button>
+                        </div>
+                        <label for="local-ai-question">Ask Local AI</label>
+                        <textarea id="local-ai-question" rows="3" maxlength="2000" style="width:100%" disabled placeholder="Ask a question in your own language"></textarea>
+                        <button type="button" class="control-button" id="local-ai-send" disabled>Ask AI</button>
+                        <p id="local-ai-answer" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
+                    </div>
+                </details>
+                <script defer src="{{ url_for('static', filename='js/local_ai.js') }}?v={{ asset_version }}"></script>
+
                 <section class="system-maintenance-group-v0540f" data-control-scope="ais-autostart" aria-labelledby="ais-autostart-title">
                     <div class="system-maintenance-heading-v0540f">
                         <div>
