@@ -23,6 +23,7 @@ AUDIO_COMPARISON_ONLY=0
 FEATURE_SATELLITE=1
 FEATURE_TRAFFIC_VOICE=1
 FEATURE_RADIO_RECEIVER=1
+FEATURE_LOCAL_AI=0
 INSTALL_RECEIPT="/var/lib/sdrcc/install-receipt"
 [[ "${SDRCC_INSTALL_TEST_MODE:-0}" == 1 ]] && INSTALL_RECEIPT="${SDRCC_INSTALL_RECEIPT:-$INSTALL_RECEIPT}"
 
@@ -195,6 +196,8 @@ if ((NON_INTERACTIVE || GUI_CHOICES)); then
   FEATURE_SATELLITE="${SDRCC_FEATURE_SATELLITE:-1}"
   FEATURE_TRAFFIC_VOICE="${SDRCC_FEATURE_TRAFFIC_VOICE:-1}"
   FEATURE_RADIO_RECEIVER="${SDRCC_FEATURE_RADIO_RECEIVER:-1}"
+  FEATURE_LOCAL_AI="${SDRCC_FEATURE_LOCAL_AI:-0}"
+  [[ "$FEATURE_LOCAL_AI" =~ ^[01]$ ]] || { echo "FAIL: invalid Local AI selection"; exit 2; }
   echo "Satellites=$FEATURE_SATELLITE Traffic Voice=$FEATURE_TRAFFIC_VOICE Radio Receiver=$FEATURE_RADIO_RECEIVER"
 else
   say "Optional SDRCC features"
@@ -204,6 +207,9 @@ else
   [[ "$ANSWER" =~ ^[Nn]$ ]] && FEATURE_TRAFFIC_VOICE=0
   read -r -p "Enable Radio Receiver? [Y/n] " ANSWER
   [[ "$ANSWER" =~ ^[Nn]$ ]] && FEATURE_RADIO_RECEIVER=0
+  if [[ -t 0 ]] && read -r -p "Install optional Local AI (Qwen3-4B, ~2.5 GB download)? [y/N] " ANSWER; then
+    [[ "$ANSWER" =~ ^[Yy]$ ]] && FEATURE_LOCAL_AI=1
+  fi
 fi
 
 if ((SKIP_THIRD_PARTY)); then
@@ -227,12 +233,21 @@ features:
   satellite: $([[ "$FEATURE_SATELLITE" == 1 ]] && echo true || echo false)
   traffic_voice: $([[ "$FEATURE_TRAFFIC_VOICE" == 1 ]] && echo true || echo false)
   radio_receiver: $([[ "$FEATURE_RADIO_RECEIVER" == 1 ]] && echo true || echo false)
+  local_ai: false
 EOF
 
 say "Python environment"
 if [[ ! -x "$PYTHON" ]]; then python3 -m venv "$PROJECT_ROOT/venv"; fi
 "$PYTHON" -m pip install --upgrade pip
 "$PYTHON" -m pip install -r "$PROJECT_ROOT/requirements.txt"
+
+# Local AI failure is independent of the reception installation.
+if [[ "$FEATURE_LOCAL_AI" == 1 && "${SDRCC_INSTALL_TEST_MODE:-0}" != 1 ]]; then
+  say "Optional Local AI"
+  if ! PYTHONPATH="$PROJECT_ROOT" "$PYTHON" -m core.local_ai --install; then
+    echo "WARNING: Local AI not installed. Reception setup continues; retry in System -> Advanced Maintenance -> Local AI."
+  fi
+fi
 
 # The SSTV decoder is installed into SDRCC's venv; audio setup must run
 # AFTER creating that environment. Previously this failed on clean installs.
