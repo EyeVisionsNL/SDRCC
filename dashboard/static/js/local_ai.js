@@ -8,6 +8,10 @@
   const remove = by("local-ai-remove"), send = by("local-ai-send");
   const question = by("local-ai-question"), answer = by("local-ai-answer");
   const page = by("tab-intelligence");
+  const transfer = by("local-ai-transfer"), progress = by("local-ai-progress");
+  const transferText = by("local-ai-transfer-text"), cancel = by("local-ai-cancel");
+  const installError = by("local-ai-install-error");
+  const mib = bytes => (bytes / 1048576).toFixed(1) + " MiB";
   const threads = by("local-ai-threads"), tokens = by("local-ai-tokens");
   const save = by("local-ai-save"), settingsResult = by("local-ai-settings-result");
   let snapshot = null, pending = false, timer = null, dirty = false;
@@ -28,6 +32,24 @@
     question.disabled = send.disabled = busy || !s?.enabled || !s?.installed;
     toggle.textContent = s?.enabled ? "Disable Local AI" : "Enable Local AI";
     threads.disabled = tokens.disabled = save.disabled = busy || !s?.installed;
+    transfer.hidden = !s?.installing;
+    cancel.disabled = pending || !s?.installing || s.cancelling ||
+      !["connecting", "downloading"].includes(s.download?.stage);
+    if (s?.installing) {
+      const d = s.download;
+      if (d?.total_bytes) {
+        progress.value = Math.min(100, 100 * d.received_bytes / d.total_bytes);
+      } else {
+        progress.removeAttribute("value");
+      }
+      const info = d ? [
+        d.file,
+        mib(d.received_bytes) + (d.total_bytes ? " / " + mib(d.total_bytes) + " (" + Math.floor(Math.min(100, 100*d.received_bytes/d.total_bytes)) + "%)" : ""),
+        d.stage === "downloading" ? mib(d.bytes_per_second) + "/s average" : d.stage,
+        d.seconds_since_data > 10 ? "No new data for " + Math.floor(d.seconds_since_data) + "s" : ""
+      ].filter(Boolean).join(" · ") : s.progress;
+      transferText.textContent = s.cancelling ? "Cancelling download..." : info;
+    }
     if (!s) return;
     for (const option of threads.options) option.disabled = Number(option.value) > s.max_threads;
     if (!dirty && s.settings) {
@@ -38,10 +60,11 @@
     status.textContent = [s.progress || (s.installed ? "Model and engine installed." : "AI is not installed."),
       s.ram_gib + " GiB RAM · " + s.available_gib + " GiB available · " + s.architecture,
       s.error || ""].filter(Boolean).join(" · ");
+    installError.textContent = s.error || "";
   }
   function schedule() {
     clearTimeout(timer);
-    if (visible() && snapshot?.busy && !pending) timer = setTimeout(refresh, 2000);
+    if (visible() && (!snapshot || snapshot.busy) && !pending) timer = setTimeout(refresh, 2000);
   }
   async function refresh() {
     if (!visible() || pending) return;
@@ -53,12 +76,13 @@
     if (pending) return;
     pending = true; render();
     try { snapshot = await api("action", {action}); dirty = false; }
-    catch (err) { answer.textContent = err.message; }
+    catch (err) { installError.textContent = err.message; }
     finally { pending = false; render(); schedule(); }
   }
   install.addEventListener("click", () => {
     if (confirm("Download and verify Local AI and Qwen3-4B? Approximately 2.5 GB of model data.")) act("install");
   });
+  cancel.addEventListener("click", () => act("cancel_install"));
   toggle.addEventListener("click", () => act(snapshot?.enabled ? "disable" : "enable"));
   remove.addEventListener("click", () => {
     if (confirm("Remove the local AI model and engine? Receiver configuration is not affected.")) act("remove");
