@@ -22,6 +22,7 @@ class LocalAI(unittest.TestCase):
             (features, "FEATURES_CONFIG", self.config),
             (ai, "ROOT", root),
             (ai, "AI_DIR", self.assets),
+            (ai, "_transfer", None),
         ):
             p = patch.object(obj, name, value)
             p.start()
