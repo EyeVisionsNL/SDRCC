@@ -98,6 +98,8 @@ be configured later in SDRCC.</p>
 <strong>🎙 Traffic Voice</strong><small>Marine VHF, ATIS and aviation audio</small></span></label>
 <label class="choice"><input id="radio_receiver" type="checkbox" checked><span>
 <strong>📻 Radio Receiver</strong><small>Direct tuning, spectrum and waterfall</small></span></label>
+<label class="choice"><input id="local_ai" type="checkbox"><span>
+<strong>Local AI (Optional)</strong><small>Qwen3-4B, ~2.5 GB model download. 16 GB RAM recommended. Reception does not require AI.</small></span></label>
 </div>
 <div class="note" id="introNote">The existing AIS-catcher wizard opens automatically near the end
 of installation. <strong>Keep this terminal open</strong>: Ubuntu might ask for your
@@ -197,7 +199,8 @@ by("start").onclick = async () => {
   await api("/api/start", {
    satellite: by("satellite").checked,
    traffic_voice: by("traffic_voice").checked,
-   radio_receiver: by("radio_receiver").checked
+   radio_receiver: by("radio_receiver").checked,
+   local_ai: by("local_ai").checked
   });
   by("selection").classList.add("hidden");
   by("progress").classList.remove("hidden");
@@ -268,6 +271,9 @@ class InstallState:
         if not isinstance(choices, dict) or any(type(choices.get(key)) is not bool for key in
                                                  ("satellite", "traffic_voice", "radio_receiver")):
             raise ValueError("Select the three installer options.")
+        if type(choices.get("local_ai", False)) is not bool:
+            raise ValueError("Invalid Local AI option.")
+        choices = dict(choices, local_ai=choices.get("local_ai", False))
         with self.lock:
             if self.started:
                 raise ValueError("The installation has already started.")
@@ -275,7 +281,7 @@ class InstallState:
             self.stage = "Starting preview" if self.preview else "Starting Bash installer"
             self.lines.append("Selected options: " + ", ".join(
                 k + "=" + ("yes" if choices[k] else "no")
-                for k in ("satellite", "traffic_voice", "radio_receiver")))
+                for k in ("satellite", "traffic_voice", "radio_receiver", "local_ai")))
         runner = self._simulate if self.preview else self._run
         thread = threading.Thread(target=runner, args=(choices,), daemon=True)
         thread.start()
