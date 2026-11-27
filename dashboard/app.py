@@ -86,6 +86,10 @@ from core import external_updates
 
 app = Flask(__name__)
 
+# Optional AI: imports only; no model, download, database or worker at startup.
+from core.local_ai import bp as local_ai_blueprint
+app.register_blueprint(local_ai_blueprint)
+
 LOG_FILE = PROJECT_ROOT / "logs" / "sdrcc.log"
 SDRCC_SCRIPT = PROJECT_ROOT / "scripts" / "sdrcc.py"
 RECEIVER_ROLE_HELPER = Path("/usr/local/sbin/sdrcc-apply-receiver-roles")
