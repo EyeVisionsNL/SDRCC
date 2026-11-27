@@ -12,9 +12,10 @@
   const transferText = by("local-ai-transfer-text"), cancel = by("local-ai-cancel");
   const installError = by("local-ai-install-error");
   const mib = bytes => (bytes / 1048576).toFixed(1) + " MiB";
-  const threads = by("local-ai-threads"), tokens = by("local-ai-tokens");
+  const threads = by("local-ai-threads"), tokens = by("local-ai-tokens"), memory = by("local-ai-memory");
+  const chatProgress = by("local-ai-chat-progress");
   const save = by("local-ai-save"), settingsResult = by("local-ai-settings-result");
-  let snapshot = null, pending = false, timer = null, dirty = false, actionError = "";
+  let snapshot = null, pending = false, timer = null, dirty = false, actionError = "", chatting = false, refreshing = false, epoch = 0;
   const visible = () => page.classList.contains("active");
   async function api(path, body) {
     const res = await fetch("/api/local-ai/" + path, body === undefined
@@ -26,12 +27,14 @@
   function render() {
     const s = snapshot;
     const busy = pending || !s || s.busy;
+    install.hidden = !s || s.installed;
     install.disabled = busy || !!s?.installed;
     toggle.disabled = busy || !s?.installed;
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
     question.disabled = send.disabled = busy || !s?.enabled || !s?.installed;
     toggle.textContent = s?.enabled ? "Disable Local AI" : "Enable Local AI";
-    threads.disabled = tokens.disabled = save.disabled = busy || !s?.installed;
+    threads.disabled = tokens.disabled = memory.disabled = save.disabled = busy || !s?.installed;
+    chatProgress.textContent = chatting ? (s?.progress || "Loading model...") : "";
     transfer.hidden = !s?.installing;
     cancel.disabled = pending || !s?.installing || s.cancelling ||
       !["connecting", "downloading"].includes(s.download?.stage);
@@ -55,6 +58,7 @@
     if (!dirty && s.settings) {
       threads.value = String(s.settings.threads);
       tokens.value = String(s.settings.max_tokens);
+      memory.value = String(s.settings.address_space_gib ?? 7);
     }
     badge.textContent = s.busy ? "BUSY" : s.installed ? (s.enabled ? "ENABLED" : "DISABLED") : "NOT INSTALLED";
     status.textContent = [s.progress || (s.installed ? "Model and engine installed." : "AI is not installed."),
@@ -64,17 +68,22 @@
   }
   function schedule() {
     clearTimeout(timer);
-    if (visible() && (!snapshot || snapshot.busy) && !pending) timer = setTimeout(refresh, 2000);
+    if (visible() && (chatting || !snapshot || snapshot.busy) && (!pending || chatting)) timer = setTimeout(refresh, chatting ? 800 : 2000);
   }
   async function refresh() {
-    if (!visible() || pending) return;
-    try { snapshot = await api("status"); render(); }
-    catch (err) { status.textContent = err.message; snapshot = null; render(); }
-    schedule();
+    if (!visible() || (pending && !chatting) || refreshing) return;
+    refreshing = true;
+    const requestEpoch = epoch;
+    try {
+      const next = await api("status");
+      if (requestEpoch === epoch) { snapshot = next; render(); }
+    } catch (err) {
+      if (requestEpoch === epoch) { status.textContent = err.message; }
+    } finally { refreshing = false; schedule(); }
   }
   async function act(action) {
     if (pending) return;
-    pending = true; render();
+    epoch++; pending = true; render();
     actionError = "";
     try { snapshot = await api("action", {action}); dirty = false; }
     catch (err) { actionError = err.message; }
@@ -91,18 +100,19 @@
   send.addEventListener("click", async () => {
     const q = question.value.trim();
     if (!q || pending) return;
-    pending = true; render(); answer.textContent = "Local AI is processing...";
+    epoch++; pending = true; chatting = true; answer.textContent = ""; render(); schedule();
     try { answer.textContent = (await api("chat", {question: q})).answer; }
     catch (err) { answer.textContent = err.message; }
-    finally { pending = false; await refresh(); render(); }
+    finally { epoch++; pending = false; chatting = false; clearTimeout(timer); render(); await refresh(); }
   });
   threads.addEventListener("change", () => { dirty = true; });
   tokens.addEventListener("change", () => { dirty = true; });
+  memory.addEventListener("change", () => { dirty = true; });
   save.addEventListener("click", async () => {
     if (pending) return;
-    pending = true; render();
+    epoch++; pending = true; render();
     try {
-      const data = await api("settings", {threads: Number(threads.value), max_tokens: Number(tokens.value)});
+      const data = await api("settings", {threads: Number(threads.value), max_tokens: Number(tokens.value), address_space_gib: Number(memory.value)});
       snapshot.settings = data.settings;
       dirty = false;
       settingsResult.textContent = "AI settings saved.";
