@@ -35,7 +35,7 @@ ARCHIVES = {
     "aarch64": ("arm64", "b5e7679762942bb9f34482cd8e69b719b26546ed2d16a005cf31119fea8676c2"),
 }
 GIB = 1024 ** 3
-MEMORY_LIMIT = 5 * GIB
+MEMORY_LIMIT = 7 * GIB
 LOCK = threading.Lock()
 _progress = ""
 _error = ""
@@ -84,11 +84,14 @@ def validate_settings(data):
         raise ValueError("Invalid CPU thread count.")
     if type(tokens) is not int or tokens not in (128, 256, 384, 512):
         raise ValueError("Invalid maximum answer length.")
-    return {"threads": threads, "max_tokens": tokens}
+    limit = data.get("address_space_gib", MEMORY_LIMIT // GIB)
+    if type(limit) is not int or limit not in (5, 6, 7, 8):
+        raise ValueError("Invalid AI address space limit.")
+    return {"threads": threads, "max_tokens": tokens, "address_space_gib": limit}
 
 
 def settings():
-    default = {"threads": min(2, max_threads()), "max_tokens": 384}
+    default = {"threads": min(2, max_threads()), "max_tokens": 384, "address_space_gib": MEMORY_LIMIT // GIB}
     if AI_DIR.is_symlink():
         return default
     try:
@@ -302,6 +305,7 @@ def local_request(port, key, path, payload=None, timeout=2):
 
 
 def infer(question):
+    global _progress
     if not enabled() or not installed():
         raise RuntimeError("Install and enable Local AI first.")
     preflight()
@@ -312,21 +316,25 @@ def infer(question):
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     key = secrets.token_hex(32)
-    cmd = ["nice", "-n", "15", "prlimit", f"--as={MEMORY_LIMIT}", "--cpu=180:190", "--",
+    limit = config["address_space_gib"] * GIB
+    cmd = ["nice", "-n", "15", "prlimit", f"--as={limit}", "--cpu=180:190", "--",
            str(server), "--model", str(AI_DIR / MODEL), "--host", "127.0.0.1",
            "--port", str(port), "--api-key", key, "--threads", threads,
            "--threads-batch", threads, "--ctx-size", "4096", "--parallel", "1",
            "--n-gpu-layers", "0", "--batch-size", "128", "--ubatch-size", "128",
-           "--reasoning", "off", "--chat-template-kwargs", '{"enable_thinking":false}']
+           "--reasoning", "off"]
     env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "LD_LIBRARY_PATH": str(server.parent)}
+    _progress = "Loading model..."
+    # Inherit stderr so the service journal records native llama.cpp diagnostics.
+    # Do not log command arguments (they include the ephemeral API key).
     process = subprocess.Popen(cmd, cwd=server.parent, env=env,
                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL)
+                               stderr=None)
     try:
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             if process.poll() is not None:
-                raise RuntimeError("Local AI engine exited during startup (possibly resource limits).")
+                raise RuntimeError(f"Local AI engine exited during startup (code {process.returncode}). See SDRCC service journal for details.")
             try:
                 local_request(port, key, "/health")
                 break
@@ -334,6 +342,7 @@ def infer(question):
                 time.sleep(0.5)
         else:
             raise RuntimeError("Local AI engine startup timed out.")
+        _progress = "Generating answer..."
         result = local_request(port, key, "/v1/chat/completions", {
             "model": MODEL,
             "messages": [
@@ -443,6 +452,7 @@ def api_settings():
 
 @bp.post("/api/local-ai/chat")
 def api_chat():
+    global _progress
     if not change_allowed():
         return jsonify(error="Invalid request origin or format."), 403
     body = request.get_json(silent=True)
@@ -454,8 +464,10 @@ def api_chat():
     try:
         return jsonify(answer=infer(question.strip()))
     except (OSError, RuntimeError, ValueError, KeyError, IndexError, http.client.HTTPException) as exc:
+        log.warning("Local AI inference failed: %s", exc)
         return jsonify(error=str(exc)[:400]), 503
     finally:
+        _progress = ""
         LOCK.release()
 
 
