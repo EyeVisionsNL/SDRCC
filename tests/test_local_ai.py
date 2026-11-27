@@ -1,0 +1,109 @@
+"""Isolated foundation checks; no downloads, live services or receiver access."""
+import hashlib
+import io
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from flask import Flask
+from core import features, local_ai as ai
+
+
+class LocalAI(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        root = Path(self.temp.name)
+        self.config = root / "config" / "features.yaml"
+        self.assets = root / "data" / "local_ai"
+        for obj, name, value in (
+            (features, "FEATURES_CONFIG", self.config),
+            (ai, "ROOT", root),
+            (ai, "AI_DIR", self.assets),
+        ):
+            p = patch.object(obj, name, value)
+            p.start()
+            self.addCleanup(p.stop)
+        app = Flask(__name__)
+        app.register_blueprint(ai.bp)
+        self.client = app.test_client()
+
+    def test_legacy_defaults_without_files_or_download(self):
+        with patch.object(ai, "download") as download:
+            state = self.client.get("/api/local-ai/status").get_json()
+            self.assertFalse(state["enabled"])
+            self.assertFalse(state["installed"])
+            self.assertFalse(self.assets.exists())
+            self.assertFalse(self.config.exists())
+            self.assertEqual(self.client.post("/api/local-ai/chat", json={"question": "hello"}).status_code, 503)
+            download.assert_not_called()
+        self.assertTrue(features.feature_enabled("satellite"))
+
+    def test_selection_preserves_features(self):
+        self.config.parent.mkdir()
+        self.config.write_text("features:\n  satellite: false\n  traffic_voice: true\n  radio_receiver: false\n")
+        ai.set_enabled(True)
+        self.assertEqual(features.get_features(), {
+            "satellite": False, "traffic_voice": True, "radio_receiver": False, "local_ai": True})
+        ai.set_enabled(False)
+        self.assertFalse(ai.enabled())
+        self.assertFalse(features.feature_enabled("satellite"))
+        self.assertFalse(features.feature_enabled("radio_receiver"))
+        self.config.write_text("features:\n  local_ai: 'false'\n")
+        self.assertFalse(ai.enabled())
+
+    def test_bad_origin_and_invalid_request(self):
+        self.assertEqual(self.client.post("/api/local-ai/action", json={"action": "install"},
+                                         headers={"Origin": "https://foreign.example"}).status_code, 403)
+        self.assertEqual(self.client.post("/api/local-ai/chat", json={"question": " "}).status_code, 400)
+        self.assertEqual(self.client.post("/api/local-ai/chat", json={"question": "x"*2001}).status_code, 400)
+        self.assertEqual(self.client.post("/api/local-ai/action", json={"action": "other"}).status_code, 400)
+
+    def test_download_checksum(self):
+        payload = b"example"
+        with patch.object(ai.urllib.request, "urlopen", return_value=io.BytesIO(payload)):
+            ai.download("https://example.invalid", Path(self.temp.name)/"ok",
+                        hashlib.sha256(payload).hexdigest(), 100)
+        with patch.object(ai.urllib.request, "urlopen", return_value=io.BytesIO(payload)):
+            with self.assertRaisesRegex(RuntimeError, "SHA-256"):
+                ai.download("https://example.invalid", Path(self.temp.name)/"bad", "0"*64, 100)
+
+    def test_install_failure_does_not_activate(self):
+        with patch.object(ai, "preflight"), patch.object(ai, "download", side_effect=RuntimeError("test failure")):
+            with self.assertRaisesRegex(RuntimeError, "test failure"):
+                ai.install_assets()
+        self.assertFalse(ai.enabled())
+        self.assertFalse(self.assets.exists())
+        self.assertFalse(self.config.exists())
+
+    def test_remove_only_ai_directory(self):
+        self.assets.mkdir(parents=True)
+        (self.assets / "example").write_text("data")
+        neighbor = self.assets.parent / "receiver.json"
+        neighbor.write_text("keep")
+        ai.set_enabled(True)
+        self.assertEqual(self.client.post("/api/local-ai/action", json={"action": "remove"}).status_code, 200)
+        self.assertFalse(self.assets.exists())
+        self.assertEqual(neighbor.read_text(), "keep")
+        self.assertFalse(ai.enabled())
+
+    def test_busy_gate(self):
+        self.assertTrue(ai.LOCK.acquire(blocking=False))
+        try:
+            self.assertEqual(self.client.post("/api/local-ai/chat", json={"question":"test"}).status_code, 409)
+            self.assertEqual(self.client.post("/api/local-ai/action", json={"action":"remove"}).status_code, 409)
+        finally:
+            ai.LOCK.release()
+
+    def test_chat_adapter(self):
+        with patch.object(ai, "infer", return_value="answer") as infer:
+            res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
+            self.assertEqual(res.get_json(), {"answer":"answer"})
+            infer.assert_called_once_with("hello")
+        self.assertFalse(ai.LOCK.locked())
+
+
+if __name__ == "__main__":
+    unittest.main()
