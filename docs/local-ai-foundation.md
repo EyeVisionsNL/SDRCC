@@ -1,4 +1,4 @@
-# Local AI — SDRCC 0.80.0 foundation
+# Local AI — SDRCC 0.80.2 foundation
 
 Local AI is optional. No model download, runtime, database or AI background task is required to use SDRCC. New installations offer a disabled-by-default checkbox. Existing installations update normally using System → Advanced Maintenance → SDRCC Update; the new Intelligence tab offers a separate explicit install action. Existing feature selections remain unchanged.
 
@@ -8,7 +8,7 @@ Open the Intelligence tab (between Reception Analytics and Logs), or use Open In
 
 - Install Local AI: downloads the verified CPU build of llama.cpp and Qwen3-4B Q4_K_M (~2.5 GB model).
 - Enable / Disable / Remove Local AI: removal affects only AI assets and settings.
-- AI Settings: CPU threads (1–4, limited by available CPUs), maximum answer length (128–512 tokens). Default: 2 threads where available, 384 tokens, 4096 context, thinking off.
+- AI Settings: CPU threads (1–4, limited by available CPUs), maximum answer length (128–512 tokens). Default: 2 threads where available, 384 tokens, 4096 context, thinking off. Address space limit: 5–8 GiB (default 7 GiB); this is virtual address space, not reserved physical RAM. Native engine diagnostics are available in the SDRCC service journal.
 - Ask SDRCC: local single-turn questions in your language. No reception data is available to the model in this foundation release.
 
 ## Hardware and safety
