@@ -14,7 +14,7 @@
   const mib = bytes => (bytes / 1048576).toFixed(1) + " MiB";
   const threads = by("local-ai-threads"), tokens = by("local-ai-tokens");
   const save = by("local-ai-save"), settingsResult = by("local-ai-settings-result");
-  let snapshot = null, pending = false, timer = null, dirty = false;
+  let snapshot = null, pending = false, timer = null, dirty = false, actionError = "";
   const visible = () => page.classList.contains("active");
   async function api(path, body) {
     const res = await fetch("/api/local-ai/" + path, body === undefined
@@ -60,7 +60,7 @@
     status.textContent = [s.progress || (s.installed ? "Model and engine installed." : "AI is not installed."),
       s.ram_gib + " GiB RAM · " + s.available_gib + " GiB available · " + s.architecture,
       s.error || ""].filter(Boolean).join(" · ");
-    installError.textContent = s.error || "";
+    installError.textContent = actionError || s.error || "";
   }
   function schedule() {
     clearTimeout(timer);
@@ -75,8 +75,9 @@
   async function act(action) {
     if (pending) return;
     pending = true; render();
+    actionError = "";
     try { snapshot = await api("action", {action}); dirty = false; }
-    catch (err) { installError.textContent = err.message; }
+    catch (err) { actionError = err.message; }
     finally { pending = false; render(); schedule(); }
   }
   install.addEventListener("click", () => {
