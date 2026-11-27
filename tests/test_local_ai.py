@@ -70,6 +70,29 @@ class LocalAI(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "SHA-256"):
                 ai.download("https://example.invalid", Path(self.temp.name)/"bad", "0"*64, 100)
 
+    def test_download_progress_and_cancel(self):
+        payload = b"example"
+        seen = []
+        class Response(io.BytesIO):
+            headers = {"Content-Length": str(len(payload))}
+            def read1(self, size=-1):
+                seen.append(dict(ai._transfer))
+                return super().read1(size)
+        with patch.object(ai.urllib.request, "urlopen", return_value=Response(payload)):
+            ai.download("https://example.invalid", Path(self.temp.name)/"progress",
+                        hashlib.sha256(payload).hexdigest(), 100)
+        self.assertEqual(seen[0]["total_bytes"], len(payload))
+        self.assertEqual(seen[1]["received_bytes"], len(payload))
+        self.assertIsNone(ai._transfer)
+        with patch.object(ai, "_installing", True), patch.object(ai, "_transfer", {"stage": "downloading"}):
+            try:
+                self.assertEqual(self.client.post("/api/local-ai/action", json={"action": "cancel_install"}).status_code, 202)
+                with self.assertRaisesRegex(RuntimeError, "cancelled"):
+                    ai.check_cancel()
+            finally:
+                ai._cancel.clear()
+        self.assertEqual(self.client.post("/api/local-ai/action", json={"action": "cancel_install"}).status_code, 409)
+
     def test_install_failure_does_not_activate(self):
         with patch.object(ai, "preflight"), patch.object(ai, "download", side_effect=RuntimeError("test failure")):
             with self.assertRaisesRegex(RuntimeError, "test failure"):
