@@ -1,0 +1,58 @@
+name: Local AI foundation validation
+on:
+  push:
+    branches: [local-ai-0800-validation]
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'core/local_ai.py'
+      - 'core/features.py'
+      - 'dashboard/**'
+      - 'install.sh'
+      - 'scripts/install/**'
+      - 'tests/test_local_ai.py'
+      - '.github/workflows/local-ai-validation.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install Flask PyYAML
+      - name: Validate Python, shell and JavaScript
+        run: |
+          python -m py_compile core/local_ai.py core/features.py dashboard/app.py scripts/install/gui_installer.py tests/test_local_ai.py
+          bash -n install.sh
+          node --check dashboard/static/js/local_ai.js
+      - name: Local AI tests (offline)
+        run: python -m unittest discover -s tests -p 'test_local_ai.py' -v
+      - name: Map regressions (offline)
+        run: |
+          node scripts/validate_map_lab_boot.cjs
+          node scripts/validate_map_lab_symbols.cjs
+      - name: Validate every deployed source hash
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          path = Path("scripts/install/update_manifest.json")
+          manifest = json.loads(path.read_text())
+          errors = []
+          for name, allowed in manifest.items():
+              if name == path.as_posix():
+                  continue
+              file = Path(name)
+              if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() not in allowed:
+                  errors.append(name)
+          assert not errors, f"Unapproved or missing source: {errors}"
+          print(f"PASS: {len(manifest)-1} deployment files verified")
+          PY
+          python scripts/validate_update_manifest_scope.py

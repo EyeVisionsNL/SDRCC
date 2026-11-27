@@ -15,3 +15,7 @@ Libraries, frameworks, and other third-party software used by SDRCC remain subje
 ## Vessel photographs
 
 Vessel photographs remain the property of their respective photographers and providers. Permission to display a thumbnail does not grant unrestricted reuse of the original photograph. Preserve the photographer credits, source links, and watermarks shown in the README and app, and follow the terms set by the relevant rights holder.
+
+## Optional Local AI
+
+Qwen3-4B-GGUF (Q4_K_M) is published by Qwen under Apache-2.0: https://huggingface.co/Qwen/Qwen3-4B-GGUF. llama.cpp is MIT-licensed: https://github.com/ggml-org/llama.cpp. The optional model and runtime are downloaded separately, with pinned SHA-256 values, rather than bundled with SDRCC. Original upstream license terms apply.

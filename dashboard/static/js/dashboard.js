@@ -1,5 +1,5 @@
 import {getStatus} from "./api.js";
-import {setupTabs} from "./tabs.js?v=0.65.9";
+import {setupTabs} from "./tabs.js?v=0.80.0";
 import {setupControls} from "./controls.js?v=0.56.0x";
 import {updateSystem} from "./system.js?v=0.54.0f";
 import {updateServices, updateServiceButtons} from "./services.js?v=0.54.0q-r3";
