@@ -109,6 +109,7 @@
 {% if features.satellite %}    <button class="tab-button" data-tab="history">🗂 Mission History</button>{% endif %}
 {% if features.satellite %}    <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>{% endif %}
     <button class="tab-button" data-tab="reception-analytics">📈 Reception Analytics</button>
+    <button class="tab-button" data-tab="intelligence">🧠 Intelligence</button>
     <button class="tab-button" data-tab="logs">📜 Logs</button>
 </nav>
 
@@ -484,29 +485,11 @@
                     <p class="control-result" id="sdrcc-update-result">Checking GitHub main for a newer SDRCC version...</p>
                 </section>
 
-                <details class="system-maintenance-group-v0540f" id="local-ai-panel">
-                    <summary class="system-maintenance-summary-v0540f">
-                        <span class="system-maintenance-copy-v0540f">
-                            <strong>Local AI Intelligence (Optional)</strong>
-                            <small>Qwen3-4B · Local CPU inference · No cloud service</small>
-                        </span>
-                        <span id="local-ai-badge">OPTIONAL</span>
-                    </summary>
-                    <div class="system-maintenance-body-v0540f">
-                        <p class="muted">Local AI is off by default. Install only if wanted; receiver services and updates work without AI. The foundation release does not yet access live reception or historical data.</p>
-                        <p id="local-ai-status" role="status" aria-live="polite">Open to check status.</p>
-                        <div class="system-mission-tools-grid">
-                            <button type="button" class="control-button" id="local-ai-install" disabled>Install Local AI (~2.5 GB model)</button>
-                            <button type="button" class="control-button" id="local-ai-toggle" disabled>Enable Local AI</button>
-                            <button type="button" class="control-button" id="local-ai-remove" disabled>Remove Local AI</button>
-                        </div>
-                        <label for="local-ai-question">Ask Local AI</label>
-                        <textarea id="local-ai-question" rows="3" maxlength="2000" style="width:100%" disabled placeholder="Ask a question in your own language"></textarea>
-                        <button type="button" class="control-button" id="local-ai-send" disabled>Ask AI</button>
-                        <p id="local-ai-answer" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
-                    </div>
-                </details>
-                <script defer src="{{ url_for('static', filename='js/local_ai.js') }}?v={{ asset_version }}"></script>
+                <section class="system-maintenance-group-v0540f">
+                    <h3>Local AI (Optional)</h3>
+                    <p class="muted">Install, enable, disable or remove Local AI from the Intelligence tab. Standard SDRCC updates never download AI automatically.</p>
+                    <button type="button" class="control-button" id="local-ai-open">Open Intelligence</button>
+                </section>
 
                 <section class="system-maintenance-group-v0540f" data-control-scope="ais-autostart" aria-labelledby="ais-autostart-title">
                     <div class="system-maintenance-heading-v0540f">
@@ -1714,6 +1697,53 @@
         <span id="mission-operations-runtime-clients" hidden>0</span>
     </div>
 </section>
+
+<section class="tab-page" id="tab-intelligence">
+    <section class="card" id="local-ai-panel">
+        <div class="system-maintenance-heading-v0540f">
+            <div><h2>Local AI Intelligence</h2>
+                <p class="muted">Qwen3-4B · Local CPU inference · No cloud service</p></div>
+            <span class="system-maintenance-warning-v0540f" id="local-ai-badge">OPTIONAL</span>
+        </div>
+        <p class="muted">Optional component. Install only if wanted. Reception and SDRCC updates work without AI. This foundation release cannot yet access live reception or historical data.</p>
+        <p id="local-ai-status" role="status" aria-live="polite">Open to check status.</p>
+        <div class="system-mission-tools-grid">
+            <button type="button" class="control-button" id="local-ai-install" disabled>Install Local AI (~2.5 GB model)</button>
+            <button type="button" class="control-button" id="local-ai-toggle" disabled>Enable Local AI</button>
+            <button type="button" class="control-button" id="local-ai-remove" disabled>Remove Local AI</button>
+        </div>
+    </section>
+    <section class="card" aria-labelledby="local-ai-settings-title">
+        <h3 id="local-ai-settings-title">AI Settings</h3>
+        <div class="system-mission-tools-grid">
+            <div><span class="muted">Model</span><br><strong>Qwen3-4B Q4_K_M</strong></div>
+            <div><span class="muted">Engine</span><br><strong>llama.cpp · CPU</strong></div>
+            <div><span class="muted">Address space limit</span><br><strong>5 GiB</strong></div>
+            <div><span class="muted">Context window</span><br><strong>4096 tokens</strong></div>
+            <div><label for="local-ai-threads">CPU threads</label><br>
+                <select id="local-ai-threads" disabled>
+                    <option value="1">1</option><option value="2" selected>2</option>
+                    <option value="3">3</option><option value="4">4</option>
+                </select></div>
+            <div><label for="local-ai-tokens">Maximum answer length</label><br>
+                <select id="local-ai-tokens" disabled>
+                    <option value="128">128 tokens</option><option value="256">256 tokens</option>
+                    <option value="384" selected>384 tokens</option><option value="512">512 tokens</option>
+                </select></div>
+        </div>
+        <p class="muted">Thinking mode off. AI starts only for a question and stops afterwards. New requests are refused if available memory is low or system load is high.</p>
+        <button type="button" class="control-button" id="local-ai-save" disabled>Save AI Settings</button>
+        <p id="local-ai-settings-result" role="status" aria-live="polite"></p>
+    </section>
+    <section class="card" aria-labelledby="local-ai-chat-title">
+        <h3 id="local-ai-chat-title">Ask SDRCC</h3>
+        <label for="local-ai-question">Ask Local AI in your own language</label>
+        <textarea id="local-ai-question" rows="3" maxlength="2000" style="width:100%" disabled placeholder="Ask a question..."></textarea>
+        <button type="button" class="control-button" id="local-ai-send" disabled>Ask AI</button>
+        <p id="local-ai-answer" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
+    </section>
+</section>
+<script defer src="{{ url_for('static', filename='js/local_ai.js') }}?v={{ asset_version }}"></script>
 
 <section class="tab-page" id="tab-logs">
     <section class="card log-workspace">
