@@ -120,9 +120,6 @@
     } catch (err) { settingsResult.textContent = err.message; }
     finally { pending = false; render(); schedule(); }
   });
-  by("local-ai-open")?.addEventListener("click", () => {
-    document.querySelector('.tab-button[data-tab="intelligence"]')?.click();
-  });
   window.addEventListener("sdrcc:tab-changed", event => {
     if (event.detail?.tab === "intelligence") refresh();
     else clearTimeout(timer);
