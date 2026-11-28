@@ -164,3 +164,10 @@
 @media(max-width:1100px){#tab-intelligence .ai-observer-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){#tab-intelligence .ai-observer-workspace{grid-template-columns:1fr}#tab-intelligence .ai-observer-data{max-height:none}}
 @media(max-width:520px){#tab-intelligence .ai-observer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Keep the answer above the fold even with the secondary navigation. */
+#tab-intelligence .ai-page { gap: 6px; padding-block: 8px; }
+#tab-intelligence .ai-status-card { padding-block: 8px; }
+#tab-intelligence .ai-chat { padding-block: 9px; }
+#tab-intelligence .ai-subnav .control-button { min-height: 28px; padding-block: 4px; }
+#tab-intelligence .ai-query-toolbar { margin-block: 6px 8px; }
