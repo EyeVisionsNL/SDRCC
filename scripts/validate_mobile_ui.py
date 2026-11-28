@@ -94,6 +94,24 @@ def validate() -> None:
             "Desktop must render the actual panorama layer")
     require(re.search(r'\.topbar\[data-banner-scene="intelligence"\] \.topbar-visuals::before\s*\{\s*background-size: auto 100%;\s*background-position: right center;', polish),
             "Desktop Intelligence panorama must meet the right edge without SVG letterboxing")
+    desktop_art = ROOT / "dashboard/static/assets/banners/intelligence-night-desktop.svg"
+    satellite_art = ROOT / "dashboard/static/assets/banners/satellite-mobile.svg"
+    satellite_source = ROOT / "dashboard/static/assets/banners/satellite-panorama.webp"
+    for asset in (desktop_art, satellite_art):
+        require(asset.is_file() and sha256(asset.read_bytes()).hexdigest() in manifest.get(asset.relative_to(ROOT).as_posix(), []),
+                f"Missing approved composed banner: {asset.name}")
+    require('background-image: url("/static/assets/banners/intelligence-night-desktop.svg");' in polish,
+            "Desktop Intelligence must use the extended composition")
+    desktop_root = ET.fromstring(desktop_art.read_text(encoding="utf-8"))
+    require(desktop_root.attrib.get("viewBox") == "-512 0 1792 208" and
+            desktop_root.find(".//svg:mask[@id='desktopExtension']", ns) is not None,
+            "Desktop panorama extension or intrinsic fade missing")
+    satellite_root = ET.fromstring(satellite_art.read_text(encoding="utf-8"))
+    require(satellite_root.attrib.get("viewBox") == "0 0 2172 360",
+            "Mobile satellite must include extra vertical sky")
+    sat_embedded = satellite_root.find(".//svg:image", ns).attrib["{http://www.w3.org/1999/xlink}href"].split(",", 1)[1]
+    require(base64.b64decode(sat_embedded, validate=True) == satellite_source.read_bytes(),
+            "Satellite original artwork changed")
     require(".mobile-brand-banner .mobile-radar{grid-column:1;grid-row:1;" in html and
             "#connection{grid-column:1;grid-row:2;" in html and
             ".mobile-brand-banner .mobile-brand-copy{grid-column:2;grid-row:1 / 3;" in html,
@@ -108,7 +126,9 @@ def validate() -> None:
         header = re.search(r'<header class="mobile-brand-banner"[\s\S]*?</header>', html).group(0)
         def data_url(file, mime):
             return "data:" + mime + ";base64," + base64.b64encode(file.read_bytes()).decode("ascii")
-        artwork = [data_url(source, "image/webp"), data_url(banner, "image/svg+xml")]
+        artwork = [data_url(source, "image/webp"), data_url(banner, "image/svg+xml"),
+                   data_url(desktop_art, "image/svg+xml"), data_url(satellite_source, "image/webp"),
+                   data_url(satellite_art, "image/svg+xml")]
         fixture_js = r"""
 (async () => {
   const assert=(v,m)=>{if(!v)throw Error(m)};
@@ -117,7 +137,7 @@ def validate() -> None:
     const images=await Promise.all(ART.map(load));
     const canvas=document.createElement("canvas");canvas.width=1280;canvas.height=208;
     const ctx=canvas.getContext("2d",{willReadFrequently:true});
-    const pixels=images.map(im=>{ctx.clearRect(0,0,1280,208);ctx.drawImage(im,0,0);return ctx.getImageData(0,0,1280,208).data});
+    const pixels=images.slice(0,2).map(im=>{ctx.clearRect(0,0,1280,208);ctx.drawImage(im,0,0);return ctx.getImageData(0,0,1280,208).data});
     function changed(x0,y0,x1,y1){
       let count=0;
       for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
@@ -129,6 +149,22 @@ def validate() -> None:
     assert(changed(1000,8,1110,65)>200,"Original UFO position not changed");
     assert(changed(820,25,920,80)>200,"New UFO position not visible");
     assert(changed(1135,70,1250,208)===0,"Dish/shoreline pixels changed");
+    canvas.width=1792;canvas.height=208;
+    ctx.drawImage(images[2],0,0);
+    const extended=ctx.getImageData(512,0,1280,208).data;
+    let delta=0;
+    for(let i=0;i<extended.length;i++)if(Math.abs(extended[i]-pixels[1][i])>2)delta++;
+    assert(delta===0,"Desktop extension changed the existing UFO/dish composition");
+    assert(ctx.getImageData(0,100,1,1).data[3]<=2,"Desktop left edge is not transparent");
+    assert(ctx.getImageData(510,100,1,1).data[3]>=250,"Desktop extension does not join the panorama");
+    canvas.width=2172;canvas.height=242;ctx.drawImage(images[3],0,0);
+    const satOriginal=ctx.getImageData(0,20,2172,222).data;
+    canvas.width=2172;canvas.height=360;ctx.drawImage(images[4],0,0);
+    const satComposed=ctx.getImageData(0,138,2172,222).data;
+    delta=0;
+    for(let i=0;i<satOriginal.length;i++)if(Math.abs(satOriginal[i]-satComposed[i])>2)delta++;
+    assert(delta===0,"Mobile satellite/Earth artwork changed");
+    assert(ctx.getImageData(1800,10,1,1).data[3]===255,"Satellite upper star field is empty");
     for(const width of [320,360,390,600]){
       const frame=document.createElement("iframe");frame.width=width;frame.height=140;
       const ready=new Promise(resolve=>frame.onload=resolve);
@@ -156,16 +192,23 @@ def validate() -> None:
       for(const [tab,asset,center,left,right] of [
         ["marine","marine-panorama.webp",.66,.56,.76],
         ["adsb","aviation-panorama.webp",.70,.57,.82],
-        ["sat","satellite-panorama.webp",.72,.55,.89]
+        ["sat","satellite-mobile.svg",.72,.55,.89]
       ]){
         d.body.dataset.mobileTab=tab;
         const style=w.getComputedStyle(header);
         assert(style.backgroundImage.includes(asset),"Wrong image for "+tab);
         const scale=parseFloat(style.getPropertyValue("--mobile-art-width"))/100;
         const pos=parseFloat(style.getPropertyValue("--mobile-art-position"))/100;
-        assert(style.backgroundSize.includes((scale*100)+"% auto"),"Wrong sizing for "+tab);
         const box=header.getBoundingClientRect();
-        const iw=box.width*scale,offset=(box.width-iw)*pos;
+        const iw=tab==="sat"?Math.min(box.width*scale,740):box.width*scale;
+        const offset=(box.width-iw)*pos;
+        if(tab==="sat"){
+          assert(style.backgroundSize.includes("740px"),"Satellite responsive width cap missing");
+          assert(iw*360/2172>=box.height*.85,"Satellite panorama still too short");
+          assert(iw*242/2172<=box.height+1,"Satellite actual subject may be cropped vertically");
+        }else{
+          assert(style.backgroundSize.includes((scale*100)+"% auto"),"Wrong sizing for "+tab);
+        }
         assert((offset+center*iw)/box.width>.68,"Subject not on right: "+tab);
         assert(offset+right*iw<box.width,"Subject clipped on right: "+tab);
         assert(offset+left*iw>box.width*.46,"Subject extends into radar/brand: "+tab);

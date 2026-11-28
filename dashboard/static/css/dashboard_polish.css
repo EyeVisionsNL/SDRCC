@@ -323,13 +323,14 @@
     #mission-operations-preview-empty:not(.hidden) { min-height: 116px; }
 }
 
-/* Intelligence: align the composed panorama itself to the right edge.
-   Size by height, not an arbitrary width that letterboxes the SVG horizontally. */
+/* Intelligence desktop: extend only the quiet left sky/sea; preserve the
+   right-hand artwork and scale, with the same seamless fade as other scenes. */
 @media (min-width: 761px) {
     .topbar[data-banner-scene="intelligence"] .topbar-visuals::before {
         background-size: auto 100%;
         background-position: right center;
-        -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 27%, rgba(0,0,0,.28) 40%, rgba(0,0,0,.78) 54%, #000 70%);
-        mask-image: linear-gradient(90deg, transparent 0%, transparent 27%, rgba(0,0,0,.28) 40%, rgba(0,0,0,.78) 54%, #000 70%);
+        background-image: url("/static/assets/banners/intelligence-night-desktop.svg");
+        -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 30%, rgba(0,0,0,.22) 43%, rgba(0,0,0,.58) 57%, #000 75%);
+        mask-image: linear-gradient(90deg, transparent 0%, transparent 30%, rgba(0,0,0,.22) 43%, rgba(0,0,0,.58) 57%, #000 75%);
     }
 }
