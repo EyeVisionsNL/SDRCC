@@ -142,3 +142,25 @@
     #tab-intelligence .ai-scope { margin-left: 0; flex-basis: 100%; }
     #tab-intelligence .control-button { min-height: 36px; }
 }
+
+/* Secondary Intelligence views; Ask AI retains its original workspace. */
+#tab-intelligence .ai-subnav { display:flex; flex-wrap:wrap; gap:6px; }
+#tab-intelligence .ai-subnav .control-button { min-height:30px; padding:5px 12px; }
+#tab-intelligence .ai-subnav [aria-pressed="true"] { background:#16466b; border-color:#38bdf8; color:#f0f9ff; }
+#tab-intelligence .ai-observer-actions { display:flex; align-items:end; flex-wrap:wrap; gap:7px; }
+#tab-intelligence .ai-observer-actions .ai-field { min-width:120px; }
+#tab-intelligence .ai-observer-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:8px 0 10px; }
+#tab-intelligence .ai-observer-grid .ai-metric { border-left:3px solid #475569; }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="ok"] { border-left-color:#22c55e; }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="attention"] { border-left-color:#f59e0b; }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="unknown"] { border-left-color:#94a3b8; }
+#tab-intelligence .ai-observer-grid .ai-metric strong { color:#7dd3fc; font-size:1rem; }
+#tab-intelligence .ai-observer-workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+#tab-intelligence .ai-observer-workspace .ai-answer-panel { min-width:0; }
+#tab-intelligence .ai-observer-workspace .ai-field { margin-top:8px; }
+#tab-intelligence .ai-observer-data { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; color:#dbeafe; font-size:.84rem; min-height:90px; max-height: max(180px,calc(100dvh - 450px)); overflow-y:auto; padding:8px 0 2px; }
+#tab-intelligence #local-ai-inspect-answer:empty::before { content:"Select Analyze with AI for an assessment."; color:#94a3b8; }
+#tab-intelligence #local-ai-inspect-status { margin:0; }
+@media(max-width:1100px){#tab-intelligence .ai-observer-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:850px){#tab-intelligence .ai-observer-workspace{grid-template-columns:1fr}#tab-intelligence .ai-observer-data{max-height:none}}
+@media(max-width:520px){#tab-intelligence .ai-observer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
