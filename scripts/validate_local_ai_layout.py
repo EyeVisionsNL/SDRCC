@@ -52,7 +52,7 @@ try {
     assert(source.open, "Evidence cannot be expanded");
     const observer = by("local-ai-inspect-view");
     assert(observer.hidden && getComputedStyle(observer).display === "none", "Observer must not enlarge Ask AI");
-    assert(ai.querySelectorAll("[data-ai-view]").length === 5, "Missing Intelligence subviews");
+    assert(ai.querySelectorAll("[data-ai-view]").length === 7, "Missing Intelligence subviews");
     by("local-ai-ask-view").hidden = true;
     observer.hidden = false;
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Observer answer starts too low");
@@ -61,6 +61,13 @@ try {
     assert(ai.querySelector('[data-ai-view="reception_performance"]') && ai.querySelector('[data-ai-view="mission_analyst"]'), "Missing historical views");
     by("local-ai-mission-period-field").hidden = false;
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Mission answer starts too low");
+    assert(by("local-ai-memory-tools").hidden, "Memory controls leak into other views");
+    assert(ai.querySelector('[data-ai-view="aviation"]') && ai.querySelector('[data-ai-view="station_memory"]'), "Missing new views");
+    by("local-ai-mission-period-field").hidden = true;
+    by("local-ai-memory-tools").hidden = false;
+    assert(!by("local-ai-memory-form").open, "Note editor must be collapsed");
+    assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Memory answer starts too low");
+    assert(document.documentElement.scrollWidth <= innerWidth + 2, "Memory horizontal overflow");
     document.body.dataset.result = "PASS";
 } catch (error) {
     document.body.dataset.result = "FAIL";
