@@ -55,7 +55,7 @@ try {
     const navButtons=[...ai.querySelectorAll("[data-ai-view]")];
     assert(navButtons.length === 11, "Missing Intelligence subviews");
     const navOrder=navButtons.map(b=>b.dataset.aiView);
-    assert(navOrder.join(",") === "ask,station_health,anomaly_detection,station_memory,maritime,aviation,reception_performance,rf_optimization,mission_analyst,mission_advisor,daily_briefing", "Intelligence navigation order");
+    assert(navOrder.join(",") === "ask,station_health,anomaly_detection,station_memory,daily_briefing,maritime,aviation,reception_performance,rf_optimization,mission_analyst,mission_advisor", "Intelligence navigation order");
     assert(parseFloat(getComputedStyle(navButtons[0]).borderTopWidth) >= 2, "Intelligence tab border too thin");
     const activeFill=getComputedStyle(navButtons[0]).backgroundImage;
     navButtons[0].setAttribute("aria-pressed","false");
