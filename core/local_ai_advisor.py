@@ -121,8 +121,9 @@ def summarize(candidates, devices, assignments, receiver_state, tle_state, overr
               "flags":flags,"start_epoch":start,"end_epoch":end}
         item["history"]=historical_match(rows,item,device)
         result.append(item)
-    # Identify overlap on the single mission automation lane, irrespective of SDR.
-    eligible=[r for r in result if not r["flags"]]
+    # Include executable non-skipped passes even when their current hardware
+    # or TLE status needs review. They may still overlap on the single lane.
+    eligible=[r for r in result if "Operator skipped" not in r["flags"] and "Execution not enabled" not in r["flags"]]
     for item in eligible:
         peers=[other for other in eligible if other is not item and
                max(item["start_epoch"],other["start_epoch"])<min(item["end_epoch"],other["end_epoch"])]
@@ -150,8 +151,8 @@ def snapshot(root,hours=24,*,now=None):
         return dict(base,status="disabled",reason="Satellite feature disabled.")
     if not config.home_position_configured():
         return dict(base,status="unavailable",reason="Configure Home Position first.")
-    from core import mission_planner, device_manager, receiver_manager, tle
     try:
+        from core import mission_planner, device_manager, receiver_manager, tle
         try:
             overrides=read_json(root/"data/state/mission_queue.json",256*1024).get("overrides")
         except FileNotFoundError:
@@ -171,7 +172,7 @@ def snapshot(root,hours=24,*,now=None):
                     history_status=historical_status,history_completed=len(rows),
                     tle={k:{"valid":tle_state[k].get("valid"),"stale":tle_state[k].get("stale"),
                             "age_hours":tle_state[k].get("age_hours")} for k in ("weather","iss_voice")},**data)
-    except (OSError,ValueError,TypeError,KeyError,AttributeError,RuntimeError):
+    except (OSError,ValueError,TypeError,KeyError,AttributeError,RuntimeError,ImportError):
         return dict(base,status="unavailable",reason="Planner or receiver observations could not be read safely.")
 
 
