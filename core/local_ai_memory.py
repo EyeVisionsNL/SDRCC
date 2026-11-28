@@ -7,6 +7,7 @@ from contextlib import closing
 from datetime import datetime
 import hashlib
 import json
+import os
 import re
 import sqlite3
 import time
@@ -33,6 +34,12 @@ def validated_text(value, limit, required=False):
 def connect_write(root):
     path=root/SOURCE
     path.parent.mkdir(parents=True,exist_ok=True)
+    try:
+        fd=os.open(path,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+    except FileExistsError:
+        pass
+    else:
+        os.close(fd)
     db=sqlite3.connect(path,timeout=.5)
     try:
         db.execute("""CREATE TABLE IF NOT EXISTS entries(
@@ -162,7 +169,7 @@ def snapshot(root, query="", page=1, *, now=None):
             counts=dict(db.execute("SELECT kind,COUNT(*) FROM entries GROUP BY kind"))
             clause="WHERE instr(lower(title||' '||details||' '||outcome||' '||kind||' '||source),lower(?))>0"
             matched=db.execute("SELECT COUNT(*) FROM entries "+clause,(query,)).fetchone()[0] if query else total
-            rows=db.execute("SELECT id,created,kind,title,details,outcome,source FROM entries "+(clause if query else "")+" ORDER BY created DESC,id DESC LIMIT ? OFFSET ?",((*([query] if query else []),PAGE,(page-1)*PAGE))).fetchall()
+            rows=db.execute("SELECT id,created,kind,title,details,outcome,source FROM entries "+(clause if query else "")+" ORDER BY created DESC,id DESC LIMIT ? OFFSET ?",(*([query] if query else []),PAGE,(page-1)*PAGE)).fetchall()
         entries=[dict(zip(("id","created_utc","kind","title","details","outcome","source"),(row[0],reception.utc(row[1]),*row[2:]))) for row in rows]
         return dict(base,status="ok" if total else "empty",total=total,matched=matched,counts=counts,entries=entries)
     except (OSError,sqlite3.Error,ValueError,OverflowError):
