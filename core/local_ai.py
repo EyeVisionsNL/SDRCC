@@ -370,6 +370,10 @@ def infer(question, evidence=None):
                     "Station health is a point-in-time advisory snapshot, not proof of hardware health; "
                     "inactive services can be intentional, recent log counts are not necessarily current faults, "
                     "and a readable database is not proof of full integrity. "
+                    "Recovery history reports observed automatic episodes and manual operations separately. "
+                    "A verified recovery is not a diagnosis; distinguish current status from historical incidents. "
+                    "Nearby updates, mission completions or voice stops are temporal context only, not proven causes. "
+                    "Missing or stale history is not evidence of stability. "
                     "Maritime AIS is limited to validated recent reports within the selected radius, "
                     "not all traffic; listed vessels are examples, not exhaustive. "
                     "ATIS data is station-wide historical events over 24h, not a count of unique vessels. "
@@ -675,6 +679,8 @@ def api_inspect():
         if question is None:
             return jsonify(evidence=evidence)
         model_data = local_ai_memory.model_evidence(evidence) if kind == "station_memory" else evidence
+        if kind == "station_health" and "recovery_history" in evidence:
+            model_data = dict(evidence, recovery_history=dict(evidence["recovery_history"], recent=evidence["recovery_history"]["recent"][:4]))
         if kind == "mission_advisor":
             model_data = local_ai_advisor.model_evidence(evidence)
         if kind == "rf_optimization":

@@ -410,6 +410,18 @@
         lines.push(name + ": " + service.state + " · restart count " + display(service.restart_count),
           "Decoder: " + service.reception.status + " · " + (service.reception.scope || "No active decoder observation"));
       }
+      const recovery = data.recovery_history;
+      if (recovery) {
+        const day = recovery.windows?.["24h"];
+        metric("Recovery history", recovery.status, recovery.status === "observed" ? "ok" : "unknown");
+        if (day) {
+          metric("Auto recoveries · 24h", day.automatic, day.automatic ? "attention" : "ok");
+          metric("Runtime verified · 24h", day.verified + "/" + day.automatic, day.failed || day.unconfirmed ? "attention" : "ok");
+        }
+        if (recovery.status !== "observed") lines.push("Recovery history is unavailable or stale; do not infer a fault-free station.");
+        if (day?.automatic) lines.push("Historical receiver incidents detected, even if services are currently running.");
+        if (recovery.memory_pending) lines.push("Station Memory synchronization pending: " + recovery.memory_pending);
+      }
       metric("USB identity", data.usb.status, data.usb.status);
       metric("History", data.database.status, data.database.status === "ok" && !data.database.latest_sample_stale ? "ok" : "attention");
       metric("Available RAM", numberUnit(data.resources.available_ram_gib, "GiB"));
@@ -442,11 +454,23 @@
       lines.push("", "ATIS history (station-wide): " + atis.status,
         "Candidates: " + display(atis.candidates) + " · decoded: " + display(atis.decoded) + " · photos: " + display(atis.photo_found));
     }
-    inspectData.textContent = lines.join("\n");
+    if (data.kind === "station_health" && data.recovery_history) {
+      const recovery = data.recovery_history;
+      if (Object.keys(recovery.windows || {}).length) {
+        detailTable("Recovery history", ["Period","Automatic","Verified","Failed / attention","Unconfirmed","Manual"], Object.entries(recovery.windows).map(([period,row])=>[period,row.automatic,row.verified,row.failed,row.unconfirmed,row.manual]));
+        detailTable("Recent receiver incidents", ["Time (UTC)","Receiver","Service","Outcome","Attempts","Recovery time","Nearby context"], recovery.recent.map(row=>[row.time_utc,row.receiver,row.service || "—",row.outcome.replaceAll("_"," "),row.attempts || "—",row.seconds == null ? "—" : row.seconds + " s",row.context.join(" · ") || "—"]));
+      }
+      note(recovery.scope);
+      note("Last history scan: " + display(recovery.last_scan_utc) + (recovery.bounded ? " · log tail bounded" : ""));
+      note("Optional technical MQTT alerts use the existing Anomaly Detection settings.");
+      const pre=document.createElement("div");pre.style.whiteSpace="pre-wrap";pre.textContent=lines.join("\n");inspectData.append(pre);
+    } else inspectData.textContent = lines.join("\n");
   }
+  let lastHealthRead = 0;
   async function inspect(analyze = false) {
     if (view === "ask" || pending || !snapshot?.enabled || !snapshot?.installed || snapshot.busy) return;
     const kind = view;
+    if (kind === "station_health") lastHealthRead = Date.now();
     const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value, memory_query:memoryFilter, memory_page:memoryPage, briefing_date:briefingDate.value, advisor_hours:Number(advisorHours.value), rf_id:rfId};
     if (analyze) body.question = inspectQuestion.value.trim() || defaultQuestions[kind];
     epoch++; pending = true; inspecting = true; chatting = analyze; render(); schedule();
@@ -578,6 +602,10 @@
     } catch (err) {
       if (requestEpoch === epoch) { status.textContent = err.message; }
     } finally { refreshing = false; schedule(); }
+    if (visible() && view === "station_health" && !pending && !snapshot?.busy &&
+        !inspectAnswer.textContent && Date.now() - lastHealthRead >= 60000) {
+      void inspect();
+    }
   }
   async function act(action) {
     if (pending) return;

@@ -178,6 +178,8 @@ def snapshot(root, *, now=None):
           "scope": "Bounded read test only; not a full integrity check"}
     events = {label: service_events(label) for label in UNITS}
     events["SDRCC"] = station_events(root, now)
+    from core import local_ai_recovery
+    recovery = local_ai_recovery.snapshot(root, now)
     findings = []
     for label, item in services.items():
         if item["status"] == "attention" or item["reception"]["status"] == "attention":
@@ -199,7 +201,7 @@ def snapshot(root, *, now=None):
         findings.append("Recent receiver errors or exhausted recovery in visible log entries")
     unknown = (usb["status"] == "unknown" or any(v["status"] == "unknown" or v["reception"]["status"] == "unknown" for v in services.values())
                or any(v is None for v in res.values()) or any(v["status"] != "observed" for v in events.values()))
-    return {"kind": "station_health", "observed_utc": local_ai_reception.utc(int(now)),
+    return {"kind": "station_health", "recovery_history": recovery, "observed_utc": local_ai_reception.utc(int(now)),
             "status": "attention" if findings else "partial" if unknown else "ok",
             "services": services, "usb": usb, "resources": res, "database": db,
             "events_last_hour": events, "findings": findings,

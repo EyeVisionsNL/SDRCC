@@ -1,7 +1,13 @@
 name: Local AI foundation validation
 on:
   push:
-    branches: [local-ai-0800-validation]
+    branches: [local-ai-0800-validation, develop]
+    paths:
+      - 'core/local_ai*.py'
+      - 'dashboard/**'
+      - 'scripts/install/**'
+      - 'tests/test_local_ai*.py'
+      - '.github/workflows/local-ai-validation.yml'
   pull_request:
     branches: [develop, main]
     paths:

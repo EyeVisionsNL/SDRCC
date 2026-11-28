@@ -157,7 +157,7 @@ def snapshot(root, query="", page=1, *, now=None):
     now=time.time() if now is None else now
     base={"kind":"station_memory","source":SOURCE,"observed_utc":reception.utc(int(now)),
           "query":query,"page":page,"page_size":PAGE,"capacity":MAX_ENTRIES,
-          "scope":"Local operator notes, explicitly imported classified log entries and automatic anomaly transitions while monitoring is enabled. Log entries are not unique incidents. No verified causality. AI receives only a bounded excerpt of the displayed page."}
+          "scope":"Local operator notes, explicitly imported classified log entries, recorded recovery outcomes and automatic anomaly transitions while monitoring is enabled. Log entries are not unique incidents. No verified causality. AI receives only a bounded excerpt of the displayed page."}
     path=root/SOURCE
     if not path.is_file():
         return dict(base,status="empty",total=0,matched=0,counts={},entries=[])

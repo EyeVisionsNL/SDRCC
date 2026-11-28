@@ -5476,7 +5476,12 @@ def run():
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
     reception_analytics.start_worker()
-    from core import local_ai, local_ai_anomaly, local_ai_briefing
+    from core import local_ai, local_ai_anomaly, local_ai_briefing, local_ai_recovery
+    local_ai_recovery.start_worker(
+        PROJECT_ROOT, lambda: not UPDATE_SERVICE_STATE_FILE.exists(),
+        lambda: local_ai_anomaly.instance(PROJECT_ROOT).snapshot().get("enabled", False)
+        and local_ai_anomaly.instance(PROJECT_ROOT).snapshot().get("mqtt", False),
+    )
     local_ai_anomaly.start_worker(
         PROJECT_ROOT, lambda: local_ai.enabled() and local_ai.installed() and not UPDATE_SERVICE_STATE_FILE.exists()
     )
