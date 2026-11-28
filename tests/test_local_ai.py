@@ -184,6 +184,35 @@ class LocalAI(unittest.TestCase):
         self.assertEqual(self.client.post("/api/local-ai/chat", json={"question":"AIS","reception_period":"SELECT"}).status_code,400)
         self.assertFalse(ai.LOCK.locked())
 
+    def test_application_help_direct_and_observational_routing(self):
+        from core import local_ai_reception
+        with patch.object(ai, "enabled", return_value=True), patch.object(ai, "installed", return_value=True), patch.object(ai, "infer", return_value="analysis") as infer, patch.object(local_ai_reception, "read_evidence", return_value={"period":"7d"}) as read:
+            for question in ("Waar vind ik de RF Optimization knop?", "Waar is de RF optimisation?", "Where is the RF Optimization button?", "Hoe werkt RF Optimization?", "Hoe kan ik SDRCC updaten?"):
+                result = self.client.post("/api/local-ai/chat", json={"question":question})
+                self.assertEqual(result.status_code, 200, question)
+                self.assertEqual(result.get_json()["source"], "SDRCC Application Knowledge")
+                self.assertIn("→", result.get_json()["answer"])
+            infer.assert_not_called()
+            read.assert_not_called()
+            response = self.client.post("/api/local-ai/chat", json={"question":"Hoeveel AIS berichten afgelopen week?"})
+            self.assertEqual(response.get_json()["answer"], "analysis")
+            read.assert_called_once_with(ai.ROOT, "7d")
+            infer.assert_called_once()
+        self.assertFalse(ai.LOCK.locked())
+
+    def test_application_knowledge_labels_match_template(self):
+        from core import local_ai_knowledge as knowledge
+        import re
+        template = (Path(__file__).resolve().parents[1] / "dashboard/templates/index.html").read_text()
+        labels = re.findall(r'data-ai-view="[^"]+" aria-pressed="(?:true|false)">([^<]+)</button>', template)
+        self.assertEqual(len(labels), 11)
+        self.assertTrue(set(labels).issubset({row[0] for row in knowledge.ENTRIES}))
+        self.assertIsNone(knowledge.direct_answer("Hoeveel AIS berichten vandaag via RF Optimization?", {}))
+        self.assertIsNone(knowledge.direct_answer("Stop Radio Receiver", {}))
+        self.assertIn("niet ingeschakeld", knowledge.direct_answer("Waar vind ik Radio Receiver?", {"radio_receiver":False}))
+        self.assertIn("Record RF change", knowledge.direct_answer("Waar vind ik RF Optimization?", {}))
+        self.assertEqual(self.client.post("/api/local-ai/chat", json={"question":"Waar vind ik RF Optimization?"}).status_code, 503)
+
     def test_reception_context_is_sent_as_data(self):
         from unittest.mock import MagicMock
         proc = MagicMock()

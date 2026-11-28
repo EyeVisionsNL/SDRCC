@@ -15,6 +15,12 @@
     evidence.open = false;
     evidenceText.textContent = "";
     if (!data) return;
+    if (data.kind === "application_knowledge") {
+      evidence.querySelector("summary").textContent = "Application Knowledge · verified help";
+      evidenceText.textContent = (data.entries || []).join("\n\n");
+      return;
+    }
+    evidence.querySelector("summary").textContent = "Reception Analytics · verified source data";
     const display = v => v == null ? "Unavailable" : String(v);
     const lines = [
       data.source + " · " + data.period,
@@ -597,7 +603,7 @@
       const data = await api("chat", {question: q, reception_period: period.value});
       answer.textContent = data.answer;
       answer.scrollTop = 0;
-      showEvidence(data.evidence);
+      showEvidence(data.evidence || (data.source ? {kind:"application_knowledge", entries:[data.source + " · direct answer (no model inference)"]} : null));
     }
     catch (err) { answer.textContent = err.message; showEvidence(err.evidence); }
     finally { epoch++; pending = false; chatting = false; clearTimeout(timer); render(); await refresh(); }

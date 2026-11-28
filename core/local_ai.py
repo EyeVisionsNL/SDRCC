@@ -23,7 +23,7 @@ import urllib.request
 
 import yaml
 from flask import Blueprint, jsonify, request
-from core import features
+from core import features, local_ai_knowledge
 
 ROOT = features.PROJECT_ROOT
 AI_DIR = ROOT / "data" / "local_ai"
@@ -357,6 +357,10 @@ def infer(question, evidence=None):
         )
         if evidence is not None:
             kind = evidence.get("kind")
+            if kind == "application_knowledge":
+                system = ("You are SDRCC Local AI. Answer in the user\'s language using only the supplied versioned application help. "
+                          "Preserve exact English menu and button labels. Do not invent features, station data, commands, or actions. "
+                          "If help is insufficient, say so. You cannot change any setting or operate receivers.")
             if kind in ("station_health", "maritime"):
                 system = (
                     "You are SDRCC Local AI. Answer in the user's language using only the supplied structured evidence. "
@@ -447,7 +451,10 @@ def infer(question, evidence=None):
             ],
             "max_tokens": config["max_tokens"], "temperature": 0.6, "stream": False,
         }, timeout=100)
-        return result["choices"][0]["message"]["content"]
+        content = result["choices"][0]["message"].get("content")
+        if not isinstance(content, str) or not content.strip():
+            raise RuntimeError("Local AI returned an empty answer. Try a shorter question or increase Answer length in AI Settings.")
+        return content
     finally:
         if process.poll() is None:
             process.terminate()
@@ -564,11 +571,19 @@ def api_chat():
         return jsonify(error="Local AI is busy."), 409
     evidence = None
     try:
+        if not enabled() or not installed():
+            raise RuntimeError("Install and enable Local AI first.")
+        feature_flags = features.get_features()
+        direct = local_ai_knowledge.direct_answer(question, feature_flags)
+        if direct is not None:
+            return jsonify(answer=direct, source=local_ai_knowledge.SOURCE)
         if period is not None:
             if not enabled() or not installed():
                 raise RuntimeError("Install and enable Local AI first.")
             _progress = "Reading reception history..."
             evidence = local_ai_reception.read_evidence(ROOT, period)
+        else:
+            evidence = local_ai_knowledge.context(question, feature_flags)
         answer = infer(question.strip(), evidence=evidence) if evidence is not None else infer(question.strip())
         return jsonify(answer=answer, evidence=evidence) if evidence is not None else jsonify(answer=answer)
     except (OSError, RuntimeError, ValueError, KeyError, IndexError, http.client.HTTPException) as exc:
