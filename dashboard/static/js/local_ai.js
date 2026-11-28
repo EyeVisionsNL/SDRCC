@@ -50,8 +50,8 @@
   const inspectRefresh = by("local-ai-inspect-refresh"), inspectAnalyze = by("local-ai-inspect-analyze");
   const inspectQuestion = by("local-ai-inspect-question"), inspectAnswer = by("local-ai-inspect-answer");
   const inspectMetrics = by("local-ai-inspect-metrics"), inspectData = by("local-ai-inspect-data");
-  const radius = by("local-ai-radius"), missionPeriod = by("local-ai-mission-period");
-  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory",anomaly_detection:"Anomaly Detection"};
+  const radius = by("local-ai-radius"), missionPeriod = by("local-ai-mission-period"), briefingDate = by("local-ai-briefing-date");
+  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory",anomaly_detection:"Anomaly Detection",daily_briefing:"Daily Briefing"};
   const defaultQuestions = {
     station_health:"Assess station health, explain any findings and recommend safe checks.",
     maritime:"Summarize the observed maritime traffic and ATIS activity. Explain limitations.",
@@ -59,7 +59,8 @@
     mission_analyst:"Summarize mission results, compare satellites and receivers cautiously, and suggest improvements based on the available measurements.",
     aviation:"Summarize current aggregate aviation observations, altitude distribution and reception limits.",
     station_memory:"Summarize the selected technical notes and log classifications. Identify reported successful recoveries and unresolved issues without inventing causes.",
-    anomaly_detection:"Explain current anomaly alerts, recent transitions, and safe diagnostic checks. Distinguish suspected problems from proven faults."
+    anomaly_detection:"Explain current anomaly alerts, recent transitions, and safe diagnostic checks. Distinguish suspected problems from proven faults.",
+    daily_briefing:"Write a concise station briefing from these observations: AIS, ADS-B, ATIS, mission outcomes and retained technical alerts. Explain missing data and recommend any necessary checks."
   };
   const tabs = Array.from(page.querySelectorAll("[data-ai-view]"));
   let view = "ask", inspecting = false;
@@ -271,11 +272,47 @@
     }catch(err){inspectStatus.textContent=err.message;}
     finally{epoch++;pending=false;render();schedule();}
   });
+  function renderBriefing(data) {
+    const selection=briefingDate.value;
+    briefingDate.replaceChildren(new Option("Last 24 hours","rolling"));
+    for(const day of data.available_dates||[]) briefingDate.append(new Option(day+" (UTC archive)",day));
+    if(selection!=="rolling" && !Array.from(briefingDate.options).some(o=>o.value===selection)) briefingDate.append(new Option(selection+" (unavailable)",selection));
+    briefingDate.value=selection;
+    if(!data.reception){note(data.reason||"Briefing unavailable.");return;}
+    const rx=data.reception, m=data.missions.summary, a=data.atis, alerts=data.alerts;
+    metric("AIS peak targets",rx.ais?.targets?.peak);
+    metric("ADS-B peak targets",rx.adsb?.targets?.peak);
+    metric("ATIS decoded",a.decoded);
+    metric("Stored missions",m?.missions);
+    metric("Images",m?.images);
+    metric("Visible alert openings",alerts.opened,alerts.opened>0?"attention":"unknown");
+    note((data.mode==="archive"?"Archived UTC day "+data.date:"Rolling 24 hours")+" · "+data.window_start_utc+" → "+data.window_end_utc);
+    detailTable("Reception overview",["Metric","AIS","ADS-B"],[
+      ["Mean targets",rx.ais?.targets?.mean,rx.adsb?.targets?.mean],
+      ["Peak targets",rx.ais?.targets?.peak,rx.adsb?.targets?.peak],
+      ["Mean msg/s",rx.ais?.rate?.mean,rx.adsb?.rate?.mean],
+      ["Peak msg/s",rx.ais?.rate?.peak,rx.adsb?.rate?.peak],
+      ["Max range (NM)",rx.ais?.range_nm?.peak,rx.adsb?.range_nm?.peak],
+      ["Active samples",rx.ais?.active_samples,rx.adsb?.active_samples],
+      ["Valid rate samples",rx.ais?.rate?.valid_samples,rx.adsb?.rate?.valid_samples]
+    ]);
+    note("Reception: "+rx.status+" · "+display(rx.samples)+"/"+display(rx.expected_samples)+" samples · coverage "+numberUnit(rx.coverage_pct,"%"));
+    detailTable("Missions and ATIS",["Metric","Value"],[
+      ["Mission history",data.missions.status],["Successful",m?.success],["Known completed",m?.completed],
+      ["Success rate",numberUnit(m?.success_pct,"%")],["Cancelled",m?.cancelled],["Unknown outcome",m?.unknown_result],
+      ["Best peak SNR",numberUnit(m?.peak_snr_best_db,"dB")],["Images / measured missions",m?display(m.images)+" / "+m.image_samples:null],
+      ["ATIS source",a.status],["Candidates",a.candidates],["Decoded",a.decoded],["AIS matched",a.ais_matched],["Photos",a.photo_found]
+    ]);
+    detailTable("Retained technical alert transitions",["Rule","Opened","Cleared"],Object.entries(alerts.rules||{}).map(([k,v])=>[k.replaceAll("_"," "),v.opened,v.cleared]));
+    note("Visible openings: "+display(alerts.opened)+" · clears: "+display(alerts.cleared)+" · "+alerts.scope);
+    note(data.scope);
+  }
   function renderObservation(data) {
     inspectMetrics.replaceChildren(); inspectData.textContent = "";
     if (!data) return;
     const lines = [];
     inspectStatus.textContent = "Observed " + data.observed_utc + " · " + (data.status || "Read-only snapshot");
+    if (data.kind === "daily_briefing") { renderBriefing(data); return; }
     if (data.kind === "anomaly_detection") { renderAnomaly(data); return; }
     if (data.kind === "aviation") { renderAviation(data); return; }
     if (data.kind === "station_memory") { renderMemory(data); return; }
@@ -324,7 +361,7 @@
   async function inspect(analyze = false) {
     if (view === "ask" || pending || !snapshot?.enabled || !snapshot?.installed || snapshot.busy) return;
     const kind = view;
-    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value, memory_query:memoryFilter, memory_page:memoryPage};
+    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value, memory_query:memoryFilter, memory_page:memoryPage, briefing_date:briefingDate.value};
     if (analyze) body.question = inspectQuestion.value.trim() || defaultQuestions[kind];
     epoch++; pending = true; inspecting = true; chatting = analyze; render(); schedule();
     inspectStatus.textContent = analyze ? "Collecting observations and analyzing..." : "Collecting observations...";
@@ -351,6 +388,7 @@
     if(next==="maritime" && radius.value==="200") radius.value="100";
     memoryTools.hidden=next!=="station_memory";
     anomalySettings.hidden=next!=="anomaly_detection";
+    by("local-ai-briefing-date-field").hidden=next!=="daily_briefing";
     anomalyDirty=false;
     by("local-ai-mission-period-field").hidden = next !== "mission_analyst";
     by("local-ai-inspect-title").textContent = viewNames[next] || "Station Health";
@@ -364,6 +402,7 @@
   inspectAnalyze.addEventListener("click", () => inspect(true));
   radius.addEventListener("change", () => inspect());
   missionPeriod.addEventListener("change", () => inspect());
+  briefingDate.addEventListener("change", () => inspect());
   memorySearch.addEventListener("click",()=>{memoryFilter=memoryQuery.value.trim();memoryPage=1;inspect();});
   memoryQuery.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();memorySearch.click();}});
   memoryPrev.addEventListener("click",()=>{if(memoryPage>1){memoryPage--;inspect();}});
@@ -390,7 +429,7 @@
     toggle.disabled = busy || !s?.installed;
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
     question.disabled = send.disabled = period.disabled = busy || !s?.enabled || !s?.installed;
-    inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = missionPeriod.disabled = busy || !s?.enabled || !s?.installed;
+    inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = missionPeriod.disabled = briefingDate.disabled = busy || !s?.enabled || !s?.installed;
     renderMemoryControls(busy || !s?.enabled || !s?.installed);
     anomalyEnabled.disabled=anomalyMqtt.disabled=anomalySave.disabled=busy || !s?.enabled || !s?.installed;
     tabs.forEach(t => { t.disabled = pending; });

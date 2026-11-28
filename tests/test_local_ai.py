@@ -276,6 +276,20 @@ class LocalAI(unittest.TestCase):
             self.assertEqual(self.client.post("/api/local-ai/anomaly-settings",json={"enabled":False,"mqtt":False}).status_code,200)
             monitor.configure.assert_called_once_with(False,False)
 
+    def test_daily_briefing_api(self):
+        from core import local_ai_briefing
+        evidence={"kind":"daily_briefing","date":"2026-11-27","mode":"archive"}
+        with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True), patch.object(local_ai_briefing,"snapshot",return_value=evidence) as read, patch.object(ai,"infer",return_value="briefing") as infer:
+            result=self.client.post("/api/local-ai/inspect",json={"kind":"daily_briefing","briefing_date":"2026-11-27"})
+            self.assertEqual(result.get_json()["evidence"],evidence)
+            read.assert_called_once_with(ai.ROOT,"2026-11-27")
+            infer.assert_not_called()
+            result=self.client.post("/api/local-ai/inspect",json={"kind":"daily_briefing","briefing_date":"2026-11-27","question":"summarize"})
+            self.assertEqual(result.get_json()["answer"],"briefing")
+            infer.assert_called_once_with("summarize",evidence=evidence)
+            self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"daily_briefing","briefing_date":"../invalid"}).status_code,400)
+        self.assertFalse(ai.LOCK.locked())
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})

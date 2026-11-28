@@ -219,3 +219,9 @@
 #tab-intelligence .ai-anomaly-settings label { display:flex; align-items:center; gap:5px; }
 #tab-intelligence .ai-anomaly-settings input { accent-color:#38bdf8; }
 #tab-intelligence .ai-anomaly-settings .ai-subtitle { flex:1 1 180px; }
+
+/* Keep the expanding Intelligence navigation on one line on narrow screens. */
+@media(max-width:850px){
+    #tab-intelligence .ai-subnav { min-width:0; max-width:100%; flex-wrap:nowrap; overflow-x:auto; padding-bottom:3px; scrollbar-width:thin; }
+    #tab-intelligence .ai-subnav .control-button { flex:0 0 auto; }
+}
