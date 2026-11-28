@@ -12,6 +12,7 @@
   const evidenceText = by("local-ai-evidence-text");
   function showEvidence(data) {
     evidence.hidden = !data;
+    evidence.open = false;
     evidenceText.textContent = "";
     if (!data) return;
     const display = v => v == null ? "Unavailable" : String(v);
@@ -94,6 +95,7 @@
       memory.value = String(s.settings.address_space_gib ?? 7);
     }
     badge.textContent = s.busy ? "BUSY" : s.installed ? (s.enabled ? "ENABLED" : "DISABLED") : "NOT INSTALLED";
+    badge.dataset.state = s.busy ? "busy" : s.installed && s.enabled ? "enabled" : "disabled";
     status.textContent = [s.progress || (s.installed ? "Model and engine installed." : "AI is not installed."),
       s.ram_gib + " GiB RAM · " + s.available_gib + " GiB available · " + s.architecture,
       s.error || ""].filter(Boolean).join(" · ");
@@ -137,6 +139,7 @@
     try {
       const data = await api("chat", {question: q, reception_period: period.value});
       answer.textContent = data.answer;
+      answer.scrollTop = 0;
       showEvidence(data.evidence);
     }
     catch (err) { answer.textContent = err.message; showEvidence(err.evidence); }
