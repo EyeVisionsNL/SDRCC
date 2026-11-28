@@ -52,7 +52,7 @@ try {
     assert(source.open, "Evidence cannot be expanded");
     const observer = by("local-ai-inspect-view");
     assert(observer.hidden && getComputedStyle(observer).display === "none", "Observer must not enlarge Ask AI");
-    assert(ai.querySelectorAll("[data-ai-view]").length === 9, "Missing Intelligence subviews");
+    assert(ai.querySelectorAll("[data-ai-view]").length === 10, "Missing Intelligence subviews");
     by("local-ai-ask-view").hidden = true;
     observer.hidden = false;
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Observer answer starts too low");
@@ -80,6 +80,12 @@ try {
     by("local-ai-briefing-date-field").hidden = false;
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Briefing assessment starts too low");
     assert(document.documentElement.scrollWidth <= innerWidth + 2, "Briefing horizontal overflow");
+    assert(by("local-ai-advisor-hours-field").hidden, "Advisor selector leaks into other views");
+    assert(ai.querySelector('[data-ai-view="mission_advisor"]'), "Missing advisor view");
+    by("local-ai-briefing-date-field").hidden = true;
+    by("local-ai-advisor-hours-field").hidden = false;
+    assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Advisor assessment starts too low");
+    assert(document.documentElement.scrollWidth <= innerWidth + 2, "Advisor horizontal overflow");
     document.body.dataset.result = "PASS";
 } catch (error) {
     document.body.dataset.result = "FAIL";
