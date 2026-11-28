@@ -385,6 +385,7 @@
   }
   function renderObservation(data) {
     inspectMetrics.replaceChildren(); inspectData.textContent = "";
+    rfCurrent=null;
     if (!data) return;
     const lines = [];
     inspectStatus.textContent = "Observed " + data.observed_utc + " · " + (data.status || "Read-only snapshot");
