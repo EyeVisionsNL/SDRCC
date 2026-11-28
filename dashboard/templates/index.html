@@ -1727,6 +1727,7 @@
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="anomaly_detection" aria-pressed="false">Anomaly Detection</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="daily_briefing" aria-pressed="false">Daily Briefing</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_advisor" aria-pressed="false">Mission Advisor</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="rf_optimization" aria-pressed="false">RF Optimization</button>
         </nav>
         <div class="ai-workspace" id="local-ai-ask-view">
             <section class="ai-card ai-chat" aria-labelledby="local-ai-chat-title">
@@ -1854,6 +1855,26 @@
                             <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-memory-next" disabled>Next</button>
                             <span class="ai-subtitle" id="local-ai-memory-result" role="status"></span>
                         </div>
+                    </div>
+                    <div id="local-ai-rf-tools" hidden>
+                        <div class="ai-memory-toolbar">
+                            <label class="ai-field"><span>RF experiment</span><select id="local-ai-rf-select"><option value="0">Latest experiment</option></select></label>
+                            <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-rf-finalize" disabled>Save result</button>
+                            <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-rf-delete" disabled>Delete</button>
+                        </div>
+                        <details id="local-ai-rf-form">
+                            <summary>Record RF change</summary>
+                            <div class="ai-memory-fields">
+                                <label class="ai-field"><span>Reception</span><select id="local-ai-rf-service"><option value="ais">AIS</option><option value="adsb">ADS-B</option></select></label>
+                                <label class="ai-field"><span>Change type</span><select id="local-ai-rf-category"><option value="antenna">Antenna</option><option value="lna">LNA</option><option value="splitter">Splitter</option><option value="gain">Gain</option><option value="filter">Filter</option><option value="cable">Cable</option><option value="other">Other</option></select></label>
+                                <label class="ai-field"><span>Measurement window (each side)</span><select id="local-ai-rf-period"><option value="24h">24 hours</option><option value="7d">7 days</option></select></label>
+                                <label class="ai-field"><span>Title</span><input id="local-ai-rf-title" maxlength="80" placeholder="New 1090 MHz LNA"></label>
+                                <label class="ai-field ai-memory-wide"><span>Before / after configuration</span><textarea id="local-ai-rf-details" maxlength="350" rows="2" placeholder="Previous and new hardware or gain settings"></textarea></label>
+                            </div>
+                            <p class="ai-note">Record immediately after the physical change. Baseline ends 15 min before now; after window starts 15 min later. Record each affected service separately.</p>
+                            <button type="button" class="control-button ai-primary" data-local-ai-control id="local-ai-rf-record">Record change now</button>
+                        </details>
+                        <p class="ai-subtitle" id="local-ai-rf-result" role="status"></p>
                     </div>
                     <div class="ai-observer-data" id="local-ai-inspect-data" tabindex="0"></div>
                 </div>

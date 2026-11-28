@@ -51,7 +51,7 @@
   const inspectQuestion = by("local-ai-inspect-question"), inspectAnswer = by("local-ai-inspect-answer");
   const inspectMetrics = by("local-ai-inspect-metrics"), inspectData = by("local-ai-inspect-data");
   const radius = by("local-ai-radius"), missionPeriod = by("local-ai-mission-period"), briefingDate = by("local-ai-briefing-date"), advisorHours = by("local-ai-advisor-hours");
-  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory",anomaly_detection:"Anomaly Detection",daily_briefing:"Daily Briefing",mission_advisor:"Mission Advisor"};
+  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory",anomaly_detection:"Anomaly Detection",daily_briefing:"Daily Briefing",mission_advisor:"Mission Advisor",rf_optimization:"RF Optimization"};
   const defaultQuestions = {
     station_health:"Assess station health, explain any findings and recommend safe checks.",
     maritime:"Summarize the observed maritime traffic and ATIS activity. Explain limitations.",
@@ -61,7 +61,8 @@
     station_memory:"Summarize the selected technical notes and log classifications. Identify reported successful recoveries and unresolved issues without inventing causes.",
     anomaly_detection:"Explain current anomaly alerts, recent transitions, and safe diagnostic checks. Distinguish suspected problems from proven faults.",
     daily_briefing:"Write a concise station briefing from these observations: AIS, ADS-B, ATIS, mission outcomes and retained technical alerts. Explain missing data and recommend any necessary checks.",
-    mission_advisor:"Explain which upcoming passages have promising geometry, historical evidence and any conflicts or receiver concerns. Do not guarantee reception or recommend changing scheduler settings."
+    mission_advisor:"Explain which upcoming passages have promising geometry, historical evidence and any conflicts or receiver concerns. Do not guarantee reception or recommend changing scheduler settings.",
+    rf_optimization:"Evaluate the selected RF experiment, its sample coverage and before/after observations. Distinguish measured changes from causal proof. Suggest safe follow-up measurements."
   };
   const tabs = Array.from(page.querySelectorAll("[data-ai-view]"));
   let view = "ask", inspecting = false;
@@ -77,6 +78,14 @@
     memoryNext.disabled = busy || memoryPage*10 >= memoryMatched;
     for (const el of inspectData.querySelectorAll("[data-memory-delete]")) el.disabled = busy;
     by("local-ai-memory-page").textContent = "Page " + memoryPage + " / " + Math.max(1,Math.ceil(memoryMatched/10));
+  }
+  const rfTools=by("local-ai-rf-tools"), rfSelect=by("local-ai-rf-select"), rfFinalize=by("local-ai-rf-finalize"), rfDelete=by("local-ai-rf-delete"), rfRecord=by("local-ai-rf-record"), rfResult=by("local-ai-rf-result");
+  const rfService=by("local-ai-rf-service"), rfCategory=by("local-ai-rf-category"), rfPeriod=by("local-ai-rf-period"), rfTitle=by("local-ai-rf-title"), rfDetails=by("local-ai-rf-details");
+  let rfId=0, rfCurrent=null;
+  function renderRFControls(busy){
+    for(const el of [rfSelect,rfRecord,rfService,rfCategory,rfPeriod,rfTitle,rfDetails]) el.disabled=busy;
+    rfFinalize.disabled=busy||!rfCurrent||rfCurrent.saved||rfCurrent.status==="measuring";
+    rfDelete.disabled=busy||!rfCurrent;
   }
   const display = value => value == null ? "Unavailable" : String(value);
   const numberUnit = (value, unit) => value == null ? "Unavailable" : value + " " + unit;
@@ -104,12 +113,12 @@
     }
     scroll.append(table); section.append(heading,scroll); inspectData.append(section);
   }
-  function comparisonBars(label, metric, unit) {
+  function comparisonBars(label, metric, unit, currentLabel="Last 24h", baselineLabel="Prior 7d") {
     const group = document.createElement("div"); group.className = "ai-compare-group";
     const title = document.createElement("strong"); title.textContent = label + " · " + signedPct(metric.change_pct);
     group.append(title);
     const max = Math.max(metric.current_mean ?? 0, metric.baseline_mean ?? 0, 0.000001);
-    for (const [name,value,style] of [["Last 24h",metric.current_mean,"current"],["Prior 7d",metric.baseline_mean,"baseline"]]) {
+    for (const [name,value,style] of [[currentLabel,metric.current_mean,"current"],[baselineLabel,metric.baseline_mean,"baseline"]]) {
       const row = document.createElement("div"); row.className = "ai-compare-row";
       const text = document.createElement("span"); text.textContent = name;
       const track = document.createElement("div"); track.className = "ai-compare-track";
@@ -333,11 +342,54 @@
     note(data.scope);
     note("AI sees the first six displayed passes and best unflagged geometry only. No mission is started or altered.");
   }
+  function renderRF(data) {
+    rfCurrent=data.experiment;
+    rfSelect.replaceChildren(new Option("Latest experiment","0"));
+    for(const e of data.experiments||[]) rfSelect.append(new Option(e.service.toUpperCase()+" · "+e.title+" · "+new Date(e.changed_utc).toLocaleDateString()+(e.saved?" (saved)":""),String(e.id)));
+    rfId=rfCurrent?.id||0; rfSelect.value=String(rfId);
+    if(!rfCurrent){metric("Experiments",data.experiments?.length);note(data.reason||"No RF experiment selected. Record a physical change to begin.");return;}
+    const e=rfCurrent;
+    metric("Reception",e.service.toUpperCase());
+    metric("Window per side",e.period);
+    metric("Experiment",e.saved?"Saved":e.status==="measuring"?"Measuring":e.status==="ready"?"Ready":"Insufficient",e.status==="ready"?"ok":"unknown");
+    metric("Targets",signedPct(e.metrics.targets?.change_pct));
+    metric("Message rate",signedPct(e.metrics.rate?.change_pct));
+    metric("Mean sampled range",signedPct(e.metrics.range_nm?.change_pct));
+    note(e.title+" · "+e.category+" · recorded "+new Date(e.changed_utc).toLocaleString());
+    if(e.details)note(e.details);
+    if(e.status==="measuring"){
+      note("After window ends "+new Date(e.after_end_utc).toLocaleString()+" · "+Math.ceil(e.remaining_seconds/3600)+" hours remaining (rounded up). No partial comparison.");
+      detailTable("Frozen baseline",["Metric","Mean","Peak","Valid samples"],[["Targets","targets"],["Messages/sec","rate"],["Range (NM)","range_nm"]].map(([label,k])=>{const m=e.before[e.service]?.[k];return [label,m?.mean,m?.peak,m?.valid_samples];}));
+    }else{
+      const metrics=[["Targets","targets",""],["Message rate","rate","msg/s"],["Range","range_nm","NM"]];
+      for(const [label,k,unit] of metrics)if(e.metrics[k])comparisonBars(label,e.metrics[k],unit,"After","Before");
+      detailTable("Before / after",["Metric","Before mean","After mean","Before peak","After peak","Change","Status"],metrics.map(([label,k])=>{const m=e.metrics[k];return [label,m.baseline_mean,m.current_mean,m.baseline_peak,m.current_peak,signedPct(m.change_pct),m.status.replaceAll("_"," ")];}));
+      if(e.intervening_changes)note("Comparison suppressed: "+e.intervening_changes+" other recorded change(s) for this service in the measurement interval.");
+    }
+    detailTable("Measurement coverage",["Window","Samples","Active","Coverage"],[["Before",e.before],["After",e.after]].map(([label,w])=>[label,w?display(w.samples)+"/"+display(w.expected_samples):null,w?.[e.service]?.active_samples,numberUnit(w?.coverage_pct,"%")]));
+    note("Before: "+e.before.window_start_utc+" → "+e.before.window_end_utc+" · After: "+e.after_start_utc+" → "+e.after_end_utc+" (UTC)");
+    note(e.saved?"Result frozen "+new Date(e.saved_utc).toLocaleString():"Save result after the measurement window to preserve it and update the linked Station Memory note.");
+    note(data.scope);
+  }
+  async function rfAction(body){
+    if(view!=="rf_optimization"||pending||!snapshot?.enabled||!snapshot?.installed||snapshot.busy)return;
+    epoch++;pending=true;render();rfResult.textContent="Working...";
+    let changed=false;
+    try{
+      const data=await api("rf-experiment",body);changed=true;
+      if(body.action==="record"){rfId=data.id;rfTitle.value=rfDetails.value="";by("local-ai-rf-form").open=false;rfResult.textContent="Change recorded in Station Memory. Measurement scheduled by time window.";}
+      else if(body.action==="finalize"){rfResult.textContent="Result saved.";}
+      else{rfId=0;rfResult.textContent="Experiment deleted. Station Memory note retained.";}
+    }catch(err){rfResult.textContent=err.message;}
+    finally{epoch++;pending=false;render();if(changed)await inspect();else schedule();}
+  }
   function renderObservation(data) {
     inspectMetrics.replaceChildren(); inspectData.textContent = "";
+    rfCurrent=null;
     if (!data) return;
     const lines = [];
     inspectStatus.textContent = "Observed " + data.observed_utc + " · " + (data.status || "Read-only snapshot");
+    if (data.kind === "rf_optimization") { renderRF(data); return; }
     if (data.kind === "mission_advisor") { renderAdvisor(data); return; }
     if (data.kind === "daily_briefing") { renderBriefing(data); return; }
     if (data.kind === "anomaly_detection") { renderAnomaly(data); return; }
@@ -388,7 +440,7 @@
   async function inspect(analyze = false) {
     if (view === "ask" || pending || !snapshot?.enabled || !snapshot?.installed || snapshot.busy) return;
     const kind = view;
-    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value, memory_query:memoryFilter, memory_page:memoryPage, briefing_date:briefingDate.value, advisor_hours:Number(advisorHours.value)};
+    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value, memory_query:memoryFilter, memory_page:memoryPage, briefing_date:briefingDate.value, advisor_hours:Number(advisorHours.value), rf_id:rfId};
     if (analyze) body.question = inspectQuestion.value.trim() || defaultQuestions[kind];
     epoch++; pending = true; inspecting = true; chatting = analyze; render(); schedule();
     inspectStatus.textContent = analyze ? "Collecting observations and analyzing..." : "Collecting observations...";
@@ -414,6 +466,8 @@
     const radius200=by("local-ai-radius-200"); radius200.hidden=radius200.disabled=next!=="aviation";
     if(next==="maritime" && radius.value==="200") radius.value="100";
     memoryTools.hidden=next!=="station_memory";
+    rfTools.hidden=next!=="rf_optimization";
+    rfCurrent=null;
     anomalySettings.hidden=next!=="anomaly_detection";
     by("local-ai-briefing-date-field").hidden=next!=="daily_briefing";
     by("local-ai-advisor-hours-field").hidden=next!=="mission_advisor";
@@ -432,6 +486,10 @@
   missionPeriod.addEventListener("change", () => inspect());
   briefingDate.addEventListener("change", () => inspect());
   advisorHours.addEventListener("change", () => inspect());
+  rfSelect.addEventListener("change",()=>{rfId=Number(rfSelect.value);rfCurrent=null;inspect();});
+  rfRecord.addEventListener("click",()=>{if(confirm("Record the completed physical RF change now? This does not change receiver settings."))rfAction({action:"record",service:rfService.value,category:rfCategory.value,period:rfPeriod.value,title:rfTitle.value,details:rfDetails.value});});
+  rfFinalize.addEventListener("click",()=>{if(rfCurrent&&confirm("Save this result permanently, including any insufficient data?"))rfAction({action:"finalize",id:rfCurrent.id});});
+  rfDelete.addEventListener("click",()=>{if(rfCurrent&&confirm("Delete this experiment? The linked Station Memory note is retained."))rfAction({action:"delete",id:rfCurrent.id});});
   memorySearch.addEventListener("click",()=>{memoryFilter=memoryQuery.value.trim();memoryPage=1;inspect();});
   memoryQuery.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();memorySearch.click();}});
   memoryPrev.addEventListener("click",()=>{if(memoryPage>1){memoryPage--;inspect();}});
@@ -460,6 +518,7 @@
     question.disabled = send.disabled = period.disabled = busy || !s?.enabled || !s?.installed;
     inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = missionPeriod.disabled = briefingDate.disabled = advisorHours.disabled = busy || !s?.enabled || !s?.installed;
     renderMemoryControls(busy || !s?.enabled || !s?.installed);
+    renderRFControls(busy || !s?.enabled || !s?.installed);
     anomalyEnabled.disabled=anomalyMqtt.disabled=anomalySave.disabled=busy || !s?.enabled || !s?.installed;
     tabs.forEach(t => { t.disabled = pending; });
     if (inspecting && chatting && s?.progress) inspectStatus.textContent = s.progress;

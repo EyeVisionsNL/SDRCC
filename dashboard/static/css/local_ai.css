@@ -229,3 +229,10 @@
 /* Keep all Intelligence views on one navigation row at desktop sizes too. */
 #tab-intelligence .ai-subnav { min-width:0; max-width:100%; flex-wrap:nowrap; overflow-x:auto; padding-bottom:3px; scrollbar-width:thin; }
 #tab-intelligence .ai-subnav .control-button { flex:0 0 auto; }
+
+/* RF experiment form reuses the compact notebook grid. */
+#tab-intelligence #local-ai-rf-form { border:1px solid #26364b; border-radius:6px; padding:6px 8px; font-size:.78rem; }
+#tab-intelligence #local-ai-rf-form summary { cursor:pointer; color:#7dd3fc; }
+#tab-intelligence #local-ai-rf-title { box-sizing:border-box; width:100%; min-width:0; min-height:32px; padding:6px 8px; border:1px solid #334b63; border-radius:6px; color:#e2e8f0; background:#07111f; font:inherit; }
+#tab-intelligence #local-ai-rf-select { max-width:100%; min-width:0; }
+#tab-intelligence #local-ai-rf-tools .ai-memory-toolbar .ai-field { min-width:0; }

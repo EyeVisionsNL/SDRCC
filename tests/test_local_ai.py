@@ -304,6 +304,29 @@ class LocalAI(unittest.TestCase):
             self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"mission_advisor","advisor_hours":168}).status_code,400)
         self.assertFalse(ai.LOCK.locked())
 
+    def test_rf_experiment_api(self):
+        from core import local_ai_rf
+        evidence={"kind":"rf_optimization","experiments":[],"experiment":None}
+        with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True), patch.object(local_ai_rf,"snapshot",return_value=evidence) as read, patch.object(local_ai_rf,"record",return_value=1) as record, patch.object(local_ai_rf,"finalize") as finalize, patch.object(local_ai_rf,"delete") as delete, patch.object(ai,"infer",return_value="assessment") as infer:
+            response=self.client.post("/api/local-ai/inspect",json={"kind":"rf_optimization","rf_id":1})
+            self.assertEqual(response.get_json()["evidence"],evidence)
+            read.assert_called_once_with(ai.ROOT,1)
+            infer.assert_not_called()
+            response=self.client.post("/api/local-ai/inspect",json={"kind":"rf_optimization","rf_id":1,"question":"compare"})
+            self.assertEqual(response.get_json()["answer"],"assessment")
+            infer.assert_called_once_with("compare",evidence=local_ai_rf.model_evidence(evidence))
+            record.assert_not_called()
+            finalize.assert_not_called()
+            delete.assert_not_called()
+            self.assertEqual(self.client.post("/api/local-ai/rf-experiment",json={"action":"record"}).get_json()["id"],1)
+            self.assertEqual(self.client.post("/api/local-ai/rf-experiment",json={"action":"finalize","id":1}).status_code,200)
+            finalize.assert_called_once_with(ai.ROOT,1)
+            self.assertEqual(self.client.post("/api/local-ai/rf-experiment",json={"action":"delete","id":1}).status_code,200)
+            delete.assert_called_once_with(ai.ROOT,1)
+            self.assertEqual(self.client.post("/api/local-ai/rf-experiment",json={"action":"delete","id":1},headers={"Origin":"https://foreign.example"}).status_code,403)
+            self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"rf_optimization","rf_id":True}).status_code,400)
+        self.assertFalse(ai.LOCK.locked())
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
