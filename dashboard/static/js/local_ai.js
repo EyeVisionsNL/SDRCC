@@ -50,7 +50,14 @@
   const inspectRefresh = by("local-ai-inspect-refresh"), inspectAnalyze = by("local-ai-inspect-analyze");
   const inspectQuestion = by("local-ai-inspect-question"), inspectAnswer = by("local-ai-inspect-answer");
   const inspectMetrics = by("local-ai-inspect-metrics"), inspectData = by("local-ai-inspect-data");
-  const radius = by("local-ai-radius");
+  const radius = by("local-ai-radius"), missionPeriod = by("local-ai-mission-period");
+  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst"};
+  const defaultQuestions = {
+    station_health:"Assess station health, explain any findings and recommend safe checks.",
+    maritime:"Summarize the observed maritime traffic and ATIS activity. Explain limitations.",
+    reception_performance:"Compare AIS and ADS-B reception with the preceding seven days. Explain changes, coverage and safe checks without claiming a cause.",
+    mission_analyst:"Summarize mission results, compare satellites and receivers cautiously, and suggest improvements based on the available measurements."
+  };
   const tabs = Array.from(page.querySelectorAll("[data-ai-view]"));
   let view = "ask", inspecting = false;
   const display = value => value == null ? "Unavailable" : String(value);
@@ -62,11 +69,89 @@
     name.textContent = label; val.textContent = display(value);
     tile.append(name, val); inspectMetrics.append(tile);
   }
+  const signedPct = value => value == null ? "Unavailable" : (value > 0 ? "+" : "") + value + "%";
+  function detailTable(title, headers, rows) {
+    const section = document.createElement("section");
+    section.className = "ai-detail-table";
+    const heading = document.createElement("h4"); heading.textContent = title;
+    const scroll = document.createElement("div"); scroll.className = "ai-table-scroll";
+    const table = document.createElement("table"), head = table.createTHead(), tr = head.insertRow();
+    for (const label of headers) {
+      const th = document.createElement("th"); th.scope = "col"; th.textContent = label; tr.append(th);
+    }
+    const body = table.createTBody();
+    for (const row of rows) {
+      const line = body.insertRow();
+      for (const value of row) { const cell = line.insertCell(); cell.textContent = display(value); }
+    }
+    scroll.append(table); section.append(heading,scroll); inspectData.append(section);
+  }
+  function comparisonBars(label, metric, unit) {
+    const group = document.createElement("div"); group.className = "ai-compare-group";
+    const title = document.createElement("strong"); title.textContent = label + " · " + signedPct(metric.change_pct);
+    group.append(title);
+    const max = Math.max(metric.current_mean ?? 0, metric.baseline_mean ?? 0, 0.000001);
+    for (const [name,value,style] of [["Last 24h",metric.current_mean,"current"],["Prior 7d",metric.baseline_mean,"baseline"]]) {
+      const row = document.createElement("div"); row.className = "ai-compare-row";
+      const text = document.createElement("span"); text.textContent = name;
+      const track = document.createElement("div"); track.className = "ai-compare-track";
+      const bar = document.createElement("div"); bar.className = "ai-compare-bar " + style;
+      bar.style.width = (value == null ? 0 : Math.max(0,Math.min(100,100*value/max))) + "%";
+      const number = document.createElement("span"); number.textContent = numberUnit(value,unit);
+      track.append(bar); row.append(text,track,number); group.append(row);
+    }
+    inspectData.append(group);
+  }
+  function note(text) {
+    const p = document.createElement("p"); p.className = "ai-detail-note"; p.textContent = text; inspectData.append(p);
+  }
+  function renderPerformance(data) {
+    const labels = {targets:"Targets",rate:"Messages/sec",range_nm:"Range (NM)"};
+    for (const [key,name] of [["ais","AIS"],["adsb","ADS-B"]]) {
+      for (const [metricKey, label] of Object.entries(labels)) {
+        const m = data.services[key].metrics[metricKey];
+        metric(name + " · " + label, signedPct(m.change_pct),m.status === "above" ? "ok" : m.status === "below" ? "attention" : "unknown");
+      }
+      comparisonBars(name + " message rate",data.services[key].metrics.rate,"msg/s");
+      const service = data.services[key];
+      detailTable(name + " reception",["Metric","24h mean","7d mean","24h peak","7d peak","Change"],Object.entries(labels).map(([k,label])=>{
+        const m=service.metrics[k];
+        return [label,m.current_mean,m.baseline_mean,m.current_peak,m.baseline_peak,m.change_pct == null ? m.status.replaceAll("_"," ") : signedPct(m.change_pct)];
+      }));
+      note("Active samples: " + display(service.current_active_samples) + " / " + display(service.baseline_active_samples) + " · Inactive: " + display(service.current_inactive_samples) + " / " + display(service.baseline_inactive_samples));
+      note("Valid samples (24h / prior 7d): " + Object.entries(labels).map(([k,l])=>l+" "+service.metrics[k].current_valid_samples+"/"+service.metrics[k].baseline_valid_samples).join(" · "));
+    }
+    note("Coverage: 24h " + numberUnit(data.current.coverage_pct,"%") + " · prior 7d " + numberUnit(data.baseline.coverage_pct,"%"));
+    note("Current: " + data.current.window_start_utc + " → " + data.current.window_end_utc + " · Baseline: " + data.baseline.window_start_utc + " → " + data.baseline.window_end_utc);
+    note(data.scope);
+  }
+  function renderMissions(data) {
+    if (!data.summary) { note(data.reason || "Mission history unavailable."); return; }
+    const m = data.summary;
+    metric("Stored missions",m.missions);
+    metric("Success",numberUnit(m.success_pct,"%"),m.success_pct === 100 ? "ok" : "unknown");
+    metric("Images",m.images);
+    metric("Best peak SNR",numberUnit(m.peak_snr_best_db,"dB"));
+    metric("Total frames",m.frames);
+    metric("Mean quality",numberUnit(m.quality_mean_pct,"%"));
+    const rows = group=>group.groups.map(g=>[g.name,g.missions,numberUnit(g.success_pct,"%"),numberUnit(g.peak_snr_mean_db,"dB"),numberUnit(g.peak_snr_best_db,"dB"),g.snr_samples,g.images]);
+    for (const [label,group] of [["By satellite",data.satellites],["By receiver",data.receivers]]) {
+      detailTable(label,["Name","Missions","Success","Mean peak SNR","Best peak SNR","SNR samples","Images"],rows(group));
+      if (group.omitted_groups) note(group.omitted_groups + " additional groups not displayed.");
+    }
+    detailTable("By maximum elevation",["Elevation","Missions","Success","Mean peak SNR","SNR samples"],data.elevation.map(g=>[g.name,g.missions,numberUnit(g.success_pct,"%"),numberUnit(g.peak_snr_mean_db,"dB"),g.snr_samples]));
+    note("Results: " + Object.entries(m.results).map(([k,v])=>k+": "+v).join(" · ") + " · Unknown: " + m.unknown_result);
+    note("Success: "+m.success+" / "+m.completed+" known completed · Cancelled: "+m.cancelled+" · Simulations excluded: "+data.excluded_simulations+" · Retained records: "+data.retained_records+" · Undated records: "+data.undated_records);
+    note("Measurements available: SNR "+m.snr_samples+" · images "+m.image_samples+" · frames "+m.frame_samples+" · quality "+m.quality_samples+" · Mean duration "+numberUnit(m.duration_mean_s,"s"));
+    note(data.scope);
+  }
   function renderObservation(data) {
     inspectMetrics.replaceChildren(); inspectData.textContent = "";
     if (!data) return;
     const lines = [];
     inspectStatus.textContent = "Observed " + data.observed_utc + " · " + (data.status || "Read-only snapshot");
+    if (data.kind === "reception_performance") { renderPerformance(data); return; }
+    if (data.kind === "mission_analyst") { renderMissions(data); return; }
     if (data.kind === "station_health") {
       for (const [name, service] of Object.entries(data.services)) {
         metric(name, service.state, service.status);
@@ -110,8 +195,8 @@
   async function inspect(analyze = false) {
     if (view === "ask" || pending || !snapshot?.enabled || !snapshot?.installed || snapshot.busy) return;
     const kind = view;
-    const body = {kind, radius_km: Number(radius.value)};
-    if (analyze) body.question = inspectQuestion.value.trim() || (kind === "station_health" ? "Assess station health, explain any findings and recommend safe checks." : "Summarize the observed maritime traffic and ATIS activity. Explain limitations.");
+    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value};
+    if (analyze) body.question = inspectQuestion.value.trim() || defaultQuestions[kind];
     epoch++; pending = true; inspecting = true; chatting = analyze; render(); schedule();
     inspectStatus.textContent = analyze ? "Collecting observations and analyzing..." : "Collecting observations...";
     inspectAnswer.textContent = "";
@@ -133,7 +218,8 @@
     by("local-ai-ask-view").hidden = next !== "ask";
     inspectView.hidden = next === "ask";
     by("local-ai-radius-field").hidden = next !== "maritime";
-    by("local-ai-inspect-title").textContent = next === "maritime" ? "Maritime Intelligence" : "Station Health";
+    by("local-ai-mission-period-field").hidden = next !== "mission_analyst";
+    by("local-ai-inspect-title").textContent = viewNames[next] || "Station Health";
     tabs.forEach(t => t.setAttribute("aria-pressed", String(t.dataset.aiView === next)));
     inspectQuestion.value = ""; inspectAnswer.textContent = ""; renderObservation(null);
     inspectStatus.textContent = "Read-only observations.";
@@ -143,6 +229,7 @@
   inspectRefresh.addEventListener("click", () => inspect());
   inspectAnalyze.addEventListener("click", () => inspect(true));
   radius.addEventListener("change", () => inspect());
+  missionPeriod.addEventListener("change", () => inspect());
   async function api(path, body) {
     const res = await fetch("/api/local-ai/" + path, body === undefined
       ? {cache: "no-store"} : {method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)});
@@ -163,7 +250,7 @@
     toggle.disabled = busy || !s?.installed;
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
     question.disabled = send.disabled = period.disabled = busy || !s?.enabled || !s?.installed;
-    inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = busy || !s?.enabled || !s?.installed;
+    inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = missionPeriod.disabled = busy || !s?.enabled || !s?.installed;
     tabs.forEach(t => { t.disabled = pending; });
     if (inspecting && chatting && s?.progress) inspectStatus.textContent = s.progress;
     toggle.textContent = s?.enabled ? "Disable Local AI" : "Enable Local AI";

@@ -1720,6 +1720,8 @@
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="ask" aria-pressed="true">Ask AI</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="station_health" aria-pressed="false">Station Health</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="maritime" aria-pressed="false">Maritime Intelligence</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="reception_performance" aria-pressed="false">Reception Performance</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_analyst" aria-pressed="false">Mission Analyst</button>
         </nav>
         <div class="ai-workspace" id="local-ai-ask-view">
             <section class="ai-card ai-chat" aria-labelledby="local-ai-chat-title">
@@ -1800,6 +1802,9 @@
                 <div class="ai-observer-actions">
                     <label class="ai-field" id="local-ai-radius-field" hidden><span>Radius from Home Position</span>
                         <select id="local-ai-radius"><option value="10">10 km</option><option value="25" selected>25 km</option><option value="50">50 km</option><option value="100">100 km</option></select>
+                    </label>
+                    <label class="ai-field" id="local-ai-mission-period-field" hidden><span>Mission history</span>
+                        <select id="local-ai-mission-period"><option value="all" selected>All retained missions</option><option value="30d">Last 30 days</option><option value="7d">Last 7 days</option></select>
                     </label>
                     <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-inspect-refresh">Refresh</button>
                     <button type="button" class="control-button ai-primary" data-local-ai-control id="local-ai-inspect-analyze">Analyze with AI</button>

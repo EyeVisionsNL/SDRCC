@@ -217,6 +217,20 @@ class LocalAI(unittest.TestCase):
         self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"station_health"},headers={"Origin":"https://foreign.example"}).status_code,403)
         self.assertFalse(ai.LOCK.locked())
 
+    def test_historical_inspect_routes(self):
+        from core import local_ai_performance, local_ai_missions
+        with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True), patch.object(local_ai_performance,"snapshot",return_value={"kind":"reception_performance"}) as perf, patch.object(local_ai_missions,"snapshot",return_value={"kind":"mission_analyst"}) as missions, patch.object(ai,"infer",return_value="assessment") as infer:
+            result=self.client.post("/api/local-ai/inspect",json={"kind":"reception_performance"})
+            self.assertEqual(result.get_json(),{"evidence":{"kind":"reception_performance"}})
+            perf.assert_called_once_with(ai.ROOT)
+            infer.assert_not_called()
+            result=self.client.post("/api/local-ai/inspect",json={"kind":"mission_analyst","mission_period":"7d","question":"compare"})
+            self.assertEqual(result.get_json(),{"evidence":{"kind":"mission_analyst"},"answer":"assessment"})
+            missions.assert_called_once_with(ai.ROOT,"7d")
+            infer.assert_called_once_with("compare",evidence={"kind":"mission_analyst"})
+            self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"mission_analyst","mission_period":"invalid"}).status_code,400)
+        self.assertFalse(ai.LOCK.locked())
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
