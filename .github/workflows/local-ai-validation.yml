@@ -5,12 +5,12 @@ on:
   pull_request:
     branches: [develop, main]
     paths:
-      - 'core/local_ai.py'
+      - 'core/local_ai*.py'
       - 'core/features.py'
       - 'dashboard/**'
       - 'install.sh'
       - 'scripts/install/**'
-      - 'tests/test_local_ai.py'
+      - 'tests/test_local_ai*.py'
       - '.github/workflows/local-ai-validation.yml'
 permissions:
   contents: read
@@ -35,7 +35,7 @@ jobs:
       - name: AI dashboard controls regression
         run: node scripts/validate_local_ai_controls.cjs
       - name: Local AI tests (offline)
-        run: python -m unittest discover -s tests -p 'test_local_ai.py' -v
+        run: python -m unittest discover -s tests -p 'test_local_ai*.py' -v
       - name: Receiver recovery regressions (offline)
         run: |
           python -m unittest discover -s tests -p 'test_receiver*.py' -v
