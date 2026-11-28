@@ -939,10 +939,11 @@ def reset_crash_recovery(plugin_id):
 
 @service_control_serialized
 def recover_crashed_services(*, service_state, service_action, wait_for_service,
-                             verify, observe, log, allowed=lambda: True):
+                             verify, observe, log, allowed=lambda: True, usb_reset=None):
     """Recover a requested, repeatedly crashing AIS/readsb unit using existing authority.
 
-    No USB reset, binding change, reservation removal or auto-start of idle units.
+    A bounded USB reset may run after all conflicting services are confirmed stopped.
+    No binding change, reservation removal or auto-start of idle units.
     The same manager lock protects service actions and mission reservations.
     """
     from core.device_manager import get_conflicting_services
@@ -989,6 +990,18 @@ def recover_crashed_services(*, service_state, service_action, wait_for_service,
                     raise RuntimeError("Receiver service stop not confirmed")
                 if not allowed():
                     return
+                if usb_reset is not None:
+                    if service_action_block(plugin, "start") is not None or any(
+                        not receiver_reliability.stopped(service_state(other)) for other in conflicts
+                    ):
+                        raise RuntimeError("USB reset blocked: receiver ownership or service state changed")
+                    try:
+                        log(f"RECEIVER AUTO RECOVERY: {device['number']} {usb_reset(device)}")
+                    except Exception as error:
+                        log(f"RECEIVER AUTO RECOVERY: {device['number']} USB reset failed: {error}")
+                        continue
+                    if not allowed() or service_action_block(plugin, "start") is not None:
+                        return
                 result = service_action("start", service)
                 if _result_ok(result) and verify(plugin).get("healthy"):
                     log(f"RECEIVER AUTO RECOVERY: {device['number']} {service} running; runtime verified")
@@ -1132,10 +1145,11 @@ def bind_hardware(*, privileged_apply, service_state, mapping=None):
 def hardware_tick(*, service_state, service_action, wait_for_service, stop_receiver, privileged_apply):
     """One bounded observation/recovery cycle, invoked by the dashboard worker."""
     global _binding_message, _previous_active
-    from core import receiver_hardware
+    from core import receiver_hardware, receiver_usb_reset
     from core.device_manager import get_conflicting_services
     with _tick_lock:
         snapshot = receiver_hardware.scan(refresh=True)
+        receiver_usb_reset.remember(snapshot)
         if not snapshot['ok'] or snapshot['ambiguous']:
             _binding_message = snapshot['error'] or 'UNKNOWN USB state'
             return
@@ -1247,7 +1261,7 @@ def defer_missing_service(service):
 
 
 def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState,
-                          service_action=None, wait_for_service=None) -> dict[str, Any]:
+                          service_action=None, wait_for_service=None, usb_reset=None) -> dict[str, Any]:
     """Operator recovery for one *idle* receiver; never reset another slot.
 
     The caller must first put the scheduler in MANUAL and verify there is no
@@ -1266,6 +1280,7 @@ def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState,
     services = get_conflicting_services(canonical)
     released = None
     stopped_restart_loops = []
+    usb_reset_detail = None
     with _tick_lock:
         snapshot = receiver_hardware.scan(refresh=True)
         if not snapshot.get("ok") or snapshot.get("ambiguous"):
@@ -1304,6 +1319,11 @@ def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState,
                 stopped_restart_loops.append(service)
             if any(not receiver_reliability.stopped(service_state(service)) for service in services):
                 raise RuntimeError("Receiver services did not remain stopped")
+            if usb_reset is not None:
+                # Keep stale ownership/recovery evidence intact when reset fails.
+                usb_reset_detail = usb_reset(device)
+                if any(not receiver_reliability.stopped(service_state(service)) for service in services):
+                    raise RuntimeError("Receiver service changed state during USB reset")
             for service in services:
                 _crash_budgets.pop(service, None)
 
@@ -1341,8 +1361,11 @@ def recover_idle_receiver(receiver_id: str, *, service_state: ServiceState,
         "cleared_hardware_recovery": had_recovery,
         "services_left_stopped": services,
         "stopped_restart_loops": stopped_restart_loops,
+        "usb_reset": usb_reset_detail,
         "message": (
-            f"{device['number']} recovery complete. USB is present; stale state cleared. "
+            f"{device['number']} recovery complete. "
+            + (f"{usb_reset_detail}. " if usb_reset_detail else "USB is present. ")
+            + "Stale state cleared. "
             "No services were started. Start ADS-B/AIS manually and verify reception."
         ),
     }

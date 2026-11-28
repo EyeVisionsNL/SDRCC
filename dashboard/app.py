@@ -5288,6 +5288,20 @@ def stop_receiver_for_hardware_loss(receiver_id, reservation):
         raise RuntimeError('Receiver owner requires attention: ' + str(reservation.get('mission_key')))
 
 
+def reset_receiver_usb_for_recovery(device):
+    from core import receiver_usb_reset
+    if UPDATE_SERVICE_STATE_FILE.exists():
+        raise RuntimeError("USB reset blocked while SDRCC update is pending")
+    write_log(f"RECEIVER USB RESET: {device['number']} serial={device['serial']}")
+    try:
+        detail = receiver_usb_reset.reset_receiver(device)
+    except Exception as error:
+        write_log(f"RECEIVER USB RESET FAILED: {device['number']} {error}")
+        raise RuntimeError(f"USB reset failed: {error}") from error
+    write_log(f"RECEIVER USB RESET: {device['number']} {detail}")
+    return detail
+
+
 def receiver_hardware_worker():
     while True:
         try:
@@ -5302,7 +5316,8 @@ def receiver_hardware_worker():
                     wait_for_service=wait_for_service,
                     verify=lambda plugin: _wait_for_plugin_lifecycle(plugin, "RUNNING"),
                     observe=get_service_lifecycle_snapshot, log=write_log,
-                    allowed=lambda: not UPDATE_SERVICE_STATE_FILE.exists()
+                    allowed=lambda: not UPDATE_SERVICE_STATE_FILE.exists(),
+                    usb_reset=reset_receiver_usb_for_recovery,
                 )
         except Exception as error:
             receiver_manager._binding_message = str(error)
@@ -5323,6 +5338,8 @@ def api_receiver_recovery():
         return jsonify({"ok": False, "message": "Unknown receiver."}), 400
 
     try:
+        if UPDATE_SERVICE_STATE_FILE.exists():
+            raise RuntimeError("Receiver recovery blocked while SDRCC update is pending")
         # Inspect live work before changing the global scheduler mode.
         reconcile_idle_autopilot_runtime()
         mission = mission_engine_core.get_mission_status()
@@ -5371,6 +5388,7 @@ def api_receiver_recovery():
         result = receiver_manager.recover_idle_receiver(
             device["registry_id"], service_state=service_state,
             service_action=run_systemctl, wait_for_service=wait_for_service,
+            usb_reset=reset_receiver_usb_for_recovery,
         )
         receiver_authority.invalidate_cache()
         result["scheduler_mode"] = "MANUAL"
