@@ -128,7 +128,7 @@ class ReceiverManualRecoveryTests(unittest.TestCase):
                     )
                 action.assert_not_called()
 
-    def _run_crash_worker(self, *, healthy=False, other_busy=False, reserved=False, idle=False):
+    def _run_crash_worker(self, *, healthy=False, other_busy=False, reserved=False, idle=False, usb=False, reset_fails=False):
         self.write({})
         state = {"active": False, "state": "inactive" if idle else "activating",
                  "sub_state": "dead" if idle else "auto-restart", "restart_count": 3}
@@ -159,6 +159,15 @@ class ReceiverManualRecoveryTests(unittest.TestCase):
                           wait_for_service=lambda _, expected, __: state["state"] == expected,
                           verify=lambda _: {"healthy": healthy}, observe=lambda _: {"healthy": healthy},
                           log=logs.append)
+            if usb:
+                def reset(device):
+                    self.assertEqual(device["serial"], "24006572")
+                    self.assertEqual(state["state"], "inactive")
+                    actions.append(("usb-reset", device["serial"]))
+                    if reset_fails:
+                        raise RuntimeError("test failure")
+                    return "USB reset OK"
+                kwargs["usb_reset"] = reset
             receiver_manager.recover_crashed_services(**kwargs)
             receiver_manager.recover_crashed_services(**kwargs)
             exhausted = receiver_manager.crash_recovery_exhausted("readsb.service")
@@ -186,6 +195,40 @@ class ReceiverManualRecoveryTests(unittest.TestCase):
                 actions, exhausted, _ = self._run_crash_worker(**args)
                 self.assertEqual(actions, [])
                 self.assertFalse(exhausted)
+
+    def test_usb_auto_recovery_is_ordered_and_bounded(self):
+        actions, exhausted, logs = self._run_crash_worker(usb=True, healthy=True)
+        self.assertEqual(actions, [("stop", "readsb.service"), ("usb-reset", "24006572"), ("start", "readsb.service")])
+        self.assertFalse(exhausted)
+        actions, exhausted, logs = self._run_crash_worker(usb=True, reset_fails=True)
+        self.assertEqual(actions.count(("usb-reset", "24006572")), 2)
+        self.assertNotIn(("start", "readsb.service"), actions)
+        self.assertTrue(exhausted)
+        for args in ({"other_busy": True}, {"reserved": True}, {"idle": True}):
+            self.assertEqual(self._run_crash_worker(usb=True, **args)[0], [])
+
+    def test_manual_usb_reset_only_idle_receiver(self):
+        self.write({})
+        calls = []
+        result = receiver_manager.recover_idle_receiver(
+            "sdr2", service_state=self.stopped,
+            usb_reset=lambda device: calls.append(device["serial"]) or "USB reset OK",
+        )
+        self.assertEqual(calls, ["24006572"])
+        self.assertEqual(result["usb_reset"], "USB reset OK")
+        with self.assertRaisesRegex(RuntimeError, "not confirmed stopped"):
+            receiver_manager.recover_idle_receiver(
+                "sdr2", service_state=lambda _: {"active": True, "state": "active"},
+                usb_reset=lambda device: self.fail("live receiver reset"),
+            )
+
+    def test_failed_manual_usb_reset_preserves_recovery_evidence(self):
+        self.write({"hardware_recovery": {"receiver02": {"services": ["readsb.service"]}}})
+        def fail(device):
+            raise RuntimeError("USB reset failed")
+        with self.assertRaisesRegex(RuntimeError, "USB reset failed"):
+            receiver_manager.recover_idle_receiver("sdr2", service_state=self.stopped, usb_reset=fail)
+        self.assertIn("receiver02", receiver_manager._load_state()["hardware_recovery"])
 
     def test_idle_receiver_recovery_is_idempotent(self):
         self.write({})
