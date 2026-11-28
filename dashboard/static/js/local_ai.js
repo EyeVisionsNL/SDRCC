@@ -52,7 +52,7 @@
   const inspectMetrics = by("local-ai-inspect-metrics"), inspectData = by("local-ai-inspect-data");
   const radius = by("local-ai-radius");
   const tabs = Array.from(page.querySelectorAll("[data-ai-view]"));
-  let view = "ask", inspecting = false, lastObserved = 0;
+  let view = "ask", inspecting = false;
   const display = value => value == null ? "Unavailable" : String(value);
   const numberUnit = (value, unit) => value == null ? "Unavailable" : value + " " + unit;
   function metric(label, value, state = "unknown") {
@@ -120,18 +120,16 @@
       const data = await api("inspect", body);
       renderObservation(data.evidence);
       inspectAnswer.textContent = data.answer || "";
-      lastObserved = Date.now();
     } catch (err) {
       renderObservation(err.evidence);
       inspectStatus.textContent = err.message;
-      lastObserved = Date.now();
     } finally {
       epoch++; pending = false; inspecting = false; chatting = false; clearTimeout(timer); render(); await refresh();
     }
   }
   function switchView(next) {
     if (pending || next === view) return;
-    view = next; lastObserved = 0;
+    view = next;
     by("local-ai-ask-view").hidden = next !== "ask";
     inspectView.hidden = next === "ask";
     by("local-ai-radius-field").hidden = next !== "maritime";
