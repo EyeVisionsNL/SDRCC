@@ -42,6 +42,10 @@
     <link rel="stylesheet" href="/static/css/emergency_monitor.css?v=0.67.25">
 </head>
 <body>
+{% set mobile_intelligence = request.args.get('mobile_intelligence') == '1' %}
+{% if mobile_intelligence %}
+<main class="mobile-intelligence-embed">
+{% else %}
 <div
     id="sdrcc-startup-splash"
     class="startup-splash"
@@ -1693,6 +1697,7 @@
     </div>
 </section>
 
+{% endif %}
 <section class="tab-page" id="tab-intelligence">
     <div class="ai-page">
         <section class="ai-card ai-status-card" id="local-ai-panel" aria-labelledby="local-ai-title">
@@ -1719,15 +1724,15 @@
         <nav class="ai-subnav" aria-label="Intelligence views">
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="ask" aria-pressed="true">Ask AI</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="station_health" aria-pressed="false">Station Health</button>
-            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="maritime" aria-pressed="false">Maritime Intelligence</button>
-            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="reception_performance" aria-pressed="false">Reception Performance</button>
-            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_analyst" aria-pressed="false">Mission Analyst</button>
-            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="aviation" aria-pressed="false">Aviation Intelligence</button>
-            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="station_memory" aria-pressed="false">Station Memory</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="anomaly_detection" aria-pressed="false">Anomaly Detection</button>
-            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="daily_briefing" aria-pressed="false">Daily Briefing</button>
-            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_advisor" aria-pressed="false">Mission Advisor</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="station_memory" aria-pressed="false">Station Memory</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="maritime" aria-pressed="false">Maritime Intelligence</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="aviation" aria-pressed="false">Aviation Intelligence</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="reception_performance" aria-pressed="false">Reception Performance</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="rf_optimization" aria-pressed="false">RF Optimization</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_analyst" aria-pressed="false">Mission Analyst</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_advisor" aria-pressed="false">Mission Advisor</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="daily_briefing" aria-pressed="false">Daily Briefing</button>
         </nav>
         <div class="ai-workspace" id="local-ai-ask-view">
             <section class="ai-card ai-chat" aria-labelledby="local-ai-chat-title">
@@ -1891,6 +1896,10 @@
     </div>
 </section>
 <script defer src="{{ url_for('static', filename='js/local_ai.js') }}?v={{ asset_version }}"></script>
+{% if mobile_intelligence %}
+<script>document.getElementById("tab-intelligence").classList.add("active");</script>
+</main>
+{% else %}
 
 <section class="tab-page" id="tab-logs">
     <section class="card log-workspace">
@@ -1950,5 +1959,6 @@
 <script src="/static/js/traffic_voice.js?v={{ asset_version }}"></script>
 <script defer src="/static/js/reception_analytics.js?v={{ asset_version }}"></script>
 <script src="/static/js/hf_monitor.js?v=0.56.0-radio-r2"></script>
+{% endif %}
 </body>
 </html>

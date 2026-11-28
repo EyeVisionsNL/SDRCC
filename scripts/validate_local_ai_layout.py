@@ -52,7 +52,15 @@ try {
     assert(source.open, "Evidence cannot be expanded");
     const observer = by("local-ai-inspect-view");
     assert(observer.hidden && getComputedStyle(observer).display === "none", "Observer must not enlarge Ask AI");
-    assert(ai.querySelectorAll("[data-ai-view]").length === 11, "Missing Intelligence subviews");
+    const navButtons=[...ai.querySelectorAll("[data-ai-view]")];
+    assert(navButtons.length === 11, "Missing Intelligence subviews");
+    const navOrder=navButtons.map(b=>b.dataset.aiView);
+    assert(navOrder.join(",") === "ask,station_health,anomaly_detection,station_memory,maritime,aviation,reception_performance,rf_optimization,mission_analyst,mission_advisor,daily_briefing", "Intelligence navigation order");
+    assert(parseFloat(getComputedStyle(navButtons[0]).borderTopWidth) >= 2, "Intelligence tab border too thin");
+    const activeFill=getComputedStyle(navButtons[0]).backgroundImage;
+    navButtons[0].setAttribute("aria-pressed","false");
+    assert(getComputedStyle(navButtons[0]).backgroundImage !== activeFill, "Selected Intelligence tab not visually distinct");
+    navButtons[0].setAttribute("aria-pressed","true");
     by("local-ai-ask-view").hidden = true;
     observer.hidden = false;
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Observer answer starts too low");

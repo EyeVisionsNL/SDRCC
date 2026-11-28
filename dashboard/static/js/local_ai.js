@@ -263,6 +263,7 @@
     note(data.scope||"");
   }
   async function updateAnomalyBadge(){
+    if(!anomalyCount)return; // Embedded Intelligence has no desktop navigation badge.
     try{
       const data=await api("anomaly-status");
       anomalyCount.hidden=!data.enabled||!data.active_count;

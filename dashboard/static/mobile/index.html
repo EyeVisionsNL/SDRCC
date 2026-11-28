@@ -70,6 +70,10 @@ body[data-mobile-tab="adsb"]{--mobile-accent:#38bdf8;--mobile-line:#316c98;--mob
 body[data-mobile-tab="sat"]{--mobile-accent:#c4b5fd;--mobile-line:#6c51a0;--mobile-halo:rgba(167,139,250,.19)}
 body[data-mobile-tab="missions"]{--mobile-accent:#86efac;--mobile-line:#35785e;--mobile-halo:rgba(74,222,128,.15)}
 body[data-mobile-tab="system"]{--mobile-accent:#7dd3fc;--mobile-line:#386d92;--mobile-halo:rgba(56,189,248,.14)}
+body[data-mobile-tab="intelligence"]{--mobile-accent:#c4b5fd;--mobile-line:#7164a5;--mobile-halo:rgba(167,139,250,.22);--mobile-scene:url("/static/assets/banners/intelligence-panorama.svg")}
+#mobile-intelligence-frame{display:block;width:100%;height:calc(100vh - 160px);height:calc(100dvh - 160px);min-height:360px;border:1px solid #6557a0;border-radius:9px;background:#0f172a}
+.tabs button{min-width:0}
+@media(max-width:420px){.tabs button[data-tab="intelligence"]{font-size:10px}}
 .mobile-brand-banner,body[data-mobile-tab] .mobile-brand-banner{background-color:#0a2440;background-image:linear-gradient(90deg,rgba(3,18,35,.83) 0%,rgba(4,19,38,.69) 30%,rgba(3,18,36,.24) 63%,rgba(3,18,36,.04) 100%),var(--mobile-scene);background-position:center,right center;background-size:cover,auto 100%}
 .mobile-brand-copy strong{color:#fff;text-shadow:0 1px 5px #071221,0 0 14px #071221}
 .mobile-brand-copy .mobile-brand-subtitle{text-shadow:0 1px 5px #071221}
@@ -232,8 +236,9 @@ body.mobile-map-3d-open{overflow:hidden}
 <div class="panel"><h2>🛰️ Mission Reception & Latest Image</h2><div id="missionstatus" aria-live="polite">Loading status…</div>
 <p class="muted">Mission planning and manual starts stay on the mini-PC. Receiver safety remains active.</p></div>
 </section>
+<section id="intelligence" hidden><iframe id="mobile-intelligence-frame" title="SDRCC Intelligence" src="about:blank"></iframe></section>
 <section id="system" hidden><div class="panel"><div class="row"><h2>🖥️ System Overview</h2><button id="system-refresh" type="button">↻ Refresh</button></div><p class="muted">Live receiver and service status.</p><div id="systemstatus" aria-live="polite">Loading system status…</div><h2 style="margin-top:18px">Available Components</h2><div id="mobile-feature-status" class="feature-summary" role="status" aria-live="polite">Checking installed components…</div><div id="mobile-feature-list" class="feature-list"></div></div><div class="panel"><h2>⚙️ Settings</h2><details id="mobile-map-settings" class="sys-settings"><summary>Map Connections</summary><p class="muted">These addresses are stored only on this device.</p><label id="mobile-ais-setting">AIS-Catcher Map URL<input id="aisurl" placeholder="http://mini-pc:8119/"></label><label id="mobile-adsb-setting">ADS-B Map URL<input id="adsburl" placeholder="http://mini-pc/tar1090/"></label><button id="save">Save Map Addresses</button></details><a class="action" href="/" target="_blank" rel="noopener">Open Desktop Dashboard ↗</a></div></section>
-</main><div id="mobile-map-3d-view" class="mobile-map-3d-view" hidden role="dialog" aria-modal="true" aria-label="3D Marine Traffic map. Swipe down from the top edge or use Android Back to return to Marine controls."><div id="mobile-map-dismiss-edge" aria-hidden="true"></div><iframe id="mobile-map-3d-frame" title="SDRCC 3D Map Lab" tabindex="0" loading="lazy" src="about:blank"></iframe></div><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="system">🖥️<br>System</button></nav><script>
+</main><div id="mobile-map-3d-view" class="mobile-map-3d-view" hidden role="dialog" aria-modal="true" aria-label="3D Marine Traffic map. Swipe down from the top edge or use Android Back to return to Marine controls."><div id="mobile-map-dismiss-edge" aria-hidden="true"></div><iframe id="mobile-map-3d-frame" title="SDRCC 3D Map Lab" tabindex="0" loading="lazy" src="about:blank"></iframe></div><nav class="tabs" aria-label="Mobiele navigatie"><button data-tab="marine" aria-selected="true">🚢<br>Marine</button><button data-tab="adsb">✈️<br>ADS-B</button><button data-tab="sat">🛰️<br>Sat</button><button data-tab="missions">⏻<br>Missions</button><button data-tab="intelligence">🧠<br>Intelligence</button><button data-tab="system">🖥️<br>System</button></nav><script>
 const $=id=>document.getElementById(id);
 /* Device-local Marine panel arrangement. Visual flex order keeps AIS iframe mounted
    so dragging cards cannot reload the map or reset its view/ATIS highlight. */
@@ -760,7 +765,7 @@ window.setInterval(()=>{
 },15000);
 
 // Only affirmative server results can hide a feature; failures are fail-open.
-const MOBILE_TABS=["marine","adsb","sat","missions","system"];
+const MOBILE_TABS=["marine","adsb","sat","missions","intelligence","system"];
 const LAST_MOBILE_TAB_KEY="sdrcc-mobile-selected-tab";
 function readLastMobileTab(){
   try{
@@ -773,6 +778,22 @@ function rememberMobileTab(tab){
 }
 let selectedMobileTab=readLastMobileTab(),mobileCapabilitySnapshot=null,mobileCapabilityBusy=false;
 const mobileTabButtons=[...document.querySelectorAll("[data-tab]")];
+const intelligenceFrame=$("mobile-intelligence-frame");
+function syncMobileIntelligence(){
+  const active=selectedMobileTab==="intelligence";
+  if(active&&intelligenceFrame.getAttribute("src")==="about:blank"){
+    intelligenceFrame.src="/?mobile_intelligence=1";return;
+  }
+  try{
+    const frameWindow=intelligenceFrame.contentWindow;
+    const page=frameWindow?.document.getElementById("tab-intelligence");
+    if(!page)return;
+    if(page.classList.contains("active")===active)return;
+    page.classList.toggle("active",active);
+    frameWindow.dispatchEvent(new frameWindow.CustomEvent("sdrcc:tab-changed",{detail:{tab:active?"intelligence":"mobile-other"}}));
+  }catch(_){/* A transient navigation must not interrupt the mobile controls. */}
+}
+intelligenceFrame.addEventListener("load",syncMobileIntelligence);
 function isMobileFeatureAvailable(name){
   return mobileCapabilitySnapshot?.components?.[name]?.available!==false;
 }
@@ -785,10 +806,11 @@ function selectMobileTab(tab,fromTap=false){
   $("mobile-scene-title").textContent={
     marine:"Mobile · Marine Traffic",adsb:"Mobile · ADS-B",
     sat:"Mobile · Satellites",missions:"Mobile · Missions",
-    system:"Mobile · System"
+    intelligence:"Mobile · Intelligence",system:"Mobile · System"
   }[tab];
   document.querySelectorAll("main section").forEach(section=>{section.hidden=section.id!==tab});
   mobileTabButtons.forEach(button=>button.setAttribute("aria-selected",String(button.dataset.tab===tab)));
+  syncMobileIntelligence();
   // A phone can be scrolled far down a map or recording list: always show the
   // heading when its user explicitly selects another tab. Never scroll on poll.
   if(fromTap&&changed)window.scrollTo(0,0);

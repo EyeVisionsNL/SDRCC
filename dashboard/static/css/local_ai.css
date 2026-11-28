@@ -236,3 +236,42 @@
 #tab-intelligence #local-ai-rf-title { box-sizing:border-box; width:100%; min-width:0; min-height:32px; padding:6px 8px; border:1px solid #334b63; border-radius:6px; color:#e2e8f0; background:#07111f; font:inherit; }
 #tab-intelligence #local-ai-rf-select { max-width:100%; min-width:0; }
 #tab-intelligence #local-ai-rf-tools .ai-memory-toolbar .ai-field { min-width:0; }
+
+/* Intelligence navigation: SDRCC-style accent borders, compact desktop row. */
+#tab-intelligence .ai-subnav { gap: 6px; padding: 3px 2px 5px; }
+#tab-intelligence .ai-subnav .control-button { --ai-tab-accent:#38bdf8; min-height:33px; padding:5px 11px; border:2px solid color-mix(in srgb,var(--ai-tab-accent) 45%,#23364b); border-radius:8px; font-weight:600; }
+#tab-intelligence .ai-subnav [data-ai-view="station_health"],
+#tab-intelligence .ai-subnav [data-ai-view="anomaly_detection"],
+#tab-intelligence .ai-subnav [data-ai-view="station_memory"] { --ai-tab-accent:#a78bfa; }
+#tab-intelligence .ai-subnav [data-ai-view="maritime"] { --ai-tab-accent:#2dd4bf; }
+#tab-intelligence .ai-subnav [data-ai-view="aviation"] { --ai-tab-accent:#60a5fa; }
+#tab-intelligence .ai-subnav [data-ai-view="reception_performance"],
+#tab-intelligence .ai-subnav [data-ai-view="rf_optimization"] { --ai-tab-accent:#fbbf24; }
+#tab-intelligence .ai-subnav [data-ai-view="mission_analyst"],
+#tab-intelligence .ai-subnav [data-ai-view="mission_advisor"] { --ai-tab-accent:#86efac; }
+#tab-intelligence .ai-subnav [data-ai-view="daily_briefing"] { --ai-tab-accent:#c4b5fd; }
+#tab-intelligence .ai-subnav .control-button.ai-secondary:not(:disabled) { background:linear-gradient(180deg,color-mix(in srgb,var(--ai-tab-accent) 13%,#142238),#111d2e); border-color:color-mix(in srgb,var(--ai-tab-accent) 52%,#23364b); color:#e2e8f0; }
+#tab-intelligence .ai-subnav .control-button.ai-secondary:hover:not(:disabled) { border-color:var(--ai-tab-accent); background:color-mix(in srgb,var(--ai-tab-accent) 21%,#142238); }
+#tab-intelligence .ai-subnav .control-button.ai-secondary[aria-pressed="true"] { border-color:var(--ai-tab-accent); color:#fff; background:linear-gradient(180deg,color-mix(in srgb,var(--ai-tab-accent) 34%,#132238),color-mix(in srgb,var(--ai-tab-accent) 17%,#0b1424)); box-shadow:inset 0 2px 0 var(--ai-tab-accent),0 0 8px color-mix(in srgb,var(--ai-tab-accent) 25%,transparent); }
+#tab-intelligence .ai-card { border-color:color-mix(in srgb,var(--ai-accent) 48%,var(--ai-border)); }
+#tab-intelligence .ai-answer-panel { border-color:#326482; background:linear-gradient(145deg,#102338,#081321 75%); }
+#tab-intelligence .ai-observer-workspace > :last-child { border-color:#6557a0; background:linear-gradient(145deg,#201d38,#0b1424 70%); }
+#tab-intelligence .ai-observer-workspace > :last-child h4 { color:#c4b5fd; }
+#tab-intelligence .ai-observer-grid .ai-metric { border-color:#33506b; border-left:3px solid #60a5fa; background:linear-gradient(145deg,#15273b,#0b1424); }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="ok"] { border-left-color:#22c55e; }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="ok"] strong { color:#86efac; }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="attention"] { border-left-color:#f59e0b; }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="attention"] strong { color:#fcd34d; }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="unknown"] { border-left-color:#94a3b8; }
+#tab-intelligence .ai-observer-grid .ai-metric[data-state="unknown"] strong { color:#cbd5e1; }
+.mobile-intelligence-embed { min-width:0; margin:0; padding:0; }
+.mobile-intelligence-embed #tab-intelligence .ai-page { padding:5px; }
+.mobile-intelligence-embed #tab-intelligence .ai-subnav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; }
+.mobile-intelligence-embed #tab-intelligence .ai-subnav .control-button { min-height:42px; padding:6px; white-space:normal; overflow-wrap:anywhere; }
+.mobile-intelligence-embed #tab-intelligence .ai-subnav [data-ai-view="ask"] { grid-column:1/-1; }
+.mobile-intelligence-embed #tab-intelligence .ai-workspace,
+.mobile-intelligence-embed #tab-intelligence .ai-observer-workspace { grid-template-columns:1fr; }
+.mobile-intelligence-embed #tab-intelligence .ai-observer-data { max-height:none; }
+.mobile-intelligence-embed #tab-intelligence .ai-actions,
+.mobile-intelligence-embed #tab-intelligence .ai-observer-actions { width:100%; }
+.mobile-intelligence-embed #tab-intelligence .ai-observer-actions .ai-field { min-width:0; max-width:100%; }

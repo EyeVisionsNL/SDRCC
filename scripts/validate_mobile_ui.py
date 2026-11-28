@@ -54,6 +54,16 @@ def validate() -> None:
     ):
         require(marker in html, f"Existing Mobile feature disappeared: {marker}")
 
+    # Intelligence uses the existing server-rendered AI page, not a second AI engine.
+    require('data-tab="intelligence"' in html and 'id="mobile-intelligence-frame"' in html
+            and 'intelligenceFrame.src="/?mobile_intelligence=1"' in script
+            and 'syncMobileIntelligence();' in script
+            and 'body[data-mobile-tab="intelligence"]' in html,
+            "Mobile Intelligence navigation missing")
+    template = (ROOT / "dashboard/templates/index.html").read_text(encoding="utf-8")
+    require("request.args.get('mobile_intelligence') == '1'" in template
+            and 'class="mobile-intelligence-embed"' in template,
+            "Mobile Intelligence must reuse desktop template")
     # 3D opens from Mobile without replacing the 2D AIS iframe or live audio.
     require('id="mobile-map-2d"' in html and
             'id="mobile-map-3d"' in html and
