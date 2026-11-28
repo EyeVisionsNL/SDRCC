@@ -1716,7 +1716,12 @@
             </div>
             <p id="local-ai-install-error" role="status" aria-live="polite"></p>
         </section>
-        <div class="ai-workspace">
+        <nav class="ai-subnav" aria-label="Intelligence views">
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="ask" aria-pressed="true">Ask AI</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="station_health" aria-pressed="false">Station Health</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="maritime" aria-pressed="false">Maritime Intelligence</button>
+        </nav>
+        <div class="ai-workspace" id="local-ai-ask-view">
             <section class="ai-card ai-chat" aria-labelledby="local-ai-chat-title">
                 <div class="ai-heading">
                     <h3 id="local-ai-chat-title">Ask SDRCC</h3>
@@ -1789,6 +1794,34 @@
                 <p class="ai-note">Optional AI · Thinking off · Reception always has priority. No live data or receiver controls.</p>
             </section>
         </div>
+        <section class="ai-card ai-observer" id="local-ai-inspect-view" hidden aria-labelledby="local-ai-inspect-title">
+            <div class="ai-heading">
+                <h3 id="local-ai-inspect-title">Station Health</h3>
+                <div class="ai-observer-actions">
+                    <label class="ai-field" id="local-ai-radius-field" hidden><span>Radius from Home Position</span>
+                        <select id="local-ai-radius"><option value="10">10 km</option><option value="25" selected>25 km</option><option value="50">50 km</option><option value="100">100 km</option></select>
+                    </label>
+                    <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-inspect-refresh">Refresh</button>
+                    <button type="button" class="control-button ai-primary" data-local-ai-control id="local-ai-inspect-analyze">Analyze with AI</button>
+                </div>
+            </div>
+            <p class="ai-subtitle" id="local-ai-inspect-status" role="status" aria-live="polite">Read-only observations.</p>
+            <div class="ai-observer-grid" id="local-ai-inspect-metrics"></div>
+            <div class="ai-observer-workspace">
+                <div class="ai-answer-panel">
+                    <div class="ai-answer-heading"><h4 id="local-ai-inspect-data-title">Observed data</h4></div>
+                    <div class="ai-observer-data" id="local-ai-inspect-data" tabindex="0"></div>
+                </div>
+                <div class="ai-answer-panel">
+                    <div class="ai-answer-heading"><h4>AI Assessment</h4></div>
+                    <label class="ai-field" for="local-ai-inspect-question"><span>Optional question (your own language)</span>
+                        <textarea rows="2" maxlength="1000" id="local-ai-inspect-question" placeholder="Ask about these observations..."></textarea>
+                    </label>
+                    <div class="ai-observer-data" id="local-ai-inspect-answer" role="status" aria-live="polite" tabindex="0"></div>
+                </div>
+            </div>
+            <p class="ai-note">Observations only · No service actions, receiver control or automatic repairs.</p>
+        </section>
     </div>
 </section>
 <script defer src="{{ url_for('static', filename='js/local_ai.js') }}?v={{ asset_version }}"></script>
