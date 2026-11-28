@@ -152,7 +152,7 @@ def reception_runtime(label, state):
     if label == "AIS":
         data, _ = receiver_monitor._read_ais_ships()
         rows = receiver_monitor._extract_list(data, ("ships", "vessels", "targets", "data"))
-        valid = isinstance(data, list) or isinstance(data, dict) and any(isinstance(data.get(k), list) for k in ("ships", "vessels", "targets", "data"))
+        valid = isinstance(data, list) or isinstance(data, dict) and (any(isinstance(data.get(k), (list, dict)) for k in ("ships", "vessels", "targets", "data")) or bool(rows))
         return {"status": "ok" if valid else "attention", "feed_targets_unfiltered": len(rows) if valid else None,
                 "scope": "AIS feed reachable; count is not a validated live vessel count"}
     metrics = receiver_monitor.get_adsb_metrics(True)
@@ -184,7 +184,7 @@ def snapshot(root, *, now=None):
             findings.append(label + " service or decoder output requires attention")
     if usb["status"] == "attention":
         findings.append("USB identity missing or ambiguous")
-    if db["status"] != "ok" or db["latest_sample_stale"]:
+    if db["status"] != "ok" or db.get("latest_sample_stale"):
         findings.append("Reception history missing, stale or unreadable")
     for key, value, threshold, lower in (
         ("Available RAM", res["available_ram_gib"], 2, True),
