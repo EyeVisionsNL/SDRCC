@@ -64,6 +64,17 @@ def validate() -> None:
     require("request.args.get('mobile_intelligence') == '1'" in template
             and 'class="mobile-intelligence-embed"' in template,
             "Mobile Intelligence must reuse desktop template")
+    # Mobile and desktop must use exactly the same current Intelligence panorama.
+    banner_css = (ROOT / "dashboard/static/css/banner_scenes.css").read_text(encoding="utf-8")
+    desktop_scene = re.search(r'\.topbar\[data-banner-scene="intelligence"\]\s*\{\s*--banner-image:url\([\x27"]([^\x27"]+)[\x27"]\)', banner_css)
+    mobile_scene = re.search(r'body\[data-mobile-tab="intelligence"\]\{[^}]*--mobile-scene:url\("([^"]+)"\)', html)
+    require(desktop_scene is not None and mobile_scene is not None
+            and desktop_scene.group(1) == mobile_scene.group(1),
+            "Mobile Intelligence panorama must match desktop")
+    banner = ROOT / ("dashboard" + desktop_scene.group(1))
+    require(banner.is_file() and sha256(banner.read_bytes()).hexdigest()
+            in manifest.get(banner.relative_to(ROOT).as_posix(), []),
+            "Intelligence panorama missing or not approved in update manifest")
     # Flask is available in the Local AI CI job. Validate both rendered variants
     # there without starting SDRCC or requiring receivers. The standalone Mobile
     # UI workflow also runs the static checks without a Flask dependency.
