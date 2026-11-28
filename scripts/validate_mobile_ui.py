@@ -75,6 +75,18 @@ def validate() -> None:
     require(banner.is_file() and sha256(banner.read_bytes()).hexdigest()
             in manifest.get(banner.relative_to(ROOT).as_posix(), []),
             "Intelligence panorama missing or not approved in update manifest")
+    # Preserve the desktop/mobile source artwork and its aspect ratio.
+    require(re.search(r'\.topbar\[data-banner-scene="intelligence"\] \.topbar-visuals\s*\{\s*background-size:auto 138%;\s*background-position:right top;', banner_css) is not None,
+            "Desktop Intelligence UFO framing missing")
+    require('body[data-mobile-tab="intelligence"] .mobile-brand-banner{background-position:center,right top;background-size:cover,auto 138%}' in html,
+            "Mobile Intelligence UFO framing missing")
+    # The image is 1280x208, with the UFO centered at x=1024. With right
+    # alignment, increasing the image height moves that point left without
+    # changing aspect ratio or opening a gap on the right.
+    for width, height in ((360, 68), (390, 68), (1649, 160)):
+        before = width - (1280 - 1024) * height / 208
+        after = width - (1280 - 1024) * height * 1.38 / 208
+        require(0 < after < before < width, "UFO should move inward")
     # Flask is available in the Local AI CI job. Validate both rendered variants
     # there without starting SDRCC or requiring receivers. The standalone Mobile
     # UI workflow also runs the static checks without a Flask dependency.

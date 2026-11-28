@@ -75,6 +75,9 @@ body[data-mobile-tab="intelligence"]{--mobile-accent:#c4b5fd;--mobile-line:#7164
 .tabs button{min-width:0}
 @media(max-width:420px){.tabs button[data-tab="intelligence"]{font-size:10px}}
 .mobile-brand-banner,body[data-mobile-tab] .mobile-brand-banner{background-color:#0a2440;background-image:linear-gradient(90deg,rgba(3,18,35,.83) 0%,rgba(4,19,38,.69) 30%,rgba(3,18,36,.24) 63%,rgba(3,18,36,.04) 100%),var(--mobile-scene);background-position:center,right center;background-size:cover,auto 100%}
+/* Intelligence only: move the UFO inward, preserve aspect ratio and retain the shoreline. */
+body[data-mobile-tab="intelligence"] .mobile-brand-banner{background-position:center,right top;background-size:cover,auto 138%}
+
 .mobile-brand-copy strong{color:#fff;text-shadow:0 1px 5px #071221,0 0 14px #071221}
 .mobile-brand-copy .mobile-brand-subtitle{text-shadow:0 1px 5px #071221}
 .tabs{background:linear-gradient(180deg,#10243c,#0b1c31);border-top-color:#324c68}

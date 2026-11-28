@@ -67,3 +67,15 @@
 
 /* Intelligence uses the same complete-panorama layout as the other tab scenes. */
 .topbar[data-banner-scene="intelligence"] { --banner-image:url('/static/assets/banners/intelligence-night-panorama.webp'); }
+/* The UFO sits at 80% of the source image. A slightly taller, right-aligned
+   crop moves it inward while keeping its proportions and the right edge filled. */
+.topbar[data-banner-scene="intelligence"] .topbar-visuals {
+    background-size:auto 138%;
+    background-position:right top;
+}
+@media(max-width:760px) {
+    .topbar[data-banner-scene="intelligence"] .topbar-visuals {
+        background-size:auto 120%;
+    }
+}
+
