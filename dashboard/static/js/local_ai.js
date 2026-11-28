@@ -8,6 +8,33 @@
   const remove = by("local-ai-remove"), send = by("local-ai-send");
   const question = by("local-ai-question"), answer = by("local-ai-answer");
   const page = by("tab-intelligence");
+  const period = by("local-ai-period"), evidence = by("local-ai-evidence");
+  const evidenceText = by("local-ai-evidence-text");
+  function showEvidence(data) {
+    evidence.hidden = !data;
+    evidenceText.textContent = "";
+    if (!data) return;
+    const display = v => v == null ? "Unavailable" : String(v);
+    const lines = [
+      data.source + " · " + data.period,
+      data.window_start_utc + " → " + data.window_end_utc,
+      "Station-wide; sampled simultaneous targets, not unique totals."
+    ];
+    if (data.samples != null) {
+      lines.push("Samples: " + data.samples + " / " + data.expected_samples + " nominal · " + data.coverage_pct + "% coverage",
+        "First: " + display(data.first_sample_utc) + " · Last: " + display(data.last_sample_utc));
+    }
+    if (data.status !== "ok") lines.push(data.reason || data.status);
+    else for (const [key, label] of [["ais", "AIS"], ["adsb", "ADS-B"]]) {
+      const row = data[key];
+      lines.push("", label + " · Active samples: " + display(row.active_samples) + " · Inactive: " + display(row.inactive_samples) + " · Unknown: " + display(row.unknown_activity_samples));
+      for (const [field, name] of [["targets", "Targets"], ["rate", "Messages/sec"], ["range_nm", "Range (NM)"]]) {
+        const metric = row[field];
+        lines.push(name + ": mean " + display(metric.mean) + " · peak " + display(metric.peak) + " · valid samples " + metric.valid_samples);
+      }
+    }
+    evidenceText.textContent = lines.join("\n");
+  }
   const transfer = by("local-ai-transfer"), progress = by("local-ai-progress");
   const transferText = by("local-ai-transfer-text"), cancel = by("local-ai-cancel");
   const installError = by("local-ai-install-error");
@@ -21,7 +48,11 @@
     const res = await fetch("/api/local-ai/" + path, body === undefined
       ? {cache: "no-store"} : {method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)});
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Local AI request failed.");
+    if (!res.ok) {
+      const error = new Error(data.error || "Local AI request failed.");
+      error.evidence = data.evidence;
+      throw error;
+    }
     return data;
   }
   function render() {
@@ -32,7 +63,7 @@
     install.disabled = busy || !!s?.installed;
     toggle.disabled = busy || !s?.installed;
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
-    question.disabled = send.disabled = busy || !s?.enabled || !s?.installed;
+    question.disabled = send.disabled = period.disabled = busy || !s?.enabled || !s?.installed;
     toggle.textContent = s?.enabled ? "Disable Local AI" : "Enable Local AI";
     threads.disabled = tokens.disabled = memory.disabled = save.disabled = busy || !s?.installed;
     chatProgress.textContent = chatting ? (s?.progress || "Loading model...") : "";
@@ -101,9 +132,13 @@
   send.addEventListener("click", async () => {
     const q = question.value.trim();
     if (!q || pending || send.disabled) return;
-    epoch++; pending = true; chatting = true; answer.textContent = ""; render(); schedule();
-    try { answer.textContent = (await api("chat", {question: q})).answer; }
-    catch (err) { answer.textContent = err.message; }
+    epoch++; pending = true; chatting = true; answer.textContent = ""; showEvidence(null); render(); schedule();
+    try {
+      const data = await api("chat", {question: q, reception_period: period.value});
+      answer.textContent = data.answer;
+      showEvidence(data.evidence);
+    }
+    catch (err) { answer.textContent = err.message; showEvidence(err.evidence); }
     finally { epoch++; pending = false; chatting = false; clearTimeout(timer); render(); await refresh(); }
   });
   threads.addEventListener("change", () => { dirty = true; });
