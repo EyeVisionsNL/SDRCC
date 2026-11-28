@@ -225,3 +225,7 @@
     #tab-intelligence .ai-subnav { min-width:0; max-width:100%; flex-wrap:nowrap; overflow-x:auto; padding-bottom:3px; scrollbar-width:thin; }
     #tab-intelligence .ai-subnav .control-button { flex:0 0 auto; }
 }
+
+/* Keep all Intelligence views on one navigation row at desktop sizes too. */
+#tab-intelligence .ai-subnav { min-width:0; max-width:100%; flex-wrap:nowrap; overflow-x:auto; padding-bottom:3px; scrollbar-width:thin; }
+#tab-intelligence .ai-subnav .control-button { flex:0 0 auto; }
