@@ -96,6 +96,66 @@ def validate() -> None:
             "#connection{grid-column:1;grid-row:2;" in html and
             ".mobile-brand-banner .mobile-brand-copy{grid-column:2;grid-row:1 / 3;" in html,
             "Connection indicator must sit below the radar, not over the artwork")
+    # Real browser check: render the composed SVG into a canvas and verify
+    # that both UFO regions change while the dish and shoreline remain intact.
+    # Also check actual header geometry on phone-width viewports.
+    import shutil
+    chrome = next((p for n in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser") if (p := shutil.which(n))), None)
+    if chrome:
+        mobile_css = re.search(r"<style>([\s\S]*?)</style>", html).group(1)
+        header = re.search(r'<header class="mobile-brand-banner"[\s\S]*?</header>', html).group(0)
+        def data_url(file, mime):
+            return "data:" + mime + ";base64," + base64.b64encode(file.read_bytes()).decode("ascii")
+        artwork = [data_url(source, "image/webp"), data_url(banner, "image/svg+xml")]
+        fixture_js = r"""
+(async () => {
+  const assert=(v,m)=>{if(!v)throw Error(m)};
+  const load=src=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error("Banner image failed to load"));im.src=src});
+  try {
+    const images=await Promise.all(ART.map(load));
+    const canvas=document.createElement("canvas");canvas.width=1280;canvas.height=208;
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    const pixels=images.map(im=>{ctx.clearRect(0,0,1280,208);ctx.drawImage(im,0,0);return ctx.getImageData(0,0,1280,208).data});
+    function changed(x0,y0,x1,y1){
+      let count=0;
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+        const i=(y*1280+x)*4;
+        if(Math.max(...[0,1,2,3].map(k=>Math.abs(pixels[0][i+k]-pixels[1][i+k])))>18)count++;
+      }
+      return count;
+    }
+    assert(changed(1000,8,1110,65)>200,"Original UFO position not changed");
+    assert(changed(820,25,920,80)>200,"New UFO position not visible");
+    assert(changed(1135,70,1250,208)===0,"Dish/shoreline pixels changed");
+    for(const width of [320,360,390,600]){
+      const frame=document.createElement("iframe");frame.width=width;frame.height=140;
+      const ready=new Promise(resolve=>frame.onload=resolve);
+      frame.srcdoc=HEADER;document.body.append(frame);await ready;
+      const d=frame.contentDocument;
+      d.body.dataset.mobileTab="marine";
+      const radar=d.querySelector(".mobile-radar"),badge=d.getElementById("connection"),copy=d.querySelector(".mobile-brand-copy");
+      for(const state of ["● ONLINE","○ OFFLINE","◌ CONNECTING…"]){
+        badge.textContent=state;
+        const r=radar.getBoundingClientRect(),b=badge.getBoundingClientRect(),c=copy.getBoundingClientRect();
+        assert(b.top>=r.bottom-1,"Badge overlaps radar at "+width);
+        assert(Math.abs((b.left+b.right-r.left-r.right)/2)<2,"Badge not centered under radar at "+width);
+        assert(b.right<c.left,"Badge overlaps brand text at "+width);
+        assert(d.documentElement.scrollWidth<=width,"Horizontal overflow at "+width);
+      }
+      frame.remove();
+    }
+    document.body.dataset.bannerResult="PASS";
+  }catch(e){document.body.dataset.bannerResult="FAIL";document.body.dataset.bannerError=e.message}
+})();
+"""
+        with tempfile.TemporaryDirectory() as temp:
+            fixture = Path(temp) / "banner.html"
+            header_doc = '<!doctype html><html><head><meta charset="utf-8"><style>' + mobile_css + '</style></head><body>' + header + '</body></html>'
+            fixture.write_text('<!doctype html><html><head><meta charset="utf-8"></head><body><script>const ART=' + json.dumps(artwork) + ';const HEADER=' + json.dumps(header_doc) + ';' + fixture_js + '</script></body></html>', encoding="utf-8")
+            run = subprocess.run([chrome,"--headless","--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--no-first-run","--virtual-time-budget=8000","--dump-dom",fixture.as_uri()], capture_output=True, text=True, timeout=30)
+            result = re.search(r"<body[^>]*>",run.stdout)
+            require(run.returncode == 0 and result is not None and 'data-banner-result="PASS"' in result.group(0),
+                    "Banner browser check: " + (result.group(0) if result else run.stderr[-1000:]))
     # Flask is available in the Local AI CI job. Validate both rendered variants
     # there without starting SDRCC or requiring receivers. The standalone Mobile
     # UI workflow also runs the static checks without a Flask dependency.
