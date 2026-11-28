@@ -50,6 +50,13 @@ try {
     assert(document.documentElement.scrollWidth <= innerWidth + 2, "Horizontal overflow");
     source.querySelector("summary").click();
     assert(source.open, "Evidence cannot be expanded");
+    const observer = by("local-ai-inspect-view");
+    assert(observer.hidden && getComputedStyle(observer).display === "none", "Observer must not enlarge Ask AI");
+    assert(ai.querySelectorAll("[data-ai-view]").length === 3, "Missing Intelligence subviews");
+    by("local-ai-ask-view").hidden = true;
+    observer.hidden = false;
+    assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Observer answer starts too low");
+    assert(document.documentElement.scrollWidth <= innerWidth + 2, "Observer horizontal overflow");
     document.body.dataset.result = "PASS";
 } catch (error) {
     document.body.dataset.result = "FAIL";

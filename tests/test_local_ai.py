@@ -199,6 +199,24 @@ class LocalAI(unittest.TestCase):
         with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True), patch.object(ai,"preflight"), patch.object(ai,"binary",return_value=self.assets/"llama-server"), patch.object(ai.subprocess,"Popen",return_value=proc), patch.object(ai,"local_request",side_effect=request):
             self.assertEqual(ai.infer("AIS targets?", evidence=evidence),"OK")
 
+    def test_observer_api_read_only_and_optional_inference(self):
+        from core import local_ai_health, local_ai_maritime
+        health = {"kind":"station_health", "status":"partial"}
+        with patch.object(local_ai_health,"snapshot",return_value=health) as observe, patch.object(ai,"infer",return_value="assessment") as infer:
+            self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"station_health"}).status_code,503)
+            observe.assert_not_called()
+            with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True):
+                result=self.client.post("/api/local-ai/inspect",json={"kind":"station_health"})
+                self.assertEqual(result.get_json(),{"evidence":health})
+                infer.assert_not_called()
+                result=self.client.post("/api/local-ai/inspect",json={"kind":"station_health","question":"check"})
+                self.assertEqual(result.get_json(),{"evidence":health,"answer":"assessment"})
+                infer.assert_called_once_with("check",evidence=health)
+        self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"maritime","radius_km":999}).status_code,400)
+        self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"other"}).status_code,400)
+        self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"station_health"},headers={"Origin":"https://foreign.example"}).status_code,403)
+        self.assertFalse(ai.LOCK.locked())
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
