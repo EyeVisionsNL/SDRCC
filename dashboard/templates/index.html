@@ -1722,6 +1722,8 @@
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="maritime" aria-pressed="false">Maritime Intelligence</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="reception_performance" aria-pressed="false">Reception Performance</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_analyst" aria-pressed="false">Mission Analyst</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="aviation" aria-pressed="false">Aviation Intelligence</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="station_memory" aria-pressed="false">Station Memory</button>
         </nav>
         <div class="ai-workspace" id="local-ai-ask-view">
             <section class="ai-card ai-chat" aria-labelledby="local-ai-chat-title">
@@ -1801,7 +1803,7 @@
                 <h3 id="local-ai-inspect-title">Station Health</h3>
                 <div class="ai-observer-actions">
                     <label class="ai-field" id="local-ai-radius-field" hidden><span>Radius from Home Position</span>
-                        <select id="local-ai-radius"><option value="10">10 km</option><option value="25" selected>25 km</option><option value="50">50 km</option><option value="100">100 km</option></select>
+                        <select id="local-ai-radius"><option value="10">10 km</option><option value="25" selected>25 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="200" id="local-ai-radius-200" hidden disabled>200 km</option></select>
                     </label>
                     <label class="ai-field" id="local-ai-mission-period-field" hidden><span>Mission history</span>
                         <select id="local-ai-mission-period"><option value="all" selected>All retained missions</option><option value="30d">Last 30 days</option><option value="7d">Last 7 days</option></select>
@@ -1815,6 +1817,29 @@
             <div class="ai-observer-workspace">
                 <div class="ai-answer-panel">
                     <div class="ai-answer-heading"><h4 id="local-ai-inspect-data-title">Observed data</h4></div>
+                    <div id="local-ai-memory-tools" hidden>
+                        <div class="ai-memory-toolbar">
+                            <label class="ai-field"><span>Search memory</span><input id="local-ai-memory-query" maxlength="100" placeholder="USB, antenna, gain..."></label>
+                            <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-memory-search">Search</button>
+                            <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-memory-import">Import recent logs</button>
+                        </div>
+                        <details id="local-ai-memory-form">
+                            <summary>Add technical note</summary>
+                            <div class="ai-memory-fields">
+                                <label class="ai-field"><span>Category</span><select id="local-ai-memory-kind"><option value="incident">Incident</option><option value="hardware">Hardware</option><option value="configuration">Configuration</option><option value="note">Note</option></select></label>
+                                <label class="ai-field"><span>Title</span><input id="local-ai-memory-title" maxlength="100"></label>
+                                <label class="ai-field ai-memory-wide"><span>Details</span><textarea id="local-ai-memory-details" maxlength="500" rows="2"></textarea></label>
+                                <label class="ai-field ai-memory-wide"><span>Outcome / recovery</span><textarea id="local-ai-memory-outcome" maxlength="300" rows="2"></textarea></label>
+                            </div>
+                            <button type="button" class="control-button ai-primary" data-local-ai-control id="local-ai-memory-add">Save note</button>
+                        </details>
+                        <div class="ai-memory-toolbar">
+                            <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-memory-prev" disabled>Previous</button>
+                            <span id="local-ai-memory-page">Page 1</span>
+                            <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-memory-next" disabled>Next</button>
+                            <span class="ai-subtitle" id="local-ai-memory-result" role="status"></span>
+                        </div>
+                    </div>
                     <div class="ai-observer-data" id="local-ai-inspect-data" tabindex="0"></div>
                 </div>
                 <div class="ai-answer-panel">
@@ -1825,7 +1850,7 @@
                     <div class="ai-observer-data" id="local-ai-inspect-answer" role="status" aria-live="polite" tabindex="0"></div>
                 </div>
             </div>
-            <p class="ai-note">Observations only · No service actions, receiver control or automatic repairs.</p>
+            <p class="ai-note">AI is advisory only · Station Memory writes only on explicit operator actions · No receiver control or automatic repairs.</p>
         </section>
     </div>
 </section>

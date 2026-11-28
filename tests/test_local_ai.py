@@ -231,6 +231,29 @@ class LocalAI(unittest.TestCase):
             self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"mission_analyst","mission_period":"invalid"}).status_code,400)
         self.assertFalse(ai.LOCK.locked())
 
+    def test_aviation_and_memory_routes(self):
+        from core import local_ai_aviation, local_ai_memory
+        evidence={"kind":"station_memory","entries":[]}
+        with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True), patch.object(local_ai_aviation,"snapshot",return_value={"kind":"aviation"}) as aviation, patch.object(local_ai_memory,"snapshot",return_value=evidence) as memory, patch.object(local_ai_memory,"add") as add, patch.object(local_ai_memory,"delete") as delete, patch.object(local_ai_memory,"import_events",return_value={"added":2}) as importer, patch.object(ai,"infer",return_value="answer") as infer:
+            response=self.client.post("/api/local-ai/inspect",json={"kind":"aviation","radius_km":200})
+            self.assertEqual(response.get_json()["evidence"]["kind"],"aviation")
+            aviation.assert_called_once_with(ai.ROOT,200)
+            self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"aviation","radius_km":300}).status_code,400)
+            response=self.client.post("/api/local-ai/inspect",json={"kind":"station_memory","memory_query":"USB","memory_page":2,"question":"summarize"})
+            self.assertEqual(response.get_json(),{"answer":"answer","evidence":evidence})
+            memory.assert_called_once_with(ai.ROOT,"USB",2)
+            infer.assert_called_once_with("summarize",evidence=local_ai_memory.model_evidence(evidence))
+            add.assert_not_called()
+            delete.assert_not_called()
+            importer.assert_not_called()
+            self.assertEqual(self.client.post("/api/local-ai/memory",json={"action":"add","entry_kind":"note","title":"test"}).status_code,200)
+            add.assert_called_once()
+            self.assertEqual(self.client.post("/api/local-ai/memory",json={"action":"delete","id":1}).status_code,200)
+            delete.assert_called_once_with(ai.ROOT,1)
+            self.assertEqual(self.client.post("/api/local-ai/memory",json={"action":"import"}).get_json()["added"],2)
+            self.assertEqual(self.client.post("/api/local-ai/memory",json={"action":"import"},headers={"Origin":"https://foreign.example"}).status_code,403)
+        self.assertFalse(ai.LOCK.locked())
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
