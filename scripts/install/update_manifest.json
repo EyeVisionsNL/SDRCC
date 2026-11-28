@@ -1980,7 +1980,8 @@
   ],
   "dashboard/static/css/local_ai.css": [
     "d76994c9dbbff638c7c4ccb3ab78a561e83e1ee335b255642c5b9c914eb0482d",
-    "985e8f890f5a613bf304d44eee13f558a5584ca3cec6c277d3534f422974ed30"
+    "985e8f890f5a613bf304d44eee13f558a5584ca3cec6c277d3534f422974ed30",
+    "450b92dbf33ac85e5d455f03e056021e2b550a52c08a09c521b0c4396d38040b"
   ],
   "scripts/validate_local_ai_layout.py": [
     "3c6d5c32acf99d9ba12660650f309b69e76d917adc24b6c2ceb511467e9b9b21",
