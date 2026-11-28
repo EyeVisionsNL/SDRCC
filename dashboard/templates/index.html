@@ -109,7 +109,7 @@
 {% if features.satellite %}    <button class="tab-button" data-tab="images">🛰️ Mission Operations</button>{% endif %}
 {% if features.satellite %}    <button class="tab-button" data-tab="history">🗂 Mission History</button>{% endif %}
 {% if features.satellite %}    <button class="tab-button" data-tab="mission-analytics">📊 Mission Analytics</button>{% endif %}
-    <button class="tab-button" data-tab="intelligence">🧠 Intelligence</button>
+    <button class="tab-button" data-tab="intelligence">🧠 Intelligence <span id="local-ai-anomaly-count" class="ai-alert-count" hidden></span></button>
     <button class="tab-button" data-tab="reception-analytics">📈 Reception Analytics</button>
     <button class="tab-button" data-tab="logs">📜 Logs</button>
 </nav>
@@ -1724,6 +1724,7 @@
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_analyst" aria-pressed="false">Mission Analyst</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="aviation" aria-pressed="false">Aviation Intelligence</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="station_memory" aria-pressed="false">Station Memory</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="anomaly_detection" aria-pressed="false">Anomaly Detection</button>
         </nav>
         <div class="ai-workspace" id="local-ai-ask-view">
             <section class="ai-card ai-chat" aria-labelledby="local-ai-chat-title">
@@ -1812,6 +1813,12 @@
                     <button type="button" class="control-button ai-primary" data-local-ai-control id="local-ai-inspect-analyze">Analyze with AI</button>
                 </div>
             </div>
+            <div class="ai-anomaly-settings" id="local-ai-anomaly-settings" hidden>
+                <label><input type="checkbox" id="local-ai-anomaly-enabled"> Monitor every minute</label>
+                <label><input type="checkbox" id="local-ai-anomaly-mqtt"> MQTT technical alerts</label>
+                <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-anomaly-save">Save</button>
+                <span class="ai-subtitle">MQTT uses existing Emergency Monitor broker, separate topic.</span>
+            </div>
             <p class="ai-subtitle" id="local-ai-inspect-status" role="status" aria-live="polite">Read-only observations.</p>
             <div class="ai-observer-grid" id="local-ai-inspect-metrics"></div>
             <div class="ai-observer-workspace">
@@ -1850,7 +1857,7 @@
                     <div class="ai-observer-data" id="local-ai-inspect-answer" role="status" aria-live="polite" tabindex="0"></div>
                 </div>
             </div>
-            <p class="ai-note">AI is advisory only · Station Memory writes only on explicit operator actions · No receiver control or automatic repairs.</p>
+            <p class="ai-note">AI is advisory only · Station Memory stores operator notes and enabled anomaly transitions · No receiver control or automatic repairs.</p>
         </section>
     </div>
 </section>
