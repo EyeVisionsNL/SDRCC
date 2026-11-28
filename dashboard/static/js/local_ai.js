@@ -24,6 +24,7 @@
       lines.push("Samples: " + data.samples + " / " + data.expected_samples + " nominal · " + data.coverage_pct + "% coverage",
         "First: " + display(data.first_sample_utc) + " · Last: " + display(data.last_sample_utc));
     }
+    if (data.latest_sample_stale) lines.push("Latest sample is older than 3 minutes; no live status inferred.");
     if (data.status !== "ok") lines.push(data.reason || data.status);
     else for (const [key, label] of [["ais", "AIS"], ["adsb", "ADS-B"]]) {
       const row = data[key];
