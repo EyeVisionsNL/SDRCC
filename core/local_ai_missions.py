@@ -12,7 +12,7 @@ MAX_BYTES = 8 * 1024 * 1024
 MAX_RECORDS = 500
 MAX_GROUPS = 8
 COMPLETED = {"SUCCESS", "NO IMAGES", "NO SYNC", "NO SIGNAL", "FAILED"}
-PERIODS = {"all": None, "30d": 30*86400, "7d": 7*86400}
+PERIODS = {"all": None, "30d": 30*86400, "7d": 7*86400, "24h": 86400}
 
 
 def numeric(value, low, high):
