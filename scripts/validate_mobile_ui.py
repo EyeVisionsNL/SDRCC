@@ -75,18 +75,27 @@ def validate() -> None:
     require(banner.is_file() and sha256(banner.read_bytes()).hexdigest()
             in manifest.get(banner.relative_to(ROOT).as_posix(), []),
             "Intelligence panorama missing or not approved in update manifest")
-    # Preserve the desktop/mobile source artwork and its aspect ratio.
-    require(re.search(r'\.topbar\[data-banner-scene="intelligence"\] \.topbar-visuals\s*\{\s*background-size:auto 138%;\s*background-position:right top;', banner_css) is not None,
-            "Desktop Intelligence UFO framing missing")
-    require('body[data-mobile-tab="intelligence"] .mobile-brand-banner{background-position:center,right top;background-size:cover,auto 138%}' in html,
-            "Mobile Intelligence UFO framing missing")
-    # The image is 1280x208, with the UFO centered at x=1024. With right
-    # alignment, increasing the image height moves that point left without
-    # changing aspect ratio or opening a gap on the right.
-    for width, height in ((360, 68), (390, 68), (1649, 160)):
-        before = width - (1280 - 1024) * height / 208
-        after = width - (1280 - 1024) * height * 1.38 / 208
-        require(0 < after < before < width, "UFO should move inward")
+    # The same original artwork is composited on both surfaces; keep the dish
+    # stationary and relocate only the UFO. Verify the embedded source hash.
+    import base64
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(banner.read_text(encoding="utf-8"))
+    ns = {"svg": "http://www.w3.org/2000/svg"}
+    require(root.attrib.get("viewBox") == "0 0 1280 208", "Intelligence panorama geometry changed")
+    image = root.find(".//svg:image", ns)
+    embedded = image.attrib["{http://www.w3.org/1999/xlink}href"].split(",", 1)[1]
+    source = ROOT / "dashboard/static/assets/banners/intelligence-night-panorama.webp"
+    require(base64.b64decode(embedded, validate=True) == source.read_bytes(), "Original artwork changed")
+    require(any(g.attrib.get("transform") == "translate(-120 20)" for g in root.findall("svg:g", ns)),
+            "UFO should move left and down independently of the dish")
+    polish = (ROOT / "dashboard/static/css/dashboard_polish.css").read_text(encoding="utf-8")
+    require("background-image: var(--banner-image)" in polish and
+            '.topbar[data-banner-scene="intelligence"] .topbar-visuals::before' in polish,
+            "Desktop must render the actual panorama layer")
+    require(".mobile-brand-banner .mobile-radar{grid-column:1;grid-row:1;" in html and
+            "#connection{grid-column:1;grid-row:2;" in html and
+            ".mobile-brand-banner .mobile-brand-copy{grid-column:2;grid-row:1 / 3;" in html,
+            "Connection indicator must sit below the radar, not over the artwork")
     # Flask is available in the Local AI CI job. Validate both rendered variants
     # there without starting SDRCC or requiring receivers. The standalone Mobile
     # UI workflow also runs the static checks without a Flask dependency.

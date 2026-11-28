@@ -70,13 +70,18 @@ body[data-mobile-tab="adsb"]{--mobile-accent:#38bdf8;--mobile-line:#316c98;--mob
 body[data-mobile-tab="sat"]{--mobile-accent:#c4b5fd;--mobile-line:#6c51a0;--mobile-halo:rgba(167,139,250,.19)}
 body[data-mobile-tab="missions"]{--mobile-accent:#86efac;--mobile-line:#35785e;--mobile-halo:rgba(74,222,128,.15)}
 body[data-mobile-tab="system"]{--mobile-accent:#7dd3fc;--mobile-line:#386d92;--mobile-halo:rgba(56,189,248,.14)}
-body[data-mobile-tab="intelligence"]{--mobile-accent:#c4b5fd;--mobile-line:#7164a5;--mobile-halo:rgba(167,139,250,.22);--mobile-scene:url("/static/assets/banners/intelligence-night-panorama.webp")}
+body[data-mobile-tab="intelligence"]{--mobile-accent:#c4b5fd;--mobile-line:#7164a5;--mobile-halo:rgba(167,139,250,.22);--mobile-scene:url("/static/assets/banners/intelligence-night-composed.svg")}
 #mobile-intelligence-frame{display:block;width:100%;height:calc(100vh - 160px);height:calc(100dvh - 160px);min-height:360px;border:1px solid #6557a0;border-radius:9px;background:#0f172a}
 .tabs button{min-width:0}
 @media(max-width:420px){.tabs button[data-tab="intelligence"]{font-size:10px}}
 .mobile-brand-banner,body[data-mobile-tab] .mobile-brand-banner{background-color:#0a2440;background-image:linear-gradient(90deg,rgba(3,18,35,.83) 0%,rgba(4,19,38,.69) 30%,rgba(3,18,36,.24) 63%,rgba(3,18,36,.04) 100%),var(--mobile-scene);background-position:center,right center;background-size:cover,auto 100%}
-/* Intelligence only: move the UFO inward, preserve aspect ratio and retain the shoreline. */
-body[data-mobile-tab="intelligence"] .mobile-brand-banner{background-position:center,right top;background-size:cover,auto 138%}
+/* Reserve the left column for radar and connection state; no badge over the artwork. */
+body .mobile-brand-banner,body[data-mobile-tab] .mobile-brand-banner{display:grid;grid-template-columns:60px minmax(0,1fr);grid-template-rows:auto auto;column-gap:9px;row-gap:2px;min-height:84px;padding:5px 10px 6px;align-items:center;background-position:center,right center;background-size:cover,auto 100%}
+.mobile-brand-banner .mobile-radar{grid-column:1;grid-row:1;justify-self:center;width:39px;height:39px}
+.mobile-brand-banner .mobile-brand-copy{grid-column:2;grid-row:1 / 3;align-self:center}
+body .mobile-brand-banner #connection,body[data-mobile-tab] .mobile-brand-banner #connection{grid-column:1;grid-row:2;justify-self:center;width:100%;max-width:60px;padding:2px 1px;font-size:8px;letter-spacing:0;line-height:1.1;border-radius:5px;overflow-wrap:anywhere}
+@media(max-width:365px){body .mobile-brand-banner,body[data-mobile-tab] .mobile-brand-banner{grid-template-columns:55px minmax(0,1fr);column-gap:7px;padding-inline:8px}.mobile-brand-banner .mobile-radar{width:36px;height:36px}}
+
 
 .mobile-brand-copy strong{color:#fff;text-shadow:0 1px 5px #071221,0 0 14px #071221}
 .mobile-brand-copy .mobile-brand-subtitle{text-shadow:0 1px 5px #071221}
