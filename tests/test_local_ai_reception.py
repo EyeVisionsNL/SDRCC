@@ -59,6 +59,13 @@ class ReceptionEvidence(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(set(p.name for p in self.path.parent.iterdir()), {self.path.name})
 
+    def test_stale_history_is_not_live_status(self):
+        self.create()
+        r = reception.read_evidence(self.root,"24h",now=self.now+3600)
+        self.assertTrue(r["latest_sample_stale"])
+        self.assertEqual(r["status"],"ok")
+        self.assertEqual(r["latest_sample_age_seconds"],3599)
+
     def test_legacy_schema_ais_is_not_invented_or_migrated(self):
         self.create(legacy=True)
         before = self.path.read_bytes()
