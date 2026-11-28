@@ -101,6 +101,15 @@ body .mobile-brand-banner #connection,body[data-mobile-tab] .mobile-brand-banner
     background-image:linear-gradient(90deg,#07172a 0%,rgba(7,23,42,.88) 24%,rgba(7,23,42,.38) 46%,transparent 65%),linear-gradient(180deg,#07172a 0%,rgba(7,23,42,.45) 8%,transparent 28%),var(--mobile-scene);
   }
 }
+/* Wide Mobile Intelligence: a seamless extended scene, with a larger UFO.
+   Leave portrait and the desktop dashboard on their existing compositions. */
+@media(min-width:601px) and (orientation:landscape){
+  body[data-mobile-tab="intelligence"] .mobile-brand-banner{
+    background-image:linear-gradient(90deg,rgba(3,18,35,.83) 0%,rgba(4,19,38,.69) 30%,rgba(3,18,36,.24) 63%,rgba(3,18,36,.04) 100%),url("/static/assets/banners/intelligence-night-mobile-landscape.svg");
+    background-size:cover,auto 100%;
+    background-position:center,right center;
+  }
+}
 .mobile-brand-copy strong{color:#fff;text-shadow:0 1px 5px #071221,0 0 14px #071221}
 .mobile-brand-copy .mobile-brand-subtitle{text-shadow:0 1px 5px #071221}
 .tabs{background:linear-gradient(180deg,#10243c,#0b1c31);border-top-color:#324c68}

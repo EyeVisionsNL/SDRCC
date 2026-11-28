@@ -95,9 +95,10 @@ def validate() -> None:
     require(re.search(r'\.topbar\[data-banner-scene="intelligence"\] \.topbar-visuals::before\s*\{\s*background-size: auto 100%;\s*background-position: right center;', polish),
             "Desktop Intelligence panorama must meet the right edge without SVG letterboxing")
     desktop_art = ROOT / "dashboard/static/assets/banners/intelligence-night-desktop.svg"
+    landscape_art = ROOT / "dashboard/static/assets/banners/intelligence-night-mobile-landscape.svg"
     satellite_art = ROOT / "dashboard/static/assets/banners/satellite-mobile.svg"
     satellite_source = ROOT / "dashboard/static/assets/banners/satellite-panorama.webp"
-    for asset in (desktop_art, satellite_art):
+    for asset in (desktop_art, satellite_art, landscape_art):
         require(asset.is_file() and sha256(asset.read_bytes()).hexdigest() in manifest.get(asset.relative_to(ROOT).as_posix(), []),
                 f"Missing approved composed banner: {asset.name}")
     require('background-image: url("/static/assets/banners/intelligence-night-desktop.svg");' in polish,
@@ -106,6 +107,18 @@ def validate() -> None:
     require(desktop_root.attrib.get("viewBox") == "-512 0 1792 208" and
             desktop_root.find(".//svg:mask[@id='desktopExtension']", ns) is not None,
             "Desktop panorama extension or intrinsic fade missing")
+    landscape_root = ET.fromstring(landscape_art.read_text(encoding="utf-8"))
+    require(landscape_root.attrib.get("viewBox") == "-512 0 1792 208" and
+            landscape_root.find(".//svg:mask[@id='desktopExtension']", ns) is not None,
+            "Mobile landscape must use the extended, feathered panorama")
+    landscape_image = landscape_root.find(".//svg:image", ns)
+    require(base64.b64decode(landscape_image.attrib["{http://www.w3.org/1999/xlink}href"].split(",", 1)[1], validate=True) == source.read_bytes(),
+            "Mobile landscape must retain original artwork")
+    require(any(g.attrib.get("transform") == "translate(-670 10) scale(1.5)" for g in landscape_root.findall("svg:g", ns)),
+            "Mobile landscape UFO must be enlarged independently")
+    require('@media(min-width:601px) and (orientation:landscape)' in html and
+            'url("/static/assets/banners/intelligence-night-mobile-landscape.svg")' in html,
+            "Mobile landscape-specific artwork rule missing")
     satellite_root = ET.fromstring(satellite_art.read_text(encoding="utf-8"))
     require(satellite_root.attrib.get("viewBox") == "0 0 2172 360",
             "Mobile satellite must include extra vertical sky")
@@ -128,7 +141,7 @@ def validate() -> None:
             return "data:" + mime + ";base64," + base64.b64encode(file.read_bytes()).decode("ascii")
         artwork = [data_url(source, "image/webp"), data_url(banner, "image/svg+xml"),
                    data_url(desktop_art, "image/svg+xml"), data_url(satellite_source, "image/webp"),
-                   data_url(satellite_art, "image/svg+xml")]
+                   data_url(satellite_art, "image/svg+xml"), data_url(landscape_art, "image/svg+xml")]
         fixture_js = r"""
 (async () => {
   const assert=(v,m)=>{if(!v)throw Error(m)};
@@ -157,6 +170,19 @@ def validate() -> None:
     assert(delta===0,"Desktop extension changed the existing UFO/dish composition");
     assert(ctx.getImageData(0,100,1,1).data[3]<=2,"Desktop left edge is not transparent");
     assert(ctx.getImageData(510,100,1,1).data[3]>=250,"Desktop extension does not join the panorama");
+    const desktopPixels=ctx.getImageData(0,0,1792,208).data;
+    ctx.clearRect(0,0,1792,208);ctx.drawImage(images[5],0,0);
+    const landscapePixels=ctx.getImageData(0,0,1792,208).data;
+    let ufoDelta=0,dishDelta=0;
+    for(let y=0;y<208;y++)for(let x=0;x<1792;x++){
+      const i=(y*1792+x)*4;
+      const changed=[0,1,2,3].some(k=>Math.abs(desktopPixels[i+k]-landscapePixels[i+k])>2);
+      if(changed&&x>=512+700&&x<512+1050&&y<125)ufoDelta++;
+      if(changed&&(x>=512+1135||y>=140))dishDelta++;
+    }
+    assert(ufoDelta>200,"Mobile landscape UFO not enlarged");
+    assert(dishDelta===0,"Mobile landscape dish or shoreline changed");
+    assert(ctx.getImageData(0,100,1,1).data[3]<=2,"Mobile landscape fade missing");
     canvas.width=2172;canvas.height=242;ctx.drawImage(images[3],0,0);
     const satOriginal=ctx.getImageData(0,20,2172,222).data;
     canvas.width=2172;canvas.height=360;ctx.drawImage(images[4],0,0);
@@ -215,6 +241,20 @@ def validate() -> None:
       }
       d.body.dataset.mobileTab="intelligence";
       assert(w.getComputedStyle(header).backgroundSize==="cover, auto 100%","Mobile UFO changed");
+      frame.remove();
+    }
+    for(const [width,height,landscape] of [[601,360,true],[760,360,true],[900,400,true],[1200,600,true],[760,1000,false]]){
+      const frame=document.createElement("iframe");frame.width=width;frame.height=height;
+      const ready=new Promise(resolve=>frame.onload=resolve);
+      frame.srcdoc=HEADER;document.body.append(frame);await ready;
+      const d=frame.contentDocument,w=frame.contentWindow,header=d.querySelector(".mobile-brand-banner");
+      d.body.dataset.mobileTab="intelligence";
+      const style=w.getComputedStyle(header);
+      assert(style.backgroundImage.includes(landscape?"intelligence-night-mobile-landscape.svg":"intelligence-night-composed.svg"),"Wrong Intelligence artwork at "+width+"x"+height);
+      assert(style.backgroundSize==="cover, auto 100%","Wrong Intelligence artwork sizing");
+      assert(header.getBoundingClientRect().height>=84,"Intelligence banner height changed");
+      d.body.dataset.mobileTab="adsb";
+      assert(w.getComputedStyle(header).backgroundImage.includes("aviation-panorama.webp"),"ADS-B banner changed");
       frame.remove();
     }
     document.body.dataset.bannerResult="PASS";
