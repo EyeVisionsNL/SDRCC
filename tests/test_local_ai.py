@@ -254,6 +254,28 @@ class LocalAI(unittest.TestCase):
             self.assertEqual(self.client.post("/api/local-ai/memory",json={"action":"import"},headers={"Origin":"https://foreign.example"}).status_code,403)
         self.assertFalse(ai.LOCK.locked())
 
+    def test_anomaly_read_and_settings_api(self):
+        from core import local_ai_anomaly
+        from unittest.mock import Mock
+        evidence={"kind":"anomaly_detection","enabled":True,"status":"monitoring","active":[{"rule":"ram"}]}
+        monitor=Mock()
+        monitor.snapshot.return_value=evidence
+        monitor.configure.return_value=evidence
+        with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True), patch.object(local_ai_anomaly,"instance",return_value=monitor), patch.object(ai,"infer",return_value="assessment") as infer:
+            response=self.client.get("/api/local-ai/anomaly-status")
+            self.assertEqual(response.get_json()["active_count"],1)
+            response=self.client.post("/api/local-ai/inspect",json={"kind":"anomaly_detection"})
+            self.assertEqual(response.get_json()["evidence"],evidence)
+            infer.assert_not_called()
+            response=self.client.post("/api/local-ai/inspect",json={"kind":"anomaly_detection","question":"check"})
+            self.assertEqual(response.get_json()["answer"],"assessment")
+            infer.assert_called_once_with("check",evidence=evidence)
+            monitor.configure.assert_not_called()
+            self.assertEqual(self.client.post("/api/local-ai/anomaly-settings",json={"enabled":"yes","mqtt":False}).status_code,400)
+            self.assertEqual(self.client.post("/api/local-ai/anomaly-settings",json={"enabled":True,"mqtt":True},headers={"Origin":"https://foreign.example"}).status_code,403)
+            self.assertEqual(self.client.post("/api/local-ai/anomaly-settings",json={"enabled":False,"mqtt":False}).status_code,200)
+            monitor.configure.assert_called_once_with(False,False)
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
