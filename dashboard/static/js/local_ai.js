@@ -51,15 +51,30 @@
   const inspectQuestion = by("local-ai-inspect-question"), inspectAnswer = by("local-ai-inspect-answer");
   const inspectMetrics = by("local-ai-inspect-metrics"), inspectData = by("local-ai-inspect-data");
   const radius = by("local-ai-radius"), missionPeriod = by("local-ai-mission-period");
-  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst"};
+  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory"};
   const defaultQuestions = {
     station_health:"Assess station health, explain any findings and recommend safe checks.",
     maritime:"Summarize the observed maritime traffic and ATIS activity. Explain limitations.",
     reception_performance:"Compare AIS and ADS-B reception with the preceding seven days. Explain changes, coverage and safe checks without claiming a cause.",
-    mission_analyst:"Summarize mission results, compare satellites and receivers cautiously, and suggest improvements based on the available measurements."
+    mission_analyst:"Summarize mission results, compare satellites and receivers cautiously, and suggest improvements based on the available measurements.",
+    aviation:"Summarize current aggregate aviation observations, altitude distribution and reception limits.",
+    station_memory:"Summarize the selected technical notes and log classifications. Identify reported successful recoveries and unresolved issues without inventing causes."
   };
   const tabs = Array.from(page.querySelectorAll("[data-ai-view]"));
   let view = "ask", inspecting = false;
+  const memoryTools = by("local-ai-memory-tools"), memoryQuery = by("local-ai-memory-query");
+  const memorySearch = by("local-ai-memory-search"), memoryImport = by("local-ai-memory-import");
+  const memoryAdd = by("local-ai-memory-add"), memoryPrev = by("local-ai-memory-prev"), memoryNext = by("local-ai-memory-next");
+  const memoryKind = by("local-ai-memory-kind"), memoryTitle = by("local-ai-memory-title"), memoryDetails = by("local-ai-memory-details"), memoryOutcome = by("local-ai-memory-outcome");
+  const memoryResult = by("local-ai-memory-result");
+  let memoryPage = 1, memoryFilter = "", memoryMatched = 0;
+  function renderMemoryControls(busy) {
+    for (const el of [memoryQuery,memorySearch,memoryImport,memoryAdd,memoryKind,memoryTitle,memoryDetails,memoryOutcome]) el.disabled = busy;
+    memoryPrev.disabled = busy || memoryPage <= 1;
+    memoryNext.disabled = busy || memoryPage*10 >= memoryMatched;
+    for (const el of inspectData.querySelectorAll("[data-memory-delete]")) el.disabled = busy;
+    by("local-ai-memory-page").textContent = "Page " + memoryPage + " / " + Math.max(1,Math.ceil(memoryMatched/10));
+  }
   const display = value => value == null ? "Unavailable" : String(value);
   const numberUnit = (value, unit) => value == null ? "Unavailable" : value + " " + unit;
   function metric(label, value, state = "unknown") {
@@ -145,11 +160,84 @@
     note("Measurements available: SNR "+m.snr_samples+" · images "+m.image_samples+" · frames "+m.frame_samples+" · quality "+m.quality_samples+" · Mean duration "+numberUnit(m.duration_mean_s,"s"));
     note(data.scope);
   }
+  function distribution(title, counts) {
+    const block = document.createElement("section"); block.className = "ai-compare-group";
+    const heading = document.createElement("strong"); heading.textContent = title; block.append(heading);
+    const max = Math.max(1,...Object.values(counts));
+    for (const [label,count] of Object.entries(counts)) {
+      const row = document.createElement("div"); row.className = "ai-distribution-row";
+      const name = document.createElement("span"); name.textContent = label;
+      const track = document.createElement("div"); track.className = "ai-compare-track";
+      const bar = document.createElement("div"); bar.className = "ai-compare-bar"; bar.style.width = (100*count/max)+"%";
+      const n = document.createElement("span"); n.textContent = count;
+      track.append(bar); row.append(name,track,n); block.append(row);
+    }
+    inspectData.append(block);
+  }
+  function renderAviation(data) {
+    metric("Radius",numberUnit(data.radius_km,"km"));
+    metric("Positioned aircraft",data.aircraft,data.status==="ok"?"ok":"unknown");
+    metric("Rotorcraft",data.helicopters);
+    metric("Ground aircraft",data.ground_aircraft);
+    metric("Mean altitude",numberUnit(data.altitude_mean_ft,"ft"));
+    metric("Max range",numberUnit(data.max_range_nm,"NM"));
+    if (data.status!=="ok") { note(data.reason || "Aviation data unavailable."); return; }
+    distribution("Altitude distribution · excluding reported ground",data.altitude_bands);
+    distribution("Reported / inferred aircraft category",data.categories);
+    note("Mean speed: "+numberUnit(data.speed_mean_knots,"kn")+" · altitude samples: "+data.altitude_samples+" · speed samples: "+data.speed_samples);
+    note("Station message rate: "+numberUnit(data.message_rate_station,"msg/s")+" · excluded surface targets: "+data.surface_targets_excluded);
+    note(data.scope);
+  }
+  function renderMemory(data) {
+    memoryMatched=data.matched ?? 0;
+    metric("Stored entries",data.total);
+    metric("Incidents / log entries",data.counts.incident ?? 0);
+    metric("Hardware changes",data.counts.hardware ?? 0);
+    metric("Configuration",data.counts.configuration ?? 0);
+    metric("Notes",data.counts.note ?? 0);
+    metric("Search matches",data.matched);
+    if (data.reason) note(data.reason);
+    else if (!data.entries.length) note("No entries on this page. Add a technical note or import recent logs.");
+    for (const entry of data.entries) {
+      const card=document.createElement("article"); card.className="ai-memory-entry";
+      const head=document.createElement("div"); head.className="ai-memory-entry-head";
+      const title=document.createElement("strong"); title.textContent=entry.title;
+      const del=document.createElement("button"); del.type="button"; del.className="control-button ai-danger"; del.textContent="Delete"; del.setAttribute("data-local-ai-control",""); del.dataset.memoryDelete=String(entry.id);
+      del.addEventListener("click",()=>{if(confirm("Delete this station memory entry? Imported entries may reappear if the original log is imported again.")) memoryAction({action:"delete",id:entry.id});});
+      head.append(title,del);
+      const meta=document.createElement("div"); meta.className="ai-subtitle"; meta.textContent=entry.kind+" · "+entry.source+" · "+new Date(entry.created_utc).toLocaleString();
+      const body=document.createElement("div"); body.textContent=entry.details;
+      const outcome=document.createElement("div"); outcome.className="ai-memory-outcome"; outcome.textContent=entry.outcome ? "Outcome: "+entry.outcome : "";
+      card.append(head,meta,body,outcome); inspectData.append(card);
+    }
+    note(data.scope+" AI sees at most the first six entries on this page, with shortened details/outcomes.");
+  }
+  async function memoryAction(body) {
+    if(view!=="station_memory" || pending || !snapshot?.enabled || !snapshot?.installed || snapshot.busy) return;
+    epoch++; pending=true; render(); memoryResult.textContent="Working...";
+    let changed=false;
+    try {
+      const data=await api("memory",body);
+      changed=true;
+      if(body.action==="add"){
+        memoryTitle.value=memoryDetails.value=memoryOutcome.value="";
+        by("local-ai-memory-form").open=false;
+        memoryFilter=memoryQuery.value=""; memoryPage=1;
+        memoryResult.textContent="Note saved.";
+      } else if(body.action==="import"){
+        memoryPage=1; memoryFilter=memoryQuery.value="";
+        memoryResult.textContent="Imported "+data.added+" of "+data.matched+" matching log entries. "+Object.entries(data.sources).map(([k,v])=>k+": "+v).join(" · ")+(data.truncated?" · Limited":"");
+      } else { memoryPage=1; memoryResult.textContent="Entry deleted."; }
+    } catch(err){memoryResult.textContent=err.message;}
+    finally{epoch++; pending=false; render(); if(changed) await inspect(); else schedule();}
+  }
   function renderObservation(data) {
     inspectMetrics.replaceChildren(); inspectData.textContent = "";
     if (!data) return;
     const lines = [];
     inspectStatus.textContent = "Observed " + data.observed_utc + " · " + (data.status || "Read-only snapshot");
+    if (data.kind === "aviation") { renderAviation(data); return; }
+    if (data.kind === "station_memory") { renderMemory(data); return; }
     if (data.kind === "reception_performance") { renderPerformance(data); return; }
     if (data.kind === "mission_analyst") { renderMissions(data); return; }
     if (data.kind === "station_health") {
@@ -195,7 +283,7 @@
   async function inspect(analyze = false) {
     if (view === "ask" || pending || !snapshot?.enabled || !snapshot?.installed || snapshot.busy) return;
     const kind = view;
-    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value};
+    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value, memory_query:memoryFilter, memory_page:memoryPage};
     if (analyze) body.question = inspectQuestion.value.trim() || defaultQuestions[kind];
     epoch++; pending = true; inspecting = true; chatting = analyze; render(); schedule();
     inspectStatus.textContent = analyze ? "Collecting observations and analyzing..." : "Collecting observations...";
@@ -217,7 +305,10 @@
     view = next;
     by("local-ai-ask-view").hidden = next !== "ask";
     inspectView.hidden = next === "ask";
-    by("local-ai-radius-field").hidden = next !== "maritime";
+    by("local-ai-radius-field").hidden = next !== "maritime" && next !== "aviation";
+    const radius200=by("local-ai-radius-200"); radius200.hidden=radius200.disabled=next!=="aviation";
+    if(next==="maritime" && radius.value==="200") radius.value="100";
+    memoryTools.hidden=next!=="station_memory";
     by("local-ai-mission-period-field").hidden = next !== "mission_analyst";
     by("local-ai-inspect-title").textContent = viewNames[next] || "Station Health";
     tabs.forEach(t => t.setAttribute("aria-pressed", String(t.dataset.aiView === next)));
@@ -230,6 +321,12 @@
   inspectAnalyze.addEventListener("click", () => inspect(true));
   radius.addEventListener("change", () => inspect());
   missionPeriod.addEventListener("change", () => inspect());
+  memorySearch.addEventListener("click",()=>{memoryFilter=memoryQuery.value.trim();memoryPage=1;inspect();});
+  memoryQuery.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();memorySearch.click();}});
+  memoryPrev.addEventListener("click",()=>{if(memoryPage>1){memoryPage--;inspect();}});
+  memoryNext.addEventListener("click",()=>{if(memoryPage*10<memoryMatched){memoryPage++;inspect();}});
+  memoryImport.addEventListener("click",()=>{if(confirm("Import classified receiver errors and recovery messages from the visible recent logs? Raw log content is not saved.")) memoryAction({action:"import"});});
+  memoryAdd.addEventListener("click",()=>memoryAction({action:"add",entry_kind:memoryKind.value,title:memoryTitle.value,details:memoryDetails.value,outcome:memoryOutcome.value}));
   async function api(path, body) {
     const res = await fetch("/api/local-ai/" + path, body === undefined
       ? {cache: "no-store"} : {method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)});
@@ -251,6 +348,7 @@
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
     question.disabled = send.disabled = period.disabled = busy || !s?.enabled || !s?.installed;
     inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = missionPeriod.disabled = busy || !s?.enabled || !s?.installed;
+    renderMemoryControls(busy || !s?.enabled || !s?.installed);
     tabs.forEach(t => { t.disabled = pending; });
     if (inspecting && chatting && s?.progress) inspectStatus.textContent = s.progress;
     toggle.textContent = s?.enabled ? "Disable Local AI" : "Enable Local AI";
