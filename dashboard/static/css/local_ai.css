@@ -171,3 +171,6 @@
 #tab-intelligence .ai-chat { padding-block: 9px; }
 #tab-intelligence .ai-subnav .control-button { min-height: 28px; padding-block: 4px; }
 #tab-intelligence .ai-query-toolbar { margin-block: 6px 8px; }
+
+/* On narrow screens, keep the AI assessment ahead of the detailed evidence. */
+@media(max-width:850px){#tab-intelligence .ai-observer-workspace > :last-child{order:-1}}
