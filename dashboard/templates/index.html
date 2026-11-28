@@ -1726,6 +1726,7 @@
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="station_memory" aria-pressed="false">Station Memory</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="anomaly_detection" aria-pressed="false">Anomaly Detection</button>
             <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="daily_briefing" aria-pressed="false">Daily Briefing</button>
+            <button type="button" class="control-button ai-secondary" data-local-ai-control data-ai-view="mission_advisor" aria-pressed="false">Mission Advisor</button>
         </nav>
         <div class="ai-workspace" id="local-ai-ask-view">
             <section class="ai-card ai-chat" aria-labelledby="local-ai-chat-title">
@@ -1812,6 +1813,9 @@
                     </label>
                     <label class="ai-field" id="local-ai-briefing-date-field" hidden><span>Briefing period (UTC)</span>
                         <select id="local-ai-briefing-date"><option value="rolling">Last 24 hours</option></select>
+                    </label>
+                    <label class="ai-field" id="local-ai-advisor-hours-field" hidden><span>Planning horizon</span>
+                        <select id="local-ai-advisor-hours"><option value="24">Next 24 hours</option><option value="48">Next 48 hours</option></select>
                     </label>
                     <button type="button" class="control-button ai-secondary" data-local-ai-control id="local-ai-inspect-refresh">Refresh</button>
                     <button type="button" class="control-button ai-primary" data-local-ai-control id="local-ai-inspect-analyze">Analyze with AI</button>
