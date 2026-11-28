@@ -67,11 +67,3 @@
 
 /* Intelligence uses the same complete-panorama layout as the other tab scenes. */
 .topbar[data-banner-scene="intelligence"] { --banner-image:url('/static/assets/banners/intelligence-night-panorama.webp'); }
-/* Match the overview panorama's 2172:296 aspect ratio while retaining the
-   complete Intelligence scene and the shared radar/brand overlay. */
-.topbar[data-banner-scene="intelligence"] .topbar-visuals {
-    background-size: min(100%, 1174px) 100%;
-}
-@media (max-width:760px) {
-    .topbar[data-banner-scene="intelligence"] .topbar-visuals { background-size:contain; }
-}

@@ -4,7 +4,7 @@ Local AI is optional. No model download, runtime, database or AI background task
 
 ## Intelligence
 
-Open the Intelligence tab (between Reception Analytics and Logs). All Local AI installation, removal and settings are managed there; Advanced Maintenance retains the ordinary SDRCC update controls.
+Open the Intelligence tab (before Reception Analytics, after Mission Analytics when satellites are installed). All Local AI installation, removal and settings are managed there; Advanced Maintenance retains the ordinary SDRCC update controls.
 
 - Install Local AI: downloads the verified CPU build of llama.cpp and Qwen3-4B Q4_K_M (~2.5 GB model).
 - Enable / Disable / Remove Local AI: removal affects only AI assets and settings.
