@@ -50,8 +50,8 @@
   const inspectRefresh = by("local-ai-inspect-refresh"), inspectAnalyze = by("local-ai-inspect-analyze");
   const inspectQuestion = by("local-ai-inspect-question"), inspectAnswer = by("local-ai-inspect-answer");
   const inspectMetrics = by("local-ai-inspect-metrics"), inspectData = by("local-ai-inspect-data");
-  const radius = by("local-ai-radius"), missionPeriod = by("local-ai-mission-period"), briefingDate = by("local-ai-briefing-date");
-  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory",anomaly_detection:"Anomaly Detection",daily_briefing:"Daily Briefing"};
+  const radius = by("local-ai-radius"), missionPeriod = by("local-ai-mission-period"), briefingDate = by("local-ai-briefing-date"), advisorHours = by("local-ai-advisor-hours");
+  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory",anomaly_detection:"Anomaly Detection",daily_briefing:"Daily Briefing",mission_advisor:"Mission Advisor"};
   const defaultQuestions = {
     station_health:"Assess station health, explain any findings and recommend safe checks.",
     maritime:"Summarize the observed maritime traffic and ATIS activity. Explain limitations.",
@@ -60,7 +60,8 @@
     aviation:"Summarize current aggregate aviation observations, altitude distribution and reception limits.",
     station_memory:"Summarize the selected technical notes and log classifications. Identify reported successful recoveries and unresolved issues without inventing causes.",
     anomaly_detection:"Explain current anomaly alerts, recent transitions, and safe diagnostic checks. Distinguish suspected problems from proven faults.",
-    daily_briefing:"Write a concise station briefing from these observations: AIS, ADS-B, ATIS, mission outcomes and retained technical alerts. Explain missing data and recommend any necessary checks."
+    daily_briefing:"Write a concise station briefing from these observations: AIS, ADS-B, ATIS, mission outcomes and retained technical alerts. Explain missing data and recommend any necessary checks.",
+    mission_advisor:"Explain which upcoming passages have promising geometry, historical evidence and any conflicts or receiver concerns. Do not guarantee reception or recommend changing scheduler settings."
   };
   const tabs = Array.from(page.querySelectorAll("[data-ai-view]"));
   let view = "ask", inspecting = false;
@@ -307,11 +308,37 @@
     note("Visible openings: "+display(alerts.opened)+" · clears: "+display(alerts.cleared)+" · "+alerts.scope);
     note(data.scope);
   }
+  function renderAdvisor(data) {
+    metric("Planning horizon",numberUnit(data.hours,"h"));
+    metric("Candidates",data.candidate_count);
+    metric("High elevation",data.high_elevation_count);
+    metric("Needs review",data.review_count,data.review_count>0?"attention":"unknown");
+    metric("Best geometry",numberUnit(data.best_geometry?.elevation,"°"));
+    metric("Scheduler",data.scheduler_mode);
+    if(!data.passes){note(data.reason||"Mission advice unavailable.");return;}
+    if(data.best_geometry){
+      const p=data.best_geometry;
+      note("Highest unflagged elevation: "+p.name+" · "+new Date(p.start_utc).toLocaleString()+" · "+p.elevation+"° · "+display(p.receiver)+" (geometry only)");
+    }
+    if(data.scheduler_mode!=="AUTO") note("Scheduler is not in AUTO; no automatic execution implied.");
+    detailTable("Upcoming predicted passes · local time",["Satellite / type","Start","Peak","Duration","Receiver","Assessment"],data.passes.map(p=>[
+      p.name+" / "+p.mission_type,new Date(p.start_utc).toLocaleString(),numberUnit(p.elevation,"°"),numberUnit(Math.round(p.duration_seconds/60),"min"),p.receiver,p.flags.length?p.flags.join("; "):p.assessment
+    ]));
+    detailTable("Matched historical observations · last 90 days",["Pass","Completed","Success","Mean peak SNR","SNR samples","Shared roles"],data.passes.map(p=>[
+      p.name+" · "+p.elevation+"°",p.history.completed,p.history.status==="observed"?numberUnit(p.history.success_pct,"%"):"Insufficient",numberUnit(p.history.mean_peak_snr_db,"dB"),p.history.snr_samples,p.shared_roles.join(", ")||"None observed"
+    ]));
+    if(data.omitted_passes) note(data.omitted_passes+" additional candidates omitted from the table.");
+    note("History: "+data.history_status+" · "+display(data.history_completed)+" retained completed missions before matching.");
+    note("TLE: "+Object.entries(data.tle||{}).map(([k,v])=>k+" "+(!v.valid?"invalid":v.stale?"stale":"current")+" ("+numberUnit(v.age_hours,"h")+")").join(" · "));
+    note(data.scope);
+    note("AI sees the first six displayed passes and best unflagged geometry only. No mission is started or altered.");
+  }
   function renderObservation(data) {
     inspectMetrics.replaceChildren(); inspectData.textContent = "";
     if (!data) return;
     const lines = [];
     inspectStatus.textContent = "Observed " + data.observed_utc + " · " + (data.status || "Read-only snapshot");
+    if (data.kind === "mission_advisor") { renderAdvisor(data); return; }
     if (data.kind === "daily_briefing") { renderBriefing(data); return; }
     if (data.kind === "anomaly_detection") { renderAnomaly(data); return; }
     if (data.kind === "aviation") { renderAviation(data); return; }
@@ -361,7 +388,7 @@
   async function inspect(analyze = false) {
     if (view === "ask" || pending || !snapshot?.enabled || !snapshot?.installed || snapshot.busy) return;
     const kind = view;
-    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value, memory_query:memoryFilter, memory_page:memoryPage, briefing_date:briefingDate.value};
+    const body = {kind, radius_km: Number(radius.value), mission_period: missionPeriod.value, memory_query:memoryFilter, memory_page:memoryPage, briefing_date:briefingDate.value, advisor_hours:Number(advisorHours.value)};
     if (analyze) body.question = inspectQuestion.value.trim() || defaultQuestions[kind];
     epoch++; pending = true; inspecting = true; chatting = analyze; render(); schedule();
     inspectStatus.textContent = analyze ? "Collecting observations and analyzing..." : "Collecting observations...";
@@ -389,6 +416,7 @@
     memoryTools.hidden=next!=="station_memory";
     anomalySettings.hidden=next!=="anomaly_detection";
     by("local-ai-briefing-date-field").hidden=next!=="daily_briefing";
+    by("local-ai-advisor-hours-field").hidden=next!=="mission_advisor";
     anomalyDirty=false;
     by("local-ai-mission-period-field").hidden = next !== "mission_analyst";
     by("local-ai-inspect-title").textContent = viewNames[next] || "Station Health";
@@ -403,6 +431,7 @@
   radius.addEventListener("change", () => inspect());
   missionPeriod.addEventListener("change", () => inspect());
   briefingDate.addEventListener("change", () => inspect());
+  advisorHours.addEventListener("change", () => inspect());
   memorySearch.addEventListener("click",()=>{memoryFilter=memoryQuery.value.trim();memoryPage=1;inspect();});
   memoryQuery.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();memorySearch.click();}});
   memoryPrev.addEventListener("click",()=>{if(memoryPage>1){memoryPage--;inspect();}});
@@ -429,7 +458,7 @@
     toggle.disabled = busy || !s?.installed;
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
     question.disabled = send.disabled = period.disabled = busy || !s?.enabled || !s?.installed;
-    inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = missionPeriod.disabled = briefingDate.disabled = busy || !s?.enabled || !s?.installed;
+    inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = missionPeriod.disabled = briefingDate.disabled = advisorHours.disabled = busy || !s?.enabled || !s?.installed;
     renderMemoryControls(busy || !s?.enabled || !s?.installed);
     anomalyEnabled.disabled=anomalyMqtt.disabled=anomalySave.disabled=busy || !s?.enabled || !s?.installed;
     tabs.forEach(t => { t.disabled = pending; });
