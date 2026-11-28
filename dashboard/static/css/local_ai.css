@@ -174,3 +174,21 @@
 
 /* On narrow screens, keep the AI assessment ahead of the detailed evidence. */
 @media(max-width:850px){#tab-intelligence .ai-observer-workspace > :last-child{order:-1}}
+
+/* Compact historical analysis: source tables and paired rate bars. */
+#tab-intelligence .ai-detail-table { margin: 6px 0 9px; white-space:normal; }
+#tab-intelligence .ai-detail-table h4 { font-size:.8rem; color:#7dd3fc; margin:0 0 4px; }
+#tab-intelligence .ai-table-scroll { overflow-x:auto; border:1px solid #26364b; border-radius:6px; }
+#tab-intelligence .ai-detail-table table { width:100%; border-collapse:collapse; font-size:.75rem; font-variant-numeric:tabular-nums; }
+#tab-intelligence .ai-detail-table th,#tab-intelligence .ai-detail-table td { padding:5px 6px; border-bottom:1px solid #26364b; text-align:right; white-space:nowrap; }
+#tab-intelligence .ai-detail-table th { color:#94a3b8; background:#142238; font-size:.7rem; font-weight:600; }
+#tab-intelligence .ai-detail-table th:first-child,#tab-intelligence .ai-detail-table td:first-child { text-align:left; }
+#tab-intelligence .ai-detail-table tr:last-child td { border-bottom:0; }
+#tab-intelligence .ai-detail-note { font-size:.74rem; color:#94a3b8; margin:6px 0; line-height:1.4; }
+#tab-intelligence .ai-compare-group { border:1px solid #26364b; border-radius:6px; padding:7px 9px; margin:4px 0 8px; }
+#tab-intelligence .ai-compare-group > strong { font-size:.8rem; color:#7dd3fc; }
+#tab-intelligence .ai-compare-row { display:grid; grid-template-columns:65px minmax(0,1fr) minmax(70px,auto); gap:8px; align-items:center; font-size:.72rem; margin:3px 0; }
+#tab-intelligence .ai-compare-row > span:last-child { text-align:right; font-variant-numeric:tabular-nums; }
+#tab-intelligence .ai-compare-track { height:7px; background:#1e293b; border-radius:3px; overflow:hidden; }
+#tab-intelligence .ai-compare-bar { height:100%; border-radius:3px; background:#38bdf8; }
+#tab-intelligence .ai-compare-bar.baseline { background:#a78bfa; }
