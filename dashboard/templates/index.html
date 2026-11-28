@@ -1699,7 +1699,7 @@
                 <p class="muted">Qwen3-4B · Local CPU inference · No cloud service</p></div>
             <span class="system-maintenance-warning-v0540f" id="local-ai-badge">OPTIONAL</span>
         </div>
-        <p class="muted">Optional component. Install only if wanted. Reception and SDRCC updates work without AI. This foundation release cannot yet access live reception or historical data.</p>
+        <p class="muted">Optional component. Install only if wanted. Reception and SDRCC updates work without AI. Read-only Reception Analytics history is available. Live reception and receiver controls are not accessible to AI.</p>
         <p id="local-ai-status" role="status" aria-live="polite">Open to check status.</p>
         <div id="local-ai-transfer" hidden>
             <progress id="local-ai-progress" max="100" aria-label="Local AI download progress" style="width:100%;height:18px;accent-color:#8b7cfb"></progress>
@@ -1743,9 +1743,24 @@
         <h3 id="local-ai-chat-title">Ask SDRCC</h3>
         <label for="local-ai-question">Ask Local AI in your own language</label>
         <textarea id="local-ai-question" rows="3" maxlength="2000" style="width:100%" disabled placeholder="Ask a question..."></textarea>
+        <div style="margin:8px 0">
+            <label for="local-ai-period">Reception history</label>
+            <select id="local-ai-period" disabled>
+                <option value="auto" selected>Auto (24h / 7d / 30d)</option>
+                <option value="24h">Last 24 hours</option>
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="none">No reception data</option>
+            </select>
+            <p class="muted">Station-wide samples only. Select a period if automatic detection does not match your question.</p>
+        </div>
         <button type="button" class="control-button" data-local-ai-control id="local-ai-send" disabled>Ask AI</button>
         <p id="local-ai-chat-progress" role="status" aria-live="polite"></p>
         <p id="local-ai-answer" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
+        <details id="local-ai-evidence" hidden open>
+            <summary>Reception Analytics · verified source data</summary>
+            <div id="local-ai-evidence-text" class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></div>
+        </details>
     </section>
 </section>
 <script defer src="{{ url_for('static', filename='js/local_ai.js') }}?v={{ asset_version }}"></script>
