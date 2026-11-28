@@ -5476,11 +5476,14 @@ def run():
     threading.Thread(target=receiver_hardware_worker, name="receiver-hardware", daemon=True).start()
     start_mission_autopilot()
     reception_analytics.start_worker()
-    from core import local_ai, local_ai_anomaly
+    from core import local_ai, local_ai_anomaly, local_ai_briefing
     local_ai_anomaly.start_worker(
         PROJECT_ROOT, lambda: local_ai.enabled() and local_ai.installed() and not UPDATE_SERVICE_STATE_FILE.exists()
     )
     atis_statistics.start_worker()
+    local_ai_briefing.start_worker(
+        PROJECT_ROOT, lambda: local_ai.enabled() and local_ai.installed() and not UPDATE_SERVICE_STATE_FILE.exists()
+    )
     emergency_monitor.sync_worker()
     app.run(
         host="0.0.0.0",
