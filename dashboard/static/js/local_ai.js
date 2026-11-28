@@ -191,10 +191,10 @@
   function renderMemory(data) {
     memoryMatched=data.matched ?? 0;
     metric("Stored entries",data.total);
-    metric("Incidents / log entries",data.counts.incident ?? 0);
-    metric("Hardware changes",data.counts.hardware ?? 0);
-    metric("Configuration",data.counts.configuration ?? 0);
-    metric("Notes",data.counts.note ?? 0);
+    metric("Incidents / log entries",data.total == null ? null : (data.counts.incident ?? 0));
+    metric("Hardware changes",data.total == null ? null : (data.counts.hardware ?? 0));
+    metric("Configuration",data.total == null ? null : (data.counts.configuration ?? 0));
+    metric("Notes",data.total == null ? null : (data.counts.note ?? 0));
     metric("Search matches",data.matched);
     if (data.reason) note(data.reason);
     else if (!data.entries.length) note("No entries on this page. Add a technical note or import recent logs.");
