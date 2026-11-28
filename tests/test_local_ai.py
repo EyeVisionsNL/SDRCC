@@ -290,6 +290,20 @@ class LocalAI(unittest.TestCase):
             self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"daily_briefing","briefing_date":"../invalid"}).status_code,400)
         self.assertFalse(ai.LOCK.locked())
 
+    def test_mission_advisor_api(self):
+        from core import local_ai_advisor
+        evidence={"kind":"mission_advisor","passes":[],"best_geometry":None}
+        with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True), patch.object(local_ai_advisor,"snapshot",return_value=evidence) as read, patch.object(ai,"infer",return_value="advice") as infer:
+            result=self.client.post("/api/local-ai/inspect",json={"kind":"mission_advisor","advisor_hours":48})
+            self.assertEqual(result.get_json()["evidence"],evidence)
+            read.assert_called_once_with(ai.ROOT,48)
+            infer.assert_not_called()
+            result=self.client.post("/api/local-ai/inspect",json={"kind":"mission_advisor","advisor_hours":48,"question":"compare"})
+            self.assertEqual(result.get_json()["answer"],"advice")
+            infer.assert_called_once_with("compare",evidence=local_ai_advisor.model_evidence(evidence))
+            self.assertEqual(self.client.post("/api/local-ai/inspect",json={"kind":"mission_advisor","advisor_hours":168}).status_code,400)
+        self.assertFalse(ai.LOCK.locked())
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
