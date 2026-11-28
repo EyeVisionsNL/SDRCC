@@ -64,6 +64,27 @@ def validate() -> None:
     require("request.args.get('mobile_intelligence') == '1'" in template
             and 'class="mobile-intelligence-embed"' in template,
             "Mobile Intelligence must reuse desktop template")
+    # Flask is available in the Local AI CI job. Validate both rendered variants
+    # there without starting SDRCC or requiring receivers. The standalone Mobile
+    # UI workflow also runs the static checks without a Flask dependency.
+    try:
+        from flask import Flask, render_template_string
+    except ImportError:
+        pass
+    else:
+        app = Flask(__name__)
+        for path, embedded in (("/", False), ("/?mobile_intelligence=1", True)):
+            with app.test_request_context(path):
+                rendered = render_template_string(template, features={}, asset_version="test")
+            require(rendered.count('id="tab-intelligence"') == 1 and
+                    rendered.count('data-ai-view=') == 11,
+                    "Both layouts must expose every Intelligence view exactly once")
+            require(('class="mobile-intelligence-embed"' in rendered) == embedded,
+                    "Mobile layout flag not respected")
+            require(('/static/dashboard.js' in rendered) != embedded,
+                    "Mobile layout must not initialize desktop receiver controls")
+            require(("classList.add(\"active\")" in rendered) == embedded,
+                    "Embedded page must initialize active")
     # 3D opens from Mobile without replacing the 2D AIS iframe or live audio.
     require('id="mobile-map-2d"' in html and
             'id="mobile-map-3d"' in html and

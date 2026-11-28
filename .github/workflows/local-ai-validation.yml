@@ -37,6 +37,9 @@ jobs:
       - name: Intelligence browser layout (headless)
         if: matrix.python == '3.12'
         run: python scripts/validate_local_ai_layout.py
+      - name: Mobile navigation and UI regression
+        if: matrix.python == '3.12'
+        run: python scripts/validate_mobile_ui.py
       - name: Local AI tests (offline)
         run: python -m unittest discover -s tests -p 'test_local_ai*.py' -v
       - name: Receiver recovery regressions (offline)
