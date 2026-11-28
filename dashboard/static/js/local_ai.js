@@ -46,6 +46,105 @@
   const save = by("local-ai-save"), settingsResult = by("local-ai-settings-result");
   let snapshot = null, pending = false, timer = null, dirty = false, actionError = "", chatting = false, refreshing = false, epoch = 0;
   const visible = () => page.classList.contains("active");
+  const inspectView = by("local-ai-inspect-view"), inspectStatus = by("local-ai-inspect-status");
+  const inspectRefresh = by("local-ai-inspect-refresh"), inspectAnalyze = by("local-ai-inspect-analyze");
+  const inspectQuestion = by("local-ai-inspect-question"), inspectAnswer = by("local-ai-inspect-answer");
+  const inspectMetrics = by("local-ai-inspect-metrics"), inspectData = by("local-ai-inspect-data");
+  const radius = by("local-ai-radius");
+  const tabs = Array.from(page.querySelectorAll("[data-ai-view]"));
+  let view = "ask", inspecting = false, lastObserved = 0;
+  const display = value => value == null ? "Unavailable" : String(value);
+  const numberUnit = (value, unit) => value == null ? "Unavailable" : value + " " + unit;
+  function metric(label, value, state = "unknown") {
+    const tile = document.createElement("div");
+    tile.className = "ai-metric"; tile.dataset.state = state;
+    const name = document.createElement("span"), val = document.createElement("strong");
+    name.textContent = label; val.textContent = display(value);
+    tile.append(name, val); inspectMetrics.append(tile);
+  }
+  function renderObservation(data) {
+    inspectMetrics.replaceChildren(); inspectData.textContent = "";
+    if (!data) return;
+    const lines = [];
+    inspectStatus.textContent = "Observed " + data.observed_utc + " · " + (data.status || "Read-only snapshot");
+    if (data.kind === "station_health") {
+      for (const [name, service] of Object.entries(data.services)) {
+        metric(name, service.state, service.status);
+        lines.push(name + ": " + service.state + " · restart count " + display(service.restart_count),
+          "Decoder: " + service.reception.status + " · " + (service.reception.scope || "No active decoder observation"));
+      }
+      metric("USB identity", data.usb.status, data.usb.status);
+      metric("History", data.database.status, data.database.status === "ok" && !data.database.latest_sample_stale ? "ok" : "attention");
+      metric("Available RAM", numberUnit(data.resources.available_ram_gib, "GiB"));
+      metric("CPU temperature", numberUnit(data.resources.cpu_temperature_c, "°C"));
+      lines.push("", "USB devices (kernel identity, not transfer test)");
+      for (const row of data.usb.receivers) lines.push(row.receiver + " · " + row.presence + " · " + display(row.port) + " · power " + display(row.power_control) + " · runtime " + display(row.runtime_status));
+      lines.push("", "Disk free: " + numberUnit(data.resources.disk_free_gib, "GiB") + " · load/CPU: " + display(data.resources.load_1m_per_cpu),
+        "Reception database: " + display(data.database.samples) + " samples · last sample age " + numberUnit(data.database.latest_sample_age_seconds, "s"),
+        "", "Recent visible log entries (last hour)");
+      for (const [name, events] of Object.entries(data.events_last_hour)) {
+        lines.push(name + ": " + events.status + (events.truncated ? " (bounded)" : ""));
+        for (const [key, count] of Object.entries(events.counts || {})) if (count) lines.push("  " + key.replaceAll("_", " ") + ": " + count);
+      }
+      lines.push("", "Findings:", ...(data.findings.length ? data.findings : ["No advisory threshold triggered in available observations."]), "", data.scope);
+    } else {
+      const ais = data.ais, atis = data.atis;
+      metric("Radius", data.radius_km + " km");
+      metric("Validated targets", ais.validated_targets, ais.status === "ok" ? "ok" : "unknown");
+      metric("Moving", ais.moving);
+      metric("Stationary / slow", ais.stationary_or_slow);
+      metric("ATIS decoded · 24h", atis.decoded);
+      metric("ATIS AIS matched · 24h", atis.ais_matched);
+      lines.push("AIS: " + ais.status, ais.reason || data.scope);
+      if (ais.status === "ok") {
+        lines.push("Freshness: ≤ " + ais.freshness_seconds + " s · speed unknown: " + ais.speed_unknown, "", "By vessel profile:");
+        for (const [profile, count] of Object.entries(ais.by_profile)) lines.push(profile.replaceAll("_", " ") + ": " + count);
+        lines.push("", "Nearest ordinary vessel examples" + (ais.examples_limited ? " (limited)" : "") + ":");
+        for (const row of ais.nearest_examples) lines.push(row.name + " · " + row.profile + " · " + row.distance_km + " km · " + numberUnit(row.speed_knots, "kn"));
+      }
+      lines.push("", "ATIS history (station-wide): " + atis.status,
+        "Candidates: " + display(atis.candidates) + " · decoded: " + display(atis.decoded) + " · photos: " + display(atis.photo_found));
+    }
+    inspectData.textContent = lines.join("\n");
+  }
+  async function inspect(analyze = false) {
+    if (view === "ask" || pending || !snapshot?.enabled || !snapshot?.installed || snapshot.busy) return;
+    const kind = view;
+    const body = {kind, radius_km: Number(radius.value)};
+    if (analyze) body.question = inspectQuestion.value.trim() || (kind === "station_health" ? "Assess station health, explain any findings and recommend safe checks." : "Summarize the observed maritime traffic and ATIS activity. Explain limitations.");
+    epoch++; pending = true; inspecting = true; chatting = analyze; render(); schedule();
+    inspectStatus.textContent = analyze ? "Collecting observations and analyzing..." : "Collecting observations...";
+    inspectAnswer.textContent = "";
+    renderObservation(null);
+    try {
+      const data = await api("inspect", body);
+      renderObservation(data.evidence);
+      inspectAnswer.textContent = data.answer || "";
+      lastObserved = Date.now();
+    } catch (err) {
+      renderObservation(err.evidence);
+      inspectStatus.textContent = err.message;
+      lastObserved = Date.now();
+    } finally {
+      epoch++; pending = false; inspecting = false; chatting = false; clearTimeout(timer); render(); await refresh();
+    }
+  }
+  function switchView(next) {
+    if (pending || next === view) return;
+    view = next; lastObserved = 0;
+    by("local-ai-ask-view").hidden = next !== "ask";
+    inspectView.hidden = next === "ask";
+    by("local-ai-radius-field").hidden = next !== "maritime";
+    by("local-ai-inspect-title").textContent = next === "maritime" ? "Maritime Intelligence" : "Station Health";
+    tabs.forEach(t => t.setAttribute("aria-pressed", String(t.dataset.aiView === next)));
+    inspectQuestion.value = ""; inspectAnswer.textContent = ""; renderObservation(null);
+    inspectStatus.textContent = "Read-only observations.";
+    if (next !== "ask") inspect();
+  }
+  tabs.forEach(t => t.addEventListener("click", () => switchView(t.dataset.aiView)));
+  inspectRefresh.addEventListener("click", () => inspect());
+  inspectAnalyze.addEventListener("click", () => inspect(true));
+  radius.addEventListener("change", () => inspect());
   async function api(path, body) {
     const res = await fetch("/api/local-ai/" + path, body === undefined
       ? {cache: "no-store"} : {method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)});
@@ -66,6 +165,9 @@
     toggle.disabled = busy || !s?.installed;
     remove.disabled = busy || !s || (!s.installed && !s.has_assets);
     question.disabled = send.disabled = period.disabled = busy || !s?.enabled || !s?.installed;
+    inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = busy || !s?.enabled || !s?.installed;
+    tabs.forEach(t => { t.disabled = pending; });
+    if (inspecting && chatting && s?.progress) inspectStatus.textContent = s.progress;
     toggle.textContent = s?.enabled ? "Disable Local AI" : "Enable Local AI";
     threads.disabled = tokens.disabled = memory.disabled = save.disabled = busy || !s?.installed;
     chatProgress.textContent = chatting ? (s?.progress || "Loading model...") : "";
