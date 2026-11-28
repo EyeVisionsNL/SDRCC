@@ -69,7 +69,8 @@ def read_evidence(root, period, *, now=None):
                 return dict(result, status="unavailable", reason="Reception query row limit exceeded.")
             result.update(samples=n, first_sample_utc=utc(first), last_sample_utc=utc(last),
                           coverage_pct=round(min(100, 100*n/result["expected_samples"]), 1),
-                          latest_sample_age_seconds=end-last if last is not None else None)
+                          latest_sample_age_seconds=end-last if last is not None else None,
+                          latest_sample_stale=(end-last > 180) if last is not None else None)
             if not n:
                 return dict(result, status="no_samples", reason="No samples in selected period.")
             for service, fields in (
