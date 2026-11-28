@@ -58,9 +58,9 @@ def atis_history(root, now):
 def summarize(payload, home, radius):
     """Only fresh, validated, positioned MMSIs; map's existing profile logic."""
     from core import traffic_map, receiver_monitor
-    if not isinstance(payload, (list,dict)) or isinstance(payload,dict) and not any(isinstance(payload.get(k),list) for k in ("ships","vessels","targets","data")):
-        return {"status":"unavailable"}
     rows = receiver_monitor._extract_list(payload, ("ships","vessels","targets","data"))
+    if not (isinstance(payload,list) or isinstance(payload,dict) and (bool(rows) or any(isinstance(payload.get(k),(list,dict)) for k in ("ships","vessels","targets","data")))):
+        return {"status":"unavailable"}
     if len(rows)>MAX_INPUT:
         return {"status":"unavailable","reason":"Feed exceeds observation limit"}
     lat,lon = finite(home.get("latitude")),finite(home.get("longitude"))
@@ -83,7 +83,7 @@ def summarize(payload, home, radius):
     for v in vessels:
         if v.get("validation_state")!="verified" or v.get("age_seconds") is None or v["age_seconds"]>MAX_AGE:
             continue
-        if v.get("is_offshore_structure") or v.get("render_profile") in ("ais_helicopter","aton","ais_aton"):
+        if v.get("is_offshore_structure") or v.get("shipclass") in (10,11,12) or str(v.get("id","")).startswith("99") or v.get("render_profile") in ("ais_helicopter","aton","ais_aton"):
             continue
         if v["lat"]==0 and v["lon"]==0:
             continue
@@ -96,7 +96,7 @@ def summarize(payload, home, radius):
     speed_unknown=sum(v.get("speed_knots") is None for _,v in local)
     # Bounded, ordinary AIS vessel examples. No raw positions, destinations or
     # identifiers for emergency/law-enforcement vessels are sent to the model.
-    ordinary=[(d,v) for d,v in local if not any(t in str(v.get("render_profile","")).lower() for t in ("police","rescue","sar","military","knrm","coastguard"))]
+    ordinary=[(d,v) for d,v in local if not any(t in str(v.get("render_profile","")).lower() for t in ("police","rescue","sar","military","knrm","coastguard","port_authority","oil_response"))]
     examples=[{"name":str(v["name"])[:60],"profile":v.get("render_profile"),"distance_km":round(d,1),
                "speed_knots":v.get("speed_knots"),"age_seconds":v.get("age_seconds")} for d,v in ordinary[:MAX_EXAMPLES]]
     return {"status":"ok","validated_targets":len(local),"moving":moving,
