@@ -83,6 +83,20 @@ body .mobile-brand-banner #connection,body[data-mobile-tab] .mobile-brand-banner
 @media(max-width:365px){body .mobile-brand-banner,body[data-mobile-tab] .mobile-brand-banner{grid-template-columns:55px minmax(0,1fr);column-gap:7px;padding-inline:8px}.mobile-brand-banner .mobile-radar{width:36px;height:36px}}
 
 
+/* Phone artwork: compose the existing panoramas independently of the brand.
+   On wider screens the normal right-aligned, full-height panorama is retained. */
+@media(max-width:600px){
+  body:is([data-mobile-tab="marine"],[data-mobile-tab="adsb"],[data-mobile-tab="sat"]) .mobile-brand-banner{
+    background-color:#07172a;
+    background-image:linear-gradient(90deg,#07172a 0%,rgba(7,23,42,.88) 24%,rgba(7,23,42,.38) 46%,transparent 65%),linear-gradient(180deg,#07172a 0%,rgba(7,23,42,.84) 14%,transparent 43%),var(--mobile-scene);
+    background-size:cover,cover,var(--mobile-art-width) auto;
+    background-position:center,center,var(--mobile-art-position) bottom;
+    background-repeat:no-repeat;
+  }
+  body[data-mobile-tab="marine"]{--mobile-art-width:150%;--mobile-art-position:48%}
+  body[data-mobile-tab="adsb"]{--mobile-art-width:150%;--mobile-art-position:62%}
+  body[data-mobile-tab="sat"]{--mobile-art-width:125%;--mobile-art-position:58%}
+}
 .mobile-brand-copy strong{color:#fff;text-shadow:0 1px 5px #071221,0 0 14px #071221}
 .mobile-brand-copy .mobile-brand-subtitle{text-shadow:0 1px 5px #071221}
 .tabs{background:linear-gradient(180deg,#10243c,#0b1c31);border-top-color:#324c68}

@@ -92,6 +92,8 @@ def validate() -> None:
     require("background-image: var(--banner-image)" in polish and
             '.topbar[data-banner-scene="intelligence"] .topbar-visuals::before' in polish,
             "Desktop must render the actual panorama layer")
+    require(re.search(r'\.topbar\[data-banner-scene="intelligence"\] \.topbar-visuals::before\s*\{\s*background-size: auto 100%;\s*background-position: right center;', polish),
+            "Desktop Intelligence panorama must meet the right edge without SVG letterboxing")
     require(".mobile-brand-banner .mobile-radar{grid-column:1;grid-row:1;" in html and
             "#connection{grid-column:1;grid-row:2;" in html and
             ".mobile-brand-banner .mobile-brand-copy{grid-column:2;grid-row:1 / 3;" in html,
@@ -142,6 +144,34 @@ def validate() -> None:
         assert(b.right<c.left,"Badge overlaps brand text at "+width);
         assert(d.documentElement.scrollWidth<=width,"Horizontal overflow at "+width);
       }
+      frame.remove();
+    }
+    // Check the actual CSS artwork geometry, not just the declared tab name.
+    for(const width of [320,360,390,480,600]){
+      const frame=document.createElement("iframe");frame.width=width;frame.height=140;
+      const ready=new Promise(resolve=>frame.onload=resolve);
+      frame.srcdoc=HEADER;document.body.append(frame);await ready;
+      const d=frame.contentDocument,w=frame.contentWindow;
+      const header=d.querySelector(".mobile-brand-banner");
+      for(const [tab,asset,center,left,right] of [
+        ["marine","marine-panorama.webp",.66,.56,.76],
+        ["adsb","aviation-panorama.webp",.70,.57,.82],
+        ["sat","satellite-panorama.webp",.72,.55,.89]
+      ]){
+        d.body.dataset.mobileTab=tab;
+        const style=w.getComputedStyle(header);
+        assert(style.backgroundImage.includes(asset),"Wrong image for "+tab);
+        const scale=parseFloat(style.getPropertyValue("--mobile-art-width"))/100;
+        const pos=parseFloat(style.getPropertyValue("--mobile-art-position"))/100;
+        assert(style.backgroundSize.includes((scale*100)+"% auto"),"Wrong sizing for "+tab);
+        const box=header.getBoundingClientRect();
+        const iw=box.width*scale,offset=(box.width-iw)*pos;
+        assert((offset+center*iw)/box.width>.68,"Subject not on right: "+tab);
+        assert(offset+right*iw<box.width,"Subject clipped on right: "+tab);
+        assert(offset+left*iw>box.width*.46,"Subject extends into radar/brand: "+tab);
+      }
+      d.body.dataset.mobileTab="intelligence";
+      assert(w.getComputedStyle(header).backgroundSize==="cover, auto 100%","Mobile UFO changed");
       frame.remove();
     }
     document.body.dataset.bannerResult="PASS";

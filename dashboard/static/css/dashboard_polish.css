@@ -323,11 +323,12 @@
     #mission-operations-preview-empty:not(.hidden) { min-height: 116px; }
 }
 
-/* Intelligence: resize the visible pseudo-element, not its empty parent.
-   Retain the shared radar overlay and the normal mobile composition. */
+/* Intelligence: align the composed panorama itself to the right edge.
+   Size by height, not an arbitrary width that letterboxes the SVG horizontally. */
 @media (min-width: 761px) {
     .topbar[data-banner-scene="intelligence"] .topbar-visuals::before {
-        background-size: min(100%, max(62%, 1174px)) 100%;
+        background-size: auto 100%;
+        background-position: right center;
         -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 27%, rgba(0,0,0,.28) 40%, rgba(0,0,0,.78) 54%, #000 70%);
         mask-image: linear-gradient(90deg, transparent 0%, transparent 27%, rgba(0,0,0,.28) 40%, rgba(0,0,0,.78) 54%, #000 70%);
     }
