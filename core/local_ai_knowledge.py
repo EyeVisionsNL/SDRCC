@@ -53,6 +53,9 @@ ENTRIES = (
     ("Receiver Inventory", "System → Receiver Inventory", ("receiver inventory", "receiver overzicht", "sdr serial", "sdr serienummer"),
      "Bekijk fysieke receivers, registry-identiteit, runtime en toegewezen rollen. Dit overzicht is alleen-lezen.",
      "Review physical receivers, registry identity, runtime and assigned roles. This overview is read-only.", None),
+    ("Recover receiver", "System → Receiver Inventory → Recover receiver", ("recover receiver", "receiver recovery", "herstelknop", "receiver herstellen", "sdr herstellen"),
+     "Kies de betreffende receiver en Recover receiver. Lees de bevestiging: herstel zet de scheduler op MANUAL, kan een bevestigde restart-loop stoppen en reset de geïdentificeerde USB-receiver. Actieve services en missies zijn beschermd; services starten niet automatisch. Controleer de status na afloop.",
+     "Select the affected receiver and Recover receiver. Read the confirmation: recovery sets the scheduler to MANUAL, may stop a confirmed restart loop and resets the identified USB receiver. Live services and missions are protected; services do not restart automatically. Review status afterwards.", None),
     ("System", "System", ("system tab", "system overview", "systeem overzicht", "system usage"),
      "Bekijk de stationstatus, receivers, services en Advanced Maintenance.",
      "Review station status, receivers, services and Advanced Maintenance.", None),
@@ -127,7 +130,10 @@ def direct_answer(question, feature_flags):
     q = normalize(question)
     dutch = bool(DUTCH.search(q))
     hits = matches(q)
-    if ACTION.search(q) or OBSERVATION.search(q):
+    # "Where is the button now?" is navigation, not a live data request.
+    navigation = re.search(r"\b(?:waar|where|find|vind)\b", q) and re.search(r"\b(?:knop|button|menu|tabblad|tab)\b", q)
+    observation_question = re.sub(r"\b(?:nu|currently|current)\b", "", q) if navigation else q
+    if ACTION.search(q) or OBSERVATION.search(observation_question):
         return None
     if len(hits) == 1 and (HELP.search(q) or q in {normalize(a) for a in (hits[0][0], *hits[0][2])}):
         return available_text(hits[0], dutch, feature_flags)

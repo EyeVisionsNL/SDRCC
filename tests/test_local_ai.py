@@ -211,6 +211,8 @@ class LocalAI(unittest.TestCase):
         self.assertIsNone(knowledge.direct_answer("Stop Radio Receiver", {}))
         self.assertIn("niet ingeschakeld", knowledge.direct_answer("Waar vind ik Radio Receiver?", {"radio_receiver":False}))
         self.assertIn("Record RF change", knowledge.direct_answer("Waar vind ik RF Optimization?", {}))
+        self.assertIn("RF Optimization", knowledge.direct_answer("Waar zit nu de RF Optimization knop?", {}))
+        self.assertIn("MANUAL", knowledge.direct_answer("Waar vind ik Recover receiver?", {}))
         self.assertEqual(self.client.post("/api/local-ai/chat", json={"question":"Waar vind ik RF Optimization?"}).status_code, 503)
 
     def test_reception_context_is_sent_as_data(self):
@@ -357,7 +359,7 @@ class LocalAI(unittest.TestCase):
         self.assertFalse(ai.LOCK.locked())
 
     def test_chat_adapter(self):
-        with patch.object(ai, "infer", return_value="answer") as infer:
+        with patch.object(ai, "enabled", return_value=True), patch.object(ai, "installed", return_value=True), patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
             self.assertEqual(res.get_json(), {"answer":"answer"})
             infer.assert_called_once_with("hello")
