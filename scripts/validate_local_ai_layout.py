@@ -52,7 +52,7 @@ try {
     assert(source.open, "Evidence cannot be expanded");
     const observer = by("local-ai-inspect-view");
     assert(observer.hidden && getComputedStyle(observer).display === "none", "Observer must not enlarge Ask AI");
-    assert(ai.querySelectorAll("[data-ai-view]").length === 10, "Missing Intelligence subviews");
+    assert(ai.querySelectorAll("[data-ai-view]").length === 11, "Missing Intelligence subviews");
     by("local-ai-ask-view").hidden = true;
     observer.hidden = false;
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Observer answer starts too low");
@@ -86,6 +86,13 @@ try {
     by("local-ai-advisor-hours-field").hidden = false;
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Advisor assessment starts too low");
     assert(document.documentElement.scrollWidth <= innerWidth + 2, "Advisor horizontal overflow");
+    assert(by("local-ai-rf-tools").hidden, "RF controls leak into other views");
+    assert(ai.querySelector('[data-ai-view="rf_optimization"]'), "Missing RF view");
+    by("local-ai-advisor-hours-field").hidden = true;
+    by("local-ai-rf-tools").hidden = false;
+    assert(!by("local-ai-rf-form").open, "RF editor must start collapsed");
+    assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "RF assessment starts too low");
+    assert(document.documentElement.scrollWidth <= innerWidth + 2, "RF horizontal overflow");
     document.body.dataset.result = "PASS";
 } catch (error) {
     document.body.dataset.result = "FAIL";
