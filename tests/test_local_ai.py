@@ -164,6 +164,41 @@ class LocalAI(unittest.TestCase):
         proc.terminate.assert_called_once()
         self.assertEqual(ai._progress, "")
 
+    def test_reception_chat_evidence_and_disabled_gate(self):
+        from core import local_ai_reception
+        evidence = {"source": local_ai_reception.SOURCE, "status": "no_samples", "period": "7d"}
+        with patch.object(local_ai_reception, "read_evidence", return_value=evidence) as read, patch.object(ai, "infer", return_value="answer") as infer:
+            disabled = self.client.post("/api/local-ai/chat", json={"question":"AIS last week"})
+            self.assertEqual(disabled.status_code, 503)
+            read.assert_not_called()
+            infer.assert_not_called()
+            with patch.object(ai, "enabled", return_value=True), patch.object(ai, "installed", return_value=True):
+                r = self.client.post("/api/local-ai/chat", json={"question":"AIS last week"})
+                self.assertEqual(r.get_json(), {"answer":"answer","evidence":evidence})
+                read.assert_called_once_with(ai.ROOT,"7d")
+                infer.assert_called_once_with("AIS last week",evidence=evidence)
+                infer.side_effect = RuntimeError("inference failed")
+                r = self.client.post("/api/local-ai/chat", json={"question":"AIS last week"})
+                self.assertEqual(r.status_code,503)
+                self.assertEqual(r.get_json()["evidence"], evidence)
+        self.assertEqual(self.client.post("/api/local-ai/chat", json={"question":"AIS","reception_period":"SELECT"}).status_code,400)
+        self.assertFalse(ai.LOCK.locked())
+
+    def test_reception_context_is_sent_as_data(self):
+        from unittest.mock import MagicMock
+        proc = MagicMock()
+        proc.poll.return_value = None
+        evidence = {"period":"24h","ais":{"targets":{"mean":0,"peak":None}}}
+        def request(port,key,path,payload=None,timeout=2):
+            if path == "/health":
+                return {}
+            self.assertIn('"mean":0,"peak":null', payload["messages"][0]["content"])
+            self.assertIn("not unique ships", payload["messages"][0]["content"])
+            self.assertEqual(payload["messages"][1]["content"], "AIS targets?")
+            return {"choices":[{"message":{"content":"OK"}}]}
+        with patch.object(ai,"enabled",return_value=True), patch.object(ai,"installed",return_value=True), patch.object(ai,"preflight"), patch.object(ai,"binary",return_value=self.assets/"llama-server"), patch.object(ai.subprocess,"Popen",return_value=proc), patch.object(ai,"local_request",side_effect=request):
+            self.assertEqual(ai.infer("AIS targets?", evidence=evidence),"OK")
+
     def test_chat_adapter(self):
         with patch.object(ai, "infer", return_value="answer") as infer:
             res = self.client.post("/api/local-ai/chat", json={"question": " hello "})
