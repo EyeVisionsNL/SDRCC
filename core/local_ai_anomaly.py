@@ -1,6 +1,7 @@
 """Low-cost observer: persistent alert episodes, no model or receiver actions."""
 from contextlib import closing
 from copy import deepcopy
+from datetime import datetime
 import json
 import logging
 import math
@@ -144,6 +145,14 @@ def load(root):
             or not isinstance(state.get("history"),list) or len(state["history"])>HISTORY
             or not isinstance(state.get("outbox"),list) or len(state["outbox"])>MAX_PENDING):
         raise ValueError("Invalid anomaly state")
+    for event in [*state["active"].values(),*state["history"],*state["outbox"]]:
+        if (not isinstance(event,dict) or event.get("rule") not in RULES
+                or event.get("transition") not in ("opened","cleared")
+                or not all(isinstance(event.get(k),str) for k in ("id","title","timestamp","detail"))):
+            raise ValueError("Invalid stored anomaly event")
+        datetime.fromisoformat(event["timestamp"])
+    if any(e["rule"]!=k or e["transition"]!="opened" for k,e in state["active"].items()):
+        raise ValueError("Invalid open anomaly episode")
     return state
 
 
@@ -191,7 +200,7 @@ def advance(state, streak, checks, now):
 def persist_memory(root,event):
     # Same transaction as notebook insertion; deterministic idempotency key.
     key="anomaly:"+event["id"]+":"+event["transition"]
-    stamp=__import__("datetime").datetime.fromisoformat(event["timestamp"]).timestamp()
+    stamp=datetime.fromisoformat(event["timestamp"]).timestamp()
     with closing(memory.connect_write(root)) as db,db:
         db.execute("BEGIN IMMEDIATE")
         if db.execute("SELECT 1 FROM entries WHERE event_key=?",(key,)).fetchone():
@@ -208,6 +217,7 @@ class Monitor:
         self.streak={}
         self.checks={}
         self.last=None
+        self.last_epoch=None
         self.error=""
         self.memory_error=""
         self.mqtt_result="Not sent"
@@ -230,6 +240,7 @@ class Monitor:
             self.state=state
             self.generation+=1
             self.streak.clear()
+            self.running=False
             return self.snapshot()
 
     def snapshot(self):
@@ -246,7 +257,7 @@ class Monitor:
                                        consecutive=self.streak.get(key,("",0))[1]) for key,title in RULES.items()},
                     "error":self.error,"memory_error":self.memory_error,"memory_pending":len(state["outbox"]),
                     "memory_overflow":state.get("memory_overflow",False),"mqtt_result":self.mqtt_result,
-                    "scope":"Advisory only; 3 consecutive minute observations to open/clear. Missing/idle data does not prove recovery. Rates compare 15 min with median of same UTC time windows on at least 3 of previous 7 days. Drop >=60%, recovery at >=60% of baseline. Traffic, schedules and RF conditions vary. No automatic repair."}
+                    "scope":"Advisory only; 3 consecutive minute observations to open/clear. Missing/idle data does not prove recovery. Rates compare 15 min with median of same UTC time windows on at least 3 of previous 7 days. Drop >=60%, clear when current rate reaches >=60% of baseline. Traffic, schedules and RF conditions vary. No automatic repair."}
 
     def tick(self, permitted, *, now=None):
         now=time.time() if now is None else now
@@ -265,6 +276,8 @@ class Monitor:
                 return
             candidate=deepcopy(self.get_state())
             streak=deepcopy(self.streak)
+            if self.last_epoch is None or not 0<now-self.last_epoch<=150:
+                streak.clear()
             events=advance(candidate,streak,checks,now)
             if events:
                 save(self.root,candidate)
@@ -272,6 +285,7 @@ class Monitor:
             self.streak=streak
             self.checks=checks
             self.last=reception.utc(int(now))
+            self.last_epoch=now
             self.running=True
             self.error=""
             # Retry durable local memory outbox, bounded work per tick.
