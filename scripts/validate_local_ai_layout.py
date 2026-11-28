@@ -52,7 +52,7 @@ try {
     assert(source.open, "Evidence cannot be expanded");
     const observer = by("local-ai-inspect-view");
     assert(observer.hidden && getComputedStyle(observer).display === "none", "Observer must not enlarge Ask AI");
-    assert(ai.querySelectorAll("[data-ai-view]").length === 7, "Missing Intelligence subviews");
+    assert(ai.querySelectorAll("[data-ai-view]").length === 8, "Missing Intelligence subviews");
     by("local-ai-ask-view").hidden = true;
     observer.hidden = false;
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Observer answer starts too low");
@@ -68,6 +68,12 @@ try {
     assert(!by("local-ai-memory-form").open, "Note editor must be collapsed");
     assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Memory answer starts too low");
     assert(document.documentElement.scrollWidth <= innerWidth + 2, "Memory horizontal overflow");
+    assert(by("local-ai-anomaly-settings").hidden, "Monitor settings leak into other views");
+    assert(ai.querySelector('[data-ai-view="anomaly_detection"]'), "Missing anomaly view");
+    by("local-ai-memory-tools").hidden = true;
+    by("local-ai-anomaly-settings").hidden = false;
+    assert(rect(by("local-ai-inspect-answer")).top < innerHeight * .85, "Anomaly assessment starts too low");
+    assert(document.documentElement.scrollWidth <= innerWidth + 2, "Anomaly horizontal overflow");
     document.body.dataset.result = "PASS";
 } catch (error) {
     document.body.dataset.result = "FAIL";

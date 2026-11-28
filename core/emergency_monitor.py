@@ -302,6 +302,21 @@ def _store_event(event: dict, *, send_mqtt: bool = True) -> None:
                 _runtime["last_error"] = "MQTT publish failed: " + str(error)[:160]
 
 
+def publish_station_anomaly(event: dict) -> str:
+    """Best-effort technical events on a separate topic; no emergency state changes."""
+    with _lock:
+        client, active = _mqtt_client, _mqtt_ha_active
+        connected = _runtime.get("mqtt") == "CONNECTED"
+    if client is None or not active or not connected:
+        return "Broker unavailable (existing Emergency Monitor MQTT connection required)"
+    try:
+        payload = {key: event[key] for key in ("id", "rule", "title", "transition", "timestamp", "detail")}
+        outcome = client.publish("sdrcc/intelligence/anomalies", json.dumps(payload), qos=1, retain=False)
+        return "Queued to broker (delivery not confirmed)" if outcome.rc == 0 else f"MQTT publish rejected ({outcome.rc})"
+    except Exception:
+        return "MQTT publish failed"
+
+
 def _notification_id(source: str, identity: str) -> str:
     """Stable per-target Home Assistant notification ID, never for P2000."""
     return "sdrcc_" + source + "_" + re.sub(r"[^a-z0-9]", "_", identity.lower())

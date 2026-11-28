@@ -211,3 +211,11 @@
 #tab-intelligence .ai-memory-outcome { color:#a7f3d0; }
 #tab-intelligence #local-ai-memory-result { flex:1 1 120px; overflow-wrap:anywhere; }
 @media(max-width:520px){#tab-intelligence .ai-distribution-row{grid-template-columns:minmax(85px,115px) minmax(0,1fr) 30px}#tab-intelligence .ai-memory-fields{grid-template-columns:1fr}}
+
+/* Persistent technical alerts, separate from emergency traffic notifications. */
+.ai-alert-count { display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px; margin-left:4px; padding:0 4px; border-radius:8px; background:#92400e; color:#fef3c7; font-size:.68rem; font-weight:700; vertical-align:middle; }
+.ai-alert-count[hidden] { display:none!important; }
+#tab-intelligence .ai-anomaly-settings { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin:0 0 6px; font-size:.76rem; color:#a5b6ca; }
+#tab-intelligence .ai-anomaly-settings label { display:flex; align-items:center; gap:5px; }
+#tab-intelligence .ai-anomaly-settings input { accent-color:#38bdf8; }
+#tab-intelligence .ai-anomaly-settings .ai-subtitle { flex:1 1 180px; }

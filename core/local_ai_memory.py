@@ -1,7 +1,7 @@
 """Local operator-owned station notebook; AI has read-only access.
 
-The database lives outside the model assets directory. No automatic writes,
-raw log copying, cloud services, or receiver control.
+The database lives outside the model assets directory. Only operator actions and the enabled anomaly monitor may write;
+no raw log copying, cloud services, or receiver control.
 """
 from contextlib import closing
 from datetime import datetime
@@ -157,7 +157,7 @@ def snapshot(root, query="", page=1, *, now=None):
     now=time.time() if now is None else now
     base={"kind":"station_memory","source":SOURCE,"observed_utc":reception.utc(int(now)),
           "query":query,"page":page,"page_size":PAGE,"capacity":MAX_ENTRIES,
-          "scope":"Local operator notes and explicitly imported classified log entries. Log entries are not unique incidents. No verified causality. AI receives only a bounded excerpt of the displayed page. No automatic collection."}
+          "scope":"Local operator notes, explicitly imported classified log entries and automatic anomaly transitions while monitoring is enabled. Log entries are not unique incidents. No verified causality. AI receives only a bounded excerpt of the displayed page."}
     path=root/SOURCE
     if not path.is_file():
         return dict(base,status="empty",total=0,matched=0,counts={},entries=[])
