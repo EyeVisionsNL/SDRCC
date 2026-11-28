@@ -51,14 +51,15 @@
   const inspectQuestion = by("local-ai-inspect-question"), inspectAnswer = by("local-ai-inspect-answer");
   const inspectMetrics = by("local-ai-inspect-metrics"), inspectData = by("local-ai-inspect-data");
   const radius = by("local-ai-radius"), missionPeriod = by("local-ai-mission-period");
-  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory"};
+  const viewNames = {station_health:"Station Health",maritime:"Maritime Intelligence",reception_performance:"Reception Performance",mission_analyst:"Mission Analyst",aviation:"Aviation Intelligence",station_memory:"Station Memory",anomaly_detection:"Anomaly Detection"};
   const defaultQuestions = {
     station_health:"Assess station health, explain any findings and recommend safe checks.",
     maritime:"Summarize the observed maritime traffic and ATIS activity. Explain limitations.",
     reception_performance:"Compare AIS and ADS-B reception with the preceding seven days. Explain changes, coverage and safe checks without claiming a cause.",
     mission_analyst:"Summarize mission results, compare satellites and receivers cautiously, and suggest improvements based on the available measurements.",
     aviation:"Summarize current aggregate aviation observations, altitude distribution and reception limits.",
-    station_memory:"Summarize the selected technical notes and log classifications. Identify reported successful recoveries and unresolved issues without inventing causes."
+    station_memory:"Summarize the selected technical notes and log classifications. Identify reported successful recoveries and unresolved issues without inventing causes.",
+    anomaly_detection:"Explain current anomaly alerts, recent transitions, and safe diagnostic checks. Distinguish suspected problems from proven faults."
   };
   const tabs = Array.from(page.querySelectorAll("[data-ai-view]"));
   let view = "ask", inspecting = false;
@@ -231,11 +232,51 @@
     } catch(err){memoryResult.textContent=err.message;}
     finally{epoch++; pending=false; render(); if(changed) await inspect(); else schedule();}
   }
+  const anomalySettings=by("local-ai-anomaly-settings"), anomalyEnabled=by("local-ai-anomaly-enabled"), anomalyMqtt=by("local-ai-anomaly-mqtt"), anomalySave=by("local-ai-anomaly-save"), anomalyCount=by("local-ai-anomaly-count");
+  let anomalyDirty=false;
+  function renderAnomaly(data) {
+    if(!anomalyDirty){anomalyEnabled.checked=data.enabled;anomalyMqtt.checked=data.mqtt;}
+    metric("Monitoring",data.status,data.status==="monitoring"?"ok":"unknown");
+    metric("Open alerts",data.active.length,data.active.length?"attention":"ok");
+    metric("Pending checks",Object.values(data.checks).filter(c=>c.state==="bad"&&c.consecutive<3).length);
+    metric("Unknown checks",Object.values(data.checks).filter(c=>c.state==="unknown").length);
+    metric("Memory queue",data.memory_pending);
+    metric("MQTT",data.mqtt?"Enabled":"Off");
+    if(data.reason||data.error) note(data.reason||data.error);
+    if(data.memory_error||data.memory_overflow) note("Memory: "+(data.memory_error||"Queue capacity exceeded; some transitions were not stored."));
+    if(data.mqtt) note(data.mqtt_result||"No MQTT event sent.");
+    if(data.status!=="monitoring") note("Monitoring paused or not yet sampled. Open alerts are retained; no recovery inferred.");
+    const active=new Set(data.active.map(a=>a.rule));
+    detailTable("Current observations",["Check","Status","Streak","Observation"],Object.entries(data.checks).map(([key,c])=>[c.title,active.has(key)?"OPEN · "+c.state:c.state,c.consecutive,c.detail]));
+    detailTable("Recent transitions",["Time","Event","Check","Observation"],data.history.map(e=>[new Date(e.timestamp).toLocaleString(),e.transition,e.title,e.detail]));
+    note(data.scope||"");
+  }
+  async function updateAnomalyBadge(){
+    try{
+      const data=await api("anomaly-status");
+      anomalyCount.hidden=!data.enabled||!data.active_count;
+      anomalyCount.textContent=String(data.active_count||"");
+      anomalyCount.title=data.active_count+" open technical alerts";
+    }catch(_){anomalyCount.hidden=true;}
+  }
+  anomalyEnabled.addEventListener("change",()=>{anomalyDirty=true;});
+  anomalyMqtt.addEventListener("change",()=>{anomalyDirty=true;});
+  anomalySave.addEventListener("click",async()=>{
+    if(pending||view!=="anomaly_detection"||!snapshot?.enabled||!snapshot?.installed)return;
+    epoch++;pending=true;render();
+    try{
+      const data=await api("anomaly-settings",{enabled:anomalyEnabled.checked,mqtt:anomalyMqtt.checked});
+      anomalyDirty=false;inspectAnswer.textContent="";renderObservation(data.evidence);
+      await updateAnomalyBadge();
+    }catch(err){inspectStatus.textContent=err.message;}
+    finally{epoch++;pending=false;render();schedule();}
+  });
   function renderObservation(data) {
     inspectMetrics.replaceChildren(); inspectData.textContent = "";
     if (!data) return;
     const lines = [];
     inspectStatus.textContent = "Observed " + data.observed_utc + " · " + (data.status || "Read-only snapshot");
+    if (data.kind === "anomaly_detection") { renderAnomaly(data); return; }
     if (data.kind === "aviation") { renderAviation(data); return; }
     if (data.kind === "station_memory") { renderMemory(data); return; }
     if (data.kind === "reception_performance") { renderPerformance(data); return; }
@@ -309,6 +350,8 @@
     const radius200=by("local-ai-radius-200"); radius200.hidden=radius200.disabled=next!=="aviation";
     if(next==="maritime" && radius.value==="200") radius.value="100";
     memoryTools.hidden=next!=="station_memory";
+    anomalySettings.hidden=next!=="anomaly_detection";
+    anomalyDirty=false;
     by("local-ai-mission-period-field").hidden = next !== "mission_analyst";
     by("local-ai-inspect-title").textContent = viewNames[next] || "Station Health";
     tabs.forEach(t => t.setAttribute("aria-pressed", String(t.dataset.aiView === next)));
@@ -349,6 +392,7 @@
     question.disabled = send.disabled = period.disabled = busy || !s?.enabled || !s?.installed;
     inspectRefresh.disabled = inspectAnalyze.disabled = inspectQuestion.disabled = radius.disabled = missionPeriod.disabled = busy || !s?.enabled || !s?.installed;
     renderMemoryControls(busy || !s?.enabled || !s?.installed);
+    anomalyEnabled.disabled=anomalyMqtt.disabled=anomalySave.disabled=busy || !s?.enabled || !s?.installed;
     tabs.forEach(t => { t.disabled = pending; });
     if (inspecting && chatting && s?.progress) inspectStatus.textContent = s.progress;
     toggle.textContent = s?.enabled ? "Disable Local AI" : "Enable Local AI";
@@ -450,4 +494,6 @@
   });
   render();
   if (visible()) refresh();
+  updateAnomalyBadge();
+  setInterval(()=>{if(!document.hidden)updateAnomalyBadge();},30000);
 })();
